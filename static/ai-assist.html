@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI辅助 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+</head>
+<body>
+    <div class="system-container">
+        <!-- 侧边导航栏 -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 管理员显示这个 -->
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 技术人员显示这个 -->
+                <a href="user-profile.html" class="nav-item" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">AI辅助对话</div>
+                    <div class="page-subtitle">智能维修助手，基于知识库的专业解答</div>
+                </div>
+            </div>
+
+            <!-- AI对话主区域 -->
+            <div class="ai-page-container">
+                <!-- 左侧：历史对话栏 -->
+                <div class="history-sidebar">
+                    <div class="sidebar-header">
+                        <div class="sidebar-title">AI辅助</div>
+                        <button class="new-conversation-btn" id="newConversationBtn">
+                            <i class="fas fa-plus"></i> 新建对话
+                        </button>
+
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="search-input" id="historySearch" placeholder="搜索历史对话...">
+                        </div>
+                    </div>
+
+                    <div class="history-section">
+                        <div class="section-title">历史对话</div>
+                        <div class="history-list" id="historyList">
+                            <!-- 历史对话项会动态加载 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：对话主区域 -->
+                <div class="conversation-main">
+                    <!-- 对话头部 -->
+                    <div class="conversation-header">
+                        <div class="conversation-title" id="currentConversationTitle">请选择或新建一个对话</div>
+                        <div class="conversation-date" id="currentConversationDate"></div>
+                    </div>
+
+                    <!-- 对话内容区域 -->
+                    <div class="conversation-content" id="conversationContent">
+                        <div class="empty-state" id="emptyState">
+                            <div class="empty-icon"><i class="fas fa-robot"></i></div>
+                            <div class="empty-title">AI维修助手</div>
+                            <div class="empty-text">
+                                您好！我是您的维修辅助AI助手。<br>
+                                我可以帮您解决设备故障、提供维修建议、查找相关文档。
+                            </div>
+                            <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
+                                <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击"新建对话"开始交流
+                            </div>
+                        </div>
+                        <!-- 对话消息会动态加载 -->
+                    </div>
+
+                    <!-- 输入区域 -->
+                    <div class="input-section" id="inputSection" style="display: none;">
+                        <div class="input-wrapper">
+                            <textarea
+                                class="message-input"
+                                id="messageInput"
+                                placeholder="请尽量详细地描述您的问题，支持上传图片..."
+                                rows="3"
+                            ></textarea>
+                            <div class="button-container">
+                                <button class="action-button" id="attachmentButton" title="上传附件">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+                                <button class="send-button" id="sendButton">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <input type="file" class="file-input" id="fileInput" accept="image/*" multiple>
+
+                        <div class="attachment-preview-container" id="attachmentPreviewContainer">
+                            <!-- 附件预览会动态加载 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/data.js"></script>
+    <script>
+        // AI对话系统
+        class AIConversationSystem {
+            constructor() {
+                this.conversations = JSON.parse(localStorage.getItem('ai_conversations')) || [];
+                this.currentConversationId = null;
+                this.currentAttachments = [];
+
+                // 初始化
+                this.init();
+            }
+
+            init() {
+                // 检查登录状态
+                Utils.checkLogin();
+                Utils.loadUserInfo();
+
+                // 如果没有对话数据，创建示例对话
+                if (this.conversations.length === 0) {
+                    this.createSampleConversations();
+                }
+
+                // 加载历史对话列表
+                this.loadHistoryList();
+
+                // 设置事件监听
+                this.setupEventListeners();
+
+                // 加载最后一次打开的对话
+                const lastConversationId = localStorage.getItem('last_conversation_id');
+                if (lastConversationId) {
+                    this.loadConversation(parseInt(lastConversationId));
+                }
+            }
+
+            // 创建示例对话
+            createSampleConversations() {
+                const sampleConversations = [
+                    {
+                        id: 1,
+                        title: 'CNC加工中心主轴异响故障',
+                        date: '2023-10-28 14:30',
+                        messages: [
+                            {
+                                id: 1,
+                                sender: 'user',
+                                content: '我们的CNC加工中心在高速旋转时主轴有异响，初步判断可能是轴承问题，您有什么建议？',
+                                time: '14:30',
+                                attachments: []
+                            },
+                            {
+                                id: 2,
+                                sender: 'ai',
+                                content: '根据您的描述，CNC加工中心主轴在高速旋转时产生异响，可能的原因包括：\n\n1. 主轴轴承磨损或损坏\n2. 润滑系统故障\n3. 主轴动平衡失调\n4. 刀具夹持系统问题\n\n建议您先检查主轴轴承状态，确认润滑是否正常。可以尝试降低转速观察异响是否变化，以判断是否为轴承问题。',
+                                time: '14:32',
+                                documents: [1, 4]
+                            },
+                            {
+                                id: 3,
+                                sender: 'user',
+                                content: '我们已经检查了润滑系统，油路通畅，油量充足。接下来应该重点检查哪些部位？',
+                                time: '14:35',
+                                attachments: []
+                            },
+                            {
+                                id: 4,
+                                sender: 'ai',
+                                content: '既然润滑系统正常，建议按以下步骤排查：\n\n1. 检查主轴轴承：听诊器检测异响部位，确认是否为轴承异响\n2. 检查主轴动平衡：使用动平衡仪检测主轴不平衡量\n3. 检查刀具夹持系统：确认刀柄和主轴锥孔的配合状态\n4. 检查主轴驱动系统：包括电机、皮带等传动部件\n\n重点关注轴承状态，这是高速主轴异响最常见的原因。',
+                                time: '14:37',
+                                documents: [1, 6]
+                            }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        title: '工业机器人定位精度校准',
+                        date: '2023-10-27 09:15',
+                        messages: [
+                            {
+                                id: 1,
+                                sender: 'user',
+                                content: '我们的工业机器人在长时间运行后出现定位偏差，如何进行精度校准？',
+                                time: '09:15',
+                                attachments: []
+                            },
+                            {
+                                id: 2,
+                                sender: 'ai',
+                                content: '工业机器人定位精度校准是一个系统性的工作，主要包括以下步骤：\n\n1. 零点标定：使用标准工具进行机器人各关节的零点位置标定\n2. 误差补偿：通过激光跟踪仪测量实际位置与理论位置的偏差，进行误差补偿\n3. 参数调整：调整机器人控制系统的相关参数，如减速比、编码器偏移等\n\n建议先从零点标定开始，这是最基础的校准工作。',
+                                time: '09:17',
+                                documents: [2, 5]
+                            }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        title: '激光切割机功率不稳定',
+                        date: '2023-10-26 16:45',
+                        messages: [
+                            {
+                                id: 1,
+                                sender: 'user',
+                                content: '激光切割机在工作时功率波动较大，影响切割质量，可能是什么原因？',
+                                time: '16:45',
+                                attachments: []
+                            },
+                            {
+                                id: 2,
+                                sender: 'ai',
+                                content: '激光切割机功率不稳定可能由多种因素引起：\n\n1. 电源系统问题：检查主电源稳定性，UPS是否正常工作\n2. 冷却系统故障：确保冷却水温度恒定，水流量正常\n3. 激光管老化：使用时间较长的激光管可能出现功率衰减\n4. 控制系统故障：检查控制板卡和信号传输线路\n\n建议先检查冷却系统，这是最常见的原因之一。',
+                                time: '16:48',
+                                documents: [3]
+                            }
+                        ]
+                    }
+                ];
+
+                this.conversations = sampleConversations;
+                this.saveToLocalStorage();
+            }
+
+            // 保存到本地存储
+            saveToLocalStorage() {
+                localStorage.setItem('ai_conversations', JSON.stringify(this.conversations));
+            }
+
+            // 加载历史对话列表
+            loadHistoryList() {
+                const container = document.getElementById('historyList');
+                const searchInput = document.getElementById('historySearch');
+                let conversations = this.conversations;
+
+                // 如果搜索框有内容，过滤对话
+                const searchQuery = searchInput.value.toLowerCase().trim();
+                if (searchQuery) {
+                    conversations = conversations.filter(conv =>
+                        conv.title.toLowerCase().includes(searchQuery) ||
+                        conv.messages.some(msg =>
+                            msg.content.toLowerCase().includes(searchQuery)
+                        )
+                    );
+                }
+
+                // 按日期排序（最新的在前面）
+                conversations.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                if (conversations.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #999;">
+                            <i class="fas fa-comments" style="font-size: 24px; margin-bottom: 10px; color: #ddd;"></i>
+                            <p>没有找到相关对话</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                conversations.forEach(conv => {
+                    const isActive = conv.id === this.currentConversationId;
+                    const shortTitle = conv.title.length > 25 ? conv.title.substring(0, 25) + '...' : conv.title;
+
+                    html += `
+                        <div class="history-item ${isActive ? 'active' : ''}" data-id="${conv.id}">
+                            <div class="history-item-title">${shortTitle}</div>
+                            <div class="history-item-date">${conv.date}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+                // 为每个对话项添加点击事件
+                container.querySelectorAll('.history-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const id = parseInt(item.getAttribute('data-id'));
+                        this.loadConversation(id);
+                    });
+                });
+            }
+
+            // 加载对话
+            loadConversation(conversationId) {
+                const conversation = this.conversations.find(c => c.id === conversationId);
+                if (!conversation) return;
+
+                this.currentConversationId = conversationId;
+                localStorage.setItem('last_conversation_id', conversationId);
+
+                // 更新对话头部
+                document.getElementById('currentConversationTitle').textContent = conversation.title;
+                document.getElementById('currentConversationDate').textContent = conversation.date;
+
+                // 显示输入区域
+                document.getElementById('inputSection').style.display = 'block';
+
+                // 清空并加载消息
+                this.loadMessages(conversation.messages);
+
+                // 隐藏空状态
+                document.getElementById('emptyState').style.display = 'none';
+
+                // 更新对话列表高亮
+                this.loadHistoryList();
+
+                // 滚动到消息底部
+                setTimeout(() => {
+                    const contentContainer = document.getElementById('conversationContent');
+                    contentContainer.scrollTop = contentContainer.scrollHeight;
+                }, 100);
+            }
+
+            // 加载消息
+            loadMessages(messages) {
+                const container = document.getElementById('conversationContent');
+                container.innerHTML = '';
+
+                if (messages.length === 0) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'empty-state';
+                    emptyDiv.innerHTML = `
+                        <div class="empty-icon"><i class="fas fa-comments"></i></div>
+                        <div class="empty-title">对话开始</div>
+                        <div class="empty-text">这是您的新对话，请输入您的问题开始交流</div>
+                    `;
+                    container.appendChild(emptyDiv);
+                    return;
+                }
+
+                messages.forEach(msg => {
+                    const messageElement = this.createMessageElement(msg);
+                    container.appendChild(messageElement);
+                });
+            }
+
+            // 创建消息元素
+            createMessageElement(message) {
+                const isAI = message.sender === 'ai';
+                const container = document.createElement('div');
+                container.className = `message-container ${isAI ? 'ai' : 'user'}`;
+
+                // 消息发送者标签（无头像）
+                let html = `
+                    <div class="message-sender ${isAI ? 'ai' : 'user'}">
+                        ${isAI ? 'AI助手' : '我'}
+                    </div>
+                `;
+
+                // 消息内容框
+                html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
+                html += `<div class="message-text">${this.formatMessageContent(message.content)}</div>`;
+
+                // 如果有附件
+                if (message.attachments && message.attachments.length > 0) {
+                    html += '<div class="message-documents">';
+                    html += '<div class="documents-title">附件</div>';
+                    html += '<div class="documents-list">';
+
+                    message.attachments.forEach((attachment, index) => {
+                        const isImage = attachment.type.startsWith('image/');
+                        const fileName = attachment.name || `附件${index + 1}`;
+
+                        html += `
+                            <div class="document-item" data-attachment-index="${index}">
+                                <div class="document-item-title">
+                                    <i class="fas ${isImage ? 'fa-image' : 'fa-file'}"></i>
+                                    ${fileName}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div></div>';
+                }
+
+                // 如果有文档引用（仅AI消息）
+                if (isAI && message.documents && message.documents.length > 0) {
+                    html += '<div class="message-documents">';
+                    html += '<div class="documents-title">相关文档</div>';
+                    html += '<div class="documents-list">';
+
+                    message.documents.forEach(docId => {
+                        const doc = MockData.documents.find(d => d.id === docId);
+                        if (doc) {
+                            html += `
+                                <div class="document-item" data-doc-id="${doc.id}">
+                                    <div class="document-item-title">${doc.title}</div>
+                                </div>
+                            `;
+                        }
+                    });
+
+                    html += '</div></div>';
+                }
+
+                // 消息时间
+                html += `<div class="message-time">${message.time}</div>`;
+                html += '</div>'; // 关闭message-content
+
+                container.innerHTML = html;
+
+                // 为文档引用添加点击事件
+                if (isAI) {
+                    container.querySelectorAll('[data-doc-id]').forEach(item => {
+                        item.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const docId = parseInt(item.getAttribute('data-doc-id'));
+                            this.viewDocument(docId);
+                        });
+                    });
+                }
+
+                return container;
+            }
+
+            // 格式化消息内容
+            formatMessageContent(content) {
+                return content.replace(/\n/g, '<br>');
+            }
+
+            // 查看文档
+            viewDocument(docId) {
+                const doc = MockData.documents.find(d => d.id === docId);
+                if (doc) {
+                    Utils.showMessage(`正在打开文档：${doc.title}`, 'info');
+
+                    // 在实际项目中，这里会跳转到文档详情页或打开模态框
+                    setTimeout(() => {
+                        alert(`文档详情：\n\n标题：${doc.title}\n作者：${doc.author}\n日期：${doc.date}\n分类：${doc.category}\n\n内容：\n${doc.content.substring(0, 200)}...`);
+                    }, 500);
+                }
+            }
+
+            // 新建对话
+            createNewConversation() {
+                const newId = this.conversations.length > 0 ?
+                    Math.max(...this.conversations.map(c => c.id)) + 1 : 1;
+
+                const newConversation = {
+                    id: newId,
+                    title: '新建对话',
+                    date: Utils.formatDate(new Date(), 'YYYY-MM-DD HH:mm'),
+                    messages: []
+                };
+
+                this.conversations.unshift(newConversation);
+                this.saveToLocalStorage();
+                this.loadConversation(newId);
+                this.loadHistoryList();
+
+                // 清空输入框和附件
+                document.getElementById('messageInput').value = '';
+                this.currentAttachments = [];
+                document.getElementById('attachmentPreviewContainer').innerHTML = '';
+
+                Utils.showMessage('已创建新的对话', 'success');
+            }
+
+            // 发送消息
+            sendMessage() {
+                const input = document.getElementById('messageInput');
+                const messageText = input.value.trim();
+
+                if (!messageText && this.currentAttachments.length === 0) {
+                    Utils.showMessage('请输入消息或上传附件', 'warning');
+                    return;
+                }
+
+                // 获取当前对话
+                const conversation = this.conversations.find(c => c.id === this.currentConversationId);
+                if (!conversation) return;
+
+                // 添加用户消息
+                const userMessageId = conversation.messages.length > 0 ?
+                    Math.max(...conversation.messages.map(m => m.id)) + 1 : 1;
+
+                const userMessage = {
+                    id: userMessageId,
+                    sender: 'user',
+                    content: messageText,
+                    time: this.getCurrentTime(),
+                    attachments: [...this.currentAttachments]
+                };
+
+                conversation.messages.push(userMessage);
+
+                // 更新对话标题（如果是第一条消息）
+                if (conversation.messages.length === 1 && messageText) {
+                    conversation.title = messageText.length > 30 ?
+                        messageText.substring(0, 30) + '...' : messageText;
+                }
+
+                // 更新对话日期
+                conversation.date = Utils.formatDate(new Date(), 'YYYY-MM-DD HH:mm');
+
+                // 重新渲染消息
+                this.loadMessages(conversation.messages);
+
+                // 清空输入和附件
+                input.value = '';
+                this.currentAttachments = [];
+                document.getElementById('attachmentPreviewContainer').innerHTML = '';
+
+                // 显示AI思考中
+                this.showAIThinking();
+
+                // 模拟AI回复
+                setTimeout(() => {
+                    this.generateAIResponse(conversation, messageText);
+                }, 1500);
+
+                // 保存到本地存储
+                this.saveToLocalStorage();
+                this.loadHistoryList();
+
+                // 滚动到底部
+                setTimeout(() => {
+                    const contentContainer = document.getElementById('conversationContent');
+                    contentContainer.scrollTop = contentContainer.scrollHeight;
+                }, 100);
+            }
+
+            // 显示AI思考中
+            showAIThinking() {
+                const container = document.getElementById('conversationContent');
+
+                const thinkingContainer = document.createElement('div');
+                thinkingContainer.className = 'ai-thinking-container';
+                thinkingContainer.id = 'aiThinking';
+                thinkingContainer.innerHTML = `
+                    <div class="ai-thinking-sender">AI助手</div>
+                    <div class="ai-thinking-content">
+                        <div class="thinking-icon"><i class="fas fa-robot"></i></div>
+                        <div class="thinking-text">正在思考...</div>
+                        <div class="thinking-dots">
+                            <div class="thinking-dot"></div>
+                            <div class="thinking-dot"></div>
+                            <div class="thinking-dot"></div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(thinkingContainer);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // 生成AI回复
+            generateAIResponse(conversation, userMessage) {
+                // 移除思考中提示
+                const thinkingElement = document.getElementById('aiThinking');
+                if (thinkingElement) {
+                    thinkingElement.remove();
+                }
+
+                // 根据用户消息生成AI回复
+                let aiResponse = '';
+                let referencedDocs = [];
+
+                // 简单的关键词匹配来生成回复
+                const lowerMessage = userMessage.toLowerCase();
+
+                if (lowerMessage.includes('cnc') || lowerMessage.includes('主轴') || lowerMessage.includes('异响')) {
+                    aiResponse = '针对CNC加工中心主轴异响问题，建议进行以下排查：\n\n1. 检查主轴轴承状态，确认是否有磨损或损坏\n2. 检查润滑系统是否正常工作\n3. 使用振动分析仪检测主轴动平衡状态\n4. 检查刀具夹持系统和主轴锥孔的配合情况\n\n建议优先检查轴承和润滑系统，这是最常见的问题根源。';
+                    referencedDocs = [1, 4, 6];
+                } else if (lowerMessage.includes('机器人') || lowerMessage.includes('定位') || lowerMessage.includes('精度')) {
+                    aiResponse = '工业机器人定位精度问题通常涉及以下几个方面：\n\n1. 机械结构：检查减速器、齿轮等传动部件是否磨损\n2. 零点标定：重新进行机器人各轴的零点标定\n3. 误差补偿：使用专业测量设备进行误差补偿\n4. 控制系统：检查伺服驱动参数是否优化\n\n建议从零点标定开始，这是最基础的精度校准工作。';
+                    referencedDocs = [2, 5];
+                } else if (lowerMessage.includes('激光') || lowerMessage.includes('功率') || lowerMessage.includes('不稳')) {
+                    aiResponse = '激光切割机功率不稳定可能的原因包括：\n\n1. 激光管老化：使用时间超过额定寿命的激光管会出现功率衰减\n2. 冷却系统故障：确保冷却水温恒定，水流畅通\n3. 电源波动：检查主电源和UPS是否稳定\n4. 控制系统问题：检查控制板卡和信号线路\n\n建议先检查冷却系统，这是最常见的功率不稳定原因。';
+                    referencedDocs = [3];
+                } else {
+                    // 通用回复
+                    aiResponse = '感谢您的提问。作为维修辅助AI助手，我可以帮助您解决以下类型的设备问题：\n\n• CNC加工中心故障诊断\n• 工业机器人维护与校准\n• 激光切割机问题排查\n• PLC控制系统故障处理\n• 伺服电机调试与维护\n\n请详细描述您遇到的问题，我会根据知识库中的维修文档为您提供专业建议。';
+                    // 随机引用2-3个文档
+                    const randomDocs = [...MockData.documents]
+                        .sort(() => 0.5 - Math.random())
+                        .slice(0, Math.floor(Math.random() * 2) + 2)
+                        .map(doc => doc.id);
+                    referencedDocs = randomDocs;
+                }
+
+                // 添加AI消息
+                const aiMessageId = conversation.messages.length > 0 ?
+                    Math.max(...conversation.messages.map(m => m.id)) + 1 : 1;
+
+                const aiMessage = {
+                    id: aiMessageId,
+                    sender: 'ai',
+                    content: aiResponse,
+                    time: this.getCurrentTime(),
+                    documents: referencedDocs
+                };
+
+                conversation.messages.push(aiMessage);
+
+                // 重新渲染消息
+                this.loadMessages(conversation.messages);
+
+                // 保存到本地存储
+                this.saveToLocalStorage();
+                this.loadHistoryList();
+
+                // 滚动到底部
+                setTimeout(() => {
+                    const contentContainer = document.getElementById('conversationContent');
+                    contentContainer.scrollTop = contentContainer.scrollHeight;
+                }, 100);
+            }
+
+            // 获取当前时间
+            getCurrentTime() {
+                const now = new Date();
+                return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            }
+
+            // 设置事件监听器
+            setupEventListeners() {
+                // 新建对话按钮
+                document.getElementById('newConversationBtn').addEventListener('click', () => {
+                    this.createNewConversation();
+                });
+
+                // 发送按钮
+                document.getElementById('sendButton').addEventListener('click', () => {
+                    this.sendMessage();
+                });
+
+                // 消息输入框回车发送
+                document.getElementById('messageInput').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                // 搜索历史对话
+                document.getElementById('historySearch').addEventListener('input', Utils.debounce(() => {
+                    this.loadHistoryList();
+                }, 300));
+
+                // 附件上传
+                this.setupAttachmentUpload();
+            }
+
+            // 设置附件上传
+            setupAttachmentUpload() {
+                const attachmentButton = document.getElementById('attachmentButton');
+                const fileInput = document.getElementById('fileInput');
+                const previewContainer = document.getElementById('attachmentPreviewContainer');
+
+                // 点击附件按钮
+                attachmentButton.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
+                // 文件选择变化
+                fileInput.addEventListener('change', () => {
+                    this.handleFileUpload(fileInput.files, previewContainer);
+                });
+            }
+
+            // 处理文件上传
+            handleFileUpload(files, previewContainer) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+
+                    // 只接受图片文件
+                    if (!file.type.startsWith('image/')) {
+                        Utils.showMessage('只能上传图片文件', 'warning');
+                        continue;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileData = {
+                            name: file.name,
+                            type: file.type,
+                            size: file.size,
+                            data: e.target.result
+                        };
+
+                        this.currentAttachments.push(fileData);
+
+                        // 创建附件预览
+                        this.createAttachmentPreview(fileData, previewContainer);
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                // 清空文件输入，以便可以再次选择相同的文件
+                fileInput.value = '';
+            }
+
+            // 创建附件预览
+            createAttachmentPreview(fileData, previewContainer) {
+                const preview = document.createElement('div');
+                preview.className = 'attachment-preview';
+                preview.setAttribute('data-index', this.currentAttachments.length - 1);
+
+                const isImage = fileData.type.startsWith('image/');
+                const fileName = fileData.name;
+
+                preview.innerHTML = `
+                    <i class="fas ${isImage ? 'fa-image' : 'fa-file'}"></i>
+                    <div class="attachment-name" title="${fileName}">${fileName}</div>
+                    <button type="button" class="btn-remove-attachment" data-index="${this.currentAttachments.length - 1}">×</button>
+                `;
+
+                // 移除附件按钮
+                preview.querySelector('.btn-remove-attachment').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const index = parseInt(event.target.getAttribute('data-index'));
+                    this.currentAttachments.splice(index, 1);
+                    preview.remove();
+
+                    // 更新所有移除按钮的索引
+                    previewContainer.querySelectorAll('.attachment-preview').forEach((item, idx) => {
+                        item.setAttribute('data-index', idx);
+                        item.querySelector('.btn-remove-attachment').setAttribute('data-index', idx);
+                    });
+                });
+
+                previewContainer.appendChild(preview);
+            }
+        }
+
+        // 页面加载完成后初始化AI对话系统
+        document.addEventListener('DOMContentLoaded', function() {
+            window.AIConversation = new AIConversationSystem();
+        });
+    </script>
+</body>
+</html>

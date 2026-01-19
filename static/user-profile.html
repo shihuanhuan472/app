@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的资料 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <style>
+        /* 个人资料页面样式 */
+        .profile-container {
+            padding: 20px 0;
+        }
+
+        .profile-view, .profile-edit {
+            transition: all 0.3s ease;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .profile-avatar-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .profile-avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-info h3 {
+            font-size: 28px;
+            color: #1a3a5f;
+            margin-bottom: 8px;
+        }
+
+        .profile-role {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+            padding: 6px 16px;
+            background: #e7f5ff;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: 500;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .info-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e8e8e8;
+            transition: all 0.3s ease;
+        }
+
+        .info-item:hover {
+            border-color: #4a9eff;
+            background: #f5f9ff;
+            transform: translateY(-2px);
+        }
+
+        .info-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .info-label i {
+            color: #4a9eff;
+            font-size: 16px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            color: #1a3a5f;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        /* 编辑表单样式 */
+        .edit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .edit-header h3 {
+            margin: 0;
+            font-size: 22px;
+            color: #1a3a5f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .profile-form {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .form-section {
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .form-section h4 {
+            font-size: 18px;
+            color: #1a3a5f;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar-upload {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .avatar-upload-controls {
+            flex: 1;
+        }
+
+        .avatar-hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-text {
+            display: block;
+            font-size: 12px;
+            color: #999;
+            margin-top: 6px;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        /* 密码强度指示器 */
+        .password-strength {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .strength-bar {
+            height: 6px;
+            width: 0%;
+            background: #ef4444;
+            border-radius: 3px;
+            margin-bottom: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .strength-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #strengthText {
+            font-weight: 600;
+        }
+
+        /* 安全设置区域 */
+        .password-section {
+            padding: 20px 0;
+        }
+
+        /* 加载动画 */
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .profile-actions {
+                justify-content: center;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .avatar-upload {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #1a3a5f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state i {
+            font-size: 56px;
+            margin-bottom: 20px;
+            color: #e8e8e8;
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <!-- 侧边导航栏 -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 用户管理 - 只在管理员登录时显示 -->
+                <a href="user-management.html" class="nav-item" id="userManagementLink" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 我的资料 - 所有用户都可见 -->
+                <a href="user-profile.html" class="nav-item active" id="myProfileLink" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <div>
+                        <div class="user-name" id="userName">加载中...</div>
+                        <div class="user-role" id="userRole"></div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">我的资料</div>
+                    <div class="page-subtitle">查看和编辑个人信息</div>
+                </div>
+            </div>
+
+            <!-- 个人资料卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">基本信息</div>
+                </div>
+
+                <div class="profile-container">
+                    <!-- 个人信息展示 -->
+                    <div class="profile-view" id="profileView">
+                        <!-- 内容由JavaScript动态生成 -->
+                    </div>
+
+                    <!-- 编辑表单 -->
+                    <div class="profile-edit" id="profileEdit" style="display: none;">
+                        <div class="edit-header">
+                            <h3><i class="fas fa-user-edit"></i> 编辑个人信息</h3>
+                            <button class="btn btn-icon btn-sm" onclick="switchToViewMode()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <form id="profileForm" class="profile-form">
+                            <!-- 基本信息 -->
+                            <div class="form-section">
+                                <h4><i class="fas fa-info-circle"></i> 基本信息</h4>
+                                <div class="form-group">
+                                    <label><i class="fas fa-font"></i> 姓名</label>
+                                    <input type="text" id="editFullName" placeholder="请输入姓名" required>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-phone"></i> 电话</label>
+                                        <input type="tel" id="editPhone" placeholder="请输入电话" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-envelope"></i> 邮箱</label>
+                                        <input type="email" id="editEmail" placeholder="请输入邮箱">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label><i class="fas fa-building"></i> 部门</label>
+                                    <input type="text" id="editDepartment" placeholder="请输入部门">
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="switchToViewMode()">
+                                    取消
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="saveProfile()">
+                                    <i class="fas fa-save"></i> 保存更改
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 安全设置卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">安全设置</div>
+                </div>
+
+                <div class="password-section">
+                    <button class="btn btn-warning" onclick="showChangePasswordModal()">
+                        <i class="fas fa-key"></i> 修改密码
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改密码模态框 -->
+    <div class="modal" id="changePasswordModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> 修改密码</h3>
+                <button class="btn btn-icon" onclick="closeChangePasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 当前密码</label>
+                        <input type="password" id="currentPassword" placeholder="请输入当前密码" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 新密码</label>
+                        <input type="password" id="newPassword" placeholder="请输入新密码" required oninput="checkPasswordStrength()">
+                        <div class="password-strength" id="passwordStrength">
+                            <div class="strength-bar"></div>
+                            <div class="strength-label">密码强度：<span id="strengthText">未输入</span></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 确认新密码</label>
+                        <input type="password" id="confirmPassword" placeholder="请再次输入新密码" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeChangePasswordModal()">取消</button>
+                <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('用户资料页面加载完成');
+            initPage();
+        });
+
+        // 初始化页面
+        async function initPage() {
+            try {
+                // 检查登录状态
+                const token = sessionStorage.getItem('token');
+                if (!token) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // 显示加载状态
+                showLoading();
+
+                // 设置菜单激活状态
+                setActiveMenu();
+
+                // 加载用户信息
+                await loadUserProfile();
+
+            } catch (error) {
+                console.error('页面初始化失败:', error);
+                showError(`页面初始化失败: ${error.message || '未知错误'}`);
+            }
+        }
+
+        // 设置菜单激活状态
+        function setActiveMenu() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.classList.remove('active');
+            });
+
+            const currentPage = document.getElementById('myProfileLink');
+            if (currentPage) {
+                currentPage.classList.add('active');
+                currentPage.style.display = 'flex';
+            }
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const profileView = document.getElementById('profileView');
+            if (profileView) {
+                profileView.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="loading-spinner"></div>
+                        <p style="color: #666; margin-top: 20px;">正在加载用户信息...</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 显示错误
+        function showError(message) {
+            const profileView = document.getElementById('profileView');
+            if (profileView) {
+                profileView.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                        <p style="color: #666; margin-bottom: 20px;">${message}</p>
+                        <div style="display: flex; gap: 12px; justify-content: center;">
+                            <button class="btn btn-secondary" onclick="location.reload()">
+                                <i class="fas fa-redo"></i> 重新加载
+                            </button>
+                            <button class="btn btn-primary" onclick="logout()">
+                                <i class="fas fa-sign-out-alt"></i> 重新登录
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 加载用户资料
+        async function loadUserProfile() {
+            try {
+                console.log('开始加载用户资料...');
+
+                // 从后端获取用户资料
+                const response = await userAPI.getUserProfile();
+
+                if (response && response.code === 1 && response.data) {
+                    currentUser = response.data;
+                    console.log('获取到的用户数据:', currentUser);
+
+                    // 更新页面显示
+                    renderProfileView(currentUser);
+
+                    // 更新侧边栏
+                    updateSidebar(currentUser);
+
+                    // 更新菜单显示
+                    updateMenuByRole(currentUser);
+
+                } else {
+                    throw new Error(response?.msg || '获取用户信息失败');
+                }
+
+            } catch (error) {
+                console.error('加载用户资料失败:', error);
+                showError('加载用户信息失败: ' + error.message);
+            }
+        }
+
+        // 渲染资料显示区域
+        function renderProfileView(user) {
+            const profileView = document.getElementById('profileView');
+            if (!profileView) return;
+
+            // 基本信息
+            const name = user.full_name || user.username || '未设置';
+            const username = user.username || '未设置';
+            const department = user.department || '未设置';
+            const phone = user.phone || '未设置';
+            const email = user.email || '未设置';
+
+            // 角色
+            const roleText = user.role === 0 ? '系统管理员' : '维修工程师';
+
+            // 头像首字母
+            const avatarChar = name.charAt(0).toUpperCase();
+
+            // 头像颜色
+            const isAdmin = user.role === 0;
+            const avatarBg = isAdmin
+                ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                : 'linear-gradient(135deg, #4a9eff 0%, #1971c2 100%)';
+
+            // 格式化日期
+            const formatDate = (dateString) => {
+                if (!dateString) return '未设置';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } catch (e) {
+                    return dateString;
+                }
+            };
+
+            const createdTime = formatDate(user.created_time);
+            const lastLogin = user.last_login ? formatDate(user.last_login) : '从未登录';
+
+            // 生成HTML
+            profileView.innerHTML = `
+                <div class="profile-header">
+                    <div class="profile-avatar-large" style="background: ${avatarBg}">
+                        ${avatarChar}
+                    </div>
+                    <div class="profile-info">
+                        <h3>${name}</h3>
+                        <div class="profile-role">${roleText}</div>
+                        <div class="profile-actions">
+                            <button class="btn btn-primary" onclick="switchToEditMode()">
+                                <i class="fas fa-edit"></i> 编辑资料
+                            </button>
+                            <button class="btn btn-secondary" onclick="showChangePasswordModal()">
+                                <i class="fas fa-key"></i> 修改密码
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-details">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-user"></i> 用户名
+                            </div>
+                            <div class="info-value">${username}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-building"></i> 部门
+                            </div>
+                            <div class="info-value">${department}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-phone"></i> 电话
+                            </div>
+                            <div class="info-value">${phone}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-envelope"></i> 邮箱
+                            </div>
+                            <div class="info-value">${email}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-calendar-alt"></i> 注册时间
+                            </div>
+                            <div class="info-value">${createdTime}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">
+                                <i class="fas fa-clock"></i> 最后登录
+                            </div>
+                            <div class="info-value">${lastLogin}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 更新编辑表单
+            updateEditForm(user);
+        }
+
+        // 更新编辑表单
+        function updateEditForm(user) {
+            if (!user) return;
+
+            const editFullName = document.getElementById('editFullName');
+            const editPhone = document.getElementById('editPhone');
+            const editEmail = document.getElementById('editEmail');
+            const editDepartment = document.getElementById('editDepartment');
+
+            if (editFullName) editFullName.value = user.full_name || '';
+            if (editPhone) editPhone.value = user.phone || '';
+            if (editEmail) editEmail.value = user.email || '';
+            if (editDepartment) editDepartment.value = user.department || '';
+        }
+
+        // 更新侧边栏
+        function updateSidebar(user) {
+            const name = user.full_name || user.username || '用户';
+            const roleText = user.role === 0 ? '系统管理员' : '维修工程师';
+
+            // 侧边栏头像
+            const avatarChar = name.charAt(0).toUpperCase();
+            const avatarElement = document.getElementById('userAvatar');
+            if (avatarElement) {
+                avatarElement.textContent = avatarChar;
+                avatarElement.style.backgroundColor = user.role === 0 ? '#dc2626' : '#4a9eff';
+            }
+
+            // 侧边栏用户名
+            const nameElement = document.getElementById('userName');
+            if (nameElement) {
+                nameElement.textContent = name;
+            }
+
+            // 侧边栏角色
+            const roleElement = document.getElementById('userRole');
+            if (roleElement) {
+                roleElement.textContent = roleText;
+            }
+        }
+
+        // 更新菜单显示
+        function updateMenuByRole(user) {
+            const userManagementLink = document.getElementById('userManagementLink');
+            const myProfileLink = document.getElementById('myProfileLink');
+            const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
+
+            const isAdmin = user.role === 0;
+
+            if (userManagementLink) {
+                userManagementLink.style.display = isAdmin ? 'flex' : 'none';
+            }
+
+            if (myProfileLink) {
+                myProfileLink.style.display = 'flex';
+            }
+
+            if (aiAssistLink) {
+                aiAssistLink.style.display = 'flex';
+            }
+        }
+
+        // 切换到编辑模式
+        function switchToEditMode() {
+            const profileView = document.getElementById('profileView');
+            const profileEdit = document.getElementById('profileEdit');
+
+            if (profileView && profileEdit) {
+                profileView.style.display = 'none';
+                profileEdit.style.display = 'block';
+            }
+        }
+
+        // 切换到查看模式
+        function switchToViewMode() {
+            const profileView = document.getElementById('profileView');
+            const profileEdit = document.getElementById('profileEdit');
+
+            if (profileView && profileEdit) {
+                profileView.style.display = 'block';
+                profileEdit.style.display = 'none';
+                // 重新加载数据，取消未保存的更改
+                loadUserProfile();
+            }
+        }
+
+        // 保存个人资料
+        async function saveProfile() {
+            const fullName = document.getElementById('editFullName')?.value.trim() || '';
+            const phone = document.getElementById('editPhone')?.value.trim() || '';
+            const email = document.getElementById('editEmail')?.value.trim() || '';
+            const department = document.getElementById('editDepartment')?.value.trim() || '';
+
+            // 验证必填字段
+            if (!fullName) {
+                Utils.showMessage('姓名不能为空', 'error');
+                return;
+            }
+
+            if (!phone) {
+                Utils.showMessage('电话不能为空', 'error');
+                return;
+            }
+
+            // 验证邮箱格式（如果填写了邮箱）
+            if (email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    Utils.showMessage('请输入有效的邮箱地址', 'error');
+                    return;
+                }
+            }
+
+            // 验证电话格式
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(phone)) {
+                Utils.showMessage('请输入有效的手机号码', 'error');
+                return;
+            }
+
+            // 准备更新数据
+            const updateData = {
+                full_name: fullName,
+                phone: phone,
+                email: email || null,
+                department: department || null
+            };
+
+            try {
+                // 显示加载中
+                Utils.showMessage('正在保存...', 'info');
+
+                // 调用API更新用户信息
+                const response = await userAPI.updateUser(updateData);
+
+                if (response && response.code === 1) {
+                    Utils.showMessage('个人信息更新成功', 'success');
+
+                    // 更新本地用户信息
+                    if (response.data) {
+                        currentUser = response.data;
+                        sessionStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+
+                    // 切换回查看模式
+                    setTimeout(() => {
+                        switchToViewMode();
+                    }, 1000);
+                } else {
+                    throw new Error(response?.msg || '更新失败');
+                }
+            } catch (error) {
+                console.error('保存用户信息失败:', error);
+                Utils.showMessage(`保存失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示修改密码模态框
+        function showChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            const form = document.getElementById('changePasswordForm');
+            const strengthContainer = document.getElementById('passwordStrength');
+
+            if (modal) modal.style.display = 'flex';
+            if (form) form.reset();
+            if (strengthContainer) strengthContainer.style.display = 'none';
+        }
+
+        // 关闭修改密码模态框
+        function closeChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // 检查密码强度
+        function checkPasswordStrength() {
+            const password = document.getElementById('newPassword')?.value || '';
+            const strengthBar = document.querySelector('.strength-bar');
+            const strengthText = document.getElementById('strengthText');
+            const strengthContainer = document.getElementById('passwordStrength');
+
+            if (!password || !strengthContainer) {
+                if (strengthContainer) strengthContainer.style.display = 'none';
+                return;
+            }
+
+            strengthContainer.style.display = 'block';
+
+            let strength = 0;
+            let text = '弱';
+            let color = '#ef4444';
+
+            // 长度检查
+            if (password.length >= 8) strength += 1;
+
+            // 包含小写字母
+            if (/[a-z]/.test(password)) strength += 1;
+
+            // 包含大写字母
+            if (/[A-Z]/.test(password)) strength += 1;
+
+            // 包含数字
+            if (/\d/.test(password)) strength += 1;
+
+            // 包含特殊字符
+            if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+
+            // 根据强度设置样式
+            switch(strength) {
+                case 0:
+                case 1:
+                case 2:
+                    text = '弱';
+                    color = '#ef4444';
+                    break;
+                case 3:
+                    text = '中等';
+                    color = '#f59e0b';
+                    break;
+                case 4:
+                case 5:
+                    text = '强';
+                    color = '#10b981';
+                    break;
+            }
+
+            if (strengthBar) {
+                strengthBar.style.width = (strength * 20) + '%';
+                strengthBar.style.background = color;
+            }
+
+            if (strengthText) {
+                strengthText.textContent = text;
+                strengthText.style.color = color;
+            }
+        }
+
+        // 修改密码
+        async function changePassword() {
+            const currentPassword = document.getElementById('currentPassword')?.value || '';
+            const newPassword = document.getElementById('newPassword')?.value || '';
+            const confirmPassword = document.getElementById('confirmPassword')?.value || '';
+
+            // 验证必填字段
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                Utils.showMessage('请填写完整的密码信息', 'error');
+                return;
+            }
+
+            // 验证新密码和确认密码是否一致
+            if (newPassword !== confirmPassword) {
+                Utils.showMessage('两次输入的新密码不一致', 'error');
+                return;
+            }
+
+            // 验证新密码强度
+            if (newPassword.length < 6) {
+                Utils.showMessage('密码长度不能少于6位', 'error');
+                return;
+            }
+
+            try {
+                // 显示加载中
+                Utils.showMessage('正在修改密码...', 'info');
+
+                // 调用API修改密码
+                const response = await userAPI.changePassword(currentPassword, newPassword);
+
+                if (response && response.code === 1) {
+                    Utils.showMessage('密码修改成功', 'success');
+
+                    // 关闭模态框
+                    closeChangePasswordModal();
+
+                    // 清空表单
+                    const form = document.getElementById('changePasswordForm');
+                    if (form) form.reset();
+                } else {
+                    throw new Error(response?.msg || '修改密码失败');
+                }
+            } catch (error) {
+                console.error('修改密码失败:', error);
+                Utils.showMessage(`修改密码失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

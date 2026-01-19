@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备维修辅助系统 - 登录</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 页面特定样式 */
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #1a3a5f;
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .form-actions {
+            margin-top: 25px;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1><i class="fas fa-tools"></i> 设备维修辅助系统</h1>
+                <p>智能维修解决方案平台</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="username" placeholder="请输入用户名" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="password" placeholder="请输入密码" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">身份</label>
+                    <select class="form-control" id="role" required>
+                        <option value="">请选择身份</option>
+                        <option value="admin">系统管理员</option>
+                        <option value="technician">技术人员</option>
+                    </select>
+                </div>
+
+                <div class="loading-spinner" id="loadingSpinner">
+                    <i class="fas fa-spinner fa-spin"></i> 登录中...
+                </div>
+
+                <div class="error-message" id="loginError"></div>
+
+                <div class="form-actions">
+                    <button type="submit" class="login-btn" id="submitBtn">
+                        <i class="fas fa-sign-in-alt"></i> 登录系统
+                    </button>
+                </div>
+            </form>
+
+            <div class="login-footer">
+                <p>© 2023 设备维修辅助系统 v2.0</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('loginForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const errorMessage = document.getElementById('loginError');
+
+            // 检查是否有已保存的token，有则跳转到主页面
+            checkExistingLogin();
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const role = document.getElementById('role').value;
+
+                // 验证输入
+                if (!username) {
+                    showError('请输入用户名');
+                    return;
+                }
+
+                if (!password) {
+                    showError('请输入密码');
+                    return;
+                }
+
+                if (!role) {
+                    showError('请选择身份');
+                    return;
+                }
+
+                try {
+                    // 显示加载状态
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+                    loadingSpinner.style.display = 'block';
+                    hideError();
+
+                    // 调用后端登录API - 发送三个参数
+                    const response = await fetch('http://localhost:8000/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            password: password,
+                            role: role  // 身份参数
+                        })
+                    });
+
+                    // 获取响应数据
+                    let result;
+                    try {
+                        const responseText = await response.text();
+                        result = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('响应解析失败:', jsonError);
+                        throw new Error('服务器响应格式错误');
+                    }
+
+                    console.log('登录响应:', result);
+
+                    if (result.code === 1) {
+                        // 登录成功 - 后端返回了JWT令牌
+                        const token = result.data;
+
+                        // 存储token到sessionStorage
+                        sessionStorage.setItem('token', token);
+
+                        // 使用token获取完整的用户信息
+                        try {
+                            // 调用获取用户信息的API
+                            const userResponse = await fetch('http://localhost:8000/user/profile', {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
+
+                            if (userResponse.ok) {
+                                const userResult = await userResponse.json();
+                                console.log('获取用户信息成功:', userResult);
+
+                                if (userResult.code === 1 && userResult.data) {
+                                    // 存储完整的用户信息，包括id
+                                    const userInfo = userResult.data;
+                                    sessionStorage.setItem('user', JSON.stringify(userInfo));
+
+                                    console.log('存储的用户信息:', userInfo);
+
+                                    // 显示成功消息
+                                    Utils.showMessage('登录成功！', 'success');
+
+                                    // 跳转到主页面
+                                    setTimeout(() => {
+                                        window.location.href = 'main.html';
+                                    }, 1000);
+                                } else {
+                                    showError('获取用户信息失败');
+                                    sessionStorage.removeItem('token');
+                                }
+                            } else {
+                                showError('获取用户信息失败');
+                                sessionStorage.removeItem('token');
+                            }
+                        } catch (error) {
+                            console.error('获取用户信息失败:', error);
+                            showError('获取用户信息失败');
+                            sessionStorage.removeItem('token');
+                        }
+                    } else {
+                        // 登录失败 - 显示错误信息
+                        const errorMsg = result.msg || result.detail || '登录失败';
+                        showError(errorMsg);
+                    }
+
+                } catch (error) {
+                    console.error('登录请求失败:', error);
+                    showError(error.message || '网络请求失败，请检查后端服务是否启动');
+                } finally {
+                    // 恢复按钮状态
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录系统';
+                    loadingSpinner.style.display = 'none';
+                }
+            });
+
+            // 回车键提交
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const focused = document.activeElement;
+                    if (focused && (focused.id === 'username' || focused.id === 'password' || focused.id === 'role')) {
+                        submitBtn.click();
+                    }
+                }
+            });
+        });
+
+        // 检查已有登录状态
+        function checkExistingLogin() {
+            const token = sessionStorage.getItem('token');
+            const user = sessionStorage.getItem('user');
+
+            if (token && user) {
+                console.log('检测到已登录，自动跳转到主页面');
+                setTimeout(() => {
+                    window.location.href = 'main.html';
+                }, 500);
+            }
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const errorElement = document.getElementById('loginError');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.classList.add('show');
+            } else {
+                // 如果错误元素不存在，使用简单的alert
+                alert(message);
+            }
+        }
+
+        // 隐藏错误信息
+        function hideError() {
+            const errorElement = document.getElementById('loginError');
+            if (errorElement) {
+                errorElement.classList.remove('show');
+            }
+        }
+
+        // 简单的消息显示工具（如果common.js没加载的话）
+        window.Utils = window.Utils || {
+            showMessage: function(message, type = 'info') {
+                const color = type === 'success' ? '#10b981' : '#4a9eff';
+                const el = document.createElement('div');
+                el.textContent = message;
+                el.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    background: ${color};
+                    color: white;
+                    border-radius: 6px;
+                    z-index: 1000;
+                `;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+        };
+    </script>
+</body>
+</html>
