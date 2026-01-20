@@ -203,7 +203,7 @@
             }
         }
 
-        /* 模态框样式 - 简化 */
+        /* 修改密码模态框样式优化 - 简化版 */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -221,17 +221,20 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
-            border-radius: 8px;
-            width: 400px;
+            border-radius: 12px;
+            width: 420px;
             max-width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
             z-index: 1001;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             display: none;
         }
 
         .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e8e8e8;
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            background: #f8fafc;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -239,21 +242,236 @@
 
         .modal-header h3 {
             margin: 0;
-            font-size: 16px;
-            color: #333;
+            font-size: 18px;
             font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header .modal-close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .modal-header .modal-close-btn:hover {
+            background: #f0f0f0;
+            color: #333;
         }
 
         .modal-body {
             padding: 20px;
+            background: white;
         }
 
         .modal-footer {
             padding: 16px 20px;
-            border-top: 1px solid #e8e8e8;
+            border-top: 1px solid #f0f0f0;
+            background: white;
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        /* 表单样式优化 - 解决两个眼睛图标问题 */
+        .modal-body .form-group {
+            margin-bottom: 16px;
+        }
+
+        .modal-body .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .password-input-wrapper {
+            position: relative;
+        }
+
+        /* 隐藏浏览器自带的密码显示图标 */
+        .modal-body .form-group input[type="password"]::-ms-reveal,
+        .modal-body .form-group input[type="password"]::-ms-clear {
+            display: none;
+        }
+
+        /* 在WebKit浏览器中隐藏密码显示图标 */
+        .modal-body .form-group input[type="password"]::-webkit-credentials-auto-fill-button,
+        .modal-body .form-group input[type="password"]::-webkit-contacts-auto-fill-button,
+        .modal-body .form-group input[type="password"]::-webkit-strong-password-auto-fill-button {
+            visibility: hidden;
+            display: none !important;
+            pointer-events: none;
+            height: 0;
+            width: 0;
+            margin: 0;
+        }
+
+        .modal-body .form-group input {
+            width: 100%;
+            padding: 12px 40px 12px 16px; /* 增加右侧padding给图标留空间 */
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            box-sizing: border-box;
+            /* 移除默认的外观 */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        .modal-body .form-group input:focus {
+            border-color: #4a9eff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        /* 自定义密码显示/隐藏按钮 */
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            z-index: 2; /* 确保按钮在输入框上方 */
+        }
+
+        .password-toggle-btn:hover {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .password-toggle-btn i {
+            pointer-events: none; /* 防止图标干扰按钮点击 */
+        }
+
+        .password-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* 密码强度指示器 - 简化版 */
+        .password-strength {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            height: 24px;
+        }
+
+        .strength-bar {
+            flex: 1;
+            height: 4px;
+            background: #e8e8e8;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .strength-level {
+            height: 100%;
+            width: 0%;
+            background: #ef4444;
+            border-radius: 2px;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .strength-text {
+            font-size: 12px;
+            color: #666;
+            min-width: 40px;
+            text-align: right;
+            transition: color 0.3s ease;
+        }
+
+        /* 按钮样式 */
+        .modal-footer .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 90px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-footer .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-footer .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .modal-footer .btn-primary {
+            background: #10b981;
+            color: white;
+            border: none;
+        }
+
+        .modal-footer .btn-primary:hover {
+            background: #0da271;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 480px) {
+            .modal-dialog {
+                width: 95%;
+                border-radius: 8px;
+            }
+
+            .modal-header {
+                padding: 16px;
+            }
+
+            .modal-body {
+                padding: 16px;
+            }
+
+            .modal-footer {
+                padding: 12px 16px;
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                min-width: auto;
+            }
         }
 
         /* 输入框样式 */
@@ -284,13 +502,6 @@
             color: #333;
             font-weight: 500;
         }
-
-        .password-hint {
-            font-size: 12px;
-            color: #666;
-            margin-top: 4px;
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -319,7 +530,7 @@
                     <span>用户管理</span>
                 </a>
                 <!-- 技术人员显示这个 -->
-                <a href="user-profile.html" class="nav-item active" style="display: none;">
+                <a href="user-profile.html" class="nav-item" style="display: none;">
                     <span class="nav-icon"><i class="fas fa-user"></i></span>
                     <span>我的资料</span>
                 </a>
@@ -422,12 +633,12 @@
         </div>
     </div>
 
-    <!-- 修改密码模态框 -->
+    <!-- 修改密码模态框 - 修复两个眼睛图标问题 -->
     <div class="modal-overlay" id="changePasswordModal"></div>
     <div class="modal-dialog" id="changePasswordDialog">
         <div class="modal-header">
-            <h3><i class="fas fa-key"></i> 修改密码</h3>
-            <button class="btn btn-icon" onclick="closeChangePasswordModal()">
+            <h3><i class="fas fa-lock"></i> 修改密码</h3>
+            <button class="modal-close-btn" onclick="closeChangePasswordModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -435,27 +646,53 @@
             <form id="changePasswordForm">
                 <div class="form-group">
                     <label>当前密码</label>
-                    <input type="password" id="currentPassword" placeholder="请输入当前密码" autocomplete="off">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="currentPassword" placeholder="请输入当前密码" autocomplete="current-password">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('currentPassword')">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>新密码</label>
-                    <input type="password" id="newPassword" placeholder="请输入新密码（至少6位）" autocomplete="new-password">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="newPassword" placeholder="请输入新密码（至少6位）" autocomplete="new-password">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('newPassword')">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                     <span class="password-hint">密码长度至少6位</span>
+                    <div class="password-strength">
+                        <div class="strength-bar">
+                            <div class="strength-level" id="passwordStrengthBar"></div>
+                        </div>
+                        <div class="strength-text" id="passwordStrengthText">弱</div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>确认新密码</label>
-                    <input type="password" id="confirmPassword" placeholder="请再次输入新密码" autocomplete="new-password">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="confirmPassword" placeholder="请再次输入新密码" autocomplete="new-password">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('confirmPassword')">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeChangePasswordModal()">取消</button>
-            <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
+            <button class="btn btn-secondary" onclick="closeChangePasswordModal()">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button class="btn btn-primary" onclick="changePassword()">
+                <i class="fas fa-check"></i> 确认修改
+            </button>
         </div>
     </div>
 
     <script>
         let currentUser = null;
+        let passwordStrengthCheckDebounce = null;
 
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -476,29 +713,12 @@
                 // 显示加载状态
                 showLoading();
 
-                // 设置菜单激活状态
-                setActiveMenu();
-
                 // 加载用户信息
                 await loadUserProfile();
 
             } catch (error) {
                 console.error('页面初始化失败:', error);
                 showError(`页面初始化失败: ${error.message || '未知错误'}`);
-            }
-        }
-
-        // 设置菜单激活状态
-        function setActiveMenu() {
-            const navItems = document.querySelectorAll('.nav-item');
-            navItems.forEach(item => {
-                item.classList.remove('active');
-            });
-
-            const currentPage = document.getElementById('myProfileLink');
-            if (currentPage) {
-                currentPage.classList.add('active');
-                currentPage.style.display = 'flex';
             }
         }
 
@@ -718,8 +938,8 @@
 
         // 更新菜单显示
         function updateMenuByRole(user) {
-            const userManagementLink = document.getElementById('userManagementLink');
-            const myProfileLink = document.getElementById('myProfileLink');
+            const userManagementLink = document.querySelector('a[href="user-management.html"]');
+            const myProfileLink = document.querySelector('a[href="user-profile.html"]');
             const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
 
             const isAdmin = user.role === 0;
@@ -823,7 +1043,68 @@
             }
         }
 
-        // 显示修改密码模态框 - 修复版
+        // 切换密码显示/隐藏 - 修复版
+        function togglePasswordVisibility(fieldId) {
+            console.log('切换密码显示/隐藏:', fieldId);
+            const input = document.getElementById(fieldId);
+            const button = input.nextElementSibling;
+            const icon = button.querySelector('i');
+
+            if (!input || !icon) {
+                console.error('找不到输入框或图标');
+                return;
+            }
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                button.setAttribute('title', '隐藏密码');
+                console.log('密码已显示');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                button.setAttribute('title', '显示密码');
+                console.log('密码已隐藏');
+            }
+        }
+
+        // 密码强度检测 - 简化版
+        function checkPasswordStrength(password) {
+            if (password.length < 6) return 1;
+            if (password.length < 8) return 2;
+            if (password.length >= 8) {
+                let strength = 2;
+                if (/[A-Z]/.test(password)) strength++;
+                if (/[0-9]/.test(password)) strength++;
+                if (/[^A-Za-z0-9]/.test(password)) strength++;
+                return Math.min(strength, 4);
+            }
+            return 1;
+        }
+
+        // 密码强度检测 - 防抖处理
+        function updatePasswordStrength() {
+            const password = document.getElementById('newPassword').value;
+            const strength = checkPasswordStrength(password);
+            const strengthBar = document.getElementById('passwordStrengthBar');
+            const strengthText = document.getElementById('passwordStrengthText');
+
+            if (!strengthBar || !strengthText) return;
+
+            // 设置强度条颜色和宽度
+            const colors = ['#ef4444', '#f59e0b', '#84cc16', '#10b981'];
+            const texts = ['弱', '一般', '良好', '强'];
+
+            const level = Math.min(strength, 4) - 1;
+            strengthBar.style.width = (level + 1) * 25 + '%';
+            strengthBar.style.backgroundColor = colors[level] || colors[0];
+            strengthText.textContent = texts[level] || texts[0];
+            strengthText.style.color = colors[level] || colors[0];
+        }
+
+        // 显示修改密码模态框
         function showChangePasswordModal() {
             console.log('显示修改密码模态框');
             const modal = document.getElementById('changePasswordModal');
@@ -834,12 +1115,41 @@
                 const form = document.getElementById('changePasswordForm');
                 if (form) form.reset();
 
+                // 重置密码强度指示器
+                const strengthBar = document.getElementById('passwordStrengthBar');
+                const strengthText = document.getElementById('passwordStrengthText');
+                if (strengthBar) {
+                    strengthBar.style.width = '0%';
+                    strengthBar.style.backgroundColor = '#ef4444';
+                }
+                if (strengthText) {
+                    strengthText.textContent = '弱';
+                    strengthText.style.color = '#ef4444';
+                }
+
+                // 绑定新密码输入事件（防抖处理）
+                const newPasswordInput = document.getElementById('newPassword');
+                if (newPasswordInput) {
+                    // 移除之前的事件监听器
+                    newPasswordInput.removeEventListener('input', handlePasswordInput);
+                    // 添加新的事件监听器
+                    newPasswordInput.addEventListener('input', handlePasswordInput);
+                }
+
                 // 显示模态框
                 modal.style.display = 'block';
                 dialog.style.display = 'block';
             } else {
                 console.error('找不到模态框元素');
             }
+        }
+
+        // 处理密码输入事件（防抖）
+        function handlePasswordInput() {
+            if (passwordStrengthCheckDebounce) {
+                clearTimeout(passwordStrengthCheckDebounce);
+            }
+            passwordStrengthCheckDebounce = setTimeout(updatePasswordStrength, 150);
         }
 
         // 关闭修改密码模态框
@@ -850,6 +1160,12 @@
             if (modal && dialog) {
                 modal.style.display = 'none';
                 dialog.style.display = 'none';
+
+                // 清理防抖定时器
+                if (passwordStrengthCheckDebounce) {
+                    clearTimeout(passwordStrengthCheckDebounce);
+                    passwordStrengthCheckDebounce = null;
+                }
             }
         }
 

@@ -77,6 +77,7 @@ class MenuManager {
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             item.classList.remove('active');
+            console.log(item);
         });
 
         // 获取当前页面文件名
@@ -88,6 +89,7 @@ class MenuManager {
         // 根据当前页面设置 active 类
         const currentLink = document.querySelector(`a[href="${fileName}"]`);
         if (currentLink) {
+            console.log(currentLink);
             currentLink.classList.add('active');
             console.log('设置激活菜单:', currentLink.href);
         }
