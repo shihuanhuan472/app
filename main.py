@@ -35,7 +35,7 @@ app.add_middleware(
         "*"  # 开发时可以使用 *，生产环境要限制
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

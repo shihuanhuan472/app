@@ -52,6 +52,7 @@ async def update_user(new_user: UserUpdate,
     - 手机号和邮箱需要验证唯一性
     """
     try:
+        print(new_user)
         user = db.query(User).filter(User.id == current_user.id).first()
         if not user:
             raise HTTPException(
