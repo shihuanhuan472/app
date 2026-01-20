@@ -302,13 +302,19 @@ const Utils = {
         return headers;
     },
 
-    // API请求封装
+    // 在 common.js 的 Utils 对象中添加或更新以下函数：
+
     apiRequest: async function(url, options = {}) {
         try {
             const defaultOptions = {
                 headers: this.getAuthHeaders(),
                 ...options
             };
+
+            // 如果有 body，确保它是 JSON 字符串
+            if (defaultOptions.body && typeof defaultOptions.body !== 'string') {
+                defaultOptions.body = JSON.stringify(defaultOptions.body);
+            }
 
             const response = await fetch(url, defaultOptions);
 
@@ -317,11 +323,18 @@ const Utils = {
                 sessionStorage.removeItem('token');
                 sessionStorage.removeItem('user');
                 window.location.href = 'index.html';
-                return null;
+                throw new Error('登录已过期，请重新登录');
             }
 
+            // 检查是否是 404
+            if (response.status === 404) {
+                throw new Error('请求的接口不存在，请检查路由');
+            }
+
+            // 检查其他错误状态
             if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP错误: ${response.status} - ${errorText}`);
             }
 
             const result = await response.json();
@@ -568,206 +581,206 @@ function handleImageFiles(files, previewContainer) {
 window.Utils = Utils;
 window.initImageUpload = initImageUpload;
 
-// 在文件顶部添加分页变量
-let currentPage = 1;
-let pageSize = 6; // 默认每页显示4人
-let totalPages = 1;
+// // 在文件顶部添加分页变量
+// let currentPage = 1;
+// let pageSize = 6; // 默认每页显示4人
+// let totalPages = 1;
 
-// 修改 loadUsers 函数
-function loadUsers() {
-    const users = MockData.getUsers();
-    totalPages = Math.ceil(users.length / pageSize);
-    displayUsers(users);
-    renderPagination(users.length);
-}
-
-// 修改 displayUsers 函数，添加分页逻辑
-function displayUsers(users) {
-    const container = document.getElementById('userList');
-    const countElement = document.getElementById('userCount');
-
-    if (users.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 60px; color: #666; width: 100%;" class="empty-state">
-                <i class="fas fa-users" style="font-size: 56px; margin-bottom: 20px; color: #e8e8e8;"></i>
-                <p>暂无用户数据</p>
-                <button class="btn btn-primary" onclick="showAddUserModal()" style="margin-top: 15px;">
-                    <i class="fas fa-user-plus"></i> 添加第一个用户
-                </button>
-            </div>
-        `;
-        countElement.textContent = '共0个用户';
-        return;
-    }
-
-    // 分页处理
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const pageUsers = users.slice(startIndex, endIndex);
-
-    let html = '';
-    pageUsers.forEach(user => {
-        const colors = ['#4a9eff', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-        const colorIndex = user.id % colors.length;
-        const avatarColor = user.avatarColor || colors[colorIndex];
-
-        html += `
-            <div class="user-card">
-                <div class="user-avatar-large" style="background: ${avatarColor}">
-                    ${user.name.charAt(0)}
-                </div>
-                <div class="user-info-details">
-                    <div class="user-info-name">${user.name}</div>
-                    <div class="user-info-role">
-                        <span class="badge" style="background: ${user.role === 'admin' ? '#fee2e2' : '#e7f5ff'};
-                            color: ${user.role === 'admin' ? '#dc2626' : '#1971c2'};
-                            padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
-                            ${user.role === 'admin' ? '👑 系统管理员' : '👷 技术人员'}
-                        </span>
-                    </div>
-                    <ul class="user-info-list">
-                        <li><i class="fas fa-building"></i> 部门：${user.department}</li>
-                        <li><i class="fas fa-phone"></i> 电话：${user.phone}</li>
-                        <li><i class="fas fa-envelope"></i> 邮箱：${user.email}</li>
-                        <li><i class="fas fa-calendar-alt"></i> 入职时间：${user.hireDate}</li>
-                    </ul>
-                    <div style="margin-top: 20px; display: flex; gap: 12px;">
-                        <button class="btn btn-secondary btn-sm" onclick="editUser(${user.id})">
-                            <i class="fas fa-edit"></i> 编辑
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''}>
-                            <i class="fas fa-trash"></i> 删除
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-    countElement.textContent = `共${users.length}个用户，当前显示第 ${startIndex + 1}-${Math.min(endIndex, users.length)} 个`;
-}
-
-// 渲染分页控件
-function renderPagination(totalUsers) {
-    const pageNumbersContainer = document.getElementById('pageNumbers');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const pageInfo = document.getElementById('pageInfo');
-
-    totalPages = Math.ceil(totalUsers / pageSize);
-
-    // 更新页面信息
-    pageInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页`;
-
-    // 更新按钮状态
-    prevBtn.disabled = currentPage <= 1;
-    nextBtn.disabled = currentPage >= totalPages;
-
-    // 生成页码
-    let pageNumbersHtml = '';
-
-    // 总是显示第一页
-    pageNumbersHtml += `
-        <button class="page-number ${currentPage === 1 ? 'active' : ''}" onclick="changePage(1)">
-            1
-        </button>
-    `;
-
-    // 显示省略号（如果当前页离第一页较远）
-    if (currentPage > 3) {
-        pageNumbersHtml += `<span class="page-dots">...</span>`;
-    }
-
-    // 显示当前页附近的页码
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-        if (i > 1 && i < totalPages) {
-            pageNumbersHtml += `
-                <button class="page-number ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
-                    ${i}
-                </button>
-            `;
-        }
-    }
-
-    // 显示省略号（如果当前页离最后一页较远）
-    if (currentPage < totalPages - 2) {
-        pageNumbersHtml += `<span class="page-dots">...</span>`;
-    }
-
-    // 总是显示最后一页（如果有超过一页）
-    if (totalPages > 1) {
-        pageNumbersHtml += `
-            <button class="page-number ${currentPage === totalPages ? 'active' : ''}" onclick="changePage(${totalPages})">
-                ${totalPages}
-            </button>
-        `;
-    }
-
-    pageNumbersContainer.innerHTML = pageNumbersHtml;
-}
-
-// 切换页码
-function changePage(page) {
-    if (page < 1 || page > totalPages) return;
-
-    currentPage = page;
-    const users = MockData.getUsers();
-    displayUsers(users);
-    renderPagination(users.length);
-
-    // 滚动到顶部
-    document.querySelector('.user-list').scrollIntoView({ behavior: 'smooth' });
-}
-
-// 更改每页显示数量
-function changePageSize() {
-    const select = document.getElementById('pageSizeSelect');
-    pageSize = parseInt(select.value);
-    currentPage = 1; // 重置到第一页
-    loadUsers();
-}
-
-// 修改添加用户函数，成功后重置到第一页
-function addUser() {
-    // ... 原有的验证和添加逻辑保持不变 ...
-
-    // 在用户添加成功后，重置分页
-    const addedUser = MockData.addUser(newUser);
-    Utils.showMessage(`用户"${name}"添加成功！`, 'success');
-
-    closeAddUserModal();
-
-    // 重置到第一页并重新加载
-    currentPage = 1;
-    loadUsers();
-}
-
-// 修改删除用户函数，成功后重新计算分页
-function deleteUser(userId) {
-    if (!confirm('确定要删除这个用户吗？此操作不可恢复。')) {
-        return;
-    }
-
-    const success = MockData.deleteUser(userId);
-    if (success) {
-        Utils.showMessage('用户删除成功', 'success');
-
-        // 重新加载数据，分页会自动调整
-        loadUsers();
-
-        // 如果当前页没有数据了，自动回到前一页
-        const users = MockData.getUsers();
-        const startIndex = (currentPage - 1) * pageSize;
-        if (users.length <= startIndex && currentPage > 1) {
-            currentPage--;
-            loadUsers();
-        }
-    } else {
-        Utils.showMessage('删除用户失败', 'error');
-    }
-}
-
-// 在 window 对象上导出分页函数
-window.changePage = changePage;
-window.changePageSize = changePageSize;
+// // 修改 loadUsers 函数
+// function loadUsers() {
+//     const users = MockData.getUsers();
+//     totalPages = Math.ceil(users.length / pageSize);
+//     displayUsers(users);
+//     renderPagination(users.length);
+// }
+//
+// // 修改 displayUsers 函数，添加分页逻辑
+// function displayUsers(users) {
+//     const container = document.getElementById('userList');
+//     const countElement = document.getElementById('userCount');
+//
+//     if (users.length === 0) {
+//         container.innerHTML = `
+//             <div style="text-align: center; padding: 60px; color: #666; width: 100%;" class="empty-state">
+//                 <i class="fas fa-users" style="font-size: 56px; margin-bottom: 20px; color: #e8e8e8;"></i>
+//                 <p>暂无用户数据</p>
+//                 <button class="btn btn-primary" onclick="showAddUserModal()" style="margin-top: 15px;">
+//                     <i class="fas fa-user-plus"></i> 添加第一个用户
+//                 </button>
+//             </div>
+//         `;
+//         countElement.textContent = '共0个用户';
+//         return;
+//     }
+//
+//     // 分页处理
+//     const startIndex = (currentPage - 1) * pageSize;
+//     const endIndex = startIndex + pageSize;
+//     const pageUsers = users.slice(startIndex, endIndex);
+//
+//     let html = '';
+//     pageUsers.forEach(user => {
+//         const colors = ['#4a9eff', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+//         const colorIndex = user.id % colors.length;
+//         const avatarColor = user.avatarColor || colors[colorIndex];
+//
+//         html += `
+//             <div class="user-card">
+//                 <div class="user-avatar-large" style="background: ${avatarColor}">
+//                     ${user.name.charAt(0)}
+//                 </div>
+//                 <div class="user-info-details">
+//                     <div class="user-info-name">${user.name}</div>
+//                     <div class="user-info-role">
+//                         <span class="badge" style="background: ${user.role === 'admin' ? '#fee2e2' : '#e7f5ff'};
+//                             color: ${user.role === 'admin' ? '#dc2626' : '#1971c2'};
+//                             padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
+//                             ${user.role === 'admin' ? '👑 系统管理员' : '👷 技术人员'}
+//                         </span>
+//                     </div>
+//                     <ul class="user-info-list">
+//                         <li><i class="fas fa-building"></i> 部门：${user.department}</li>
+//                         <li><i class="fas fa-phone"></i> 电话：${user.phone}</li>
+//                         <li><i class="fas fa-envelope"></i> 邮箱：${user.email}</li>
+//                         <li><i class="fas fa-calendar-alt"></i> 入职时间：${user.hireDate}</li>
+//                     </ul>
+//                     <div style="margin-top: 20px; display: flex; gap: 12px;">
+//                         <button class="btn btn-secondary btn-sm" onclick="editUser(${user.id})">
+//                             <i class="fas fa-edit"></i> 编辑
+//                         </button>
+//                         <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''}>
+//                             <i class="fas fa-trash"></i> 删除
+//                         </button>
+//                     </div>
+//                 </div>
+//             </div>
+//         `;
+//     });
+//
+//     container.innerHTML = html;
+//     countElement.textContent = `共${users.length}个用户，当前显示第 ${startIndex + 1}-${Math.min(endIndex, users.length)} 个`;
+// }
+//
+// // 渲染分页控件
+// function renderPagination(totalUsers) {
+//     const pageNumbersContainer = document.getElementById('pageNumbers');
+//     const prevBtn = document.getElementById('prevBtn');
+//     const nextBtn = document.getElementById('nextBtn');
+//     const pageInfo = document.getElementById('pageInfo');
+//
+//     totalPages = Math.ceil(totalUsers / pageSize);
+//
+//     // 更新页面信息
+//     pageInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页`;
+//
+//     // 更新按钮状态
+//     prevBtn.disabled = currentPage <= 1;
+//     nextBtn.disabled = currentPage >= totalPages;
+//
+//     // 生成页码
+//     let pageNumbersHtml = '';
+//
+//     // 总是显示第一页
+//     pageNumbersHtml += `
+//         <button class="page-number ${currentPage === 1 ? 'active' : ''}" onclick="changePage(1)">
+//             1
+//         </button>
+//     `;
+//
+//     // 显示省略号（如果当前页离第一页较远）
+//     if (currentPage > 3) {
+//         pageNumbersHtml += `<span class="page-dots">...</span>`;
+//     }
+//
+//     // 显示当前页附近的页码
+//     for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+//         if (i > 1 && i < totalPages) {
+//             pageNumbersHtml += `
+//                 <button class="page-number ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+//                     ${i}
+//                 </button>
+//             `;
+//         }
+//     }
+//
+//     // 显示省略号（如果当前页离最后一页较远）
+//     if (currentPage < totalPages - 2) {
+//         pageNumbersHtml += `<span class="page-dots">...</span>`;
+//     }
+//
+//     // 总是显示最后一页（如果有超过一页）
+//     if (totalPages > 1) {
+//         pageNumbersHtml += `
+//             <button class="page-number ${currentPage === totalPages ? 'active' : ''}" onclick="changePage(${totalPages})">
+//                 ${totalPages}
+//             </button>
+//         `;
+//     }
+//
+//     pageNumbersContainer.innerHTML = pageNumbersHtml;
+// }
+//
+// // 切换页码
+// function changePage(page) {
+//     if (page < 1 || page > totalPages) return;
+//
+//     currentPage = page;
+//     const users = MockData.getUsers();
+//     displayUsers(users);
+//     renderPagination(users.length);
+//
+//     // 滚动到顶部
+//     document.querySelector('.user-list').scrollIntoView({ behavior: 'smooth' });
+// }
+//
+// // 更改每页显示数量
+// function changePageSize() {
+//     const select = document.getElementById('pageSizeSelect');
+//     pageSize = parseInt(select.value);
+//     currentPage = 1; // 重置到第一页
+//     loadUsers();
+// }
+//
+// // 修改添加用户函数，成功后重置到第一页
+// function addUser() {
+//     // ... 原有的验证和添加逻辑保持不变 ...
+//
+//     // 在用户添加成功后，重置分页
+//     const addedUser = MockData.addUser(newUser);
+//     Utils.showMessage(`用户"${name}"添加成功！`, 'success');
+//
+//     closeAddUserModal();
+//
+//     // 重置到第一页并重新加载
+//     currentPage = 1;
+//     loadUsers();
+// }
+//
+// // 修改删除用户函数，成功后重新计算分页
+// function deleteUser(userId) {
+//     if (!confirm('确定要删除这个用户吗？此操作不可恢复。')) {
+//         return;
+//     }
+//
+//     const success = MockData.deleteUser(userId);
+//     if (success) {
+//         Utils.showMessage('用户删除成功', 'success');
+//
+//         // 重新加载数据，分页会自动调整
+//         loadUsers();
+//
+//         // 如果当前页没有数据了，自动回到前一页
+//         const users = MockData.getUsers();
+//         const startIndex = (currentPage - 1) * pageSize;
+//         if (users.length <= startIndex && currentPage > 1) {
+//             currentPage--;
+//             loadUsers();
+//         }
+//     } else {
+//         Utils.showMessage('删除用户失败', 'error');
+//     }
+// }
+//
+// // 在 window 对象上导出分页函数
+// window.changePage = changePage;
+// window.changePageSize = changePageSize;

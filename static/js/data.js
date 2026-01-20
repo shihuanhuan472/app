@@ -200,3 +200,173 @@ const MockData = {
 
 // 导出到全局
 window.MockData = MockData;
+
+// js/data.js - 前端数据管理
+const DataManager = {
+    // 用户数据缓存
+    usersCache: null,
+    lastFetchTime: null,
+    cacheDuration: 30000, // 30秒缓存
+
+    // 清除缓存
+    clearCache() {
+        this.usersCache = null;
+        this.lastFetchTime = null;
+    },
+
+    // 获取所有用户（带缓存）
+    async getUsers(forceRefresh = false) {
+        try {
+            // 检查缓存
+            if (!forceRefresh &&
+                this.usersCache &&
+                this.lastFetchTime &&
+                (Date.now() - this.lastFetchTime < this.cacheDuration)) {
+                console.log('从缓存获取用户数据');
+                return this.usersCache;
+            }
+
+            console.log('从API获取用户数据');
+            const users = await adminAPI.getAllUsers();
+
+            // 更新缓存
+            this.usersCache = users;
+            this.lastFetchTime = Date.now();
+
+            return users;
+        } catch (error) {
+            console.error('获取用户数据失败:', error);
+
+            // 如果API失败，尝试使用缓存数据
+            if (this.usersCache) {
+                console.log('API失败，使用缓存数据');
+                return this.usersCache;
+            }
+
+            throw error;
+        }
+    },
+
+    // 分页获取用户
+    async getUsersPage(page = 1, size = 6) {
+        try {
+            console.log(`获取第 ${page} 页用户数据`);
+            const result = await adminAPI.getUsersPage(page, size);
+
+            // 更新缓存（如果有）
+            if (result.users && result.users.length > 0) {
+                // 这里可以根据需要更新缓存逻辑
+            }
+
+            return result;
+        } catch (error) {
+            console.error('分页获取用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取单个用户
+    async getUserById(id) {
+        try {
+            console.log(`获取用户 ${id} 详情`);
+
+            // 先检查缓存
+            if (this.usersCache) {
+                const cachedUser = this.usersCache.find(user => user.id == id);
+                if (cachedUser) {
+                    console.log('从缓存获取用户详情');
+                    return cachedUser;
+                }
+            }
+
+            // 从API获取
+            const user = await adminAPI.getUserById(id);
+            return user;
+        } catch (error) {
+            console.error('获取用户详情失败:', error);
+            throw error;
+        }
+    },
+
+    // 添加用户
+    async addUser(userData) {
+        try {
+            console.log('添加新用户:', userData);
+
+            // 调用API
+            const result = await adminAPI.addUser(userData);
+
+            // 清除缓存，下次需要重新获取
+            this.clearCache();
+
+            return result;
+        } catch (error) {
+            console.error('添加用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 更新用户
+    async updateUser(userData) {
+        try {
+            console.log('更新用户:', userData);
+
+            // 调用API
+            const result = await adminAPI.updateUser(userData);
+
+            // 清除缓存
+            this.clearCache();
+
+            return result;
+        } catch (error) {
+            console.error('更新用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除用户
+    async deleteUser(userId) {
+        try {
+            console.log('删除用户:', userId);
+
+            // 调用API
+            const result = await adminAPI.deleteUser(userId);
+
+            // 清除缓存
+            this.clearCache();
+
+            return result;
+        } catch (error) {
+            console.error('删除用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索用户
+    async searchUsers(query) {
+        try {
+            const users = await this.getUsers();
+
+            if (!query || !query.trim()) {
+                return users;
+            }
+
+            const searchTerm = query.toLowerCase().trim();
+            return users.filter(user => {
+                return (
+                    (user.full_name && user.full_name.toLowerCase().includes(searchTerm)) ||
+                    (user.username && user.username.toLowerCase().includes(searchTerm)) ||
+                    (user.department && user.department.toLowerCase().includes(searchTerm)) ||
+                    (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+                    (user.phone && user.phone.includes(searchTerm))
+                );
+            });
+        } catch (error) {
+            console.error('搜索用户失败:', error);
+            throw error;
+        }
+    }
+};
+
+// 导出到全局
+window.DataManager = DataManager;

@@ -6,12 +6,13 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 
 from dependencies import get_current_active_user
 from models import Document, User
-from schemas import DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page
+from schemas import DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page, DocumentQuery
 from database import get_db
 
 router = APIRouter(prefix="/document", tags=["文档"])
@@ -250,6 +251,39 @@ async def get_page(page: Page,
             "total_pages": total_pages,
             "documents": documents_data
         }
+        return Result.success_with_data(data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查询失败: {str(e)}"
+        )
+
+@router.post("/query", summary="查询文档信息")
+async def query(query: DocumentQuery,
+                db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_active_user)):
+    try:
+        offset = (query.page - 1) * query.size
+        total_count = db.query(Document).filter(
+                or_(
+                    Document.title.like(f"%{query.data}%"),
+                    Document.contributor_name.like(f"%{query.data}%"),
+                    Document.problem_intro.like(f"%{query.data}%"))).count()
+        documents = db.query(Document).filter(
+                or_(
+                    Document.title.like(f"%{query.data}%"),
+                    Document.contributor_name.like(f"%{query.data}%"),
+                    Document.problem_intro.like(f"%{query.data}%"))
+            ).offset(offset).limit(query.size).all()
+        total_pages = (total_count + query.size - 1) // query.size
+        documents_response = [DocumentResponse.from_orm(document) for document in documents]
+
+        data = {
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "documents": documents_response
+        }
+
         return Result.success_with_data(data)
     except Exception as e:
         raise HTTPException(

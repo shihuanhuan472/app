@@ -4,12 +4,13 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends
 import logging
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from database import get_db
 from dependencies import get_current_user, get_current_active_user, require_roles, get_optional_user
 from typing import Optional
 from models import User
-from schemas import Result, Page, UserResponse, UserCreate, UserUpdateByAdmin
+from schemas import Result, Page, UserResponse, UserCreate, UserUpdateByAdmin, UserQueryByPage
 
 router = APIRouter(prefix="/admin", tags=["管理员"])
 logger = logging.getLogger(__name__)
@@ -172,6 +173,47 @@ async def get_user_page(page: Page, db: Session = Depends(get_db),
             "total_pages": total_pages,
             "users": users_data
         }
+        return Result.success_with_data(data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查询失败: {str(e)}"
+        )
+
+
+@router.post("/query", summary="查询用户信息")
+async def query(query: UserQueryByPage,
+                db: Session = Depends(get_db),
+                current_user: User = Depends(require_roles("admin"))):
+    try:
+        offset = (query.page - 1) * query.size
+        total_count = db.query(User).filter(
+            and_(
+                User.status == 1,
+                or_(
+                    User.username.like(f"%{query.data}%"),
+                    User.phone.like(f"%{query.data}%"),
+                    User.full_name.like(f"%{query.data}%"),
+                    User.department.like(f"%{query.data}%"))
+            )).count()
+        users = db.query(User).filter(
+            and_(
+                User.status == 1,
+                or_(
+                    User.username.like(f"%{query.data}%"),
+                    User.phone.like(f"%{query.data}%"),
+                    User.full_name.like(f"%{query.data}%"),
+                    User.department.like(f"%{query.data}%"))
+            )).offset(offset).limit(query.size).all()
+        total_pages = (total_count + query.size - 1) // query.size
+        users_response = [UserResponse.from_orm(user) for user in users]
+
+        data = {
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "users": users_response
+        }
+
         return Result.success_with_data(data)
     except Exception as e:
         raise HTTPException(

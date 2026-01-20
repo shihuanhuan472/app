@@ -108,14 +108,11 @@
         </div>
     </div>
 
-    <script src="js/common.js"></script>
     <script>
         // 文档分页变量
         let docCurrentPage = 1;
         let docPageSize = 9;
         let docTotalPages = 1;
-        let allDocuments = [];  // 仅用于前端搜索的缓存
-        let filteredDocuments = [];
         let isSearching = false;
         let currentSearchQuery = '';
 
@@ -139,21 +136,47 @@
 
             // 搜索功能 - 实时搜索
             const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('input', Utils.debounce(function() {
-                const query = this.value.trim();
-                currentSearchQuery = query;
+            if (searchInput) {
+                // 使用更安全的事件处理
+                const handleSearchInput = (event) => {
+                    const target = event.target;
+                    if (!target) return;
 
-                if (query === '') {
-                    // 清空搜索时，重置到第一页并重新加载所有文档
-                    isSearching = false;
-                    docCurrentPage = 1;
-                    loadDocuments();
-                } else {
-                    // 执行搜索
-                    isSearching = true;
-                    searchDocuments(query);
-                }
-            }, 300));
+                    const query = (target.value || '').trim();
+                    console.log('搜索输入:', query);
+                    currentSearchQuery = query;
+
+                    if (query === '') {
+                        // 清空搜索时，重置到第一页并重新加载所有文档
+                        isSearching = false;
+                        docCurrentPage = 1;
+                        loadDocuments();
+                    } else {
+                        // 执行搜索
+                        isSearching = true;
+                        docCurrentPage = 1;
+                        searchDocuments(query);
+                    }
+                };
+
+                // 使用防抖函数
+                const debouncedSearch = Utils.debounce(handleSearchInput, 300);
+
+                // 绑定事件
+                searchInput.addEventListener('input', debouncedSearch);
+
+                // 可选：添加回车键搜索
+                searchInput.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        const query = (event.target.value || '').trim();
+                        if (query) {
+                            isSearching = true;
+                            docCurrentPage = 1;
+                            searchDocuments(query);
+                        }
+                    }
+                });
+            }
         });
 
         // 显示加载状态
@@ -190,7 +213,7 @@
             }
         }
 
-        // 修复后的 loadDocuments 函数
+        // 加载普通文档列表
         async function loadDocuments() {
             try {
                 console.log(`加载第 ${docCurrentPage} 页，每页 ${docPageSize} 条`);
@@ -224,9 +247,6 @@
 
                     console.log('转换后的当前页文档数据:', currentPageDocuments);
 
-                    // 如果不是搜索状态，用当前页数据直接显示
-                    // 注意：这里不再存储到allDocuments，因为后端已分页
-
                     // 更新分页信息
                     docTotalPages = pageData.total_pages || 1;
                     const totalCount = pageData.total_count || 0;
@@ -259,7 +279,7 @@
             }
         }
 
-        // 搜索文档 - 现在需要重新调用后端API
+        // 搜索文档 - 调用后端API
         async function searchDocuments(query) {
             if (!query.trim()) {
                 // 清空搜索时恢复所有文档
@@ -270,16 +290,18 @@
             }
 
             try {
-                console.log(`搜索: "${query}"`);
+                console.log(`搜索文档: "${query}"`);
                 showLoading();
 
-                // 注意：这里需要实现后端搜索API
-                // 目前暂时使用前端搜索，但需要先获取所有数据
-                const allDocs = await documentAPI.getAllDocuments();
+                // 调用后端搜索API（分页）
+                const result = await documentAPI.searchDocumentsPage(query, docCurrentPage, docPageSize);
 
-                if (allDocs && allDocs.length > 0) {
+                isSearching = true;
+                currentSearchQuery = query;
+
+                if (result && result.documents) {
                     // 转换数据格式
-                    const convertedDocs = allDocs.map(doc => {
+                    const searchResults = result.documents.map(doc => {
                         const currentUser = Utils.getCurrentUser();
                         const currentUserId = currentUser ? currentUser.id : null;
 
@@ -298,22 +320,14 @@
                         };
                     });
 
-                    // 前端搜索过滤
-                    const lowerQuery = query.toLowerCase();
-                    filteredDocuments = convertedDocs.filter(doc =>
-                        doc.title.toLowerCase().includes(lowerQuery) ||
-                        (doc.content && doc.content.toLowerCase().includes(lowerQuery)) ||
-                        doc.author.toLowerCase().includes(lowerQuery)
-                    );
+                    // 更新分页信息
+                    docTotalPages = result.total_pages || 1;
+                    const totalCount = result.total_count || 0;
 
-                    console.log(`搜索到 ${filteredDocuments.length} 个文档`);
-
-                    // 重置到第一页并显示结果
-                    docCurrentPage = 1;
-                    displaySearchResults(filteredDocuments);
+                    // 显示搜索结果
+                    displayDocuments(searchResults, totalCount);
                 } else {
-                    filteredDocuments = [];
-                    displaySearchResults(filteredDocuments);
+                    displayDocuments([], 0);
                 }
             } catch (error) {
                 console.error('搜索失败:', error);
@@ -323,26 +337,29 @@
             }
         }
 
-        // 显示文档列表（后端分页）
+        // 显示文档列表（现在同时用于普通列表和搜索结果）
         function displayDocuments(documents, totalCount) {
             const container = document.getElementById('documentList');
 
             if (!documents || documents.length === 0) {
+                const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
                 container.innerHTML = `
                     <div class="document-empty">
-                        <i class="fas fa-file-alt" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
-                        <p style="color: #666;">暂无文档数据</p>
-                        <a href="add-document.html" class="btn btn-primary" style="margin-top: 15px;">
-                            <i class="fas fa-plus"></i> 添加第一个文档
-                        </a>
+                        <i class="fas fa-${isSearching ? 'search' : 'file-alt'}" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
+                        <p style="color: #666;">${message}</p>
+                        ${!isSearching ? `
+                            <a href="add-document.html" class="btn btn-primary" style="margin-top: 15px;">
+                                <i class="fas fa-plus"></i> 添加第一个文档
+                            </a>
+                        ` : `
+                            <button class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 15px;">
+                                <i class="fas fa-times"></i> 清除搜索
+                            </button>
+                        `}
                     </div>
                 `;
 
-                // 清空分页
-                const pageNumbersContainer = document.getElementById('docPageNumbers');
-                const pageInfo = document.getElementById('docPageInfo');
-                if (pageNumbersContainer) pageNumbersContainer.innerHTML = '';
-                if (pageInfo) pageInfo.textContent = '第 1 页，共 1 页';
+                renderDocPagination(totalCount);
                 return;
             }
 
@@ -381,80 +398,19 @@
             renderDocPagination(totalCount);
         }
 
-        // 显示搜索结果（前端分页）
-        function displaySearchResults(documents) {
-            const container = document.getElementById('documentList');
-
-            if (documents.length === 0) {
-                container.innerHTML = `
-                    <div class="document-empty">
-                        <i class="fas fa-search" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
-                        <p style="color: #666;">没有找到相关文档</p>
-                        <button class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 15px;">
-                            <i class="fas fa-times"></i> 清除搜索
-                        </button>
-                    </div>
-                `;
-
-                // 清空分页
-                const pageNumbersContainer = document.getElementById('docPageNumbers');
-                const pageInfo = document.getElementById('docPageInfo');
-                if (pageNumbersContainer) pageNumbersContainer.innerHTML = '';
-                if (pageInfo) pageInfo.textContent = '第 1 页，共 1 页';
-                return;
-            }
-
-            // 前端分页处理
-            docTotalPages = Math.ceil(documents.length / docPageSize);
-            const startIndex = (docCurrentPage - 1) * docPageSize;
-            const endIndex = startIndex + docPageSize;
-            const pageDocuments = documents.slice(startIndex, endIndex);
-
-            let html = '';
-            pageDocuments.forEach(doc => {
-                // 处理内容显示，确保不会太长
-                let content = doc.content || '';
-                if (content.length > 100) {
-                    content = content.substring(0, 100) + '...';
-                }
-
-                html += `
-                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}'">
-                        <div class="document-item-header">
-                            <div class="document-item-title">${doc.title}</div>
-                        </div>
-
-                        <div class="document-item-content">
-                            ${content}
-                        </div>
-
-                        <div class="document-item-footer">
-                            <div class="document-item-author">
-                                <i class="fas fa-user"></i>
-                                <span>${doc.author}</span>
-                            </div>
-                            <div class="document-item-date">
-                                ${doc.date}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-            renderDocPagination(documents.length);
-        }
-
         // 渲染文档分页控件
         function renderDocPagination(totalCount) {
             const pageNumbersContainer = document.getElementById('docPageNumbers');
             const prevBtn = document.getElementById('docPrevBtn');
             const nextBtn = document.getElementById('docNextBtn');
             const pageInfo = document.getElementById('docPageInfo');
+            const paginationContainer = document.getElementById('docPagination');
 
-            // 如果是搜索状态，使用搜索结果的长度计算分页
-            if (isSearching) {
-                docTotalPages = Math.ceil(totalCount / docPageSize);
+            // 如果没有数据或只有一页，隐藏分页控件
+            if (totalCount <= docPageSize) {
+                paginationContainer.style.display = 'none';
+            } else {
+                paginationContainer.style.display = 'flex';
             }
 
             // 更新页面信息
@@ -519,21 +475,21 @@
             if (page < 1 || page > docTotalPages) return;
 
             docCurrentPage = page;
+            showLoading();
 
-            if (isSearching) {
-                // 如果是搜索状态，重新显示搜索结果
-                displaySearchResults(filteredDocuments);
-            } else {
-                // 正常状态，重新加载文档
-                showLoading();
-                try {
+            try {
+                if (isSearching && currentSearchQuery) {
+                    // 如果是搜索状态，重新搜索
+                    await searchDocuments(currentSearchQuery);
+                } else {
+                    // 正常状态，重新加载文档
                     await loadDocuments();
-                } catch (error) {
-                    console.error('切换页面失败:', error);
-                    showError('切换页面失败: ' + error.message);
-                } finally {
-                    hideLoading();
                 }
+            } catch (error) {
+                console.error('切换页面失败:', error);
+                showError('切换页面失败: ' + error.message);
+            } finally {
+                hideLoading();
             }
 
             // 滚动到顶部
@@ -545,21 +501,21 @@
             const select = document.getElementById('docPageSizeSelect');
             docPageSize = parseInt(select.value);
             docCurrentPage = 1; // 重置到第一页
+            showLoading();
 
-            if (isSearching && currentSearchQuery) {
-                // 如果是搜索状态，重新搜索
-                await searchDocuments(currentSearchQuery);
-            } else {
-                // 正常状态，重新加载文档
-                showLoading();
-                try {
+            try {
+                if (isSearching && currentSearchQuery) {
+                    // 如果是搜索状态，重新搜索
+                    await searchDocuments(currentSearchQuery);
+                } else {
+                    // 正常状态，重新加载文档
                     await loadDocuments();
-                } catch (error) {
-                    console.error('更改分页大小失败:', error);
-                    showError('更改分页大小失败: ' + error.message);
-                } finally {
-                    hideLoading();
                 }
+            } catch (error) {
+                console.error('更改分页大小失败:', error);
+                showError('更改分页大小失败: ' + error.message);
+            } finally {
+                hideLoading();
             }
         }
 

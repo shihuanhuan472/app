@@ -85,6 +85,11 @@ class DocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class DocumentQuery(BaseModel):
+    data: str
+    page: Optional[int] = 1
+    size: Optional[int] = 6
+
 class DeleteImageRequest(BaseModel):
     image_url: str
 
@@ -127,6 +132,11 @@ class MessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserQueryByPage(BaseModel):
+    data: str
+    page: Optional[int] = 1
+    size: Optional[int] = 6
 
 class TokenData(BaseModel):
     """Token 数据模型"""

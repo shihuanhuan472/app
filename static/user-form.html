@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户表单 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        /* 表单页面样式优化 */
+        .user-form-container {
+            padding: 30px;
+        }
+
+        .form-header {
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        /* 表单卡片 */
+        .form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            padding: 30px;
+        }
+
+        /* 表单布局 */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .form-group label.required::after {
+            content: '*';
+            color: #ef4444;
+            margin-left: 4px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #334155;
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-group input.error,
+        .form-group select.error,
+        .form-group textarea.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .error-message::before {
+            content: '!';
+            font-size: 10px;
+        }
+
+        /* 下拉框样式 */
+        .form-group select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+
+        /* 文本域 */
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+            font-family: inherit;
+        }
+
+        /* 表单操作按钮 */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding-top: 30px;
+            margin-top: 30px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .form-actions .btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-actions .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .form-actions .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .form-actions .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .form-actions .btn-primary:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .form-actions .btn-primary.loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .form-actions .btn-primary.loading::after {
+            content: '';
+            position: absolute;
+            right: 12px;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 头部按钮 */
+        .header-actions .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 1200px) {
+            .user-form-container {
+                padding: 20px;
+            }
+
+            .form-card {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .form-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <!-- 侧边导航栏 -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 用户管理 - 初始时隐藏，通过JS判断显示 -->
+                <a href="user-management.html" class="nav-item" id="userManagementLink" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 我的资料 - 所有用户都可见 -->
+                <a href="user-profile.html" class="nav-item" id="userProfileLink" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div class="user-form-container">
+                <div class="form-header">
+                    <div>
+                        <div class="page-title" id="formTitle">添加新用户</div>
+                        <div class="page-subtitle">填写用户信息</div>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <form id="userForm">
+                        <input type="hidden" id="userId" value="">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="required">用户名</label>
+                                <input type="text" id="username" placeholder="请输入用户名" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">姓名</label>
+                                <input type="text" id="full_name" placeholder="请输入姓名" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="required">部门</label>
+                                <input type="text" id="department" placeholder="请输入部门" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">角色</label>
+                                <select id="role" required>
+                                    <option value="">请选择角色</option>
+                                    <option value="0">系统管理员</option>
+                                    <option value="1">维修工程师</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="required">电话</label>
+                                <input type="tel" id="phone" placeholder="请输入电话" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">邮箱</label>
+                                <input type="email" id="email" placeholder="请输入邮箱" required>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="goBack()">
+                                <i class="fas fa-times"></i> 取消
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-save"></i> 保存用户
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 用户表单逻辑
+        const UserForm = {
+            // 初始化
+            async init() {
+                try {
+                    // 检查登录状态
+                    const user = Utils.checkLogin();
+                    if (!user) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    // 加载侧边栏用户信息
+                    Utils.loadUserInfo();
+
+                    // 检查权限（只有管理员可以管理用户）
+                    let isAdmin = false;
+                    if (typeof user.role === 'number') {
+                        isAdmin = user.role === 0;
+                    } else if (typeof user.role === 'string') {
+                        isAdmin = user.role === 'admin' || user.role === '0';
+                    } else if (user.role_id !== undefined) {
+                        isAdmin = user.role_id === 0;
+                    }
+
+                    if (!isAdmin) {
+                        Utils.showMessage('您没有权限访问此页面', 'error');
+                        setTimeout(() => {
+                            window.location.href = 'main.html';
+                        }, 1500);
+                        return;
+                    }
+
+                    // 绑定表单提交事件
+                    const userForm = document.getElementById('userForm');
+                    if (userForm) {
+                        userForm.addEventListener('submit', (e) => this.saveUser(e));
+                    }
+
+                    // 判断是添加还是编辑模式
+                    const userId = this.getUrlParam('id');
+                    if (userId) {
+                        // 编辑模式
+                        const formTitle = document.getElementById('formTitle');
+                        if (formTitle) {
+                            formTitle.textContent = '编辑用户';
+                        }
+                        await this.loadUserData(userId);
+                    } else {
+                        // 添加模式
+                        const formTitle = document.getElementById('formTitle');
+                        if (formTitle) {
+                            formTitle.textContent = '添加新用户';
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('表单页面初始化失败:', error);
+                    Utils.showMessage('页面加载失败，请刷新重试', 'error');
+                }
+            },
+
+            // 获取URL参数
+            getUrlParam(name) {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get(name);
+            },
+
+            // 返回上一页
+            goBack() {
+                window.location.href = 'user-management.html';
+            },
+
+            // 安全获取表单值
+            getFormValue(fieldId) {
+                const element = document.getElementById(fieldId);
+                return element ? element.value.trim() : '';
+            },
+
+            // 表单验证
+            validateForm() {
+                const requiredFields = ['username', 'full_name', 'phone', 'email', 'department', 'role'];
+                let isValid = true;
+
+                // 清除所有错误状态
+                requiredFields.forEach(fieldId => {
+                    const element = document.getElementById(fieldId);
+                    if (element) {
+                        this.clearError(fieldId);
+                    }
+                });
+
+                // 检查必填字段
+                requiredFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (!field) return;
+
+                    const value = field.value.trim();
+
+                    if (!value) {
+                        this.highlightError(fieldId, '此字段为必填项');
+                        isValid = false;
+                    }
+                });
+
+                // 验证邮箱格式
+                const email = this.getFormValue('email');
+                if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    this.highlightError('email', '请输入有效的邮箱地址');
+                    isValid = false;
+                }
+
+                // 验证电话格式
+                const phone = this.getFormValue('phone');
+                if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
+                    this.highlightError('phone', '请输入有效的手机号码');
+                    isValid = false;
+                }
+
+                // 验证用户名格式
+                const username = this.getFormValue('username');
+                if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
+                    this.highlightError('username', '用户名只能包含字母、数字和下划线');
+                    isValid = false;
+                }
+
+                return isValid;
+            },
+
+            // 高亮错误
+            highlightError(fieldId, message) {
+                const input = document.getElementById(fieldId);
+                if (!input) return;
+
+                const formGroup = input.closest('.form-group');
+                if (!formGroup) return;
+
+                input.classList.add('error');
+
+                let errorMsg = formGroup.querySelector('.error-message');
+                if (!errorMsg) {
+                    errorMsg = document.createElement('div');
+                    errorMsg.className = 'error-message';
+                    formGroup.appendChild(errorMsg);
+                }
+                errorMsg.textContent = message;
+            },
+
+            // 清除错误
+            clearError(fieldId) {
+                const input = document.getElementById(fieldId);
+                if (!input) return;
+
+                const formGroup = input.closest('.form-group');
+                if (!formGroup) return;
+
+                input.classList.remove('error');
+
+                const errorMsg = formGroup.querySelector('.error-message');
+                if (errorMsg) errorMsg.remove();
+            },
+
+            // 保存用户
+            async saveUser(e) {
+                e.preventDefault();
+
+                if (!this.validateForm()) {
+                    Utils.showMessage('请填写完整的用户信息', 'error');
+                    return;
+                }
+
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+
+                try {
+                    // 使用安全方法获取表单值
+                    const username = this.getFormValue('username');
+                    const full_name = this.getFormValue('full_name');
+                    const department = this.getFormValue('department');
+                    const phone = this.getFormValue('phone');
+                    const email = this.getFormValue('email');
+                    const role = this.getFormValue('role');
+                    const remark = this.getFormValue('remark');
+
+                    console.log('表单数据:', { username, full_name, department, phone, email, role, remark });
+
+                    const userData = {
+                        username: username,
+                        full_name: full_name,
+                        department: department,
+                        phone: phone,
+                        email: email,
+                        role: role,  // 保持为字符串，因为后端可能期望字符串
+                        remark: remark
+                    };
+
+                    const userId = this.getFormValue('userId');
+                    console.log('用户ID:', userId, '用户数据:', userData);
+
+                    let result;
+
+                    if (userId) {
+                        // 编辑模式
+                        userData.id = userId;
+                        console.log('更新用户:', userData);
+                        result = await DataManager.updateUser(userData);
+                        console.log('更新结果:', result);
+                        Utils.showMessage('用户信息更新成功！', 'success');
+                    } else {
+                        // 添加模式
+                        console.log('添加用户:', userData);
+                        result = await DataManager.addUser(userData);
+                        console.log('添加结果:', result);
+                        Utils.showMessage('用户添加成功！', 'success');
+                    }
+
+                    // 延迟返回，让用户看到成功提示
+                    setTimeout(() => {
+                        window.location.href = 'user-management.html';
+                    }, 1000);
+
+                } catch (error) {
+                    console.error('保存用户失败:', error);
+                    Utils.showMessage(error.message || '保存用户失败', 'error');
+                } finally {
+                    const submitBtn = document.getElementById('submitBtn');
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                }
+            },
+
+            // 加载用户信息（编辑模式）
+            async loadUserData(userId) {
+                try {
+                    console.log('加载用户数据，ID:', userId);
+                    const user = await DataManager.getUserById(userId);
+                    console.log('获取到的用户数据:', user);
+
+                    if (user) {
+                        // 使用安全的方式设置表单值
+                        const setFormValue = (elementId, value) => {
+                            const element = document.getElementById(elementId);
+                            if (element) {
+                                // 特别处理角色字段
+                                if (elementId === 'role') {
+                                    if (value === 0 || value === '0') {
+                                        element.value = '0';
+                                    } else if (value === 1 || value === '1') {
+                                        element.value = '1';
+                                    } else {
+                                        element.value = '1'; // 默认值
+                                    }
+                                } else {
+                                    element.value = value || '';
+                                }
+                                console.log(`设置字段 ${elementId}:`, element.value);
+                            }
+                        };
+
+                        setFormValue('userId', user.id);
+                        setFormValue('username', user.username);
+                        setFormValue('full_name', user.full_name);
+                        setFormValue('department', user.department);
+                        setFormValue('phone', user.phone);
+                        setFormValue('email', user.email);
+                        setFormValue('role', user.role);
+                        setFormValue('remark', user.remark);
+                    } else {
+                        Utils.showMessage('用户不存在', 'error');
+                        setTimeout(() => {
+                            this.goBack();
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('加载用户数据失败:', error);
+                    Utils.showMessage('加载用户信息失败: ' + error.message, 'error');
+                    setTimeout(() => {
+                        this.goBack();
+                    }, 1500);
+                }
+            }
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            await UserForm.init();
+        });
+
+        // 为HTML按钮提供简化的包装函数
+        window.goBack = () => UserForm.goBack();
+    </script>
+</body>
+</html>

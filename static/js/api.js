@@ -389,6 +389,63 @@ const documentAPI = {
         }
     },
 
+    // 搜索文档（分页）
+    async searchDocumentsPage(query, page = 1, size = 9) {
+        try {
+            console.log(`搜索文档: "${query}", 第 ${page} 页，每页 ${size} 条`);
+
+            const requestData = {
+                data: query,  // 注意：根据你的后端，参数名是 "data"
+                page: page,
+                size: size
+            };
+
+            console.log('搜索文档请求数据:', requestData);
+
+            // 注意：根据你的后端路由，应该是 /documents/query
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/query`,
+                requestData,
+                true
+            );
+
+            console.log('搜索文档响应:', response);
+
+            if (response.code === 1) {
+                // 注意：你的后端返回的是 "users" 字段，但应该是文档
+                // 先按 "users" 取数据，建议后端改为 "documents"
+                const data = response.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    users: []  // 注意：这里后端返回的是 "users" 键
+                };
+
+                // 为了兼容性，检查不同的键名
+                const documents = data.users || data.documents || [];
+
+                return {
+                    total_count: data.total_count || 0,
+                    total_pages: data.total_pages || 0,
+                    documents: documents
+                };
+            } else {
+                console.error('搜索文档失败:', response.msg);
+                return {
+                    total_count: 0,
+                    total_pages: 0,
+                    documents: []
+                };
+            }
+        } catch (error) {
+            console.error('搜索文档失败:', error);
+            return {
+                total_count: 0,
+                total_pages: 0,
+                documents: []
+            };
+        }
+    },
+
     // 检查文档编辑权限
     async checkEditPermission(id) {
         try {
@@ -567,3 +624,547 @@ const userAPI = {
         }
     }
 };
+
+// 管理员相关的 API
+// const adminAPI = {
+//     client: new APIClient(),
+//
+//     // 管理员添加用户
+//     async addUser(userData) {
+//         try {
+//             console.log('管理员添加用户:', userData);
+//
+//             const response = await this.client.post(
+//                 '/admin/add_user',
+//                 userData,
+//                 true
+//             );
+//
+//             console.log('添加用户响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response;
+//             } else {
+//                 throw new Error(response.msg || '添加用户失败');
+//             }
+//         } catch (error) {
+//             console.error('添加用户失败:', error);
+//             throw error;
+//         }
+//     },
+//
+//     // 管理员更新用户信息
+//     async updateUser(userData) {
+//         try {
+//             console.log('管理员更新用户:', userData);
+//
+//             const response = await this.client.patch(
+//                 '/admin/update_user',
+//                 userData,
+//                 true
+//             );
+//
+//             console.log('更新用户响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response;
+//             } else {
+//                 throw new Error(response.msg || '更新用户失败');
+//             }
+//         } catch (error) {
+//             console.error('更新用户失败:', error);
+//             throw error;
+//         }
+//     },
+//
+//     // 管理员获取所有用户
+//     async getAllUsers() {
+//         try {
+//             console.log('获取所有用户');
+//
+//             const response = await this.client.get(
+//                 '/admin/users',
+//                 true
+//             );
+//
+//             console.log('获取所有用户响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response.data || [];
+//             } else {
+//                 throw new Error(response.msg || '获取用户列表失败');
+//             }
+//         } catch (error) {
+//             console.error('获取用户列表失败:', error);
+//             throw error;
+//         }
+//     },
+//
+//     // 管理员获取单个用户
+//     async getUserById(id) {
+//         try {
+//             console.log('获取用户详情:', id);
+//
+//             const response = await this.client.get(
+//                 `/admin/user/${id}`,
+//                 true
+//             );
+//
+//             console.log('获取用户详情响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response.data;
+//             } else {
+//                 throw new Error(response.msg || '获取用户详情失败');
+//             }
+//         } catch (error) {
+//             console.error('获取用户详情失败:', error);
+//             throw error;
+//         }
+//     },
+//
+//     // 管理员分页查询用户
+//     async getUsersPage(page = 1, size = 6) {
+//         try {
+//             console.log(`获取第 ${page} 页用户，每页 ${size} 条`);
+//
+//             const requestData = {
+//                 page: page,
+//                 size: size
+//             };
+//
+//             const response = await this.client.post(
+//                 '/admin/users/page',
+//                 requestData,
+//                 true
+//             );
+//
+//             console.log('分页获取用户响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response.data || {
+//                     total_count: 0,
+//                     total_pages: 0,
+//                     users: []
+//                 };
+//             } else {
+//                 throw new Error(response.msg || '分页获取用户失败');
+//             }
+//         } catch (error) {
+//             console.error('分页获取用户失败:', error);
+//             throw error;
+//         }
+//     },
+//
+//     // 删除用户（软删除，更新status为0）
+//     async deleteUser(userId) {
+//         try {
+//             console.log('删除用户:', userId);
+//
+//             // 先获取用户当前信息
+//             const user = await this.getUserById(userId);
+//             if (!user) {
+//                 throw new Error('用户不存在');
+//             }
+//
+//             // 更新用户状态为0（软删除）
+//             const updateData = {
+//                 id: userId,
+//                 status: 0
+//             };
+//
+//             const response = await this.client.patch(
+//                 '/admin/update_user',
+//                 updateData,
+//                 true
+//             );
+//
+//             console.log('删除用户响应:', response);
+//
+//             if (response.code === 1) {
+//                 return response;
+//             } else {
+//                 throw new Error(response.msg || '删除用户失败');
+//             }
+//         } catch (error) {
+//             console.error('删除用户失败:', error);
+//             throw error;
+//         }
+//     }
+// };
+
+
+// api.js - API 接口封装
+const DataManager = {
+    // 获取分页用户数据
+    async getUsersPage(page = 1, pageSize = 6) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：POST /admin/users/page
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/users/page`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    page: page,
+                    size: pageSize
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // 检查 API 返回的状态码
+            if (result.code !== 1) {
+                throw new Error(result.msg || '获取用户数据失败');
+            }
+
+            return result.data || { users: [], total_count: 0, total_pages: 1 };
+
+        } catch (error) {
+            console.error('获取用户数据失败:', error);
+            throw error;
+        }
+    },
+
+    // 添加用户
+    async addUser(userData) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：POST /admin/add_user
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/add_user`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(userData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code !== 1) {
+                throw new Error(result.msg || '添加用户失败');
+            }
+
+            return result.data;
+
+        } catch (error) {
+            console.error('添加用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 更新用户
+    async updateUser(userData) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：PATCH /admin/update_user
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/update_user`;
+
+            const response = await fetch(apiUrl, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(userData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code !== 1) {
+                throw new Error(result.msg || '更新用户失败');
+            }
+
+            return result.data;
+
+        } catch (error) {
+            console.error('更新用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除用户 - 通过更新用户状态实现软删除
+    async deleteUser(userId) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用更新用户接口实现软删除，设置 status = 0
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/update_user`;
+
+            const response = await fetch(apiUrl, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    id: userId,
+                    status: 0  // 软删除，将状态设为0
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code !== 1) {
+                throw new Error(result.msg || '删除用户失败');
+            }
+
+            return result.data;
+
+        } catch (error) {
+            console.error('删除用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 根据ID获取用户
+    async getUserById(userId) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：GET /admin/user/{id}
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/user/${userId}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code !== 1) {
+                throw new Error(result.msg || '获取用户信息失败');
+            }
+
+            return result.data;
+
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索用户 - 目前后端没有搜索接口，暂时使用模拟数据
+    async searchUsers(query) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 注意：根据你的后端代码，目前没有搜索接口
+            // 可以暂时使用模拟搜索或提示用户此功能暂不可用
+
+            console.warn('搜索用户功能暂未实现，后端需要添加搜索接口');
+
+            // 临时方案：获取所有用户然后在前端过滤
+            const result = await this.getUsersPage(1, 100); // 获取第一页100条数据
+
+            if (!result || !result.users) {
+                return [];
+            }
+
+            const lowerQuery = query.toLowerCase();
+            const filteredUsers = result.users.filter(user => {
+                return (
+                    (user.username && user.username.toLowerCase().includes(lowerQuery)) ||
+                    (user.full_name && user.full_name.toLowerCase().includes(lowerQuery)) ||
+                    (user.department && user.department.toLowerCase().includes(lowerQuery)) ||
+                    (user.email && user.email.toLowerCase().includes(lowerQuery)) ||
+                    (user.phone && user.phone.includes(query))
+                );
+            });
+
+            return filteredUsers;
+
+        } catch (error) {
+            console.error('搜索用户失败:', error);
+            // 如果搜索失败，返回空数组
+            return [];
+        }
+    },
+
+    // 获取所有用户（不分页）- 用于统计等用途
+    async getAllUsers() {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：GET /admin/users
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/users`;
+
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code !== 1) {
+                throw new Error(result.msg || '获取所有用户失败');
+            }
+
+            return result.data || [];
+
+        } catch (error) {
+            console.error('获取所有用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 检查用户名是否已存在（可选功能）
+    async checkUsernameExists(username) {
+        try {
+            // 可以通过获取所有用户然后检查
+            const users = await this.getAllUsers();
+            return users.some(user => user.username === username);
+        } catch (error) {
+            console.error('检查用户名失败:', error);
+            return false;
+        }
+    },
+
+    // 检查邮箱是否已存在（可选功能）
+    async checkEmailExists(email) {
+        try {
+            // 可以通过获取所有用户然后检查
+            const users = await this.getAllUsers();
+            return users.some(user => user.email === email);
+        } catch (error) {
+            console.error('检查邮箱失败:', error);
+            return false;
+        }
+    },
+
+    async searchUsersPage(query, page = 1, size = 6) {
+        try {
+            const token = Utils.getToken();
+            if (!token) {
+                throw new Error('用户未登录');
+            }
+
+            // 使用正确的路由：POST /user/query
+            const apiUrl = `${Utils.getApiBaseUrl()}/admin/query`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    data: query,
+                    page: page,
+                    size: size
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // 检查 API 返回的状态码
+            if (result.code !== 1 && result.code !== 200) {
+                throw new Error(result.msg || result.detail || '搜索用户失败');
+            }
+
+            // 根据不同的响应结构处理数据
+            if (result.code === 200) {
+                return result.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    users: []
+                };
+            } else if (result.code === 1) {
+                return result.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    users: []
+                };
+            } else {
+                throw new Error('搜索用户失败：未知的响应格式');
+            }
+
+        } catch (error) {
+            console.error('搜索用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 检查手机号是否已存在（可选功能）
+    async checkPhoneExists(phone) {
+        try {
+            // 可以通过获取所有用户然后检查
+            const users = await this.getAllUsers();
+            return users.some(user => user.phone === phone);
+        } catch (error) {
+            console.error('检查手机号失败:', error);
+            return false;
+        }
+    }
+};
+
+// 导出到全局
+window.DataManager = DataManager;
+
+// 导出到全局
+window.adminAPI = adminAPI;
