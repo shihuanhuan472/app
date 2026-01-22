@@ -94,7 +94,7 @@ class MenuManager {
             }
         }
 
-        if (fileName.includes("add-document")) {
+        if (fileName.includes("add-document") || fileName.includes("document-detail") || fileName.includes("edit-document")) {
             const link = document.querySelector(`a[href="main.html"]`);
             if (link) {
                 link.classList.add('active');

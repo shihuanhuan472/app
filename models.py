@@ -28,7 +28,6 @@ class Document(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"))
-    contributor_name = Column(String(50))
     first_edit_date = Column(DateTime)
     problem_intro = Column(Text, nullable=False)
     image_urls = Column(Text)

@@ -25,18 +25,12 @@ async def add_user(user: UserCreate,
         email = user.email
         user_phone_find = db.query(User).filter(User.phone == phone, User.status == 1).first()
         if user_phone_find:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="手机号已被其他用户使用"
-            )
+            return Result.error("手机号已被其他用户使用")
         # 检查邮箱唯一性
         if email is not None:
             user_email_find = db.query(User).filter(User.email == email, User.status == 1).first()
             if user_email_find:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="邮箱已被其他用户使用"
-                )
+                return Result.error("邮箱已被其他用户使用")
         # 默认密码为123456
         hashed_password = hashlib.md5("123456".encode()).hexdigest()
         user_dict = user.dict(exclude={'password'})
@@ -83,10 +77,7 @@ async def update_user(new_user: UserUpdateByAdmin,
 
         # 如果没有传入任何字段
         if not new_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请提供需要更新的字段"
-            )
+            return Result.error("请提供需要更新的字段")
 
         # 检查一下手机号唯一性
         if "phone" in new_user and new_user["phone"] != user.phone:
@@ -94,10 +85,7 @@ async def update_user(new_user: UserUpdateByAdmin,
                                                 User.id != user.id,
                                                 User.status == 1).first()
             if exist_phone:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="手机号已被其他用户使用"
-                )
+                return Result.error("手机号已被其他用户使用")
 
         # 检查一下邮箱的唯一性
         if "email" in new_user and new_user["email"] and new_user["email"] != user.email:
@@ -105,11 +93,7 @@ async def update_user(new_user: UserUpdateByAdmin,
                 exist_email = db.query(User).filter(User.email == new_user["email"],
                                                     User.id != user.id,
                                                     User.status == 1).first()
-                if exist_email:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="邮箱已被其他用户使用"
-                    )
+                return Result.error("邮箱已被其他用户使用")
 
         for field, value in new_user.items():
             if value is not None and field != "id":

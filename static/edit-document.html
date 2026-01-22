@@ -386,7 +386,7 @@
 
             // 管理员或有编辑权限
             // 注意：根据后端代码，role=0是管理员，role=1是普通用户
-            const isAdmin = currentUser.role === 'admin' || currentUser.role_id === 0;
+            const isAdmin = currentUser.role === 'admin' || currentUser.role === 0;
             const isAuthor = currentUser.id == doc.contributor_id;
 
             return isAdmin || isAuthor;
@@ -914,21 +914,6 @@
         function getDocumentIdFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('id');
-        }
-
-        // 检查编辑权限（前端检查）
-        function checkEditPermission(doc) {
-            if (!doc) return false;
-
-            const currentUser = Utils.getCurrentUser();
-            if (!currentUser) return false;
-
-            // 管理员或有编辑权限
-            // 注意：根据后端代码，role=0是管理员，role=1是普通用户
-            const isAdmin = currentUser.role === 'admin' || currentUser.role_id === 0;
-            const isAuthor = currentUser.id == doc.contributor_id;
-
-            return isAdmin || isAuthor;
         }
     </script>
 </body>

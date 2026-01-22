@@ -485,10 +485,11 @@
                 const currentUser = Utils.getCurrentUser();
                 console.log("currentUser", currentUser);
                 const currentUserId = currentUser ? currentUser.id : null;
-                const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role_id === 0);
+                const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 0);
                 const isAuthor = currentUserId && currentUserId == doc.contributor_id;
                 console.log(currentUserId);
                 console.log(doc.contributor_id);
+                console.log("isAdmin", isAdmin);
                 // 判断是否显示编辑/删除按钮
                 const showEditDeleteButtons = isAdmin || isAuthor;
 

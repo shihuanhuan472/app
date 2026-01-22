@@ -6,8 +6,8 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from dependencies import get_current_active_user
@@ -18,6 +18,73 @@ from database import get_db
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
+    return DocumentResponse(
+        id=document.id,
+        title=document.title,
+        contributor_id=document.contributor_id,
+        contributor_name=contributor_name,
+        first_edit_date=document.first_edit_date,
+        problem_intro=document.problem_intro,
+        image_urls=document.image_urls,
+        causes=document.causes,
+        evaluation=document.evaluation,
+        inspection=document.inspection,
+        solutions=document.solutions,
+        key_points=document.key_points
+    )
+
+
+def documents_to_responses(
+        db: Session,
+        documents: List[Document]
+) -> List[DocumentResponse]:
+    """
+    将文档列表转换为响应列表（批量查询用户信息）
+    """
+    if not documents:
+        return []
+
+    # 1. 收集所有用户ID
+    user_ids = list(set(
+        doc.contributor_id for doc in documents
+        if doc.contributor_id is not None
+    ))
+
+    # 2. 批量查询用户信息
+    user_map = {}
+    if user_ids:
+        # 只查询需要的字段
+        users = db.query(
+            User.id,
+            User.full_name,
+            User.username
+        ).filter(
+            User.id.in_(user_ids)
+        ).all()
+
+        user_map = {user.id: user for user in users}
+
+    # 3. 转换文档
+    responses = []
+    for doc in documents:
+        contributor_name = None
+
+        # 获取用户名
+        if doc.contributor_id:
+            user = user_map.get(doc.contributor_id)
+            if user:
+                contributor_name = user.full_name or user.username
+            else:
+                contributor_name = f"用户{doc.contributor_id}"
+
+        responses.append(document_convert_documentResponse(
+            document=doc,
+            contributor_name=contributor_name
+        ))
+
+    return responses
 
 @router.post("/add", summary="添加文档")
 async def create_document(document: DocumentCreate,
@@ -43,12 +110,11 @@ async def create_document(document: DocumentCreate,
         contributor_id = current_user.id
         document_data = Document(**document.dict(),
                                  contributor_id=contributor_id,
-                                 contributor_name=current_user.full_name,
                                  first_edit_date=datetime.now())
         db.add(document_data)
         db.commit()
         db.refresh(document_data)
-        data = DocumentResponse.from_orm(document_data)
+        data = document_convert_documentResponse(document_data, current_user.full_name)
         return Result.success_with_data(data)
 
     except HTTPException:
@@ -165,7 +231,10 @@ async def update_document(id: int,
 
         db.commit()
         db.refresh(document_now)
-        document_response = DocumentResponse.from_orm(document_now)
+
+        full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
+
+        document_response = document_convert_documentResponse(document_now, full_name)
         return Result.success_with_data(document_response)
     except HTTPException:
         raise
@@ -215,9 +284,10 @@ async def delete(id: int,
 @router.get("/", summary="获取所有文档")
 async def get_documents(current_user: User = Depends(get_current_active_user),
                         db: Session = Depends(get_db)):
-    documents = db.query(Document).all()
-    documents_data = [DocumentResponse.from_orm(document) for document in documents]
-    return Result.success_with_data(documents_data)
+    documents = db.query(Document)
+    responses = documents_to_responses(db, documents)
+    # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
+    return Result.success_with_data(responses)
 
 @router.get("/get_by_id/{id}", summary="根据id获得文档内容")
 async def get_document(id: int,
@@ -226,7 +296,9 @@ async def get_document(id: int,
     try:
         document = db.query(Document).filter(Document.id == id).first()
         if document:
-            document_data = DocumentResponse.from_orm(document)
+            full_name = db.query(User.full_name).filter(User.id == document.contributor_id).scalar()
+            print(full_name)
+            document_data = document_convert_documentResponse(document, full_name)
             return Result.success_with_data(document_data)
         return Result.success()
     except Exception as e:
@@ -245,11 +317,12 @@ async def get_page(page: Page,
         total_count = db.query(Document).count()
         documents = db.query(Document).offset(offset).limit(page.size).all()
         total_pages = (total_count + page.size - 1) // page.size
-        documents_data = [DocumentResponse.from_orm(document) for document in documents]
+        responses = documents_to_responses(db, documents)
+        # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
         data = {
             "total_count": total_count,
             "total_pages": total_pages,
-            "documents": documents_data
+            "documents": responses
         }
         return Result.success_with_data(data)
     except Exception as e:
@@ -264,19 +337,36 @@ async def query(query: DocumentQuery,
                 current_user: User = Depends(get_current_active_user)):
     try:
         offset = (query.page - 1) * query.size
-        total_count = db.query(Document).filter(
-                or_(
-                    Document.title.like(f"%{query.data}%"),
-                    Document.contributor_name.like(f"%{query.data}%"),
-                    Document.problem_intro.like(f"%{query.data}%"))).count()
-        documents = db.query(Document).filter(
-                or_(
-                    Document.title.like(f"%{query.data}%"),
-                    Document.contributor_name.like(f"%{query.data}%"),
-                    Document.problem_intro.like(f"%{query.data}%"))
-            ).offset(offset).limit(query.size).all()
+
+
+        total_count = db.query(Document).join(
+            User, Document.contributor_id == User.id
+        ).filter(
+            or_(
+                Document.title.like(f"%{query.data}%"),
+                User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
+                User.username.like(f"%{query.data}%"),  # 也可以查询用户名
+                Document.problem_intro.like(f"%{query.data}%")
+            )
+        ).count()
+
+
+        documents = db.query(Document).join(
+            User, Document.contributor_id == User.id
+        ).filter(
+            or_(
+                Document.title.like(f"%{query.data}%"),
+                User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
+                User.username.like(f"%{query.data}%"),  # 也可以查询用户名
+                Document.problem_intro.like(f"%{query.data}%")
+            )
+        ).order_by(
+            Document.first_edit_date.desc()
+        ).offset(offset).limit(query.size).all()
         total_pages = (total_count + query.size - 1) // query.size
-        documents_response = [DocumentResponse.from_orm(document) for document in documents]
+        documents_response = documents_to_responses(db, documents)
+
+        # documents_response = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
 
         data = {
             "total_count": total_count,

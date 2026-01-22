@@ -121,6 +121,9 @@
             Utils.checkLogin();
             Utils.loadUserInfo();
 
+            // 恢复分页设置
+            restorePageSettings();
+
             // 显示加载状态
             showLoading();
 
@@ -189,6 +192,24 @@
                         <p>正在加载文档...</p>
                     </div>
                 `;
+            }
+        }
+
+        function restorePageSettings() {
+            // 尝试从localStorage恢复每页显示数量
+            const savedPageSize = localStorage.getItem('docPageSize');
+            if (savedPageSize) {
+                docPageSize = parseInt(savedPageSize);
+                const pageSizeSelect = document.getElementById('docPageSizeSelect');
+                if (pageSizeSelect) {
+                    pageSizeSelect.value = docPageSize;
+                }
+            }
+
+            // 尝试从localStorage恢复当前页
+            const savedCurrentPage = localStorage.getItem('docCurrentPage');
+            if (savedCurrentPage) {
+                docCurrentPage = parseInt(savedCurrentPage);
             }
         }
 
@@ -406,8 +427,8 @@
             const pageInfo = document.getElementById('docPageInfo');
             const paginationContainer = document.getElementById('docPagination');
 
-            // 如果没有数据或只有一页，隐藏分页控件
-            if (totalCount <= docPageSize) {
+            // 只有当没有数据时才隐藏分页控件
+            if (totalCount === 0) {
                 paginationContainer.style.display = 'none';
             } else {
                 paginationContainer.style.display = 'flex';
@@ -416,7 +437,7 @@
             // 更新页面信息
             const startItem = (docCurrentPage - 1) * docPageSize + 1;
             const endItem = Math.min(docCurrentPage * docPageSize, totalCount);
-            pageInfo.textContent = `第 ${docCurrentPage} 页，共 ${docTotalPages} 页`;
+            pageInfo.textContent = `第 ${docCurrentPage} 页，共 ${docTotalPages} 页 (共 ${totalCount} 条记录)`;
 
             // 更新按钮状态
             prevBtn.disabled = docCurrentPage <= 1;
@@ -470,11 +491,29 @@
             pageNumbersContainer.innerHTML = pageNumbersHtml;
         }
 
+        // 6. 修改clearSearch函数，清除搜索状态
+        function clearSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.value = '';
+            currentSearchQuery = '';
+            isSearching = false;
+            docCurrentPage = 1;
+
+            // 保存到localStorage
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
+            loadDocuments();
+        }
+
         // 切换文档页码
         async function changeDocPage(page) {
             if (page < 1 || page > docTotalPages) return;
 
             docCurrentPage = page;
+
+            // 保存到localStorage
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
             showLoading();
 
             try {
@@ -501,6 +540,11 @@
             const select = document.getElementById('docPageSizeSelect');
             docPageSize = parseInt(select.value);
             docCurrentPage = 1; // 重置到第一页
+
+            // 保存到localStorage
+            localStorage.setItem('docPageSize', docPageSize);
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
             showLoading();
 
             try {

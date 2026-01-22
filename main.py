@@ -7,10 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
-from routers import auth, users, admin, documents
+from routers import auth, users, admin, documents, conversation, message
 from models import Base
 from database import engine
-from routers import users
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -34,7 +33,7 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "*"  # 开发时可以使用 *，生产环境要限制
     ],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -50,6 +49,8 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(conversation.router)
+app.include_router(message.router)
 
 
 @app.get("/", summary="根路径")

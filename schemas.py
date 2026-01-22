@@ -113,11 +113,8 @@ class ConversationResponse(BaseModel):
 # 消息相关的Schema
 class MessageCreate(BaseModel):
     session_id: int
-    message_order: int
-    role: int
-    content_text: Optional[str] = None
+    content_text: str = None
     user_uploaded_images: Optional[str] = None
-    ai_reference_doc_ids: Optional[str] = None
 
 
 class MessageResponse(BaseModel):
