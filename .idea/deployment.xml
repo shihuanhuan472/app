@@ -5,7 +5,7 @@
       <paths name="root@connect.bjb1.seetacloud.com:55857 password">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/opt/maintenance-system/app" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

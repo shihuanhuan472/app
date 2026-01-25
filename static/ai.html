@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI辅助 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        /* 优化后的聊天容器 */
+        .chat-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: calc(100vh - 180px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header-icon {
+            font-size: 24px;
+            background: rgba(255,255,255,0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .chat-header-subtitle {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        .chat-iframe-container {
+            flex: 1;
+            position: relative;
+            background: #f8f9fa;
+        }
+
+        .chat-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .chat-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .chat-footer {
+            padding: 15px 24px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 13px;
+            color: #6c757d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-tips {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .chat-tip {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid #dee2e6;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+
+        .chat-tip:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .chat-model-info {
+            font-weight: 500;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 管理员显示这个 -->
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 技术人员显示这个 -->
+                <a href="user-profile.html" class="nav-item" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">AI维修助手</div>
+                    <div class="page-subtitle">智能诊断、维修建议、故障排查</div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="showUsageTips()">
+                        <i class="fas fa-question-circle"></i> 使用帮助
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI聊天主区域 -->
+            <div class="chat-wrapper">
+                <!-- 自定义头部 -->
+                <div class="chat-header">
+                    <div class="chat-header-left">
+                        <div class="chat-header-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div>
+                            <div class="chat-header-title">智能维修助手</div>
+                            <div class="chat-header-subtitle">基于大语言模型的故障诊断专家</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge">在线</span>
+                    </div>
+                </div>
+
+                <!-- iframe容器 -->
+                <div class="chat-iframe-container">
+                    <div class="chat-loading" id="loading">
+                        <div class="loading-spinner"></div>
+                        <p>正在连接AI服务...</p>
+                    </div>
+
+                    <iframe
+                        id="aiChatFrame"
+                        class="chat-iframe"
+                        src="http://192.168.246.223/chatbot/04DZhFNdE0uoMyUo"
+                        frameborder="0"
+                        allow="microphone"
+                        onload="hideLoading()">
+                    </iframe>
+                </div>
+
+                <!-- 底部提示 -->
+                <div class="chat-footer">
+                    <div class="chat-tips">
+                        <span class="chat-tip" onclick="insertExample('CNC主轴异响怎么办？')">主轴异响</span>
+                        <span class="chat-tip" onclick="insertExample('机器人定位不准如何校准？')">定位校准</span>
+                        <span class="chat-tip" onclick="insertExample('激光切割机功率不稳定')">功率不稳</span>
+                        <span class="chat-tip" onclick="insertExample('设备维护保养周期')">维护保养</span>
+                    </div>
+                    <div class="chat-model-info">
+                        <i class="fas fa-microchip"></i> AI模型已就绪
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 隐藏加载动画
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 设置超时处理
+        setTimeout(() => {
+            const loading = document.getElementById('loading');
+            if (loading.style.display !== 'none') {
+                loading.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ff9900; margin-bottom: 15px;"></i>
+                    <h4>连接超时</h4>
+                    <p>无法连接到AI服务，请检查网络</p>
+                    <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> 重新连接
+                    </button>
+                `;
+            }
+        }, 10000);
+
+        // 插入示例问题到聊天框
+        function insertExample(question) {
+            // 尝试通过postMessage与iframe内的Dify通信
+            const iframe = document.getElementById('aiChatFrame');
+            iframe.contentWindow.postMessage({
+                type: 'INSERT_MESSAGE',
+                message: question
+            }, '*');
+
+            // 如果postMessage失败，显示提示
+            Utils.showMessage(`可以提问："${question}"`, 'info');
+        }
+
+        // 显示使用帮助
+        function showUsageTips() {
+            Utils.showMessage(`
+                <h4>AI助手使用提示：</h4>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>详细描述故障现象和设备型号</li>
+                    <li>可以上传设备图片辅助诊断</li>
+                    <li>询问具体的维修步骤和注意事项</li>
+                    <li>询问备件型号和规格</li>
+                    <li>点击下方快捷问题快速提问</li>
+                </ul>
+            `, 'info');
+        }
+    </script>
+</body>
+</html>

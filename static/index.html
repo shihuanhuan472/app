@@ -171,60 +171,43 @@
                     console.log('登录响应:', result);
 
                     if (result.code === 1) {
-                        // 登录成功 - 后端返回了JWT令牌
-                        const token = result.data;
+                        // 登录成功 - 后端返回了JWT令牌对象
+                        const tokenData = result.data;
 
-                        // 存储token到sessionStorage
-                        sessionStorage.setItem('token', token);
-
-                        // 使用token获取完整的用户信息
-                        try {
-                            // 调用获取用户信息的API
-                            const userResponse = await fetch('http://localhost:8000/user/profile', {
-                                method: 'GET',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'Content-Type': 'application/json',
-                                },
-                            });
-
-                            if (userResponse.ok) {
-                                const userResult = await userResponse.json();
-                                console.log('获取用户信息成功:', userResult);
-
-                                if (userResult.code === 1 && userResult.data) {
-                                    // 存储完整的用户信息，包括id
-                                    const userInfo = userResult.data;
-                                    sessionStorage.setItem('user', JSON.stringify(userInfo));
-
-                                    console.log('存储的用户信息:', userInfo);
-
-                                    // 显示成功消息
-                                    Utils.showMessage('登录成功！', 'success');
-
-                                    // 跳转到主页面
-                                    setTimeout(() => {
-                                        window.location.href = 'main.html';
-                                    }, 1000);
-                                } else {
-                                    showError('获取用户信息失败');
-                                    sessionStorage.removeItem('token');
-                                }
-                            } else {
-                                showError('获取用户信息失败');
-                                sessionStorage.removeItem('token');
-                            }
-                        } catch (error) {
-                            console.error('获取用户信息失败:', error);
-                            showError('获取用户信息失败');
-                            sessionStorage.removeItem('token');
+                        // 存储tokens到sessionStorage
+                        if (tokenData.access_token) {
+                            sessionStorage.setItem('token', tokenData.access_token);
+                            console.log('Access Token 已保存');
                         }
-                    } else {
-                        // 登录失败 - 显示错误信息
-                        const errorMsg = result.msg || result.detail || '登录失败';
-                        showError(errorMsg);
-                    }
 
+                        if (tokenData.refresh_token) {
+                            sessionStorage.setItem('refresh_token', tokenData.refresh_token);
+                            console.log('Refresh Token 已保存');
+                        }
+
+                        // 存储用户信息到sessionStorage
+                        if (tokenData.user) {
+                            const userInfo = {
+                                id: tokenData.user.id,
+                                username: tokenData.user.username,
+                                role: tokenData.user.role,
+                                phone: tokenData.user.phone,
+                                last_login: tokenData.user.last_login
+                            };
+                            sessionStorage.setItem('user', JSON.stringify(userInfo));
+                            console.log('用户信息已存储:', userInfo);
+                        }
+
+                        // 显示成功消息
+                        Utils.showMessage('登录成功！', 'success');
+
+                        // 跳转到主页面
+                        setTimeout(() => {
+                            window.location.href = 'main.html';
+                        }, 1000);
+                    } else {
+                        showError(result.msg)
+                    }
                 } catch (error) {
                     console.error('登录请求失败:', error);
                     showError(error.message || '网络请求失败，请检查后端服务是否启动');

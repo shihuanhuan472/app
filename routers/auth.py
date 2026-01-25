@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime
 import logging
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Body
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import UserLogin, Result
@@ -11,6 +11,7 @@ from models import User
 router = APIRouter(prefix="/auth", tags=["认证"])
 logger = logging.getLogger(__name__)
 
+
 @router.post("/login", summary="用户登录")
 async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     """
@@ -19,29 +20,22 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     - username: 用户名
     - password: 密码
 
-    返回 access_token 和用户信息
+    返回 access_token、refresh_token 和用户信息
     """
     print("用户登录")
     # 验证用户名
     user = db.query(User).filter(User.username == login_data.username).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
-        )
+        return Result.error("用户名或密码错误")
 
     # 验证账户可用
     if user.status == 0:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="用户名或密码错误"
-        )
+        return Result.error("用户名或密码错误")
 
     # 验证密码
     hashed_password = hashlib.md5(login_data.password.encode()).hexdigest()
     if user.password != hashed_password:
-        print(hashed_password)
-        raise HTTPException(status_code=401, detail="密码错误")
+        return Result.error("用户名或密码错误")
 
     if user.role == 1 and login_data.role == "admin":
         return Result.error("技术员工无法登录管理员")
@@ -50,43 +44,79 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
         user.last_login = datetime.now()
         db.commit()
         db.refresh(user)
-        print(f"{user.id}用户登录成功！")
+        print(f"{user.username}用户登录成功！")
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新登录时间失败: {str(e)}"
-        )
+        return Result.error(f"更新登录时间失败：{e}")
 
-    # 生成 JWT token
+    # 生成 JWT tokens
     payload = {
         "username": user.username,
-        "phone": user.phone
+        "phone": user.phone,
+        "role": user.role,
+        "user_id": user.id  # 添加用户ID
     }
 
+    # 生成访问令牌
     access_token = jwt_utils.create_access_token(
         subject=user.id,
         payload=payload
     )
-    print(f"{access_token}")
-    return Result.success_with_data(access_token)
+
+    # 生成刷新令牌
+    refresh_token = jwt_utils.create_refresh_token(
+        subject=user.id,
+        payload=payload
+    )
+
+    # 返回两种token
+    return Result.success_with_data({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": jwt_utils.config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 转换为秒
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "phone": user.phone,
+            "role": user.role,
+            "last_login": user.last_login
+        }
+    })
 
 
 @router.post("/refresh", summary="刷新 Token")
-async def refresh_token(refresh_token: str):
+async def refresh_token(
+        token_data: dict = Body(..., description="刷新令牌请求体，包含refresh_token")
+):
     """
     使用 refresh_token 获取新的 access_token
 
-    注意：你的 JwtUtils 中的 create_refresh_token 方法引用了
-    REFRESH_TOKEN_EXPIRE_DAYS，需要在 JWTConfig 中添加这个配置
+    请求体示例:
+    {
+        "refresh_token": "your_refresh_token_here"
+    }
     """
+    refresh_token = token_data.get("refresh_token")
+    # print("刷新token！！！")
+    if not refresh_token:
+        return Result.error("缺少refresh_token参数")
+
     try:
+        # 使用JwtUtils刷新access token
         new_access_token = jwt_utils.refresh_access_token(refresh_token)
-        return Result.success_with_data(new_access_token)
-    except HTTPException:
-        raise
+
+        return Result.success_with_data({
+            "access_token": new_access_token,
+            "token_type": "bearer",
+            "expires_in": jwt_utils.config.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        })
+    except HTTPException as e:
+        # 重新抛出JwtUtils抛出的HTTP异常
+        raise e
     except Exception as e:
+        # 捕获其他异常
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid refresh token: {str(e)}"
+            detail=f"刷新令牌失败: {str(e)}"
         )

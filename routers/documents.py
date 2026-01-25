@@ -5,9 +5,9 @@ import os
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 from typing import List
 
 from dependencies import get_current_active_user
@@ -98,6 +98,7 @@ async def create_document(document: DocumentCreate,
             print("base_dir" + config["BASE_DIR"])
             print("image_dir" + config["IMAGE_DIR"])
             print("base_url" + base_url)
+
             for url in urls:
                 url_check = os.path.basename(url)
                 url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
@@ -108,6 +109,12 @@ async def create_document(document: DocumentCreate,
                                         detail="图片未上传")
 
         contributor_id = current_user.id
+
+        document.image_urls = (document.image_urls.replace("\\", "/")
+                               .replace(", /", ", ")
+                               .removeprefix("/")
+                               .removesuffix(", "))
+
         document_data = Document(**document.dict(),
                                  contributor_id=contributor_id,
                                  first_edit_date=datetime.now())
@@ -124,19 +131,13 @@ async def create_document(document: DocumentCreate,
     except Exception as e:
         # 其他异常回滚
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"添加文档失败: {str(e)}"
-        )
+        return Result.error("添加文档失败")
 
 def get_image_config():
     MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", 20 * 1024 * 1024))
     IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
-    BASE_DIR: str = os.getenv("BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    BASE_DIR: str = os.getenv("BASE_DIR", "/")
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-    print("config")
-    print(BASE_DIR)
-    print(IMAGE_DIR)
     return {
         "MAX_IMAGE_SIZE": MAX_IMAGE_SIZE,
         "IMAGE_DIR": IMAGE_DIR,
@@ -171,11 +172,14 @@ async def upload_images(images: List[UploadFile]):
 
             # 构建文件信息
             file_url = f"{url}/{unique_filename}"
+            relative_url = Path(config["IMAGE_DIR"]) / unique_filename
             uploaded_images.append({
-                "url": file_url,
+                "url": relative_url,
+                # "relative_url": relative_url,
                 "filename": unique_filename,
                 "original_name": image.filename
             })
+            print(uploaded_images)
         except Exception as e:
             # 记录错误但继续处理其他文件
             print(f"文件 {image.filename} 上传失败: {str(e)}")
@@ -207,6 +211,8 @@ async def update_document(id: int,
                           db: Session = Depends(get_db),
                           current_user: User = Depends(get_current_active_user)):
     try:
+        config = get_image_config()
+        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
         document_now = db.query(Document).filter(Document.id == id).first()
         if not document_now:
             raise HTTPException(
@@ -215,19 +221,35 @@ async def update_document(id: int,
             )
         if current_user.id != document_now.contributor_id and current_user.role != 0:
             raise HTTPException(status_code=403, detail="无权编辑该文档")
+
+        image_urls_str = ""
+
         if document.image_urls:
             image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
             for image_url in image_urls:
-                if not os.path.exists(image_url):
-                    print(image_url)
+                image_name = os.path.basename(image_url)
+                url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
+                if not os.path.exists(url_check):
                     return Result.error(f"图片未上传，更新失败，请重新上传图片")
+
+                # url_check_str = url_check.lstrip("/").lstrip("\\")
+                url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"), image_name.lstrip("/").lstrip("\\"))
+                url_check_str = url_check_str.lstrip("/").lstrip("\\")
+                url_check_str = url_check_str.replace("\\", "/")
+
+                image_urls_str += url_check_str + ", "
+
         document_data = document.dict(exclude_unset=True)
-        print(document_data)
         for key, value in document_data.items():
             # print(key, value)
-            if key == "id":
+            if key == "id" or key == "image_urls":
                 continue
             setattr(document_now, key, value)
+
+        if len(image_urls_str) > 0:
+            image_urls_str = image_urls_str.removesuffix(", ")
+
+        setattr(document_now, "image_urls", image_urls_str)
 
         db.commit()
         db.refresh(document_now)
@@ -240,11 +262,7 @@ async def update_document(id: int,
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"文档更新异常: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
-        )
+        return Result.error(f"更新文档错误：{str(e)}")
 
 @router.delete("/dele/{id}", summary="删除文档")
 async def delete(id: int,
@@ -260,13 +278,15 @@ async def delete(id: int,
             config = get_image_config()
             base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
             image_urls = document.image_urls.split(", ")
+            print("删除的image_urls: ", image_urls)
             for image_url in image_urls:
                 filename = os.path.basename(image_url)
                 url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                print(url)
                 if os.path.exists(url):
                     os.remove(url)
                     print(f"删除了{url}")
+
+        print("成功删除文档")
 
         db.delete(document)
         db.commit()
@@ -276,10 +296,7 @@ async def delete(id: int,
     except Exception as e:
         # 其他异常回滚
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"删除文档失败: {str(e)}"
-        )
+        return Result.error(f"删除文档失败：{str(e)}")
 
 @router.get("/", summary="获取所有文档")
 async def get_documents(current_user: User = Depends(get_current_active_user),
@@ -297,15 +314,11 @@ async def get_document(id: int,
         document = db.query(Document).filter(Document.id == id).first()
         if document:
             full_name = db.query(User.full_name).filter(User.id == document.contributor_id).scalar()
-            print(full_name)
             document_data = document_convert_documentResponse(document, full_name)
             return Result.success_with_data(document_data)
         return Result.success()
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        return Result.error(f"根据id获取文档内容失败：{str(e)}")
 
 @router.post("/page", summary="分页查询文档内容")
 async def get_page(page: Page,
@@ -326,10 +339,7 @@ async def get_page(page: Page,
         }
         return Result.success_with_data(data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        return Result.error(f"分页查询文档内容失败：{str(e)}")
 
 @router.post("/query", summary="查询文档信息")
 async def query(query: DocumentQuery,
@@ -376,30 +386,4 @@ async def query(query: DocumentQuery,
 
         return Result.success_with_data(data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
-
-# # 创建文档
-# @router.post("/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
-# def create_document(document: DocumentCreate, db: Session = Depends(get_db)):
-#     db_document = Document(**document.dict())
-#     db.add(db_document)
-#     db.commit()
-#     db.refresh(db_document)
-#     return db_document
-
-# # 获取所有文档
-# @router.get("/", response_model=List[DocumentResponse])
-# def get_all_documents(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-#     documents = db.query(Document).offset(skip).limit(limit).all()
-#     return documents
-#
-# # 根据ID获取文档
-# @router.get("/{document_id}", response_model=DocumentResponse)
-# def get_document_by_id(document_id: int, db: Session = Depends(get_db)):
-#     document = db.query(Document).filter(Document.id == document_id).first()
-#     if not document:
-#         raise HTTPException(status_code=404, detail="文档不存在")
-#     return document
+        return Result.error(f"查询文档信息失败：{str(e)}")

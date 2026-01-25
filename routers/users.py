@@ -1,6 +1,6 @@
 import hashlib
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import HTTPException
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -55,30 +55,21 @@ async def update_user(new_user: UserUpdate,
         print(new_user)
         user = db.query(User).filter(User.id == current_user.id).first()
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
-            )
+            return Result.error("用户不存在，更新用户信息失败")
 
         new_user = new_user.model_dump(exclude_unset=True)
 
         # 如果没有传入任何字段
         if not new_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请提供需要更新的字段"
-            )
-        print(f"用户 {user.username} 要更新的字段: {new_user.keys()}")
+            return Result.error("请提供需要更新的字段")
+
         # 检查一下手机号唯一性
         if "phone" in new_user and new_user["phone"] != user.phone:
             exist_phone = db.query(User).filter(User.phone == new_user["phone"],
                                                 User.id != user.id,
                                                 User.status == 1).first()
             if exist_phone:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="手机号已被其他用户使用"
-                )
+                return Result.error("手机号已被占用")
 
         # 检查一下邮箱的唯一性
         if "email" in new_user and new_user["email"] and new_user["email"] != user.email:
@@ -87,10 +78,7 @@ async def update_user(new_user: UserUpdate,
                                                     User.id != user.id,
                                                     User.status == 1).first()
                 if exist_email:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="邮箱已被其他用户使用"
-                    )
+                    return Result.error("邮箱已被占用")
 
         for field, value in new_user.items():
             if value is not None:
@@ -106,11 +94,7 @@ async def update_user(new_user: UserUpdate,
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"用户更新异常: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
-        )
+        return Result.error(f"用户更新失败：{str(e)}")
 
 @router.put("/change_password", summary="修改密码")
 async def change_password(password: UserChangePassword,
@@ -120,26 +104,28 @@ async def change_password(password: UserChangePassword,
     用户修改密码，确认密码由前端完成
     后端实现旧密码校验和新密码更新
     """
-    # 检查一下旧密码
-    old_password = password.old_password
-    new_password = password.new_password
-    hashed_old_password = hashlib.md5(old_password.encode()).hexdigest()
-    user = db.query(User).filter(User.id == current_user.id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
-    if hashed_old_password != user.password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="旧密码错误"
-        )
-    hashed_new_password = hashlib.md5(new_password.encode()).hexdigest()
-    user.password = hashed_new_password
-    db.commit()
-    db.refresh(user)
-    return Result.success()
+    try:
+        # 检查一下旧密码
+        old_password = password.old_password
+        new_password = password.new_password
+        hashed_old_password = hashlib.md5(old_password.encode()).hexdigest()
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            return Result.error("用户不存在，更新密码失败")
+
+        if hashed_old_password != user.password:
+            return Result.error("旧密码错误，更新密码失败")
+
+        hashed_new_password = hashlib.md5(new_password.encode()).hexdigest()
+        user.password = hashed_new_password
+        db.commit()
+        db.refresh(user)
+        return Result.success()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        return Result.error(f"用户更新密码失败：{str(e)}")
 
 @router.get("/admin-only", summary="仅管理员可访问")
 async def admin_only_route(current_user: dict = Depends(require_roles("admin"))):

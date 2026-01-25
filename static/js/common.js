@@ -133,18 +133,18 @@ const Utils = {
             .replace('ss', seconds);
     },
 
-    // 检查登录状态 - 简化版
     checkLogin: function() {
         const token = sessionStorage.getItem('token');
+        const refreshToken = sessionStorage.getItem('refresh_token');
         const userStr = sessionStorage.getItem('user');
 
-        if (!token || !userStr) {
+        if (!token && !refreshToken) {
             window.location.href = 'index.html';
             return null;
         }
 
         try {
-            return JSON.parse(userStr);
+            return userStr ? JSON.parse(userStr) : null;
         } catch (e) {
             console.error('解析用户信息失败:', e);
             window.location.href = 'index.html';
@@ -201,7 +201,9 @@ const Utils = {
     getCurrentUser: function() {
         try {
             const userStr = sessionStorage.getItem('user');
-            return userStr ? JSON.parse(userStr) : null;
+            const user = userStr ? JSON.parse(userStr) : null;
+            console.log('获取当前用户信息:', user);
+            return user;
         } catch (error) {
             console.error('解析用户信息失败:', error);
             return null;
@@ -265,6 +267,7 @@ const Utils = {
     // 退出登录
     logout: function() {
         sessionStorage.removeItem('token');
+        sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
         window.location.href = 'index.html';
     },
@@ -302,8 +305,6 @@ const Utils = {
         return headers;
     },
 
-    // 在 common.js 的 Utils 对象中添加或更新以下函数：
-
     apiRequest: async function(url, options = {}) {
         try {
             const defaultOptions = {
@@ -320,10 +321,39 @@ const Utils = {
 
             // 检查是否未授权
             if (response.status === 401) {
-                sessionStorage.removeItem('token');
-                sessionStorage.removeItem('user');
-                window.location.href = 'index.html';
-                throw new Error('登录已过期，请重新登录');
+                console.log('Token过期，尝试刷新...');
+
+                // 尝试刷新token
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 更新请求头中的token
+                    defaultOptions.headers['Authorization'] = `Bearer ${newToken}`;
+
+                    // 重新发送请求
+                    const retryResponse = await fetch(url, defaultOptions);
+
+                    if (!retryResponse.ok) {
+                        const errorText = await retryResponse.text();
+                        throw new Error(`HTTP错误: ${retryResponse.status} - ${errorText}`);
+                    }
+
+                    const result = await retryResponse.json();
+
+                    // 根据你的Result格式，code为1表示成功
+                    if (result.code === 1) {
+                        return result.data;
+                    } else {
+                        throw new Error(result.msg || '请求失败');
+                    }
+                } catch (refreshError) {
+                    console.error('刷新token失败:', refreshError);
+                    sessionStorage.removeItem('token');
+                    sessionStorage.removeItem('refresh_token');
+                    sessionStorage.removeItem('user');
+                    window.location.href = 'index.html';
+                    throw new Error('登录已过期，请重新登录');
+                }
             }
 
             // 检查是否是 404
@@ -348,6 +378,44 @@ const Utils = {
 
         } catch (error) {
             console.error('API请求失败:', error);
+            throw error;
+        }
+    },
+
+    // 添加刷新token的辅助函数
+    refreshToken: async function() {
+        try {
+            const refreshToken = sessionStorage.getItem('refresh_token');
+            if (!refreshToken) {
+                throw new Error('没有可用的刷新令牌');
+            }
+
+            const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refresh_token: refreshToken
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`刷新令牌失败: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code === 1) {
+                const newAccessToken = result.data.access_token;
+                sessionStorage.setItem('token', newAccessToken);
+                console.log('Token刷新成功');
+                return newAccessToken;
+            } else {
+                throw new Error(result.msg || '刷新令牌失败');
+            }
+        } catch (error) {
+            console.error('刷新令牌失败:', error);
             throw error;
         }
     },

@@ -547,7 +547,7 @@
                 <div class="header-right">
                     <!-- 紧凑搜索框 -->
                     <div class="compact-search">
-                        <input type="text" placeholder="可搜索姓名，电话，部门，用户名..." oninput="searchUsers(this.value)">
+                        <input type="text" placeholder="可查询姓名，电话，部门及用户名..." oninput="searchUsers(this.value)">
                         <i class="fas fa-search"></i>
                     </div>
                     <div class="header-actions">
@@ -571,7 +571,7 @@
 
                 <!-- 分页控件 -->
                 <div class="pagination" id="pagination">
-                    <button class="pagination-btn" onclick="changePage(currentPage - 1)" id="prevBtn" disabled>
+                    <button class="pagination-btn" onclick="changePage(UserPagination.currentPage - 1)" id="prevBtn" disabled>
                         <i class="fas fa-chevron-left"></i> 上一页
                     </button>
 
@@ -579,7 +579,7 @@
                         <!-- 页码会动态生成 -->
                     </div>
 
-                    <button class="pagination-btn" onclick="changePage(currentPage + 1)" id="nextBtn">
+                    <button class="pagination-btn" onclick="changePage(UserPagination.currentPage + 1)" id="nextBtn">
                         下一页 <i class="fas fa-chevron-right"></i>
                     </button>
 

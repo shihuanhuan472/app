@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:mysql://localhost:3306/repair</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="repair@com.webmeteor.cn" uuid="7a9ee717-4133-4b3a-90c4-e425e58bcc3f">
+      <driver-ref>mysql.8</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mysql://com.webmeteor.cn:3306/repair</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>

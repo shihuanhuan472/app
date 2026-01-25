@@ -4,12 +4,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import Session
-from typing import List
 
 from dependencies import get_current_active_user
 from models import User
 from models import Conversation
-from schemas import ConversationCreate, ConversationResponse, Result, Page
+from schemas import ConversationResponse, Result, Page
 from database import get_db
 
 router = APIRouter(prefix="/conversation", tags=["对话"])

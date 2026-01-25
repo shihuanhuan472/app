@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
-from routers import auth, users, admin, documents, conversation, message
+from routers import auth, users, admin, conversation, message
+from routers import documents
 from models import Base
 from database import engine
 
@@ -42,7 +43,7 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "upload")
 app.mount("/upload", StaticFiles(directory=UPLOAD_DIR), name="upload")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 # 包含路由 - 先只包含users路由测试
-app.include_router(users.router, prefix="/api/users", tags=["用户管理"])
+# app.include_router(users.router, prefix="/api/users", tags=["用户管理"])
 
 # 注册路由
 app.include_router(auth.router)
@@ -74,3 +75,5 @@ async def global_exception_handler(request: Request, exc: Exception):
             "message": f"服务器内部错误: {str(exc)}"
         }
     )
+
+# Whut_456123

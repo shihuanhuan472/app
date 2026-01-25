@@ -1,14 +1,13 @@
 import hashlib
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import HTTPException, status
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from database import get_db
-from dependencies import get_current_user, get_current_active_user, require_roles, get_optional_user
-from typing import Optional
+from dependencies import require_roles
 from models import User
 from schemas import Result, Page, UserResponse, UserCreate, UserUpdateByAdmin, UserQueryByPage
 
@@ -23,7 +22,9 @@ async def add_user(user: UserCreate,
         # 检查电话唯一性
         phone = user.phone
         email = user.email
+        username = user.username
         user_phone_find = db.query(User).filter(User.phone == phone, User.status == 1).first()
+
         if user_phone_find:
             return Result.error("手机号已被其他用户使用")
         # 检查邮箱唯一性
@@ -31,18 +32,39 @@ async def add_user(user: UserCreate,
             user_email_find = db.query(User).filter(User.email == email, User.status == 1).first()
             if user_email_find:
                 return Result.error("邮箱已被其他用户使用")
+        if username is not None:
+            user_username_find = db.query(User).filter(User.username == username, User.status == 1).first()
+            if user_username_find:
+                return Result.error("用户名已存在，添加失败")
+
         # 默认密码为123456
         hashed_password = hashlib.md5("123456".encode()).hexdigest()
-        user_dict = user.dict(exclude={'password'})
 
-        new_user = User(**user_dict,
-                        password=hashed_password,
-                        status=1,
-                        created_time=datetime.now(),
-                        last_login=None)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        # 查询是否有软删除用户
+        user_delete = db.query(User).filter(User.username == username, User.status == 0).first()
+        if user_delete:
+            user_delete.status = 1
+            user_delete.phone = phone
+            user_delete.email = email
+            user_delete.role = user.role
+            user_delete.password = hashed_password
+            user_delete.full_name = user.full_name
+            user_delete.department = user.department
+            user_delete.created_time = datetime.now()
+            user_delete.last_login = None
+            db.commit()
+            db.refresh(user_delete)
+        else:
+            user_dict = user.dict(exclude={'password'})
+
+            new_user = User(**user_dict,
+                            password=hashed_password,
+                            status=1,
+                            created_time=datetime.now(),
+                            last_login=None)
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
 
         return Result.success()
     except HTTPException:
@@ -68,10 +90,7 @@ async def update_user(new_user: UserUpdateByAdmin,
         user = db.query(User).filter(User.id == new_user.id).first()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
-            )
+            return Result.error("用户不存在")
 
         new_user = new_user.model_dump(exclude_unset=True)
 
@@ -138,10 +157,7 @@ async def get_user_by_id(id, db: Session = Depends(get_db),
         user_data = UserResponse.from_orm(user)
         return Result.success_with_data(user_data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: 用户不存在"
-        )
+        return Result.error("用户不存在")
 
 @router.post("/users/page", summary="管理员分页查询用户信息")
 async def get_user_page(page: Page, db: Session = Depends(get_db),

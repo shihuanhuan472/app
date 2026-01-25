@@ -5,6 +5,8 @@ class APIClient {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         };
+        this.isRefreshing = false; // 新增：标记是否正在刷新token
+        this.retryQueue = []; // 新增：存储待重试的请求
     }
 
     // 获取认证头
@@ -17,6 +19,73 @@ class APIClient {
         }
 
         return headers;
+    }
+
+    async refreshToken() {
+        // 防止重复刷新
+        if (this.isRefreshing) {
+            console.log('Token刷新正在进行中，等待...');
+            // 可以添加等待逻辑，但简化版直接等待1秒后重试
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return sessionStorage.getItem('token');
+        }
+
+        this.isRefreshing = true;
+
+        try {
+            const refreshToken = sessionStorage.getItem('refresh_token');
+            if (!refreshToken) {
+                throw new Error('No refresh token available');
+            }
+
+            console.log('尝试刷新token...');
+
+            const url = `${this.baseUrl}/auth/refresh`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refresh_token: refreshToken
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || errorData.msg || `刷新失败: HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code === 1) {
+                const newAccessToken = result.data.access_token;
+                sessionStorage.setItem('token', newAccessToken);
+                console.log('Token刷新成功');
+
+                // 处理等待队列中的请求
+                while (this.retryQueue.length > 0) {
+                    const retry = this.retryQueue.shift();
+                    if (retry && typeof retry === 'function') {
+                        retry(newAccessToken);
+                    }
+                }
+
+                return newAccessToken;
+            } else {
+                throw new Error(result.msg || '刷新token失败');
+            }
+        } catch (error) {
+            console.error('刷新token失败:', error);
+            // 清除所有存储的token，跳转到登录页
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('refresh_token');
+            sessionStorage.removeItem('user');
+            window.location.href = 'index.html';
+            throw error;
+        } finally {
+            this.isRefreshing = false;
+        }
     }
 
     // POST请求方法 - 完全移除 credentials
@@ -34,6 +103,34 @@ class APIClient {
 
             const response = await fetch(url, options);
             console.log('响应状态:', response.status);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -64,6 +161,34 @@ class APIClient {
             const response = await fetch(url, options);
             console.log('响应状态:', response.status);
 
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
@@ -92,6 +217,34 @@ class APIClient {
             const response = await fetch(url, options);
             console.log('响应状态:', response.status);
 
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
@@ -117,6 +270,34 @@ class APIClient {
             };
 
             const response = await fetch(url, options);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -144,6 +325,34 @@ class APIClient {
             }
 
             const response = await fetch(url, options);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -176,6 +385,34 @@ class APIClient {
             };
 
             const response = await fetch(url, options);
+
+            if (response.status === 401 && sessionStorage.getItem('token')) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -471,11 +708,25 @@ const userAPI = {
             console.log('登录响应:', response);
 
             if (response.code === 1) {
-                if (response.data && response.data.access_token) {
-                    sessionStorage.setItem('token', response.data.access_token);
+                const tokenData = response.data;
+                if (tokenData && tokenData.access_token) {
+                    // 存储access_token
+                    sessionStorage.setItem('token', tokenData.access_token);
                     console.log('Token 已保存');
+
+                    // 新增：存储refresh_token
+                    if (tokenData.refresh_token) {
+                        sessionStorage.setItem('refresh_token', tokenData.refresh_token);
+                        console.log('Refresh token 已保存');
+                    }
+
+                    // 存储用户信息
+                    if (tokenData.user) {
+                        sessionStorage.setItem('user', JSON.stringify(tokenData.user));
+                        console.log('用户信息已存储:', tokenData.user);
+                    }
                 }
-                return response.data;
+                return tokenData;
             } else {
                 throw new Error(response.msg || '登录失败');
             }
@@ -607,43 +858,29 @@ const userAPI = {
     }
 };
 
-// 数据管理器 - 同样需要移除 credentials
+// 数据管理器
 const DataManager = {
+    client: new APIClient(), // 新增：创建APIClient实例
+
     // 获取分页用户数据
     async getUsersPage(page = 1, pageSize = 6) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
-            }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/users/page`;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            const response = await this.client.post(
+                '/admin/users/page',  // 使用相对路径
+                {
                     page: page,
                     size: pageSize
-                })
-                // 注意：这里也没有 credentials
-            });
+                },
+                true  // 需要认证
+            );
 
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
+            console.log('获取用户分页响应:', response);
+
+            if (response.code === 1) {
+                return response.data || { users: [], total_count: 0, total_pages: 1 };
+            } else {
+                throw new Error(response.msg || '获取用户数据失败');
             }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '获取用户数据失败');
-            }
-
-            return result.data || { users: [], total_count: 0, total_pages: 1 };
-
         } catch (error) {
             console.error('获取用户数据失败:', error);
             throw error;
@@ -653,34 +890,17 @@ const DataManager = {
     // 添加用户
     async addUser(userData) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
+            const response = await this.client.post(
+                '/admin/add_user',
+                userData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '添加用户失败');
             }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/add_user`;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(userData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '添加用户失败');
-            }
-
-            return result.data;
-
         } catch (error) {
             console.error('添加用户失败:', error);
             throw error;
@@ -690,74 +910,40 @@ const DataManager = {
     // 更新用户
     async updateUser(userData) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
+            const response = await this.client.patch(
+                '/admin/update_user',
+                userData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '更新用户失败');
             }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/update_user`;
-
-            const response = await fetch(apiUrl, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(userData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '更新用户失败');
-            }
-
-            return result.data;
-
         } catch (error) {
             console.error('更新用户失败:', error);
             throw error;
         }
     },
 
-    // 删除用户
+    // 删除用户（通过更新status为0）
     async deleteUser(userId) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
-            }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/update_user`;
-
-            const response = await fetch(apiUrl, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            const response = await this.client.patch(
+                '/admin/update_user',
+                {
                     id: userId,
                     status: 0
-                })
-            });
+                },
+                true
+            );
 
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '删除用户失败');
             }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '删除用户失败');
-            }
-
-            return result.data;
-
         } catch (error) {
             console.error('删除用户失败:', error);
             throw error;
@@ -767,33 +953,16 @@ const DataManager = {
     // 根据ID获取用户
     async getUserById(userId) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
+            const response = await this.client.get(
+                `/admin/user/${userId}`,  // 注意这里是路径参数
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '获取用户信息失败');
             }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/user/${userId}`;
-
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '获取用户信息失败');
-            }
-
-            return result.data;
-
         } catch (error) {
             console.error('获取用户信息失败:', error);
             throw error;
@@ -803,32 +972,8 @@ const DataManager = {
     // 搜索用户
     async searchUsers(query) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
-            }
-
-            console.warn('搜索用户功能暂未实现，后端需要添加搜索接口');
-
-            const result = await this.getUsersPage(1, 100);
-
-            if (!result || !result.users) {
-                return [];
-            }
-
-            const lowerQuery = query.toLowerCase();
-            const filteredUsers = result.users.filter(user => {
-                return (
-                    (user.username && user.username.toLowerCase().includes(lowerQuery)) ||
-                    (user.full_name && user.full_name.toLowerCase().includes(lowerQuery)) ||
-                    (user.department && user.department.toLowerCase().includes(lowerQuery)) ||
-                    (user.email && user.email.toLowerCase().includes(lowerQuery)) ||
-                    (user.phone && user.phone.includes(query))
-                );
-            });
-
-            return filteredUsers;
-
+            // 调用后端搜索接口
+            return await this.searchUsersPage(query, 1, 100);
         } catch (error) {
             console.error('搜索用户失败:', error);
             return [];
@@ -838,87 +983,46 @@ const DataManager = {
     // 获取所有用户
     async getAllUsers() {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
+            const response = await this.client.get(
+                '/admin/users',
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '获取所有用户失败');
             }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/users`;
-
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.code !== 1) {
-                throw new Error(result.msg || '获取所有用户失败');
-            }
-
-            return result.data || [];
-
         } catch (error) {
             console.error('获取所有用户失败:', error);
             throw error;
         }
     },
 
+    // 搜索用户（分页）
     async searchUsersPage(query, page = 1, size = 6) {
         try {
-            const token = Utils.getToken();
-            if (!token) {
-                throw new Error('用户未登录');
-            }
-
-            const apiUrl = `${Utils.getApiBaseUrl()}/admin/query`;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            const response = await this.client.post(
+                '/admin/query',
+                {
                     data: query,
                     page: page,
                     size: size
-                })
-            });
+                },
+                true
+            );
 
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
+            console.log('搜索用户响应:', response);
 
-            const result = await response.json();
-
-            if (result.code !== 1 && result.code !== 200) {
-                throw new Error(result.msg || result.detail || '搜索用户失败');
-            }
-
-            if (result.code === 200) {
-                return result.data || {
-                    total_count: 0,
-                    total_pages: 0,
-                    users: []
-                };
-            } else if (result.code === 1) {
-                return result.data || {
+            if (response.code === 1 || response.code === 200) {
+                return response.data || {
                     total_count: 0,
                     total_pages: 0,
                     users: []
                 };
             } else {
-                throw new Error('搜索用户失败：未知的响应格式');
+                throw new Error(response.msg || result.detail || '搜索用户失败');
             }
-
         } catch (error) {
             console.error('搜索用户失败:', error);
             throw error;

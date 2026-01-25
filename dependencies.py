@@ -31,7 +31,6 @@ def get_current_user(
     try:
         # 验证 token
         payload = jwt_utils.verify_token(token, token_type="access")
-        print(payload)
         # 从 payload 中提取用户信息
         user_id = payload.get("sub")
         if user_id is None:
