@@ -111,7 +111,17 @@ const Utils = {
     },
 
     getToken() {
-        return sessionStorage.getItem('token');
+        // 改为从 localStorage 获取
+        return localStorage.getItem('token') || sessionStorage.getItem('token');
+    },
+
+    // 在 Utils 对象中添加文件大小格式化函数
+    formatFileSize: function(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
 
     // 格式化日期
@@ -134,10 +144,27 @@ const Utils = {
     },
 
     checkLogin: function() {
-        const token = sessionStorage.getItem('token');
-        const refreshToken = sessionStorage.getItem('refresh_token');
-        const userStr = sessionStorage.getItem('user');
+        // 优先从 localStorage 获取
+        let token = localStorage.getItem('token');
+        let refreshToken = localStorage.getItem('refresh_token');
+        let userStr = localStorage.getItem('user');
 
+        // 如果 localStorage 没有，尝试从 sessionStorage 获取（兼容旧版本）
+        if (!token) {
+            token = sessionStorage.getItem('token');
+            refreshToken = sessionStorage.getItem('refresh_token');
+            userStr = sessionStorage.getItem('user');
+
+            // 如果 sessionStorage 有但 localStorage 没有，迁移到 localStorage
+            if (token) {
+                localStorage.setItem('token', token);
+                if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+                if (userStr) localStorage.setItem('user', userStr);
+                console.log('Token 已从 sessionStorage 迁移到 localStorage');
+            }
+        }
+
+        // 如果都没有 token，跳转到登录页
         if (!token && !refreshToken) {
             window.location.href = 'index.html';
             return null;
@@ -155,8 +182,19 @@ const Utils = {
     // 加载用户信息到侧边栏 - 简化版
     loadUserInfo: function() {
         try {
-            // 从 sessionStorage 获取用户信息
-            const userStr = sessionStorage.getItem('user');
+            // 优先从 localStorage 获取用户信息
+            let userStr = localStorage.getItem('user');
+
+            // 如果 localStorage 没有，尝试从 sessionStorage 获取
+            if (!userStr) {
+                userStr = sessionStorage.getItem('user');
+                if (userStr) {
+                    // 迁移到 localStorage
+                    localStorage.setItem('user', userStr);
+                    console.log('用户信息已从 sessionStorage 迁移到 localStorage');
+                }
+            }
+
             if (!userStr) {
                 console.warn('用户信息不存在');
                 return;
@@ -200,7 +238,12 @@ const Utils = {
 
     getCurrentUser: function() {
         try {
-            const userStr = sessionStorage.getItem('user');
+            // 优先从 localStorage 获取
+            let userStr = localStorage.getItem('user');
+            if (!userStr) {
+                userStr = sessionStorage.getItem('user');
+            }
+
             const user = userStr ? JSON.parse(userStr) : null;
             console.log('获取当前用户信息:', user);
             return user;
@@ -264,11 +307,17 @@ const Utils = {
         }
     },
 
-    // 退出登录
     logout: function() {
+        // 清除 localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        // 清除 sessionStorage（为了兼容旧代码）
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
+        sessionStorage.removeItem('last_conversation_id');
+        // 跳转到登录页
         window.location.href = 'index.html';
     },
 
@@ -419,6 +468,35 @@ const Utils = {
             throw error;
         }
     },
+        // 新增：从 sessionStorage 迁移到 localStorage 的辅助函数
+    migrateToLocalStorage: function() {
+        // 检查并迁移 token
+        const sessionToken = sessionStorage.getItem('token');
+        const localToken = localStorage.getItem('token');
+
+        if (sessionToken && !localToken) {
+            localStorage.setItem('token', sessionToken);
+            console.log('Token 已从 sessionStorage 迁移到 localStorage');
+        }
+
+        // 检查并迁移 refresh_token
+        const sessionRefreshToken = sessionStorage.getItem('refresh_token');
+        const localRefreshToken = localStorage.getItem('refresh_token');
+
+        if (sessionRefreshToken && !localRefreshToken) {
+            localStorage.setItem('refresh_token', sessionRefreshToken);
+            console.log('Refresh token 已从 sessionStorage 迁移到 localStorage');
+        }
+
+        // 检查并迁移用户信息
+        const sessionUser = sessionStorage.getItem('user');
+        const localUser = localStorage.getItem('user');
+
+        if (sessionUser && !localUser) {
+            localStorage.setItem('user', sessionUser);
+            console.log('用户信息已从 sessionStorage 迁移到 localStorage');
+        }
+    },
 
     // 添加获取用户信息函数（示例）
     getUserInfo: async function() {
@@ -482,7 +560,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
 
     if (!isLoginPage) {
-        // 先检查登录
+        // 先迁移数据（如果有）
+        Utils.migrateToLocalStorage();
+
+        // 然后检查登录
         const user = Utils.checkLogin();
 
         // 然后加载用户信息

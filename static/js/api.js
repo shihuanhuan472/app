@@ -11,7 +11,8 @@ class APIClient {
 
     // 获取认证头
     getAuthHeaders() {
-        const token = sessionStorage.getItem('token');
+        // 改为从 localStorage 获取
+        const token = localStorage.getItem('token');
         const headers = { ...this.headers };
 
         if (token) {
@@ -25,15 +26,15 @@ class APIClient {
         // 防止重复刷新
         if (this.isRefreshing) {
             console.log('Token刷新正在进行中，等待...');
-            // 可以添加等待逻辑，但简化版直接等待1秒后重试
             await new Promise(resolve => setTimeout(resolve, 1000));
-            return sessionStorage.getItem('token');
+            return localStorage.getItem('token');
         }
 
         this.isRefreshing = true;
 
         try {
-            const refreshToken = sessionStorage.getItem('refresh_token');
+            // 改为从 localStorage 获取
+            const refreshToken = localStorage.getItem('refresh_token');
             if (!refreshToken) {
                 throw new Error('No refresh token available');
             }
@@ -60,8 +61,9 @@ class APIClient {
 
             if (result.code === 1) {
                 const newAccessToken = result.data.access_token;
-                sessionStorage.setItem('token', newAccessToken);
-                console.log('Token刷新成功');
+                // 改为存储到 localStorage
+                localStorage.setItem('token', newAccessToken);
+                console.log('Token刷新成功并保存到 localStorage');
 
                 // 处理等待队列中的请求
                 while (this.retryQueue.length > 0) {
@@ -78,9 +80,9 @@ class APIClient {
         } catch (error) {
             console.error('刷新token失败:', error);
             // 清除所有存储的token，跳转到登录页
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('refresh_token');
-            sessionStorage.removeItem('user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
             window.location.href = 'index.html';
             throw error;
         } finally {
@@ -710,20 +712,20 @@ const userAPI = {
             if (response.code === 1) {
                 const tokenData = response.data;
                 if (tokenData && tokenData.access_token) {
-                    // 存储access_token
-                    sessionStorage.setItem('token', tokenData.access_token);
-                    console.log('Token 已保存');
+                    // 改为 localStorage
+                    localStorage.setItem('token', tokenData.access_token);
+                    console.log('Token 已保存到 localStorage');
 
-                    // 新增：存储refresh_token
+                    // 存储 refresh_token
                     if (tokenData.refresh_token) {
-                        sessionStorage.setItem('refresh_token', tokenData.refresh_token);
-                        console.log('Refresh token 已保存');
+                        localStorage.setItem('refresh_token', tokenData.refresh_token);
+                        console.log('Refresh token 已保存到 localStorage');
                     }
 
                     // 存储用户信息
                     if (tokenData.user) {
-                        sessionStorage.setItem('user', JSON.stringify(tokenData.user));
-                        console.log('用户信息已存储:', tokenData.user);
+                        localStorage.setItem('user', JSON.stringify(tokenData.user));
+                        console.log('用户信息已存储到 localStorage:', tokenData.user);
                     }
                 }
                 return tokenData;
@@ -1029,6 +1031,245 @@ const DataManager = {
         }
     }
 };
+
+// 对话相关的 API
+const conversationAPI = {
+    client: new APIClient(),
+
+    // 创建新对话
+    async createConversation() {
+        try {
+            const response = await this.client.post(
+                '/conversation/create',
+                null,  // 不需要请求体
+                true   // 需要认证
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '创建对话失败');
+            }
+        } catch (error) {
+            console.error('创建对话失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取对话历史
+    async getHistory() {
+        try {
+            const response = await this.client.get(
+                '/conversation/history',
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '获取历史对话失败');
+            }
+        } catch (error) {
+            console.error('获取历史对话失败:', error);
+            return [];
+        }
+    },
+
+    // 分页获取对话历史
+    async getHistoryPage(pageParams = { page: 1, size: 20 }) {
+        try {
+            // 确保有默认值
+            const page = pageParams.page || 1;
+            const size = pageParams.size || 5;
+
+            const response = await this.client.post(
+                '/conversation/history/page',
+                {
+                    page: page,
+                    size: size
+                },
+                true
+            );
+
+            // 兼容多种返回格式
+            let resultData = null;
+            if (response && typeof response === 'object') {
+                if (response.code !== undefined) {
+                    // 完整的 Result 对象
+                    if (response.code === 1) {
+                        resultData = response.data;
+                    } else {
+                        throw new Error(response.msg || '获取分页对话历史失败');
+                    }
+                } else {
+                    // 直接的数据对象
+                    resultData = response;
+                }
+            }
+
+            return resultData || {
+                total_count: 0,
+                total_pages: 0,
+                history: []
+            };
+        } catch (error) {
+            console.error('获取分页对话历史失败:', error);
+            return {
+                total_count: 0,
+                total_pages: 0,
+                history: []
+            };
+        }
+    },
+
+    // 根据ID获取对话
+    async getConversationById(id) {
+        try {
+            const response = await this.client.get(
+                `/conversation/get_by_id/${id}`,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                console.error('获取对话失败:', response.msg);
+                return null;
+            }
+        } catch (error) {
+            console.error('获取对话失败:', error);
+            return null;
+        }
+    },
+
+    // 更新对话标题
+    async updateTitle(id, newTitle) {
+        try {
+            const response = await this.client.put(
+                `/conversation/update_title?id=${id}&new_title=${encodeURIComponent(newTitle)}`,
+                null,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '更新对话标题失败');
+            }
+        } catch (error) {
+            console.error('更新对话标题失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除对话
+    async deleteConversation(id) {
+        try {
+            const response = await this.client.delete(
+                `/conversation/delete?id=${id}`,
+                null,
+                true
+            );
+
+            if (response.code === 1) {
+                return true;
+            } else {
+                throw new Error(response.msg || '删除对话失败');
+            }
+        } catch (error) {
+            console.error('删除对话失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索对话历史
+    async searchConversations(query) {
+        try {
+            const response = await this.client.get(
+                `/conversation/query?data=${encodeURIComponent(query)}`,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                console.error('搜索对话失败:', response.msg);
+                return [];
+            }
+        } catch (error) {
+            console.error('搜索对话失败:', error);
+            return [];
+        }
+    }
+};
+
+// 消息相关的 API
+const messageAPI = {
+    client: new APIClient(),
+
+    // 上传图片
+    async uploadImages(files) {
+        try {
+            const response = await this.client.uploadImages(
+                '/message/upload_images',
+                files
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '上传图片失败');
+            }
+        } catch (error) {
+            console.error('上传图片失败:', error);
+            throw error;
+        }
+    },
+
+    // 发送消息并获得回答
+    async ask(messageData) {
+        try {
+            const response = await this.client.post(
+                '/message/ask',
+                messageData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '发送消息失败');
+            }
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取对话的消息
+    async getMessagesByConversation(id) {
+        try {
+            const response = await this.client.get(
+                `/message/get_by_conversation?id=${id}`,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                console.error('获取消息失败:', response.msg);
+                return [];
+            }
+        } catch (error) {
+            console.error('获取消息失败:', error);
+            return [];
+        }
+    }
+};
+
+// 导出到全局
+window.conversationAPI = conversationAPI;
+window.messageAPI = messageAPI;
 
 // 导出到全局
 window.DataManager = DataManager;

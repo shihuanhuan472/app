@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
-
+from utils.VectorService import VectorService
 from dependencies import get_current_active_user
 from models import Document, User
 from schemas import DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page, DocumentQuery
@@ -117,10 +117,15 @@ async def create_document(document: DocumentCreate,
 
         document_data = Document(**document.dict(),
                                  contributor_id=contributor_id,
+                                 is_vectorized=0,
                                  first_edit_date=datetime.now())
         db.add(document_data)
         db.commit()
         db.refresh(document_data)
+
+        vector_service = VectorService(db)
+        vector_service.add_document_to_vector_store(document_data)
+
         data = document_convert_documentResponse(document_data, current_user.full_name)
         return Result.success_with_data(data)
 
@@ -251,8 +256,14 @@ async def update_document(id: int,
 
         setattr(document_now, "image_urls", image_urls_str)
 
+        document_now.is_vectorized = 0
+        vector_service = VectorService(db)
+        vector_service.delete_document_from_vector_store(id)
+
         db.commit()
         db.refresh(document_now)
+
+        vector_service.add_document_to_vector_store(document_now)
 
         full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
 
@@ -285,6 +296,9 @@ async def delete(id: int,
                 if os.path.exists(url):
                     os.remove(url)
                     print(f"删除了{url}")
+
+        vector_service = VectorService(db)
+        vector_service.delete_document_from_vector_store(id)
 
         print("成功删除文档")
 

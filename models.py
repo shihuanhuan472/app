@@ -36,6 +36,8 @@ class Document(Base):
     inspection = Column(Text, nullable=False)
     solutions = Column(Text, nullable=False)
     key_points = Column(Text, nullable=False)
+    is_vectorized = Column(Integer, default=0)
+    vector_update_time = Column(DateTime, nullable=True)
 
     # 关系
     contributor = relationship("User")

@@ -103,6 +103,15 @@ class MenuManager {
             }
         }
 
+        // if (fileName.includes("ai.html")) {
+        //     const link = document.querySelector(`a[href="ai.html"]`);
+        //     if (link) {
+        //         link.classList.add('active');
+        //         console.log('设置激活菜单:', link.href);
+        //         return;
+        //     }
+        // }
+
         // 根据当前页面设置 active 类
         const currentLink = document.querySelector(`a[href="${fileName}"]`);
         if (currentLink) {

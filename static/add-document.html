@@ -365,8 +365,8 @@
 
                         <div class="form-group">
                             <label class="form-label required" for="title">文档标题</label>
-                            <input type="text" id="title" class="form-control" placeholder="请输入文档标题，例如：XXX停转维修" maxlength="100">
-                            <div class="character-count" id="titleCount">0/100</div>
+                            <input type="text" id="title" class="form-control" placeholder="请输入文档标题，例如：XXX停转维修" maxlength="50">
+                            <div class="character-count" id="titleCount">0/50</div>
                         </div>
                     </div>
 
@@ -786,16 +786,16 @@
         // 获取最大长度
         function getMaxLength(fieldId) {
             const limits = {
-                'title': 100,
-                'problemIntro': 2000,
-                'causes': 2000,
+                'title': 50,
+                'problemIntro': 500,
+                'causes': 500,
                 'evaluation': 500,
                 'inspection': 500,
-                'solutions': 2000,
+                'solutions': 1000,
                 'keyPoints': 1000
             };
 
-            return limits[fieldId] || 1000;
+            return limits[fieldId] || 500;
         }
 
         // 设置表单验证

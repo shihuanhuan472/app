@@ -6,7 +6,7 @@ from sqlalchemy import desc, and_
 from sqlalchemy.orm import Session
 
 from dependencies import get_current_active_user
-from models import User
+from models import User, Message
 from models import Conversation
 from schemas import ConversationResponse, Result, Page
 from database import get_db
@@ -128,6 +128,8 @@ async def delete(id: int,
 
         if conversation.user_id != current_user.id:
             return Result.error("您无权删除此对话")
+
+        db.query(Message).filter(Message.session_id == id).delete()
 
         db.delete(conversation)
         db.commit()

@@ -778,7 +778,7 @@
                     updateMenuByRole(currentUser);
 
                 } else {
-                    throw new Error(response?.msg || '获取用户信息失败');
+                    throw new Error(response.msg || '获取用户信息失败');
                 }
 
             } catch (error) {
@@ -982,10 +982,10 @@
 
         // 保存个人资料
         async function saveProfile() {
-            const fullName = document.getElementById('editFullName')?.value.trim() || '';
-            const phone = document.getElementById('editPhone')?.value.trim() || '';
-            const email = document.getElementById('editEmail')?.value.trim() || '';
-            const department = document.getElementById('editDepartment')?.value.trim() || '';
+            const fullName = document.getElementById('editFullName').value.trim() || '';
+            const phone = document.getElementById('editPhone').value.trim() || '';
+            const email = document.getElementById('editEmail').value.trim() || '';
+            const department = document.getElementById('editDepartment').value.trim() || '';
 
             if (!fullName) {
                 Utils.showMessage('姓名不能为空', 'error');
@@ -1035,7 +1035,7 @@
                         switchToViewMode();
                     }, 1000);
                 } else {
-                    throw new Error(response?.msg || '更新失败');
+                    throw new Error(response.msg || '更新失败');
                 }
             } catch (error) {
                 console.error('保存用户信息失败:', error);
@@ -1171,9 +1171,9 @@
 
         // 修改密码
         async function changePassword() {
-            const currentPassword = document.getElementById('currentPassword')?.value || '';
-            const newPassword = document.getElementById('newPassword')?.value || '';
-            const confirmPassword = document.getElementById('confirmPassword')?.value || '';
+            const currentPassword = document.getElementById('currentPassword').value || '';
+            const newPassword = document.getElementById('newPassword').value || '';
+            const confirmPassword = document.getElementById('confirmPassword').value || '';
 
             if (!currentPassword || !newPassword || !confirmPassword) {
                 Utils.showMessage('请填写完整的密码信息', 'error');
@@ -1203,7 +1203,7 @@
                     const form = document.getElementById('changePasswordForm');
                     if (form) form.reset();
                 } else {
-                    throw new Error(response?.msg || '修改密码失败');
+                    throw new Error(response.msg || '修改密码失败');
                 }
             } catch (error) {
                 console.error('修改密码失败:', error);

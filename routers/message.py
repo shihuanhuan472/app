@@ -10,10 +10,11 @@ from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
 from typing import List
 from schemas import Result
-from models import Message, User, Conversation
+from models import Message, User, Conversation, Document
 from schemas import MessageCreate, MessageResponse
 from database import get_db
 from dependencies import get_current_active_user
+from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/message", tags=["消息"])
 
@@ -27,7 +28,7 @@ def image_to_base64(image: str, dir: str = None):
 def get_image_config():
     MESSAGE_MAX_IMAGE_SIZE: int = int(os.getenv("MESSAGE_MAX_IMAGE_SIZE", 20 * 1024 * 1024))
     MESSAGE_IMAGE_DIR: str = os.getenv("MESSAGE_IMAGE_DIR", "upload/images")
-    MESSAGE_BASE_DIR: str = os.getenv("MESSAGE_BASE_DIR", "/")
+    MESSAGE_BASE_DIR: str = os.getenv("MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
     return {
         "MESSAGE_MAX_IMAGE_SIZE": MESSAGE_MAX_IMAGE_SIZE,
@@ -40,11 +41,13 @@ def get_image_config():
 async def upload_images(images: List[UploadFile]):
     config = get_image_config()
     url = os.path.join(config["MESSAGE_BASE_DIR"], config["MESSAGE_IMAGE_DIR"].lstrip("/").lstrip("\\"))
+
     uploaded_images = []
     if not os.path.exists(url):
         os.makedirs(url)
         print(f"创建路径{url}")
     for image in images:
+        print(1100)
         try:
             if image.size > config["MESSAGE_MAX_IMAGE_SIZE"]:
                 continue
@@ -55,7 +58,7 @@ async def upload_images(images: List[UploadFile]):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
             save_path = Path(url) / unique_filename
-
+            print("save_path: ", save_path)
             # 保存文件
             contents = await image.read()
             with open(save_path, "wb") as buffer:
@@ -101,12 +104,12 @@ async def ask(message: MessageCreate,
                     print(url_check)
                     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                         detail="图片未上传")
-        message.user_uploaded_images = (message.user_uploaded_images.replace("\\", "/")
-                                        .replace(", /", ", ")
-                                        .removeprefix("/")
-                                        .removesuffix(", "))
+            message.user_uploaded_images = (message.user_uploaded_images.replace("\\", "/")
+                                            .replace(", /", ", ")
+                                            .removeprefix("/")
+                                            .removesuffix(", "))
 
-        print(111)
+        # print(111)
         db_message = Message(
             session_id=message.session_id,
             role=1,
@@ -116,7 +119,7 @@ async def ask(message: MessageCreate,
             created_time=datetime.now()
         )
         print(222)
-        # TODO: 得到ai的回答
+
         answer = get_answer(max_order + 1, message.session_id, db_message, db)
         db.add(db_message)
         db.flush()
@@ -125,6 +128,9 @@ async def ask(message: MessageCreate,
         db.flush()
 
         conversation.updated_time = datetime.now()
+        if max_order == 0:
+            new_title = get_new_title_by_ai(message.content_text)
+            conversation.title = new_title
         db.commit()
         db.refresh(db_message)
 
@@ -141,63 +147,124 @@ async def ask(message: MessageCreate,
             detail="服务器内部错误，请稍后重试"
         )
 
-def generate_messages(db, id, message_now):
+def generate_messages(db, id, message_now, prompt):
+    print("generate_messages")
     messages_db = (db.query(Message).
                    filter(Message.session_id == id).
                    order_by(Message.created_time).
                    all())
     messages = []
     config = get_image_config()
-
+    print("get_config")
     if messages_db:
         print("messages_db")
         for message in messages_db:
             data = {}
             role = "user" if message.role == 1 else "system"
-            print("role: ", role)
+            # print("role: ", role)
             msg_text = message.content_text
-            if message.user_uploaded_images is not None:
+            if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
                 images = message.user_uploaded_images.split(", ")
                 data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
 
             data["role"] = role
             data["content"] = msg_text
             messages.append(data)
-    print("messages:", messages)
+    # print("messages: ", messages)
     data = {}
-    if message_now.user_uploaded_images is not None:
+    if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
+        # print(images)
         data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
     data["role"] = "user"
-    data["content"] = message_now.content_text
+    data["content"] = prompt + "\n问题：" + message_now.content_text
 
     messages.append(data)
     return messages
 
+def get_new_title_by_ai(content):
+    ai_url: str = os.getenv("AI_API")
+    model = os.getenv("MODEL")
+    message = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。内容：{content}"}]
+    data = {"model": model, "messages": message, "stream": False}
+    new_title = requests.post(ai_url, json=data).json()["message"]["content"]
+    print("new_title: ", new_title)
+    print("message: ", message)
+    if len(new_title) > 15 or len(new_title) == 0:
+        new_title = "新标题"
+
+    return new_title
+
+def get_reference_documents(db, question: str):
+    vector_service = VectorService(db)
+    vector_service.batch_vectorize_existing_documents()
+    documents = vector_service.search_similar_documents(question)
+    # return documents
+    document_ids = []
+    for document in documents:
+        document_ids.append(document["doc_id"])
+    return document_ids
+    # return ", ".join(document_ids) if len(document_ids) > 0 else None
+
+def get_prompt(db, document_ids):
+    if not document_ids:
+        return ""
+    prompts = []
+    for i, document_id in enumerate(document_ids):
+        document = db.query(Document).filter(Document.id == document_id).scalar()
+        if not document:
+            continue
+        doc_prompt = f"""【文档{i}：】{document.title}
+问题描述：{document.problem_intro}
+原因分析：{document.causes}
+评估建议：{document.evaluation}
+检查步骤：{document.inspection}
+解决方案：{document.solutions}
+关键要点：{document.key_points}
+        """
+        prompts.append(doc_prompt)
+
+        # 添加指令
+        if prompts:
+            final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
+            final_prompt += "\n---\n".join(prompts)
+            final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
+            return final_prompt
+
+        return ""
+
+def get_ai_reference_document_ids_str(ai_reference_document_ids):
+    if len(ai_reference_document_ids) == 0:
+        return ""
+    result = ", ".join(map(str, ai_reference_document_ids))
+    return result
+
 def get_ai_answer(db, session_id, message_now):
-    messages = generate_messages(db, session_id, message_now)
-    print(messages)
+    ai_reference_document_ids = get_reference_documents(db, message_now.content_text)
+    ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
+    prompt = get_prompt(db, ai_reference_document_ids)
+    messages = generate_messages(db, session_id, message_now, prompt)
+    # print(messages)
     ai_url: str = os.getenv("AI_API")
     model = os.getenv("MODEL")
     data = {"model": model, "messages": messages, "stream": False}
     result = requests.post(ai_url, json=data)
     print(result)
-    return result.json()["message"]["content"]
+    return result.json()["message"]["content"], ai_reference_document_ids_str
 
 def get_answer(message_order: int,
                session_id: int,
                message_now: Message,
                db):
     try:
-        content_text = get_ai_answer(db, session_id, message_now)
+        content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
 
-        ai_reference_doc_ids = ""
         message = Message(
             session_id=session_id,
             role=0,
             message_order=message_order,
             content_text=content_text,
-            ai_reference_doc_ids=ai_reference_doc_ids,
+            ai_reference_doc_ids=ai_reference_document_ids,
             created_time=datetime.now()
         )
 
@@ -207,7 +274,7 @@ def get_answer(message_order: int,
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
+            detail="服务器内部错误，请稍后重试，或尝试新建对话"
         )
 
 @router.get("/get_by_conversation", summary="获得某个对话的消息")
@@ -229,17 +296,11 @@ async def get_by_conversation(id: int,
     except Exception as e:
         return Result.error("获取对话消息失败")
 
-# 创建消息
-# @router.post("/", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
-# def create_message(message: MessageCreate, db: Session = Depends(get_db)):
-#     db_message = Message(**message.dict())
-#     db.add(db_message)
-#     db.commit()
-#     db.refresh(db_message)
-#     return db_message
-#
-# # 获取对话的所有消息
-# @router.get("/conversation/{conversation_id}", response_model=List[MessageResponse])
-# def get_conversation_messages(conversation_id: int, db: Session = Depends(get_db)):
-#     messages = db.query(Message).filter(Message.session_id == conversation_id).order_by(Message.message_order).all()
-#     return messages
+
+@router.get("/test_get_reference/{question}")
+async def get_reference(question: str,
+                        db: Session = Depends(get_db),
+                        current_user: User = Depends(get_current_active_user)):
+    documents = get_reference_documents(db, question)
+    print(documents)
+    return Result.success_with_data(documents)

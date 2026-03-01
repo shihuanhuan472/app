@@ -129,6 +129,7 @@
 
             try {
                 // 加载文档列表（从第一页开始）
+                docCurrentPage = 1
                 await loadDocuments();
             } catch (error) {
                 console.error('初始化失败:', error);

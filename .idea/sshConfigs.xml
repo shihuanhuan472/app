@@ -2,7 +2,8 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig authType="PASSWORD" host="com.webmeteor.cn" id="f339ec6f-a6be-4505-be72-272c9235fd27" port="22" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="10.86.208.20" id="f339ec6f-a6be-4505-be72-272c9235fd27" port="30183" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="com.webmeteor.cn" id="3cfe0ab5-053b-4ba2-b3a0-e83ffba3166e" port="22" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
     </configs>
   </component>
 </project>
