@@ -599,6 +599,17 @@
                             </div>
                         </div>
 
+                        <!-- 故障评估 -->
+                        <div class="document-section">
+                            <div class="section-header">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h3>故障评估</h3>
+                            </div>
+                            <div class="section-content">
+                                ${doc.evaluation ? doc.evaluation.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
+                            </div>
+                        </div>
+
                         <!-- 检查步骤 -->
                         <div class="document-section">
                             <div class="section-header">

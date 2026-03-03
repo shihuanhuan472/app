@@ -2,6 +2,7 @@
 import os
 import uuid
 import base64
+from openai import OpenAI
 from datetime import datetime
 from pathlib import Path
 import requests
@@ -162,34 +163,69 @@ def generate_messages(db, id, message_now, prompt):
             data = {}
             role = "user" if message.role == 1 else "system"
             # print("role: ", role)
-            msg_text = message.content_text
+            # msg_text = message.content_text
+            # if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
+            #     images = message.user_uploaded_images.split(", ")
+            #     data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
+            msg_text = []
+            msg_text.append({"type": "text", "text": message.content_text})
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
                 images = message.user_uploaded_images.split(", ")
-                data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
-
+                for image in images:
+                    image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
+                    msg_text.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+            if role == "system":
+                print("123")
             data["role"] = role
             data["content"] = msg_text
             messages.append(data)
     # print("messages: ", messages)
     data = {}
+    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
+    print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
+
+        # images = message.user_uploaded_images.split(", ")
+        for image in images:
+            image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
+            msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+
         # print(images)
-        data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
+        # data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
     data["role"] = "user"
-    data["content"] = prompt + "\n问题：" + message_now.content_text
+    # data["content"] = prompt + "\n问题：" + message_now.content_text
+    data["content"] = msg_content
 
     messages.append(data)
+    # print("messages: ", messages)
     return messages
 
 def get_new_title_by_ai(content):
-    ai_url: str = os.getenv("AI_API")
-    model = os.getenv("MODEL")
-    message = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。内容：{content}"}]
-    data = {"model": model, "messages": message, "stream": False}
-    new_title = requests.post(ai_url, json=data).json()["message"]["content"]
+    # ai_url: str = os.getenv("AI_API")
+    # model = os.getenv("MODEL")
+    # message = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。内容：{content}"}]
+
+    messages = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。并且只给出标题，不要有任何多余内容。\n内容：{content}"}]
+
+    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    api_key = os.getenv("API_KEY", "EMPTY")
+    client = OpenAI(
+        base_url=f"http://{server_ip}:8000/v1",
+        api_key=api_key
+    )
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-4B-Instruct")
+    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        max_tokens=max_token
+    )
+    new_title = response.choices[0].message.content
+    # data = {"model": model, "messages": message, "stream": False}
+    # new_title = requests.post(ai_url, json=data).json()["message"]["content"]
     print("new_title: ", new_title)
-    print("message: ", message)
+    # print("message: ", message)
     if len(new_title) > 15 or len(new_title) == 0:
         new_title = "新标题"
 
@@ -245,12 +281,69 @@ def get_ai_answer(db, session_id, message_now):
     prompt = get_prompt(db, ai_reference_document_ids)
     messages = generate_messages(db, session_id, message_now, prompt)
     # print(messages)
-    ai_url: str = os.getenv("AI_API")
-    model = os.getenv("MODEL")
-    data = {"model": model, "messages": messages, "stream": False}
-    result = requests.post(ai_url, json=data)
-    print(result)
-    return result.json()["message"]["content"], ai_reference_document_ids_str
+    # ai_url: str = os.getenv("AI_API")
+    # model = os.getenv("MODEL")
+    # data = {"model": model, "messages": messages, "stream": False}
+    # result = requests.post(ai_url, json=data)
+    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    api_key = os.getenv("API_KEY", "EMPTY")
+    client = OpenAI(
+        base_url=f"http://{server_ip}:8000/v1",
+        api_key=api_key
+    )
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        max_tokens=max_token
+    )
+
+    # print(response)
+    # return result.json()["message"]["content"], ai_reference_document_ids_str
+    return response.choices[0].message.content, ai_reference_document_ids_str
+
+
+"""
+
+import base64
+from openai import OpenAI
+
+SERVER_IP = "192.168.246.200"
+
+client = OpenAI(
+    base_url=f"http://{SERVER_IP}:8000/v1",
+    api_key="EMPTY"
+)
+
+img_path = "D:/桌面/temp/test/Cat03.jpg"
+
+# 读取本地图片并转base64
+with open(img_path, "rb") as f:
+    image_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+response = client.chat.completions.create(
+    model="/models/Qwen3-VL-4B-Instruct",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "请描述这张图片"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_base64}"
+                    }
+                }
+            ],
+        }
+    ],
+    max_tokens=7000
+)
+
+print(response.choices[0].message.content)
+
+"""
 
 def get_answer(message_order: int,
                session_id: int,
@@ -272,6 +365,7 @@ def get_answer(message_order: int,
     except HTTPException:
         raise
     except Exception as e:
+        print(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="服务器内部错误，请稍后重试，或尝试新建对话"
