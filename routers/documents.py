@@ -32,7 +32,14 @@ def document_convert_documentResponse(document: Document, contributor_name: str)
         evaluation=document.evaluation,
         inspection=document.inspection,
         solutions=document.solutions,
-        key_points=document.key_points
+        key_points=document.key_points,
+
+        image_urls_problem_intro=document.image_urls_problem_intro,
+        image_urls_causes=document.image_urls_causes,
+        image_urls_evaluation=document.image_urls_evaluation,
+        image_urls_inspection=document.image_urls_inspection,
+        image_urls_solutions=document.image_urls_solutions,
+        image_urls_key_points=document.image_urls_key_points
     )
 
 
@@ -86,34 +93,60 @@ def documents_to_responses(
 
     return responses
 
+def check_image_url(image_urls: str):
+    if image_urls:
+        config = get_image_config()
+        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        urls = [url.strip() for url in image_urls.split(", ") if url.strip()]
+        for url in urls:
+            url_check = os.path.basename(url)
+            url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
+            # print(url_check)
+            if not os.path.exists(url_check):
+                return False
+        return True
+    return True
+
 @router.post("/add", summary="添加文档")
 async def create_document(document: DocumentCreate,
                           db: Session = Depends(get_db),
                           current_user: User = Depends(get_current_active_user)):
+    print("添加文档")
     config = get_image_config()
     try:
-        if document.image_urls:
-            urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
-            base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
-            print("base_dir" + config["BASE_DIR"])
-            print("image_dir" + config["IMAGE_DIR"])
-            print("base_url" + base_url)
-
-            for url in urls:
-                url_check = os.path.basename(url)
-                url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
-                # print(url_check)
-                if not os.path.exists(url_check):
-                    print(url_check)
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                        detail="图片未上传")
+        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+        for attr in attrs:
+            value = getattr(document, attr)
+            if not check_image_url(value):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="图片未上传")
+        print("图片校验完成")
+        # if document.image_urls:
+        #     urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
+        #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        #
+        #     for url in urls:
+        #         url_check = os.path.basename(url)
+        #         url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
+        #         # print(url_check)
+        #         if not os.path.exists(url_check):
+        #             print(url_check)
+        #             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+        #                                 detail="图片未上传")
 
         contributor_id = current_user.id
 
-        document.image_urls = (document.image_urls.replace("\\", "/")
-                               .replace(", /", ", ")
-                               .removeprefix("/")
-                               .removesuffix(", "))
+        # document.image_urls = (document.image_urls.replace("\\", "/")
+        #                        .replace(", /", ", ")
+        #                        .removeprefix("/")
+        #                        .removesuffix(", "))
+
+        for attr in attrs:
+            value = getattr(document, attr)
+            if value is not None:
+                value = value.replace("\\", "/").replace(", /", ", ").removeprefix("/").removesuffix(", ")
+            setattr(document, attr, value)
 
         document_data = Document(**document.dict(),
                                  contributor_id=contributor_id,
@@ -122,10 +155,10 @@ async def create_document(document: DocumentCreate,
         db.add(document_data)
         db.commit()
         db.refresh(document_data)
-
+        print("数据库插入成功")
         vector_service = VectorService(db)
         vector_service.add_document_to_vector_store(document_data)
-
+        print("向量化完成")
         data = document_convert_documentResponse(document_data, current_user.full_name)
         return Result.success_with_data(data)
 
@@ -135,6 +168,7 @@ async def create_document(document: DocumentCreate,
 
     except Exception as e:
         # 其他异常回滚
+        print(e)
         db.rollback()
         return Result.error("添加文档失败")
 
@@ -184,7 +218,7 @@ async def upload_images(images: List[UploadFile]):
                 "filename": unique_filename,
                 "original_name": image.filename
             })
-            print(uploaded_images)
+            # print(uploaded_images)
         except Exception as e:
             # 记录错误但继续处理其他文件
             print(f"文件 {image.filename} 上传失败: {str(e)}")
@@ -219,6 +253,7 @@ async def update_document(id: int,
         config = get_image_config()
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
         document_now = db.query(Document).filter(Document.id == id).first()
+
         if not document_now:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -228,33 +263,57 @@ async def update_document(id: int,
             raise HTTPException(status_code=403, detail="无权编辑该文档")
 
         image_urls_str = ""
+        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                 "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
 
-        if document.image_urls:
-            image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
-            for image_url in image_urls:
-                image_name = os.path.basename(image_url)
-                url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
-                if not os.path.exists(url_check):
-                    return Result.error(f"图片未上传，更新失败，请重新上传图片")
+        for attr in attrs:
+            urls_str = ""
+            image_url = getattr(document, attr)
+            if image_url:
+                image_urls = [url.strip() for url in image_url.split(", ") if url.strip()]
+                for image_url in image_urls:
+                    image_name = os.path.basename(image_url)
+                    url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
+                    if not os.path.exists(url_check):
+                        return Result.error(f"图片未上传，更新失败，请重新上传图片")
 
-                # url_check_str = url_check.lstrip("/").lstrip("\\")
-                url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"), image_name.lstrip("/").lstrip("\\"))
-                url_check_str = url_check_str.lstrip("/").lstrip("\\")
-                url_check_str = url_check_str.replace("\\", "/")
+                    url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
+                                                 image_name.lstrip("/").lstrip("\\"))
+                    url_check_str = url_check_str.lstrip("/").lstrip("\\")
+                    url_check_str = url_check_str.replace("\\", "/")
 
-                image_urls_str += url_check_str + ", "
+                    urls_str += url_check_str + ", "
+                if len(urls_str) > 0:
+                    urls_str = urls_str.removesuffix(", ")
+            setattr(document_now, attr, urls_str)
+
+
+        # if document.image_urls:
+        #     image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
+        #     for image_url in image_urls:
+        #         image_name = os.path.basename(image_url)
+        #         url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
+        #         if not os.path.exists(url_check):
+        #             return Result.error(f"图片未上传，更新失败，请重新上传图片")
+        #
+        #         # url_check_str = url_check.lstrip("/").lstrip("\\")
+        #         url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"), image_name.lstrip("/").lstrip("\\"))
+        #         url_check_str = url_check_str.lstrip("/").lstrip("\\")
+        #         url_check_str = url_check_str.replace("\\", "/")
+        #
+        #         image_urls_str += url_check_str + ", "
 
         document_data = document.dict(exclude_unset=True)
         for key, value in document_data.items():
             # print(key, value)
-            if key == "id" or key == "image_urls":
+            if key == "id" or key in attrs:
                 continue
             setattr(document_now, key, value)
 
         if len(image_urls_str) > 0:
             image_urls_str = image_urls_str.removesuffix(", ")
 
-        setattr(document_now, "image_urls", image_urls_str)
+        # setattr(document_now, "image_urls", image_urls_str)
 
         document_now.is_vectorized = 0
         vector_service = VectorService(db)
@@ -285,17 +344,34 @@ async def delete(id: int,
             return Result.error(f"文档不存在")
         if document.contributor_id != current_user.id and current_user.role != 0:
             return Result.error("无删除权限")
-        if document.image_urls:
-            config = get_image_config()
-            base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
-            image_urls = document.image_urls.split(", ")
-            print("删除的image_urls: ", image_urls)
-            for image_url in image_urls:
-                filename = os.path.basename(image_url)
-                url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                if os.path.exists(url):
-                    os.remove(url)
-                    print(f"删除了{url}")
+        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                 "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+        config = get_image_config()
+        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+
+        for attr in attrs:
+            value = getattr(document, attr)
+            if value is not None:
+                image_urls = value.split(", ")
+                for image_url in image_urls:
+                    filename = os.path.basename(image_url)
+                    if filename.strip():
+                        url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+                        if os.path.exists(url):
+                            os.remove(url)
+                            print(f"删除了{url}")
+
+        # if document.image_urls:
+        #     config = get_image_config()
+        #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        #     image_urls = document.image_urls.split(", ")
+        #     print("删除的image_urls: ", image_urls)
+        #     for image_url in image_urls:
+        #         filename = os.path.basename(image_url)
+        #         url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+        #         if os.path.exists(url):
+        #             os.remove(url)
+        #             print(f"删除了{url}")
 
         vector_service = VectorService(db)
         vector_service.delete_document_from_vector_store(id)
@@ -309,6 +385,7 @@ async def delete(id: int,
         raise
     except Exception as e:
         # 其他异常回滚
+        print(e)
         db.rollback()
         return Result.error(f"删除文档失败：{str(e)}")
 
@@ -361,7 +438,6 @@ async def query(query: DocumentQuery,
                 current_user: User = Depends(get_current_active_user)):
     try:
         offset = (query.page - 1) * query.size
-
 
         total_count = db.query(Document).join(
             User, Document.contributor_id == User.id

@@ -11,14 +11,13 @@
     <script src="js/api.js"></script>
     <script src="js/menu.js"></script>
     <style>
-        /* 确保基础样式生效 - 提高优先级 */
+        /* 原有样式保持不变，添加小图片网格样式 */
         .document-detail-container {
             padding: 20px !important;
             background-color: #f8f9fa !important;
             min-height: calc(100vh - 120px) !important;
             border-radius: 8px !important;
         }
-
         .document-detail-content {
             background: white !important;
             border-radius: 8px !important;
@@ -27,28 +26,23 @@
             max-width: 1000px !important;
             margin: 0 auto !important;
         }
-
         .document-header {
             margin-bottom: 40px !important;
             padding-bottom: 20px !important;
             border-bottom: 2px solid #e8e8e8 !important;
         }
-
         .document-title {
             font-size: 28px !important;
             font-weight: 600 !important;
             color: #1a3a5f !important;
             margin-bottom: 20px !important;
-            line-height: 1.3 !important;
         }
-
         .document-meta {
             display: flex !important;
             flex-wrap: wrap !important;
             gap: 20px !important;
             margin-top: 20px !important;
         }
-
         .meta-item {
             display: flex !important;
             align-items: center !important;
@@ -56,15 +50,10 @@
             color: #6b7280 !important;
             font-size: 14px !important;
         }
-
-        .meta-item i {
-            color: #4a9eff !important;
-        }
-
+        .meta-item i { color: #4a9eff !important; }
         .document-section {
             margin-bottom: 40px !important;
         }
-
         .section-header {
             display: flex !important;
             align-items: center !important;
@@ -73,19 +62,16 @@
             padding-bottom: 10px !important;
             border-bottom: 1px solid #e8e8e8 !important;
         }
-
         .section-header h3 {
             font-size: 20px !important;
             font-weight: 600 !important;
             color: #1a3a5f !important;
             margin: 0 !important;
         }
-
         .section-header i {
             font-size: 22px !important;
             color: #4a9eff !important;
         }
-
         .section-content {
             background: #f9fafb !important;
             padding: 24px !important;
@@ -95,69 +81,47 @@
             line-height: 1.6 !important;
             color: #374151 !important;
         }
+        .section-content p { margin-bottom: 12px !important; }
+        .section-content p:last-child { margin-bottom: 0 !important; }
+        .text-muted { color: #9ca3af !important; font-style: italic !important; }
 
-        .section-content p {
-            margin-bottom: 12px !important;
-        }
-
-        .section-content p:last-child {
-            margin-bottom: 0 !important;
-        }
-
-        .text-muted {
-            color: #9ca3af !important;
-            font-style: italic !important;
-        }
-
-        /* 图片网格样式 */
-        .image-grid {
+        /* 图片网格样式 - 小图 */
+        .image-grid-small {
             display: grid !important;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
-            gap: 20px !important;
-            margin-top: 20px !important;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+            gap: 15px !important;
+            margin-top: 15px !important;
         }
-
-        .image-item {
+        .image-item-small {
             position: relative !important;
-            border-radius: 8px !important;
+            border-radius: 6px !important;
             overflow: hidden !important;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
-            transition: transform 0.2s !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
             cursor: pointer !important;
+            transition: transform 0.2s !important;
+            aspect-ratio: 1 / 1 !important;
         }
-
-        .image-item:hover {
-            transform: translateY(-4px) !important;
+        .image-item-small:hover {
+            transform: scale(1.02) !important;
         }
-
-        .image-item img {
+        .image-item-small img {
             width: 100% !important;
-            height: 200px !important;
+            height: 100% !important;
             object-fit: cover !important;
             display: block !important;
         }
-
-        .image-overlay {
+        .image-overlay-small {
             position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            background: rgba(0, 0, 0, 0.5) !important;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.3) !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             opacity: 0 !important;
             transition: opacity 0.2s !important;
         }
-
-        .image-item:hover .image-overlay {
+        .image-item-small:hover .image-overlay-small {
             opacity: 1 !important;
-        }
-
-        .btn-icon.btn-small {
-            padding: 8px !important;
-            min-width: auto !important;
         }
 
         .document-actions {
@@ -168,100 +132,22 @@
             gap: 15px !important;
             justify-content: space-between !important;
         }
+        .action-left, .action-right { display: flex; gap: 15px; }
 
-        .action-left {
-            display: flex !important;
-            gap: 15px !important;
-        }
-
-        .action-right {
-            display: flex !important;
-            gap: 15px !important;
-        }
-
-        /* 加载动画 */
         .loading-spinner {
-            width: 60px !important;
-            height: 60px !important;
-            border: 4px solid #e8e8e8 !important;
-            border-top: 4px solid #4a9eff !important;
-            border-radius: 50% !important;
-            animation: spin 1s linear infinite !important;
-            margin-bottom: 20px !important;
+            width: 60px; height: 60px; border: 4px solid #e8e8e8; border-top: 4px solid #4a9eff;
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .document-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; }
+        .document-error { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; background: white; border-radius: 8px; }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg) !important; }
-            100% { transform: rotate(360deg) !important; }
-        }
-
-        .document-loading {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 60px 20px !important;
-            text-align: center !important;
-        }
-
-        .document-error {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 60px 20px !important;
-            text-align: center !important;
-            background: white !important;
-            border-radius: 8px !important;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
-        }
-
-        /* 确认删除模态框样式 */
-        .delete-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .delete-modal-content {
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .delete-modal-header {
-            margin-bottom: 20px;
-        }
-
-        .delete-modal-title {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1a3a5f;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .delete-modal-body {
-            margin-bottom: 25px;
-            color: #666;
-        }
-
-        .delete-modal-actions {
-            display: flex;
-            gap: 15px;
-            justify-content: flex-end;
-        }
+        .delete-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+        .delete-modal-content { background:white; border-radius:8px; padding:30px; max-width:400px; width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+        .delete-modal-header { margin-bottom:20px; }
+        .delete-modal-title { font-size:20px; font-weight:600; color:#1a3a5f; display:flex; align-items:center; gap:10px; }
+        .delete-modal-body { margin-bottom:25px; color:#666; }
+        .delete-modal-actions { display:flex; gap:15px; justify-content:flex-end; }
     </style>
 </head>
 <body>
@@ -285,7 +171,6 @@
     </div>
 
     <div class="system-container">
-        <!-- 侧边导航栏 -->
         <div class="sidebar">
             <div class="logo-container">
                 <div class="logo">
@@ -293,39 +178,18 @@
                     <span>维修辅助系统</span>
                 </div>
             </div>
-
             <div class="nav-menu">
-                <a href="main.html" class="nav-item active">
-                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
-                    <span>知识库</span>
-                </a>
-                <a href="ai-assist.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
-                    <span>AI辅助</span>
-                </a>
-                <!-- 管理员显示这个 -->
-                <a href="user-management.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>用户管理</span>
-                </a>
-                <!-- 技术人员显示这个 -->
-                <a href="user-profile.html" class="nav-item" style="display: none;">
-                    <span class="nav-icon"><i class="fas fa-user"></i></span>
-                    <span>我的资料</span>
-                </a>
+                <a href="main.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
+                <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+                <a href="user-profile.html" class="nav-item" style="display: none;"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
             </div>
-
             <div class="user-info">
                 <div class="user-details">
                     <div class="user-avatar" id="userAvatar">李</div>
-                    <div>
-                        <div class="user-name" id="userName">李四</div>
-                        <div class="user-role" id="userRole">维修工程师</div>
-                    </div>
+                    <div><div class="user-name" id="userName">李四</div><div class="user-role" id="userRole">维修工程师</div></div>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
-                    <i class="fas fa-sign-out-alt"></i> 退出登录
-                </button>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
             </div>
         </div>
 
@@ -337,15 +201,11 @@
                     <div class="page-subtitle" id="docTitleSubtitle">文档详细内容</div>
                 </div>
                 <div class="header-actions">
-                    <a href="main.html" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> 返回列表
-                    </a>
+                    <a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a>
                 </div>
             </div>
 
-            <!-- 文档详情内容 -->
             <div class="document-detail-container" id="documentDetail">
-                <!-- 文档内容会动态加载到这里 -->
                 <div class="document-loading" id="loadingContainer">
                     <div class="loading-spinner"></div>
                     <p>正在加载文档详情...</p>
@@ -355,344 +215,153 @@
     </div>
 
     <script>
-        // 全局变量存储文档信息
         let currentDocument = null;
         let currentDocumentId = null;
 
-        // 从URL获取文档ID
         function getDocumentIdFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const id = urlParams.get('id');
-            console.log('获取到的文档ID:', id);
-            return id;
+            return new URLSearchParams(window.location.search).get('id');
         }
 
-        // 显示错误信息
         function showError(message) {
-            const container = document.getElementById('documentDetail');
-            if (container) {
-                container.innerHTML = `
-                    <div class="document-error">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
-                        <p style="color: #666; margin-bottom: 20px;">${message}</p>
-                        <div style="margin-top: 20px;">
-                            <a href="main.html" class="btn btn-secondary" style="margin-right: 10px;">
-                                <i class="fas fa-arrow-left"></i> 返回列表
-                            </a>
-                            <button class="btn btn-primary" onclick="window.location.reload()">
-                                <i class="fas fa-redo"></i> 重新加载
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }
+            document.getElementById('documentDetail').innerHTML = `
+                <div class="document-error">
+                    <i class="fas fa-exclamation-triangle" style="font-size:48px; color:#ef4444; margin-bottom:20px;"></i>
+                    <p style="color:#666; margin-bottom:20px;">${message}</p>
+                    <div><a href="main.html" class="btn btn-secondary">返回列表</a></div>
+                </div>
+            `;
         }
 
-        // 获取图片完整URL
         function getFullImageUrl(relativeUrl) {
             if (!relativeUrl) return '';
-            console.log("11111111111111111111");
-            // 如果已经是完整URL，直接返回
-            if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) {
-                return relativeUrl;
-            }
-            console.log("相对路径：");
-            console.log(relativeUrl);
-            // 如果是相对路径，添加后端地址
-            const backendBaseUrl = 'http://localhost:8000/';
-            return backendBaseUrl + relativeUrl;
+            if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
+            return 'http://localhost:8000/' + relativeUrl;
         }
 
         // 打开删除确认模态框
         function openDeleteModal(docId, docTitle) {
             currentDocumentId = docId;
-            document.getElementById('deleteModalMessage').innerHTML = `
-                确定要删除文档 <strong>"${docTitle || '未命名文档'}"</strong> 吗？<br>
-                <span style="color: #ef4444; font-size: 14px;">此操作不可撤销，删除后无法恢复。</span>
-            `;
+            document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${docTitle || '未命名文档'}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
             document.getElementById('deleteModal').style.display = 'flex';
         }
-
-        // 关闭删除确认模态框
-        function closeDeleteModal() {
-            document.getElementById('deleteModal').style.display = 'none';
-            currentDocumentId = null;
-        }
-
-        // 确认删除文档
+        function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; currentDocumentId = null; }
         async function confirmDelete() {
             if (!currentDocumentId) return;
-
             try {
-                console.log('开始删除文档，ID:', currentDocumentId);
-
-                // 调用API删除文档
                 const result = await documentAPI.deleteDocument(currentDocumentId);
-
-                if (result) {
-                    Utils.showMessage('文档删除成功', 'success');
-
-                    // 关闭模态框
-                    closeDeleteModal();
-
-                    // 延迟1秒后跳转到列表页
-                    setTimeout(() => {
-                        window.location.href = 'main.html';
-                    }, 1000);
-                } else {
-                    Utils.showMessage('文档删除失败', 'error');
-                }
-            } catch (error) {
-                console.error('删除文档失败:', error);
-                Utils.showMessage('删除文档失败: ' + (error.message || '未知错误'), 'error');
-            }
+                if (result) { Utils.showMessage('文档删除成功', 'success'); closeDeleteModal(); setTimeout(() => window.location.href='main.html', 1000); }
+                else Utils.showMessage('文档删除失败', 'error');
+            } catch (error) { Utils.showMessage('删除失败: ' + error.message, 'error'); }
         }
 
-        // 跳转到编辑页面（需要创建edit-document.html）
-        function goToEditPage(docId) {
-            window.location.href = `edit-document.html?id=${docId}`;
-        }
+        function goToEditPage(docId) { window.location.href = `edit-document.html?id=${docId}`; }
 
-        // 加载并显示文档详情
+        // 加载文档详情
         async function loadDocumentDetail() {
             const docId = getDocumentIdFromUrl();
             currentDocumentId = docId;
-
-            if (!docId) {
-                showError('文档ID无效');
-                return;
-            }
+            if (!docId) { showError('文档ID无效'); return; }
 
             try {
-                console.log('开始加载文档详情，ID:', docId);
-
-                // 调用API获取文档详情
                 const doc = await documentAPI.getDocumentById(docId);
-                console.log('获取到的文档数据:', doc);
+                if (!doc) { showError('文档不存在或已被删除'); return; }
 
-                // 保存文档信息
                 currentDocument = doc;
-
-                if (!doc) {
-                    showError('文档不存在或已被删除');
-                    return;
-                }
-
-                // 更新页面标题
                 document.title = `${doc.title || '文档详情'} - 设备维修辅助系统`;
                 document.getElementById('docTitleSubtitle').textContent = doc.title || '文档详情';
 
-                // 获取作者名和当前用户信息
                 const currentUser = Utils.getCurrentUser();
-                console.log("currentUser", currentUser);
                 const currentUserId = currentUser ? currentUser.id : null;
                 const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 0);
                 const isAuthor = currentUserId && currentUserId == doc.contributor_id;
-                console.log(currentUserId);
-                console.log(doc.contributor_id);
-                console.log("isAdmin", isAdmin);
-                // 判断是否显示编辑/删除按钮
                 const showEditDeleteButtons = isAdmin || isAuthor;
 
                 let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
-                if (currentUserId && currentUserId == doc.contributor_id) {
-                    authorName = '我';
-                }
+                if (currentUserId && currentUserId == doc.contributor_id) authorName = '我';
 
-                // 构建图片显示HTML
-                let imagesHTML = '';
-                if (doc.image_urls && doc.image_urls.trim() && doc.image_urls !== 'null') {
-                    const imageUrls = doc.image_urls.split(',').map(url => url.trim()).filter(url => url && url !== 'null');
-                    if (imageUrls.length > 0) {
-                        imagesHTML = `
-                            <div class="document-section">
-                                <div class="section-header">
-                                    <i class="fas fa-images"></i>
-                                    <h3>相关图片</h3>
-                                </div>
-                                <div class="image-grid">
-                                    ${imageUrls.map(url => {
+                // 定义字段映射
+                const sections = [
+                    { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro' },
+                    { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes' },
+                    { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation' },
+                    { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection' },
+                    { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions' },
+                    { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points' }
+                ];
+
+                let sectionsHtml = '';
+                sections.forEach(s => {
+                    let imagesHtml = '';
+                    const imgUrlsStr = doc[s.imgField];
+                    if (imgUrlsStr && imgUrlsStr.trim() && imgUrlsStr !== 'null') {
+                        const urls = imgUrlsStr.split(',').map(u => u.trim()).filter(u => u);
+                        if (urls.length > 0) {
+                            imagesHtml = `
+                                <div class="image-grid-small">
+                                    ${urls.map(url => {
                                         const fullUrl = getFullImageUrl(url);
                                         return `
-                                            <div class="image-item">
-                                                <img src="${fullUrl}"
-                                                     alt="文档图片"
-                                                     onclick="window.open('${fullUrl}', '_blank')"
-                                                     onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200?text=图片加载失败'; this.style.cursor='default';">
-                                                <div class="image-overlay">
-                                                    <button class="btn btn-icon btn-small" onclick="window.open('${fullUrl}', '_blank')">
-                                                        <i class="fas fa-expand"></i>
-                                                    </button>
-                                                </div>
+                                            <div class="image-item-small" onclick="window.open('${fullUrl}', '_blank')">
+                                                <img src="${fullUrl}" alt="图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/120x120?text=加载失败'">
+                                                <div class="image-overlay-small"><i class="fas fa-search-plus" style="color:white; font-size:20px;"></i></div>
                                             </div>
                                         `;
                                     }).join('')}
                                 </div>
-                            </div>
-                        `;
+                            `;
+                        }
                     }
-                }
 
-                // 构建操作按钮HTML
-                let actionButtonsHTML = `
-                    <div class="action-left">
-                        <a href="main.html" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> 返回列表
-                        </a>
-                    </div>
-                `;
+                    sectionsHtml += `
+                        <div class="document-section">
+                            <div class="section-header"><i class="fas fa-${s.title === '问题描述' ? 'question-circle' : s.title === '原因分析' ? 'search' : s.title === '故障评估' ? 'clipboard-list' : s.title === '检查步骤' ? 'clipboard-check' : s.title === '解决方案' ? 'tools' : 'star'}"></i><h3>${s.title}</h3></div>
+                            <div class="section-content">${(s.content || '<p class="text-muted">无</p>').replace(/\n/g, '<br>')}</div>
+                            ${imagesHtml}
+                        </div>
+                    `;
+                });
 
+                // 操作按钮
+                let actionButtons = `<div class="action-left"><a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a></div>`;
                 if (showEditDeleteButtons) {
-                    actionButtonsHTML += `
+                    actionButtons += `
                         <div class="action-right">
-                            <button class="btn btn-primary" onclick="goToEditPage(${doc.id})">
-                                <i class="fas fa-edit"></i> 编辑
-                            </button>
-                            <button class="btn btn-danger" onclick="openDeleteModal(${doc.id}, '${(doc.title || '未命名文档').replace(/'/g, "\\'")}')">
-                                <i class="fas fa-trash"></i> 删除
-                            </button>
+                            <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 编辑</button>
+                            <button class="btn btn-danger" onclick="openDeleteModal(${doc.id}, '${(doc.title || '').replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> 删除</button>
                         </div>
                     `;
                 }
 
-                // 构建文档详情HTML
                 const html = `
                     <div class="document-detail-content">
-                        <!-- 文档头部信息 -->
                         <div class="document-header">
                             <h1 class="document-title">${doc.title || '无标题'}</h1>
                             <div class="document-meta">
-                                <div class="meta-item">
-                                    <i class="fas fa-user"></i>
-                                    <span>作者：${authorName}</span>
-                                </div>
-                                <div class="meta-item">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    <span>创建时间：${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span>
-                                </div>
-                                <div class="meta-item">
-                                    <i class="fas fa-hashtag"></i>
-                                    <span>文档ID：${doc.id}</span>
-                                </div>
+                                <div class="meta-item"><i class="fas fa-user"></i><span>作者：${authorName}</span></div>
+                                <div class="meta-item"><i class="fas fa-calendar-alt"></i><span>创建时间：${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span></div>
+                                <div class="meta-item"><i class="fas fa-hashtag"></i><span>文档ID：${doc.id}</span></div>
                             </div>
                         </div>
-
-                        <!-- 问题描述 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-question-circle"></i>
-                                <h3>问题描述</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.problem_intro ? doc.problem_intro.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 原因分析 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-search"></i>
-                                <h3>原因分析</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.causes ? doc.causes.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 故障评估 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-clipboard-list"></i>
-                                <h3>故障评估</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.evaluation ? doc.evaluation.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 检查步骤 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-clipboard-check"></i>
-                                <h3>检查步骤</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.inspection ? doc.inspection.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 解决方案 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-tools"></i>
-                                <h3>解决方案</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.solutions ? doc.solutions.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 关键要点 -->
-                        <div class="document-section">
-                            <div class="section-header">
-                                <i class="fas fa-star"></i>
-                                <h3>关键要点</h3>
-                            </div>
-                            <div class="section-content">
-                                ${doc.key_points ? doc.key_points.replace(/\n/g, '<br>') : '<p class="text-muted">无</p>'}
-                            </div>
-                        </div>
-
-                        <!-- 图片 -->
-                        ${imagesHTML}
-
-                        <!-- 操作按钮 -->
-                        <div class="document-actions">
-                            ${actionButtonsHTML}
-                        </div>
+                        ${sectionsHtml}
+                        <div class="document-actions">${actionButtons}</div>
                     </div>
                 `;
 
-                // 更新页面内容
                 document.getElementById('documentDetail').innerHTML = html;
-
             } catch (error) {
                 console.error('加载文档详情失败:', error);
                 showError('加载文档详情失败: ' + (error.message || '未知错误'));
             }
         }
 
-        // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', async function() {
-            console.log('文档详情页面加载完成');
-
-            try {
-                // 先检查登录状态
-                Utils.checkLogin();
-
-                // common.js 会自动处理侧边栏用户信息加载
-                // 这里只需要加载文档详情
-                await loadDocumentDetail();
-
-            } catch (error) {
-                console.error('页面初始化失败:', error);
-                showError('页面初始化失败: ' + (error.message || '未知错误'));
-            }
+            Utils.checkLogin();
+            await loadDocumentDetail();
         });
 
-        // 点击模态框外部关闭
-        document.getElementById('deleteModal')?.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeDeleteModal();
-            }
-        });
-
-        // ESC键关闭模态框
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeDeleteModal();
-            }
-        });
+        // 模态框事件
+        document.getElementById('deleteModal')?.addEventListener('click', function(e) { if (e.target === this) closeDeleteModal(); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDeleteModal(); });
     </script>
 </body>
 </html>

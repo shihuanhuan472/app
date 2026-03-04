@@ -59,14 +59,20 @@ class UserChangePassword(BaseModel):
 # 文档相关的Schema
 class DocumentCreate(BaseModel):
     title: str
-    problem_intro: str
+    problem_intro: Optional[str] = None
     image_urls: Optional[str] = None
-    causes: str
-    evaluation: str
-    inspection: str
-    solutions: str
-    key_points: str
+    causes: Optional[str] = None
+    evaluation: Optional[str] = None
+    inspection: Optional[str] = None
+    solutions: Optional[str] = None
+    key_points: Optional[str] = None
 
+    image_urls_problem_intro: Optional[str] = None
+    image_urls_causes: Optional[str] = None
+    image_urls_evaluation: Optional[str] = None
+    image_urls_inspection: Optional[str] = None
+    image_urls_solutions: Optional[str] = None
+    image_urls_key_points: Optional[str] = None
 
 class DocumentResponse(BaseModel):
     id: int
@@ -74,13 +80,20 @@ class DocumentResponse(BaseModel):
     contributor_id: Optional[int]
     contributor_name: Optional[str]
     first_edit_date: Optional[datetime]
-    problem_intro: str
+    problem_intro: Optional[str]
     image_urls: Optional[str]
-    causes: str
-    evaluation: str
-    inspection: str
-    solutions: str
-    key_points: str
+    causes: Optional[str]
+    evaluation: Optional[str]
+    inspection: Optional[str]
+    solutions: Optional[str]
+    key_points: Optional[str]
+
+    image_urls_problem_intro: Optional[str] = None
+    image_urls_causes: Optional[str] = None
+    image_urls_evaluation: Optional[str] = None
+    image_urls_inspection: Optional[str] = None
+    image_urls_solutions: Optional[str] = None
+    image_urls_key_points: Optional[str] = None
 
     class Config:
         from_attributes = True
