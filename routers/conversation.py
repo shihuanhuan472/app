@@ -133,6 +133,7 @@ async def delete(id: int,
 
         db.delete(conversation)
         db.commit()
+        print(f"对话{id}已删除")
         return Result.success()
     except HTTPException:
         raise

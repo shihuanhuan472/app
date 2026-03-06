@@ -42,50 +42,6 @@
             background: #a8a8a8;
         }
 
-        /* 分页控件样式 */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 15px 0;
-            border-top: 1px solid #eee;
-            margin-top: 10px;
-        }
-
-        .page-info {
-            font-size: 14px;
-            color: #666;
-            margin: 0 15px;
-        }
-
-        .page-btn {
-            background: #f5f5f5;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 6px 12px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            background: #e9e9e9;
-        }
-
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .page-input {
-            width: 50px;
-            text-align: center;
-            padding: 4px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 0 5px;
-        }
-
         /* 为临时消息中的图片添加预览支持 */
         .message-image-previews .image-preview-item {
             cursor: pointer;
@@ -241,6 +197,19 @@
             color: white;
         }
 
+        .history-list-footer {
+            text-align: center;
+            padding: 12px;
+            font-size: 13px;
+            color: #999;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 8px;
+        }
+
+        .history-list-footer:empty {
+            display: none;
+        }
+
     </style>
 </head>
 <body>
@@ -319,14 +288,8 @@
                         <div class="history-list" id="historyList">
                             <!-- 历史对话项会动态加载 -->
                         </div>
-                        <!-- 分页控件 -->
-                        <div class="pagination" id="pagination" style="display: none;">
-                            <button class="page-btn page-btn-compact" id="firstPageBtn" title="第一页">«</button>
-                            <button class="page-btn page-btn-compact" id="prevPageBtn" title="上一页">‹</button>
-                            <span class="page-info-compact" id="pageInfoCompact">1/1</span>
-                            <button class="page-btn page-btn-compact" id="nextPageBtn" title="下一页">›</button>
-                            <button class="page-btn page-btn-compact" id="lastPageBtn" title="最后一页">»</button>
-                        </div>
+                        <!-- 无限滚动加载提示容器 -->
+                        <div class="history-list-footer" id="historyListFooter" style="text-align: center; padding: 10px; font-size: 13px; color: #999; display: none;"></div>
                     </div>
                 </div>
 
@@ -463,9 +426,142 @@
             this.pageSize = 8;
             this.totalPages = 1;
             this.totalCount = 0;
-
+            this.isLoadingMore = false;      // 是否正在加载更多
+            this.hasMore = true;             // 是否还有更多数据
+            this.searchMode = false;         // 是否处于搜索模式（搜索时禁用滚动加载）
+            this.scrollListener = null;      // 滚动监听函数引用（用于移除）
             // 初始化
             this.init();
+        }
+
+        // 设置无限滚动监听
+        setupInfiniteScroll() {
+            const historyList = document.getElementById('historyList');
+            if (!historyList) return;
+
+            // 移除旧的监听
+            if (this.scrollListener) {
+                historyList.removeEventListener('scroll', this.scrollListener);
+            }
+
+            // 定义滚动处理函数（使用节流）
+            this.scrollListener = Utils.throttle(() => {
+                // 非搜索模式、有更多数据、且不在加载中时触发
+                if (this.searchMode || !this.hasMore || this.isLoadingMore) return;
+
+                const { scrollTop, scrollHeight, clientHeight } = historyList;
+                // 当滚动到距离底部 50px 时加载更多
+                if (scrollHeight - scrollTop - clientHeight < 50) {
+                    this.loadMoreHistory();
+                }
+            }, 200);
+
+            historyList.addEventListener('scroll', this.scrollListener);
+        }
+
+        // 加载更多历史对话
+        async loadMoreHistory() {
+            if (this.isLoadingMore || !this.hasMore || this.searchMode) return;
+
+            this.isLoadingMore = true;
+            this.showLoadingIndicator(true); // 显示“加载中…”
+
+            try {
+                // 请求下一页（当前页+1），并设置为追加模式
+                await this.loadHistoryList(this.currentPage + 1, true);
+            } catch (error) {
+                console.error('加载更多失败', error);
+                this.showLoadingIndicator(false, '加载失败，请重试');
+            } finally {
+                this.isLoadingMore = false;
+            }
+        }
+
+        // 控制加载提示的显示
+        showLoadingIndicator(show, text = '加载中…') {
+            const footer = document.getElementById('historyListFooter');
+            if (!footer) return;
+            footer.style.display = show ? 'block' : 'none';
+            footer.textContent = show ? text : '';
+        }
+
+        // 显示“没有更多了”提示
+        showNoMoreIndicator() {
+            const footer = document.getElementById('historyListFooter');
+            if (footer) {
+                footer.style.display = 'block';
+                footer.textContent = '没有更多对话了';
+            }
+        }
+
+        // 全量渲染对话列表（替换原有内容）
+        renderConversationList(conversations, container, resetFooter = true) {
+            if (!container) return;
+            if (resetFooter) this.showLoadingIndicator(false);
+
+            if (conversations.length === 0) {
+                container.innerHTML = `<div class="empty-history">暂无对话</div>`;
+                return;
+            }
+
+            let html = '';
+            conversations.forEach(conv => {
+                html += this.generateHistoryItemHTML(conv);
+            });
+            container.innerHTML = html;
+            this.attachHistoryItemEvents(container);
+        }
+
+        // 追加对话列表（保留原有内容）
+        appendConversations(conversations, container) {
+    if (!container || conversations.length === 0) return;
+
+    const fragment = document.createDocumentFragment();
+    conversations.forEach(conv => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = this.generateHistoryItemHTML(conv);
+        const item = tempDiv.firstElementChild;
+        if (item) fragment.appendChild(item);
+    });
+
+    // ✅ 先绑定事件，再添加到容器
+    this.attachHistoryItemEvents(fragment);
+    container.appendChild(fragment);
+}
+
+        // 生成单个历史项 HTML
+        generateHistoryItemHTML(conv) {
+            const isActive = conv.id === this.currentConversationId;
+            const title = conv.title || '无标题对话';
+            const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title;
+            const formattedDate = conv.updated_time ? Utils.formatDate(conv.updated_time, 'MM-DD HH:mm') : '';
+
+            return `
+                <div class="history-item ${isActive ? 'active' : ''}" data-id="${conv.id}">
+                    <div class="history-item-title">${shortTitle}</div>
+                    <div class="history-item-date">${formattedDate}</div>
+                    <div class="history-item-actions">
+                        <button class="btn-edit-title" title="修改标题" onclick="event.stopPropagation(); window.AIConversation.editConversationTitle(${conv.id}, '${(conv.title || '').replace(/'/g, "\\'")}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-delete-conversation" title="删除对话" onclick="event.stopPropagation(); window.AIConversation.deleteConversation(${conv.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 为历史项绑定点击事件
+        attachHistoryItemEvents(container) {
+            container.querySelectorAll('.history-item').forEach(item => {
+                const id = item.getAttribute('data-id');
+                if (id) {
+                    item.addEventListener('click', () => {
+                        this.loadConversation(parseInt(id));
+                    });
+                }
+            });
         }
 
         // 在 init 方法中添加窗口大小变化的监听
@@ -486,277 +582,227 @@
                 await this.loadConversation(parseInt(lastConversationId));
             }
 
-            // 添加窗口大小变化监听
-            window.addEventListener('resize', () => {
-                this.adjustPaginationForWidth();
-            });
+            // // 添加窗口大小变化监听
+            // window.addEventListener('resize', () => {
+            //     this.adjustPaginationForWidth();
+            // });
+            //
+            // // 初始调整一次
+            // setTimeout(() => {
+            //     this.adjustPaginationForWidth();
+            // }, 100);
 
-            // 初始调整一次
-            setTimeout(() => {
-                this.adjustPaginationForWidth();
-            }, 100);
+            this.setupInfiniteScroll();
         }
 
-    async loadHistoryList(page = 1) {
-        try {
-            console.log('正在加载对话历史...');
+        async loadHistoryList(page = 1, append = false) {
+            try {
+                console.log('正在加载对话历史...', page, append);
 
-            const container = document.getElementById('historyList');
-            const searchInput = document.getElementById('historySearch');
-            const searchQuery = searchInput.value.trim();
-            const pagination = document.getElementById('pagination');
+                const container = document.getElementById('historyList');
+                const searchInput = document.getElementById('historySearch');
+                const searchQuery = searchInput.value.trim();
 
-            let response = null;
-            let conversations = [];
+                // 设置搜索模式标志（搜索时禁用滚动加载）
+                this.searchMode = !!searchQuery;
 
-            if (searchQuery) {
-                // 搜索对话（不分页）
-                response = await conversationAPI.searchConversations(searchQuery);
-                console.log('搜索对话响应:', response);
-
-                // 处理搜索结果
-                if (response) {
-                    if (typeof response === 'object' && response.code !== undefined) {
-                        // 完整的Result对象
-                        if (response.code === 1) {
-                            conversations = response.data || [];
-                        } else {
-                            throw new Error(response.msg || '搜索对话失败');
-                        }
-                    } else if (Array.isArray(response)) {
-                        // 直接是数组
-                        conversations = response;
-                    } else if (typeof response === 'object') {
-                        // 可能是对象，尝试提取数据
-                        conversations = response.data || response.history || [];
-                    }
+                // 如果不是追加模式，清空列表并重置加载状态
+                if (!append) {
+                    container.innerHTML = '';
+                    this.currentPage = 1;
+                    this.hasMore = true;
+                    this.showLoadingIndicator(false);
                 }
 
-                this.totalCount = conversations.length;
-                this.totalPages = 1;
-            } else {
-                // 获取分页对话
-                // 注意：根据你的后端，分页接口可能需要一个 Page 对象
-                // 在 schemas.py 中，Page 模型是 { page: int, size: int }
-                const pageData = {
-                    page: page,
-                    size: this.pageSize
-                };
-                console.log('发送分页请求:', pageData);
+                let response = null;
+                let conversations = [];
+                let totalPages = 1;
 
-                try {
-                    response = await conversationAPI.getHistoryPage(pageData);
-                    console.log('分页响应:', response);
-                } catch (error) {
-                    console.error('分页请求失败:', error);
+                if (searchQuery) {
+                    // 搜索模式：不分页，获取全部匹配结果
+                    response = await conversationAPI.searchConversations(searchQuery);
+                    console.log('搜索对话响应:', response);
 
-                    // 如果分页请求失败，尝试使用非分页的历史接口
-                    console.log('尝试使用非分页接口获取历史对话...');
-                    const historyResponse = await conversationAPI.getHistory();
-                    console.log('非分页历史响应:', historyResponse);
-
-                    if (historyResponse) {
-                        if (typeof historyResponse === 'object' && historyResponse.code !== undefined) {
-                            if (historyResponse.code === 1) {
-                                conversations = historyResponse.data || [];
+                    if (response) {
+                        if (typeof response === 'object' && response.code !== undefined) {
+                            if (response.code === 1) {
+                                conversations = response.data || [];
                             } else {
-                                throw new Error(historyResponse.msg || '获取历史对话失败');
+                                throw new Error(response.msg || '搜索对话失败');
                             }
-                        } else if (Array.isArray(historyResponse)) {
-                            conversations = historyResponse;
-                        } else if (typeof historyResponse === 'object') {
-                            conversations = historyResponse.data || [];
+                        } else if (Array.isArray(response)) {
+                            conversations = response;
+                        } else if (typeof response === 'object') {
+                            conversations = response.data || response.history || [];
                         }
                     }
 
+                    // 确保是数组
+                    conversations = Array.isArray(conversations) ? conversations : [];
                     this.totalCount = conversations.length;
-                    this.totalPages = 1;
+                    totalPages = 1; // 搜索模式只有一页
+                } else {
+                    // 分页模式
+                    const pageData = { page: page, size: this.pageSize };
+                    console.log('发送分页请求:', pageData);
 
-                    // 继续执行后续的渲染逻辑
-                    // 这里不返回，继续执行下面的代码
-                }
-
-                // 如果分页请求成功，处理分页结果
-                if (response) {
-                    if (typeof response === 'object' && response.code !== undefined) {
-                        // 完整的Result对象
-                        if (response.code === 1) {
-                            const data = response.data;
-                            if (data && typeof data === 'object') {
-                                if (Array.isArray(data.history)) {
-                                    conversations = data.history;
-                                    this.totalCount = data.total_count || 0;
-                                    this.totalPages = data.total_pages || 1;
-                                } else if (Array.isArray(data)) {
-                                    // 如果data本身就是数组
-                                    conversations = data;
-                                    this.totalCount = data.length;
-                                    this.totalPages = 1;
+                    try {
+                        response = await conversationAPI.getHistoryPage(pageData);
+                        console.log('分页响应:', response);
+                    } catch (error) {
+                        console.error('分页请求失败，尝试使用非分页接口', error);
+                        // 降级：获取全部历史（不分页）
+                        const historyResponse = await conversationAPI.getHistory();
+                        if (historyResponse) {
+                            if (typeof historyResponse === 'object' && historyResponse.code !== undefined) {
+                                if (historyResponse.code === 1) {
+                                    conversations = historyResponse.data || [];
                                 } else {
-                                    console.warn('分页数据结构不符合预期:', data);
+                                    throw new Error(historyResponse.msg || '获取历史对话失败');
+                                }
+                            } else if (Array.isArray(historyResponse)) {
+                                conversations = historyResponse;
+                            } else {
+                                conversations = historyResponse.data || [];
+                            }
+                        }
+                        conversations = Array.isArray(conversations) ? conversations : [];
+                        this.totalCount = conversations.length;
+                        totalPages = 1;
+                        // 直接渲染并返回（不执行后续分页逻辑）
+                        this.renderConversationList(conversations, container, true);
+                        this.hasMore = false;
+                        if (conversations.length > 0) {
+                            this.showNoMoreIndicator();
+                        } else {
+                            this.showLoadingIndicator(false);
+                        }
+                        this.setupInfiniteScroll();
+                        return;
+                    }
+
+                    // 解析分页响应
+                    if (response) {
+                        if (typeof response === 'object' && response.code !== undefined) {
+                            if (response.code === 1) {
+                                const data = response.data;
+                                if (data && typeof data === 'object') {
+                                    if (Array.isArray(data.history)) {
+                                        conversations = data.history;
+                                        this.totalCount = data.total_count || 0;
+                                        totalPages = data.total_pages || 1;
+                                    } else if (Array.isArray(data)) {
+                                        conversations = data;
+                                        this.totalCount = data.length;
+                                        totalPages = 1;
+                                    } else {
+                                        conversations = [];
+                                        this.totalCount = 0;
+                                        totalPages = 1;
+                                    }
+                                } else {
                                     conversations = [];
                                     this.totalCount = 0;
-                                    this.totalPages = 1;
+                                    totalPages = 1;
                                 }
+                            } else {
+                                throw new Error(response.msg || '获取分页数据失败');
+                            }
+                        } else if (Array.isArray(response)) {
+                            conversations = response;
+                            this.totalCount = response.length;
+                            totalPages = 1;
+                        } else if (typeof response === 'object') {
+                            if (Array.isArray(response.history)) {
+                                conversations = response.history;
+                                this.totalCount = response.total_count || 0;
+                                totalPages = response.total_pages || 1;
+                            } else if (Array.isArray(response.data)) {
+                                conversations = response.data;
+                                this.totalCount = response.total_count || response.data.length;
+                                totalPages = response.total_pages || 1;
                             } else {
                                 conversations = [];
                                 this.totalCount = 0;
-                                this.totalPages = 1;
+                                totalPages = 1;
                             }
                         } else {
-                            throw new Error(response.msg || '获取分页数据失败');
-                        }
-                    } else if (Array.isArray(response)) {
-                        // 直接是数组
-                        conversations = response;
-                        this.totalCount = response.length;
-                        this.totalPages = 1;
-                    } else if (typeof response === 'object') {
-                        // 可能是包含分页数据的对象
-                        if (Array.isArray(response.history)) {
-                            conversations = response.history;
-                            this.totalCount = response.total_count || 0;
-                            this.totalPages = response.total_pages || 1;
-                        } else if (Array.isArray(response.data)) {
-                            conversations = response.data;
-                            this.totalCount = response.total_count || response.data.length;
-                            this.totalPages = response.total_pages || 1;
-                        } else {
-                            console.warn('响应对象结构不符合预期:', response);
                             conversations = [];
                             this.totalCount = 0;
-                            this.totalPages = 1;
+                            totalPages = 1;
                         }
-                    } else {
-                        console.warn('响应类型不是对象或数组:', response);
-                        conversations = [];
-                        this.totalCount = 0;
-                        this.totalPages = 1;
                     }
+
+                    // 确保 conversations 是数组
+                    conversations = Array.isArray(conversations) ? conversations : [];
                 }
-            }
 
-            // 确保conversations是数组
-            if (!Array.isArray(conversations)) {
-                console.error('conversations不是数组:', conversations);
-                conversations = [];
-            }
+                // 按更新时间排序（最新的在前）
+                if (conversations.length > 0) {
+                    conversations.sort((a, b) => {
+                        try {
+                            const timeA = a.updated_time ? new Date(a.updated_time) : new Date(0);
+                            const timeB = b.updated_time ? new Date(b.updated_time) : new Date(0);
+                            return timeB - timeA;
+                        } catch (error) {
+                            console.error('排序错误:', error);
+                            return 0;
+                        }
+                    });
+                }
 
-            this.currentPage = page;
-
-            // 按更新时间排序（最新的在前面）
-            if (conversations.length > 0) {
-                conversations.sort((a, b) => {
-                    try {
-                        const timeA = a.updated_time ? new Date(a.updated_time) : new Date(0);
-                        const timeB = b.updated_time ? new Date(b.updated_time) : new Date(0);
-                        return timeB - timeA;
-                    } catch (error) {
-                        console.error('排序错误:', error);
-                        return 0;
+                // 搜索模式：直接全量渲染，禁用滚动加载
+                if (this.searchMode) {
+                    this.renderConversationList(conversations, container, true);
+                    this.hasMore = false;
+                    if (conversations.length > 0) {
+                        this.showNoMoreIndicator(); // 显示“没有更多对话了”
+                    } else {
+                        container.innerHTML = '<div class="empty-history"><i class="fas fa-comments"></i><p>没有找到相关对话</p></div>';
+                        this.showLoadingIndicator(false);
                     }
-                });
-            }
-
-            if (conversations.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-history">
-                        <i class="fas fa-comments"></i>
-                        <p>${searchQuery ? '没有找到相关对话' : '暂无对话历史'}</p>
-                    </div>
-                `;
-                pagination.style.display = 'none';
-                return;
-            }
-
-            let html = '';
-            conversations.forEach((conv, index) => {
-                if (!conv || typeof conv !== 'object') {
-                    console.warn(`第${index}个对话项无效:`, conv);
+                    // 不需要更新分页信息，直接返回
                     return;
                 }
 
-                const isActive = conv.id === this.currentConversationId;
-                const title = conv.title || '无标题对话';
-                const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title;
-                const formattedDate = conv.updated_time ? Utils.formatDate(conv.updated_time, 'MM-DD HH:mm') : '';
+                // 分页模式：根据 append 决定渲染方式
+                if (append) {
+                    // 追加模式：将新数据添加到列表末尾
+                    this.appendConversations(conversations, container);
+                } else {
+                    // 非追加模式：全量渲染
+                    this.renderConversationList(conversations, container, true);
+                }
 
-                html += `
-                    <div class="history-item ${isActive ? 'active' : ''}" data-id="${conv.id || ''}">
-                        <div class="history-item-title">${shortTitle}</div>
-                        <div class="history-item-date">${formattedDate}</div>
-                        <div class="history-item-actions">
-                            <button class="btn-edit-title" title="修改标题" onclick="event.stopPropagation(); window.AIConversation.editConversationTitle(${conv.id || 0}, '${(conv.title || '').replace(/'/g, "\\'")}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-delete-conversation" title="删除对话" onclick="event.stopPropagation(); window.AIConversation.deleteConversation(${conv.id || 0})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+                // 更新分页状态
+                this.currentPage = page;
+                this.totalPages = totalPages;
+                this.hasMore = this.currentPage < this.totalPages;
+
+                // 控制底部提示
+                if (!this.hasMore && conversations.length > 0) {
+                    this.showNoMoreIndicator();
+                } else {
+                    this.showLoadingIndicator(false);
+                }
+
+                // 重新绑定滚动监听（确保事件存在）
+                this.setupInfiniteScroll();
+
+            } catch (error) {
+                console.error('加载历史对话失败:', error, error.stack);
+                Utils.showMessage('加载对话历史失败: ' + error.message, 'error');
+
+                const container = document.getElementById('historyList');
+                container.innerHTML = `
+                    <div class="empty-history error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>加载失败，请重试</p>
+                        <p style="font-size: 12px; margin-top: 5px;">${error.message}</p>
                     </div>
                 `;
-            });
-
-            container.innerHTML = html;
-
-            // 为每个对话项添加点击事件
-            container.querySelectorAll('.history-item').forEach(item => {
-                const id = item.getAttribute('data-id');
-                if (id && id !== '') {
-                    item.addEventListener('click', () => {
-                        this.loadConversation(parseInt(id));
-                    });
-                }
-            });
-
-            // 更新分页控件
-            // 只有在使用了分页接口并且有多个页面时才显示分页控件
-            const shouldShowPagination = !searchQuery && this.totalPages > 1;
-
-            if (shouldShowPagination) {
-                pagination.style.display = 'flex';
-
-                // 使用紧凑格式
-                const pageInfoCompact = document.getElementById('pageInfoCompact');
-                if (pageInfoCompact) {
-                    pageInfoCompact.textContent = `${this.currentPage}/${this.totalPages}`;
-                } else {
-                    // 如果紧凑版元素不存在，使用原来的元素
-                    document.getElementById('pageInfo').textContent =
-                        `第 ${this.currentPage} 页 / 共 ${this.totalPages} 页`;
-                }
-
-                // 更新按钮状态
-                document.getElementById('firstPageBtn').disabled = this.currentPage === 1;
-                document.getElementById('prevPageBtn').disabled = this.currentPage === 1;
-                document.getElementById('nextPageBtn').disabled = this.currentPage === this.totalPages;
-                document.getElementById('lastPageBtn').disabled = this.currentPage === this.totalPages;
-
-                // 根据宽度自适应调整分页器样式
-                this.adjustPaginationForWidth();
-            } else {
-                pagination.style.display = 'none';
+                this.showLoadingIndicator(false);
             }
-
-        } catch (error) {
-            console.error('加载历史对话失败:', error, error.stack);
-            Utils.showMessage('加载对话历史失败: ' + error.message, 'error');
-
-            const container = document.getElementById('historyList');
-            container.innerHTML = `
-                <div class="empty-history error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>加载失败，请重试</p>
-                    <p style="font-size: 12px; margin-top: 5px;">${error.message}</p>
-                </div>
-            `;
-        }
-    }
-
-        // 跳转到指定页面
-        goToPage(page) {
-            if (page < 1 || page > this.totalPages) return;
-            this.loadHistoryList(page);
         }
 
         // 加载对话 - 增强错误处理
@@ -804,22 +850,11 @@
 
                 if (!conversation) {
                     Utils.showMessage('对话不存在或无权限访问', 'error');
-
-                    // 清除当前对话ID
                     this.currentConversationId = null;
                     sessionStorage.removeItem('last_conversation_id');
 
-                    // 显示空状态
-                    const emptyState = document.getElementById('emptyState');
-                    const inputSection = document.getElementById('inputSection');
-                    const titleElement = document.getElementById('currentConversationTitle');
-                    const dateElement = document.getElementById('currentConversationDate');
-
-                    if (titleElement) titleElement.textContent = '请选择或新建一个对话';
-                    if (dateElement) dateElement.textContent = '';
-                    if (inputSection) inputSection.style.display = 'none';
-                    if (emptyState) emptyState.style.display = 'block';
-
+                    // 使用新方法
+                    this.showEmptyState();
                     return;
                 }
 
@@ -870,26 +905,17 @@
                 }
 
                 // 更新对话列表高亮
-                await this.loadHistoryList(this.currentPage);
+                await this.loadHistoryList(1);
 
             } catch (error) {
                 console.error('加载对话失败:', error);
                 Utils.showMessage('加载对话失败: ' + error.message, 'error');
 
-                // 重置当前对话
                 this.currentConversationId = null;
                 sessionStorage.removeItem('last_conversation_id');
 
-                // 显示空状态
-                const emptyState = document.getElementById('emptyState');
-                const inputSection = document.getElementById('inputSection');
-                const titleElement = document.getElementById('currentConversationTitle');
-                const dateElement = document.getElementById('currentConversationDate');
-
-                if (titleElement) titleElement.textContent = '请选择或新建一个对话';
-                if (dateElement) dateElement.textContent = '';
-                if (inputSection) inputSection.style.display = 'none';
-                if (emptyState) emptyState.style.display = 'block';
+                // 使用新方法
+                this.showEmptyState();
             }
         }
 
@@ -991,39 +1017,6 @@
                 // 恢复原始HTML
                 container.innerHTML = originalHTML;
                 Utils.showMessage('加载对话失败，请重试', 'error');
-            }
-        }
-
-        // 根据宽度调整分页器样式
-        adjustPaginationForWidth() {
-            const pagination = document.getElementById('pagination');
-            if (!pagination) return;
-
-            // 获取历史列表容器的宽度
-            const historyList = document.getElementById('historyList');
-            if (!historyList) return;
-
-            const containerWidth = historyList.offsetWidth;
-
-            // 如果容器宽度小于250px，使用最小化样式
-            if (containerWidth < 250) {
-                pagination.classList.add('pagination-minimal');
-                pagination.classList.remove('pagination-normal');
-
-                // 隐藏第一页和最后一页按钮以节省空间
-                const firstPageBtn = document.getElementById('firstPageBtn');
-                const lastPageBtn = document.getElementById('lastPageBtn');
-                if (firstPageBtn) firstPageBtn.style.display = 'none';
-                if (lastPageBtn) lastPageBtn.style.display = 'none';
-            } else {
-                pagination.classList.remove('pagination-minimal');
-                pagination.classList.add('pagination-normal');
-
-                // 显示所有按钮
-                const firstPageBtn = document.getElementById('firstPageBtn');
-                const lastPageBtn = document.getElementById('lastPageBtn');
-                if (firstPageBtn) firstPageBtn.style.display = 'flex';
-                if (lastPageBtn) lastPageBtn.style.display = 'flex';
             }
         }
 
@@ -1372,6 +1365,30 @@
             });
         }
 
+        // 显示欢迎空状态（无对话选择时）
+        showEmptyState() {
+            const contentElement = document.getElementById('conversationContent');
+            if (!contentElement) return;
+
+            contentElement.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="fas fa-robot"></i></div>
+                    <div class="empty-title">AI维修助手</div>
+                    <div class="empty-text">
+                        您好！我是您的维修辅助AI助手。<br>
+                        我可以帮您解决设备故障、提供维修建议、查找相关文档。
+                    </div>
+                    <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
+                        <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击"新建对话"开始交流
+                    </div>
+                </div>
+            `;
+
+            // 确保输入区域隐藏
+            const inputSection = document.getElementById('inputSection');
+            if (inputSection) inputSection.style.display = 'none';
+        }
+
         // 新建对话
         async createNewConversation() {
             try {
@@ -1471,7 +1488,6 @@
             try {
                 Utils.showMessage('正在删除对话...', 'info');
                 const response = await conversationAPI.deleteConversation(conversationId);
-
                 console.log('删除对话响应:', response);
 
                 if (response) {
@@ -1487,21 +1503,16 @@
 
                     const titleElement = document.getElementById('currentConversationTitle');
                     const dateElement = document.getElementById('currentConversationDate');
-                    const contentElement = document.getElementById('conversationContent');
-                    const emptyState = document.getElementById('emptyState');
-                    const inputSection = document.getElementById('inputSection');
 
                     if (titleElement) titleElement.textContent = '请选择或新建一个对话';
                     if (dateElement) dateElement.textContent = '';
-                    if (contentElement && emptyState) {
-                        contentElement.innerHTML = emptyState.innerHTML;
-                    }
-                    if (emptyState) emptyState.style.display = 'block';
-                    if (inputSection) inputSection.style.display = 'none';
+
+                    // 调用新方法显示空状态并隐藏输入区
+                    this.showEmptyState();
                 }
 
-                // 重新加载历史列表
-                await this.loadHistoryList(this.currentPage);
+                // 重新加载历史列表（重置到第一页，避免页码越界）
+                await this.loadHistoryList(1);
                 Utils.showMessage('对话已删除', 'success');
 
             } catch (error) {
@@ -1687,12 +1698,6 @@
                     this.loadHistoryList(1);
                 }, 500));
             }
-
-            // 分页按钮事件
-            document.getElementById('firstPageBtn')?.addEventListener('click', () => this.goToPage(1));
-            document.getElementById('prevPageBtn')?.addEventListener('click', () => this.goToPage(this.currentPage - 1));
-            document.getElementById('nextPageBtn')?.addEventListener('click', () => this.goToPage(this.currentPage + 1));
-            document.getElementById('lastPageBtn')?.addEventListener('click', () => this.goToPage(this.totalPages));
 
             // 附件上传
             this.setupAttachmentUpload();

@@ -231,10 +231,10 @@ def get_new_title_by_ai(content):
 
     return new_title
 
-def get_reference_documents(db, question: str):
+def get_reference_documents(db, question: str, image: str = None):
     vector_service = VectorService(db)
     vector_service.batch_vectorize_existing_documents()
-    documents = vector_service.search_similar_documents(question)
+    documents = vector_service.search_similar_documents(question, image)
     # return documents
     document_ids = []
     for document in documents:
@@ -276,7 +276,7 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
     return result
 
 def get_ai_answer(db, session_id, message_now):
-    ai_reference_document_ids = get_reference_documents(db, message_now.content_text)
+    ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
     ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
     prompt = get_prompt(db, ai_reference_document_ids)
     messages = generate_messages(db, session_id, message_now, prompt)
