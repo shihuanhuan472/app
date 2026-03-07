@@ -14,6 +14,7 @@ from dependencies import get_current_active_user
 from models import Document, User
 from schemas import DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page, DocumentQuery
 from database import get_db
+from utils.PdfParser import PdfParser
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
@@ -477,3 +478,10 @@ async def query(query: DocumentQuery,
         return Result.success_with_data(data)
     except Exception as e:
         return Result.error(f"查询文档信息失败：{str(e)}")
+
+@router.post("/upload_files", summary="上传文件")
+async def upload_files(file_dir: str,
+                       db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_active_user)):
+    pdf_parser = PdfParser(db)
+    pdf_parser.parse(file_dir)
