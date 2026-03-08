@@ -44,6 +44,8 @@ class Document(Base):
     image_urls_key_points = Column(Text)
     is_vectorized = Column(Integer, default=0, nullable=False)
     vector_update_time = Column(DateTime, nullable=True)
+    origin_file_name = Column(String(255))
+    origin_file_dir = Column(Text)
 
     # 关系
     contributor = relationship("User")

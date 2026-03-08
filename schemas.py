@@ -87,6 +87,8 @@ class DocumentResponse(BaseModel):
     inspection: Optional[str]
     solutions: Optional[str]
     key_points: Optional[str]
+    origin_file_name: Optional[str] = None
+    origin_file_dir: Optional[str] = None
 
     image_urls_problem_intro: Optional[str] = None
     image_urls_causes: Optional[str] = None
@@ -105,6 +107,15 @@ class DocumentQuery(BaseModel):
 
 class DeleteImageRequest(BaseModel):
     image_url: str
+
+class UploadDocumentResponse(BaseModel):
+    success_origin_filename: List[str]
+    success_file_url: List[str]
+    error_origin_filename: List[str]
+
+class AnalyzeRequest(BaseModel):
+    file_list: List[str]
+    file_name: List[str]
 
 # 对话相关的Schema
 class ConversationCreate(BaseModel):

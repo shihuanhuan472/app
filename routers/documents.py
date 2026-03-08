@@ -5,20 +5,24 @@ import os
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body, File
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
 from models import Document, User
-from schemas import DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page, DocumentQuery
+from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
+                     DocumentQuery, UploadDocumentResponse, AnalyzeRequest)
 from database import get_db
-from utils.PdfParser import PdfParser
+import aiofiles
+from utils.PdfParser import pdf_parser
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".html", ".mhtml"}
 
 def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
     return DocumentResponse(
@@ -34,6 +38,9 @@ def document_convert_documentResponse(document: Document, contributor_name: str)
         inspection=document.inspection,
         solutions=document.solutions,
         key_points=document.key_points,
+
+        origin_file_name=document.origin_file_name,
+        origin_file_dir=document.origin_file_dir,
 
         image_urls_problem_intro=document.image_urls_problem_intro,
         image_urls_causes=document.image_urls_causes,
@@ -374,6 +381,12 @@ async def delete(id: int,
         #             os.remove(url)
         #             print(f"删除了{url}")
 
+        if document.origin_file_dir:
+            url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
+            if os.path.exists(url):
+                os.remove(url)
+                print(f"已删除源文件{document.origin_file_dir}")
+
         vector_service = VectorService(db)
         vector_service.delete_document_from_vector_store(id)
 
@@ -480,8 +493,91 @@ async def query(query: DocumentQuery,
         return Result.error(f"查询文档信息失败：{str(e)}")
 
 @router.post("/upload_files", summary="上传文件")
-async def upload_files(file_dir: str,
+async def upload_files(files: List[UploadFile] = File(...),
                        db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
-    pdf_parser = PdfParser(db)
-    pdf_parser.parse(file_dir)
+    success_origin_filename = []
+    success_file_url = []
+    error_origin_filename = []
+    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    document_relative_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
+    dir = os.path.join(document_base_dir, document_relative_dir)
+
+    if not os.path.exists(dir):
+        os.mkdir(dir)
+        print(f"创建了{dir}")
+
+    for file in files:
+        file_ext = os.path.splitext(file.filename)[-1].lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            error_origin_filename.append(file.filename)
+            continue
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
+
+        try:
+            contents = await file.read()
+            url = os.path.join(dir, filename)
+            async with aiofiles.open(url, "wb") as f:
+                await f.write(contents)
+
+            success_origin_filename.append(file.filename)
+            success_file_url.append(document_relative_dir + "/" + filename)
+        except Exception as e:
+            print(e)
+            error_origin_filename.append(file.filename)
+            # return Result.error(f"文件{file.filename}上传失败，请稍后重试")
+    upload_document_request = UploadDocumentResponse(
+        success_file_url=success_file_url,
+        success_origin_filename=success_origin_filename,
+        error_origin_filename=error_origin_filename
+    )
+    return Result.success_with_data(upload_document_request)
+
+@router.post("/analyze_files", summary="解析文件")
+async def analyze_files(file_list: AnalyzeRequest,
+                        db: Session = Depends(get_db),
+                        current_user: User = Depends(get_current_active_user)):
+    # file_list是后端相对路径
+    success_file_url = []
+    success_origin_filename = []
+    error_origin_filename = []
+    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    for file, file_name in zip(file_list.file_list, file_list.file_name):
+        try:
+            file_ext = file.split(".")[-1]
+            file_ext = "." + file_ext
+            print(file_ext)
+            if file_ext not in ALLOWED_EXTENSIONS:
+                error_origin_filename.append(file_name)
+                continue
+            if file_ext == ".pdf":
+                url = os.path.join(document_base_dir, file)
+                print(url)
+                document = pdf_parser.parse(url)
+                document.contributor_id = current_user.id
+                document.origin_file_name = file_name
+                document.origin_file_dir = file
+                document.first_edit_date = datetime.now()
+                print(document.title)
+                db.add(document)
+                db.commit()
+                db.refresh(document)
+                vector_service = VectorService(db)
+                vector_service.add_document_to_vector_store(document)
+
+                success_file_url.append(file)
+                success_origin_filename.append(file_name)
+        except Exception as e:
+            print(e)
+            error_origin_filename.append(file_name)
+
+    analyze_result = UploadDocumentResponse(
+        success_file_url=success_file_url,
+        success_origin_filename=success_origin_filename,
+        error_origin_filename=error_origin_filename
+    )
+    print(success_file_url)
+    print(error_origin_filename)
+    return Result.success_with_data(analyze_result)

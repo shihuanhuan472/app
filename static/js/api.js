@@ -427,6 +427,45 @@ class APIClient {
             throw error;
         }
     }
+
+    // 上传文件（支持多文件，字段名 files）
+    async uploadFiles(endpoint, files) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const formData = new FormData();
+            files.forEach(file => formData.append('files', file));
+
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            };
+
+            const response = await fetch(url, options);
+            // 处理 401 刷新 token（与 uploadImages 相同逻辑，可复用或抽取公共方法）
+            if (response.status === 401) {
+                const newToken = await this.refreshToken();
+                options.headers['Authorization'] = `Bearer ${newToken}`;
+                const retryResponse = await fetch(url, options);
+                return this._handleResponse(retryResponse);
+            }
+            return this._handleResponse(response);
+        } catch (error) {
+            console.error('上传文件失败:', error);
+            throw error;
+        }
+    }
+
+    // 辅助方法：统一处理响应
+    async _handleResponse(response) {
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+        }
+        return response.json();
+    }
 }
 
 
@@ -686,6 +725,46 @@ const documentAPI = {
         } catch (error) {
             console.error('检查编辑权限失败:', error);
             return false;
+        }
+    },
+
+    // 上传文件（批量）
+    async uploadFiles(files) {
+        try {
+            const response = await this.client.uploadFiles(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/upload_files`,
+                files
+            );
+            if (response.code === 1) {
+                return response.data; // UploadDocumentResponse
+            } else {
+                throw new Error(response.msg || '上传文件失败');
+            }
+        } catch (error) {
+            console.error('上传文件失败:', error);
+            throw error;
+        }
+    },
+
+    // 解析文件
+    async analyzeFiles(fileList, fileNames) {
+        try {
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/analyze_files`,
+                {
+                    file_list: fileList,
+                    file_name: fileNames
+                },
+                true
+            );
+            if (response.code === 1) {
+                return response.data; // UploadDocumentResponse
+            } else {
+                throw new Error(response.msg || '解析文件失败');
+            }
+        } catch (error) {
+            console.error('解析文件失败:', error);
+            throw error;
         }
     }
 };

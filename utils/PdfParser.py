@@ -12,7 +12,7 @@ from utils.VectorService import VectorService
 
 
 class PdfParser:
-    def __init__(self, db: Session):
+    def __init__(self):
         # self.db = db
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
@@ -21,18 +21,13 @@ class PdfParser:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 3000))
-        self.db = db
 
     def parse(self, pdf_url: str):
         text = self.get_pdf_text(pdf_url)
         image_urls, image_names = self.get_pdf_images(pdf_url)
         document = self.file2document(text, image_urls, image_names)
-        self.db.add(document)
-        self.db.commit()
-        self.db.refresh(document)
 
-        vector_service = VectorService(self.db)
-        vector_service.add_document_to_vector_store(document)
+        return document
 
         # self.db.refresh(document)
         #
@@ -182,8 +177,10 @@ class PdfParser:
                 if os.path.exists(image):
                     os.remove(image)
 
+pdf_parser = PdfParser()
+
 if __name__ == "__main__":
-    pdf_parser = PdfParser(get_db())
+    pdf_parser = PdfParser()
     # text = pdf_parser.get_pdf_text("D:\机密\毕设\文献翻译及开题报告\开题报告.pdf")
     # pdf_parser.get_pdf_images("D:\机密\毕设\文献翻译及开题报告\开题报告.pdf")
     pdf_parser.parse("D:\机密\毕设\开发\知识库文档\T7-结晶问题-TS红宝书.pdf")

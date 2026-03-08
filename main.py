@@ -4,16 +4,28 @@ from urllib.request import Request
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 from routers import auth, users, admin, conversation, message
 from routers import documents
 from models import Base
 from database import engine
+from starlette.types import Scope
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
+
+# 自定义 StaticFiles 类，添加 CORS 头
+class CORSStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: Scope) -> FileResponse:
+        response = await super().get_response(path, scope)
+        # 添加 CORS 头，允许所有来源（开发环境适用）
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        # 如果需要支持带凭证的请求（如 cookie），可以设置为具体的来源
+        # response.headers["Access-Control-Allow-Origin"] = "http://localhost"
+        # response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
 
 app = FastAPI(
     title="维修辅助系统API",
@@ -27,7 +39,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:5500",  # VS Code Live Server默认端口
+        "http://localhost:5500",
         "http://127.0.0.1:5500",
         "http://localhost:63342",  # PyCharm内置服务器
         "http://localhost:8000",   # 添加后端自身
@@ -40,8 +52,8 @@ app.add_middleware(
 )
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "upload")
-app.mount("/upload", StaticFiles(directory=UPLOAD_DIR), name="upload")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/upload", CORSStaticFiles(directory=UPLOAD_DIR), name="upload")
+app.mount("/static", CORSStaticFiles(directory="static"), name="static")
 # 包含路由 - 先只包含users路由测试
 # app.include_router(users.router, prefix="/api/users", tags=["用户管理"])
 
