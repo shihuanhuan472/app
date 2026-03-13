@@ -165,10 +165,9 @@
             align-items: center;
             margin: 20px 0;
         }
-        /* 图片查看模态框复用 add-document.html 中的样式 */
-        .image-modal { /* 同 add-document.html 定义，略，可复制过来 */ }
+        /* 图片查看模态框复用 add-document.html 中的样式 (保持原有占位) */
+        .image-modal { /* 同 add-document.html 定义，略 */ }
         .image-modal-content { /* 略 */ }
-        /* 确保模态框样式存在，可原样复制 add-document.html 中的 style 部分 */
     </style>
 </head>
 <body>
@@ -245,8 +244,8 @@
                 <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <div class="image-upload-text">点击或拖拽文件到这里</div>
-                    <div class="image-upload-hint">支持 PDF、PPT、HTML等格式，每个文件不超过20MB</div>
-                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf,.doc,.docx,.pptx">
+                    <div class="image-upload-hint">支持 PDF、PPT、HTML、DOCX等格式，每个文件不超过20MB</div>
+                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf, .docx,.pptx, .ppt, .html">
                 </div>
 
                 <div id="selectedFilesList" class="file-list" style="display: none;">
@@ -323,6 +322,18 @@
         return ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext);
     }
 
+    /**
+     * 判断该文件是否支持浏览器直接预览（显示“预览”按钮）
+     * 支持图片、PDF、HTML、TXT 等常见可直接打开的格式
+     */
+    function isPreviewSupported(filename) {
+        if (!filename) return false;
+        const ext = filename.split('.').pop().toLowerCase();
+        // 可预览的扩展名列表（可根据实际需求调整）
+        const previewExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'html', 'htm', 'txt'];
+        return previewExts.includes(ext);
+    }
+
     // 格式化文件大小
     function formatFileSize(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -376,7 +387,7 @@
 
         // 处理选择的文件
         function handleFileSelect(files) {
-            // 简单限制：每个文件不超过50MB
+            // 简单限制：每个文件不超过20MB
             const MAX_SIZE = 20 * 1024 * 1024;
             const newFiles = [];
             for (let file of files) {
@@ -393,17 +404,16 @@
             if (newFiles.length === 0) return;
             selectedFiles = [...selectedFiles, ...newFiles];
             renderSelectedFiles();
-                if (selectedFiles.length > 0) {
-                    uploadBtn.style.display = 'inline-block';
-                    uploadBtn.disabled = false;
-                    clearSelectionBtn.style.display = 'inline-block';
-                } else {
-                    uploadBtn.style.display = 'none';
-                    uploadBtn.disabled = true;
-                    clearSelectionBtn.style.display = 'none';
-                }
-            uploadBtn.disabled = selectedFiles.length === 0;
-            clearSelectionBtn.style.display = selectedFiles.length ? 'inline-block' : 'none';
+            // 根据是否有文件控制上传按钮和清空按钮的显示
+            if (selectedFiles.length > 0) {
+                uploadBtn.style.display = 'inline-block';
+                uploadBtn.disabled = false;
+                clearSelectionBtn.style.display = 'inline-block';
+            } else {
+                uploadBtn.style.display = 'none';
+                uploadBtn.disabled = true;
+                clearSelectionBtn.style.display = 'none';
+            }
         }
 
         // 渲染待上传文件列表
@@ -433,8 +443,16 @@
                     const index = e.currentTarget.dataset.index;
                     selectedFiles.splice(index, 1);
                     renderSelectedFiles();
-                    uploadBtn.disabled = selectedFiles.length === 0;
-                    clearSelectionBtn.style.display = selectedFiles.length ? 'inline-block' : 'none';
+                    // 更新按钮状态
+                    if (selectedFiles.length > 0) {
+                        uploadBtn.style.display = 'inline-block';
+                        uploadBtn.disabled = false;
+                        clearSelectionBtn.style.display = 'inline-block';
+                    } else {
+                        uploadBtn.style.display = 'none';
+                        uploadBtn.disabled = true;
+                        clearSelectionBtn.style.display = 'none';
+                    }
                 });
             });
         }
@@ -443,8 +461,8 @@
         clearSelectionBtn.addEventListener('click', () => {
             selectedFiles = [];
             renderSelectedFiles();
-            uploadBtn.disabled = true;
             uploadBtn.style.display = 'none';
+            uploadBtn.disabled = true;
             clearSelectionBtn.style.display = 'none';
         });
 
@@ -481,12 +499,18 @@
                         const fileUrl = getFileUrl(successUrls[i]);
                         const isImage = isImageFile(name);
                         const safeName = name.replace(/'/g, "\\'");
+
+                        // 根据是否支持预览决定是否显示“预览”链接
+                        const showPreview = isPreviewSupported(name);
+                        const previewLink = showPreview ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
+                        const downloadLink = `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>`;
+
                         successHtml += `
                             <div class="success-item">
                                 ${isImage ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>'}
                                 <span style="flex:1;">${name}</span>
-                                <a href="${fileUrl}" target="_blank" class="file-url">预览</a>
-                                <a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>
+                                ${previewLink}
+                                ${downloadLink}
                             </div>
                         `;
                     });
@@ -517,9 +541,9 @@
                 Utils.showMessage('上传失败：' + error.message, 'error');
             } finally {
                 uploadBtn.innerHTML = '上传文件';
-                uploadBtn.disabled = false; // 注意：可能需要根据实际情况启用
+                uploadBtn.disabled = false;
                 uploadBtn.style.display = 'none';
-                // 清空选择列表（可选）
+                // 清空选择列表
                 selectedFiles = [];
                 renderSelectedFiles();
                 clearSelectionBtn.style.display = 'none';
@@ -548,6 +572,10 @@
                 const fileUrl = getFileUrl(file.url);
                 const isImage = isImageFile(file.name);
                 const safeName = file.name.replace(/'/g, "\\'");
+                const showPreview = isPreviewSupported(file.name);
+                const previewLink = showPreview ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
+                const downloadLink = `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>`;
+
                 html += `
                     <div class="file-item">
                         <div class="checkbox-column">
@@ -557,8 +585,8 @@
                         <span class="file-name" style="flex:1;">${file.name}</span>
                         <span class="file-size">${formatFileSize(file.size)}</span>
                         <div class="file-actions">
-                            <a href="${fileUrl}" target="_blank" class="file-url">预览</a>
-                            <a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>
+                            ${previewLink}
+                            ${downloadLink}
                         </div>
                     </div>
                 `;
@@ -576,69 +604,69 @@
 
         // 解析文件
         analyzeBtn.addEventListener('click', async () => {
-    const checkboxes = document.querySelectorAll('.file-checkbox:checked');
-    if (checkboxes.length === 0) {
-        Utils.showMessage('请至少选择一个文件', 'warning');
-        return;
-    }
+            const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+            if (checkboxes.length === 0) {
+                Utils.showMessage('请至少选择一个文件', 'warning');
+                return;
+            }
 
-    const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
-    const selectedFilesInfo = selectedIndices.map(i => uploadedFiles[i]);
+            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+            const selectedFilesInfo = selectedIndices.map(i => uploadedFiles[i]);
 
-    const fileList = selectedFilesInfo.map(f => f.url);      // 后端相对路径
-    const fileNames = selectedFilesInfo.map(f => f.name);    // 原始文件名
+            const fileList = selectedFilesInfo.map(f => f.url);      // 后端相对路径
+            const fileNames = selectedFilesInfo.map(f => f.name);    // 原始文件名
 
-    analyzeBtn.disabled = true;
-    analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
-
-    try {
-        const result = await documentAPI.analyzeFiles(fileList, fileNames);
-        const successNames = result.success_origin_filename || [];
-        const errorNames = result.error_origin_filename || [];
-
-        // 显示解析结果
-        document.getElementById('analyzeResult').style.display = 'block';
-        const successDiv = document.getElementById('analyzeSuccessList');
-        const errorDiv = document.getElementById('analyzeErrorList');
-
-        successDiv.innerHTML = successNames.length
-            ? '<div style="font-weight:500;">✅ 解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
-            : '';
-        errorDiv.innerHTML = errorNames.length
-            ? '<div style="font-weight:500; color:#ef4444;">❌ 解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
-            : '';
-
-        // 从 uploadedFiles 中移除已解析成功的文件
-        uploadedFiles = uploadedFiles.filter(f => !successNames.includes(f.name));
-
-        // 重新渲染已上传文件列表
-        renderUploadedFilesList();
-
-        // 如果列表为空，则隐藏“开始解析”按钮和全选选项，或显示提示
-        if (uploadedFiles.length === 0) {
-            // 禁用解析按钮，隐藏全选
             analyzeBtn.disabled = true;
-            document.getElementById('selectAllCheckbox').disabled = true;
-            // 可选的：在列表区域显示提示
-            document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的文件。</div>';
-        } else {
-            // 重置全选为勾选状态（方便继续解析剩余文件）
-            document.getElementById('selectAllCheckbox').checked = true;
-            document.getElementById('selectAllCheckbox').disabled = false;
-        }
+            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
 
-        Utils.showMessage(`解析完成，成功 ${successNames.length} 个，失败 ${errorNames.length} 个`, 'info');
-    } catch (error) {
-        Utils.showMessage('解析失败：' + error.message, 'error');
-    } finally {
-        analyzeBtn.innerHTML = '开始解析';
-        analyzeBtn.disabled = false; // 如果列表为空，后续在判断中会重新禁用，这里先启用
-        // 若列表为空，则再次禁用（避免按钮可点击但无文件）
-        if (uploadedFiles.length === 0) {
-            analyzeBtn.disabled = true;
-        }
-    }
-});
+            try {
+                const result = await documentAPI.analyzeFiles(fileList, fileNames);
+                const successNames = result.success_origin_filename || [];
+                const errorNames = result.error_origin_filename || [];
+
+                // 显示解析结果
+                document.getElementById('analyzeResult').style.display = 'block';
+                const successDiv = document.getElementById('analyzeSuccessList');
+                const errorDiv = document.getElementById('analyzeErrorList');
+
+                successDiv.innerHTML = successNames.length
+                    ? '<div style="font-weight:500;">✅ 解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
+                    : '';
+                errorDiv.innerHTML = errorNames.length
+                    ? '<div style="font-weight:500; color:#ef4444;">❌ 解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
+                    : '';
+
+                // 从 uploadedFiles 中移除已解析成功的文件
+                uploadedFiles = uploadedFiles.filter(f => !successNames.includes(f.name));
+
+                // 重新渲染已上传文件列表
+                renderUploadedFilesList();
+
+                // 如果列表为空，则隐藏“开始解析”按钮和全选选项，或显示提示
+                if (uploadedFiles.length === 0) {
+                    // 禁用解析按钮，隐藏全选
+                    analyzeBtn.disabled = true;
+                    document.getElementById('selectAllCheckbox').disabled = true;
+                    // 可选的：在列表区域显示提示
+                    document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的文件。</div>';
+                } else {
+                    // 重置全选为勾选状态（方便继续解析剩余文件）
+                    document.getElementById('selectAllCheckbox').checked = true;
+                    document.getElementById('selectAllCheckbox').disabled = false;
+                }
+
+                Utils.showMessage(`解析完成，成功 ${successNames.length} 个，失败 ${errorNames.length} 个`, 'info');
+            } catch (error) {
+                Utils.showMessage('解析失败：' + error.message, 'error');
+            } finally {
+                analyzeBtn.innerHTML = '开始解析';
+                analyzeBtn.disabled = false; // 如果列表为空，后续在判断中会重新禁用，这里先启用
+                // 若列表为空，则再次禁用（避免按钮可点击但无文件）
+                if (uploadedFiles.length === 0) {
+                    analyzeBtn.disabled = true;
+                }
+            }
+        });
     });
 
     // 图片预览相关（复用 add-document.html 的逻辑）

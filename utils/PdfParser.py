@@ -7,10 +7,7 @@ from PIL import Image
 from models import Document
 import pymupdf
 import os
-from sqlalchemy.orm import Session
 from openai import OpenAI
-from database import get_db
-from utils.VectorService import VectorService
 
 
 class PdfParser:
@@ -23,6 +20,14 @@ class PdfParser:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 3000))
+        base_url = os.path.join(self.document_base_dir, self.document_dir)
+        if not os.path.exists(base_url):
+            os.makedirs(base_url)
+            print(f"创建目录: {base_url}")
+        base_url = os.path.join(self.document_base_dir, self.image_dir)
+        if not os.path.exists(base_url):
+            os.makedirs(base_url)
+            print(f"创建目录: {base_url}")
 
     def parse(self, pdf_url: str):
         text = self.get_pdf_text(pdf_url)
@@ -68,7 +73,7 @@ class PdfParser:
 
         dir_name, filename = os.path.split(image_path)
         name, ext = os.path.splitext(filename)
-        new_path = f"{name}_compressed.{ext}"
+        new_path = f"{name}_compressed{ext}"
         new_path = os.path.join(dir_name, new_path)
         new_image.save(new_path)
         return new_path

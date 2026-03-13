@@ -1,15 +1,16 @@
 import base64
 import json
+import os
 import uuid
 from datetime import datetime
 from PIL import Image
+from docx import Document as Docx
 from openai import OpenAI
 
 from models import Document
-from pptx import Presentation
-import os
 
-class PPTParser:
+
+class WordParser:
     def __init__(self):
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
@@ -27,59 +28,88 @@ class PPTParser:
             os.makedirs(base_url)
             print(f"创建目录: {base_url}")
 
-    def parse(self, file_path: str):
-        text, image_urls, image_names = self.get_content(file_path)
-        document = self.file2document(text, image_urls, image_names)
-        return document
-
     def get_content(self, file_path):
         if not os.path.exists(file_path):
-            raise FileNotFoundError(file_path)
-        prs = Presentation(file_path)
+            raise FileNotFoundError()
+
+        doc = Docx(file_path)
         text = ""
+        for para in doc.paragraphs:
+            text = text + str(para.text).strip()
+
+        for i, table in enumerate(doc.tables):
+            text += f"\n表格{i + 1}\n"
+            text += self.table_to_markdown(table) + "\n"
+
         image_urls = []
-        image_names = []
+        file_names = []
         base_url = os.path.join(self.document_base_dir, self.image_dir)
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                try:
-                    if shape.has_text_frame:
-                        for paragraph in shape.text_frame.paragraphs:
-                            text += "\n" + paragraph.text
-                    if hasattr(shape, "shape_type") and shape.shape_type == 13:
-                        image = shape.image
-                        image_bytes = image.blob
-                        ext = image.ext or "png"
+        for rel in doc.part.rels.values():
+            if "image" in rel.target_ref:
+                img_data = rel.target_part.blob
+                img_ext = rel.target_part.content_type.split('/')[-1]  # 获取图片格式，如 png, jpeg
 
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{ext}"
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{img_ext}"
 
-                        image_path = os.path.join(base_url, unique_filename)
-                        with open(image_path, "wb") as img_file:
-                            img_file.write(image_bytes)
-                        print(f"已保存: {unique_filename}")
-                        image_urls.append(image_path)
-                        image_names.append(unique_filename)
-                except Exception as e:
-                    continue
-        return text, image_urls, image_names
+                # img_filename = f"image_{img_count}.{img_ext}"
+                img_path = os.path.join(base_url, unique_filename)
+                with open(img_path, 'wb') as f:
+                    f.write(img_data)
+                print(f"图片已保存: {img_path}")
+                image_urls.append(img_path)
+                file_names.append(unique_filename)
+        return text, image_urls, file_names
+
+    def table_to_markdown(self, table):
+        """
+        将 python-docx 的 Table 对象转换为 Markdown 表格字符串。
+        支持简单的合并单元格（被合并的单元格内容置为空）。
+        """
+        # 获取表格的行数和列数（考虑合并单元格）
+        rows = table.rows
+        if not rows:
+            return ""
+
+        # 先确定列数：取第一行单元格数，但可能因合并而少于实际列数
+        # 更稳健的方式：遍历所有单元格，找到最大列索引
+        col_count = max(len(row.cells) for row in rows)
+
+        # 构建矩阵，初始填充空字符串
+        matrix = [["" for _ in range(col_count)] for _ in range(len(rows))]
+
+        # 填充单元格内容
+        for i, row in enumerate(rows):
+            for j, cell in enumerate(row.cells):
+                if j < col_count:  # 防止索引越界
+                    # 如果单元格已合并，其左上角位置才是有效内容，其余位置应保持空
+                    # 简单处理：每个单元格只填一次，合并的单元格只保留第一个
+                    matrix[i][j] = cell.text.strip().replace('\n', ' ')  # 换行符替换为空格
+
+        # 生成 Markdown 表格
+        md_lines = []
+        # 表头
+        header = matrix[0]
+        md_lines.append("| " + " | ".join(header) + " |")
+        # 分隔线
+        md_lines.append("|" + "|".join([" --- " for _ in range(col_count)]) + "|")
+        # 数据行
+        for row in matrix[1:]:
+            md_lines.append("| " + " | ".join(row) + " |")
+
+        return "\n".join(md_lines)
 
     def image_to_base64(self, image: str):
         with open(image, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
             return image_base64
 
-    def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
+    def compress_image(self, image_path: str, max_size=648, pad_color=(0, 0, 0)):
         if not os.path.exists(image_path):
             raise FileNotFoundError()
 
         image = Image.open(image_path).convert("RGB")
-        # new_size = (448, 448)
         max_length = max(image.width, image.height)
-        # if short_length < max_size:
-        #     return image_path
-        # if max_length <= max_size:
-        #     return image_path
         rate = max_size / max_length
         new_size = (int(image.width * rate), int(image.height * rate))
         resized_image = image.resize(new_size)
@@ -91,9 +121,6 @@ class PPTParser:
 
         new_image.paste(resized_image, (x, y))
 
-        # new_size = (512, 512)
-        # print(new_size)
-
         dir_name, filename = os.path.split(image_path)
         name, ext = os.path.splitext(filename)
         new_path = f"{name}_compressed{ext}"
@@ -101,24 +128,28 @@ class PPTParser:
         new_image.save(new_path)
         return new_path
 
-    def generate_message(self, text, image_urls):
+    def parse(self, file_path):
+        text, image_urls, file_names = self.get_content(file_path)
+        document = self.file2Document(text, image_urls, file_names)
+        return document
+
+    def generate_message(self, text: str = None, image_urls: str = None):
         messages = []
         data = {}
-        # print(text)
-        prompt = """你是一位专业的设备维修分析专家。我将给你一段关于设备维修的文本（包含文字描述）以及若干张相关图片，每张图片都有唯一的编号（从1开始）且只属于一个字段。你的任务是基于这些内容，严格按照以下模板生成JSON格式的总结。请确保所有信息均来源于提供的文本和图片，不得杜撰。对于缺失的信息，对应字段留空（文本为空字符串，图片为空列表）。
+        # msg_content = []
+        prompt = """你好，你是一位问题分析专家，我将给你一段有关设备维修的文本和几张图片。请你最大限度使用内容，按照以下的模板提供信息，以JSON格式返回。若内容未提供，字段可以为空。对于图片，请给出图片编号。
 模板：
-标题：<简洁的标题，点明案例名称，必须填写>
+标题：<简洁的标题，点明核心内容>
 问题简介：<可包含定义解释，现象介绍，问题发生频率，后果等内容>
 原因：<造成该问题的主要原因，尽量从高频到低频排序>
 评估：<评估问题的手段，方法，工具等信息>
-检查：<描述维修现场如何进行定位确认，要求详细>
-解决方法：<现场的解决措施及根本的解决方案，要求详细>
+检查：<描述维修现场如何进行定位确认>
+解决方法：<现场的解决措施及根本的解决方案>
 总结：<总结问题的主要原因，后果及解决方案的关键信息>
-相关图片：<与字段相关的图像，每张图像最多出现在一个字段中>
 
-请严格按照如下JSON格式输出：
+输出JSON格式如下：
 {{
-    "title": "标题", // 案例名称
+    "title": "标题", // 案例名
     "problem_intro": "问题简介文本",
     "image_urls_problem_intro": [1, 3], // 与问题简介相关的图片编号
     "causes": "原因文本",
@@ -135,34 +166,33 @@ class PPTParser:
 
 注意：
 1. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-2. 内容必须基于我提供的文本和图片，图片编号从1开始，不可杜撰任何信息。
+2. 内容必须基于我提供的文本和图片，不可杜撰任何信息。
 3. 你给出的回答仅包含我要求的JSON格式答案。
-4. 给定图片中可能包含无关图片，请勿放进回答中。
-5. 每张图片最多出现在一个字段中。
+4. 给定图片编号从1开始，不得编写新的图片。
+5. title不可为空，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
 6. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-7. 各字段内容请勿大量重复，无关图片不要放入回答。
+7. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
+8. 各字段内容请勿大量重复。
 
 现在请分析下面的内容：
 [文本内容]
 {text}
 
-[图片内容由base64给出]""".format(text=text)
-        # l = len(prompt)
-        # print(prompt)
+[图片内容由后续base64给出]
+""".format(text=text)
         msg_content = [{"type": "text", "text": prompt}]
         for image in image_urls:
             # print(image)
-            compress_image = self.compress_image(image)
-            image_base64 = self.image_to_base64(compress_image)
-            msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
-            # l += len(image_base64)
+            compressed_image = self.compress_image(image)
+            image_base64 = self.image_to_base64(compressed_image)
+            msg_content.append(
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
         data["role"] = "user"
         data["content"] = msg_content
         messages.append(data)
-        # print("len = {}".format(l))
         return messages
 
-    def file2document(self, text, image_urls, image_names) -> Document:
+    def file2Document(self, text, image_urls, image_names):
         try:
             client = OpenAI(
                 base_url=f"http://{self.ai}:8000/v1",
@@ -170,25 +200,26 @@ class PPTParser:
             )
 
             messages = self.generate_message(text, image_urls)
-            # print(messages)
+
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 max_tokens=self.max_token
             )
-            # print(response)
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
-            flag = [0] * len(image_urls)
+
+            flag = [0] * len(image_names)
+
             for key in result.keys():
                 if "image" in key:
                     image_url_content = ""
                     for image_index in result[key]:
                         url = image_names[image_index - 1]
+                        flag[image_index - 1] = 1
                         url = self.image_dir + "/" + url
                         image_url_content += url + ", "
-                        flag[image_index - 1] = 1
                     image_url_content = image_url_content.rstrip(", ")
                     if len(result[key]) == 0:
                         image_url_content = None
@@ -205,7 +236,7 @@ class PPTParser:
                     new_path = os.path.join(dir_name, new_path)
                     if os.path.exists(new_path):
                         os.remove(new_path)
-
+            # print(type(document))
             return document
 
         except Exception as e:
@@ -214,8 +245,10 @@ class PPTParser:
                 if os.path.exists(image):
                     os.remove(image)
 
-ppt_parser = PPTParser()
+word_parser = WordParser()
 
 if __name__ == "__main__":
-    ppt = PPTParser()
-    ppt.parse("D:\机密\毕设\开发\知识库文档\WFQ自动拆分失败案例排查.pptx")
+    # word_parser = WordParser()
+    text, image_urls, file_names = word_parser.get_content("D:\机密\毕设\文献翻译及开题报告\开题报告.docx")
+    print(text)
+    print(file_names)

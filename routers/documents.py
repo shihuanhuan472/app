@@ -18,12 +18,13 @@ from database import get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
+from utils.WordParser import word_parser
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".html", ".mhtml"}
+ALLOWED_EXTENSIONS = {".pdf", ".pptx",".ppt" ,".html", ".mhtml", ".docx"}
 
 def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
     return DocumentResponse(
@@ -370,7 +371,7 @@ async def delete(id: int,
                             os.remove(url)
                             print(f"删除了{url}")
                         name, ext = os.path.splitext(filename)
-                        name = f"{name}_compressed.{ext}"
+                        name = f"{name}_compressed{ext}"
                         url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
                         if os.path.exists(url):
                             os.remove(url)
@@ -564,7 +565,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             document = None
             if file_ext == ".pdf":
                 document = pdf_parser.parse(url)
-            elif file_ext == ".pptx":
+            elif file_ext == ".pptx" or file_ext == ".ppt":
                 document = ppt_parser.parse(url)
                 # document.contributor_id = current_user.id
                 # document.origin_file_name = file_name
@@ -580,6 +581,8 @@ async def analyze_files(file_list: AnalyzeRequest,
                 #
                 # success_file_url.append(file)
                 # success_origin_filename.append(file_name)
+            elif file_ext == ".docx":
+                document = word_parser.parse(url)
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
             document.origin_file_dir = file
@@ -596,6 +599,9 @@ async def analyze_files(file_list: AnalyzeRequest,
 
         except Exception as e:
             print(e)
+            url = os.path.join(document_base_dir, file)
+            if os.path.exists(url):
+                os.remove(url)
             error_origin_filename.append(file_name)
 
     analyze_result = UploadDocumentResponse(
