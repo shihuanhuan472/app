@@ -299,7 +299,9 @@ def get_ai_answer(db, session_id, message_now):
         max_tokens=max_token
     )
 
-    final_ans = response.choices[0].message.content.replace("\n---\n", "---")
+    final_ans = (response.choices[0].message.content
+                 .replace("\n---\n", "---")
+                 .replace("\n\n", "\n"))
 
     # print(response)
     # return result.json()["message"]["content"], ai_reference_document_ids_str

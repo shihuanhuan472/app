@@ -3947,7 +3947,7 @@ body {
 
 /* Markdown渲染样式 */
 .message-text {
-    line-height: 1.6;
+    line-height: 0.8;
     color: #333;
     font-size: 14px;
 }
@@ -3974,19 +3974,19 @@ body {
 
 /* Markdown段落和列表 */
 .message-text p {
-    margin-bottom: 1em;
-    line-height: 1.6;
+    margin-bottom: 0.6em;
+    line-height: 1.4;
 }
 
 .message-text ul,
 .message-text ol {
-    margin-bottom: 1em;
+    margin-bottom: 0.8em;
     padding-left: 1.8em;
 }
 
 .message-text li {
     margin-bottom: 0.4em;
-    line-height: 1.6;
+    line-height: 1.4;
 }
 
 .message-text ul > li {
@@ -4035,7 +4035,7 @@ body {
     background: transparent;
     color: inherit;
     font-size: 0.9em;
-    line-height: 1.4;
+    line-height: 1.2;
     display: block;
 }
 
@@ -4092,7 +4092,7 @@ body {
     height: 1px;
     border: none;
     background: linear-gradient(to right, transparent, #e8e8e8, transparent);
-    margin: 1.5em 0;
+    margin: 1.2em 0;
 }
 
 /* 图片 */

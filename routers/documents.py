@@ -17,6 +17,7 @@ from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageReques
 from database import get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
+from utils.PPTParser import ppt_parser
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
@@ -368,6 +369,12 @@ async def delete(id: int,
                         if os.path.exists(url):
                             os.remove(url)
                             print(f"删除了{url}")
+                        name, ext = os.path.splitext(filename)
+                        name = f"{name}_compressed.{ext}"
+                        url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
+                        if os.path.exists(url):
+                            os.remove(url)
+                            print(f"删除了{url}")
 
         # if document.image_urls:
         #     config = get_image_config()
@@ -548,27 +555,45 @@ async def analyze_files(file_list: AnalyzeRequest,
         try:
             file_ext = file.split(".")[-1]
             file_ext = "." + file_ext
-            print(file_ext)
+            # print(file_ext)
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
                 continue
+            url = os.path.join(document_base_dir, file)
+            # print(url)
+            document = None
             if file_ext == ".pdf":
-                url = os.path.join(document_base_dir, file)
-                print(url)
                 document = pdf_parser.parse(url)
-                document.contributor_id = current_user.id
-                document.origin_file_name = file_name
-                document.origin_file_dir = file
-                document.first_edit_date = datetime.now()
-                print(document.title)
-                db.add(document)
-                db.commit()
-                db.refresh(document)
-                vector_service = VectorService(db)
-                vector_service.add_document_to_vector_store(document)
+            elif file_ext == ".pptx":
+                document = ppt_parser.parse(url)
+                # document.contributor_id = current_user.id
+                # document.origin_file_name = file_name
+                # document.origin_file_dir = file
+                # document.first_edit_date = datetime.now()
+                # print(document.title)
+                # db.add(document)
+                # db.commit()
+                # db.refresh(document)
+                #
+                # vector_service = VectorService(db)
+                # vector_service.add_document_to_vector_store(document)
+                #
+                # success_file_url.append(file)
+                # success_origin_filename.append(file_name)
+            document.contributor_id = current_user.id
+            document.origin_file_name = file_name
+            document.origin_file_dir = file
+            document.first_edit_date = datetime.now()
+            print(document.title)
+            db.add(document)
+            db.commit()
+            db.refresh(document)
+            vector_service = VectorService(db)
+            vector_service.add_document_to_vector_store(document)
 
-                success_file_url.append(file)
-                success_origin_filename.append(file_name)
+            success_file_url.append(file)
+            success_origin_filename.append(file_name)
+
         except Exception as e:
             print(e)
             error_origin_filename.append(file_name)
