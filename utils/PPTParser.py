@@ -9,6 +9,10 @@ from models import Document
 from pptx import Presentation
 import os
 
+"""
+解析ppt，使用python-pptx提取ppt中的图像和文本
+"""
+
 class PPTParser:
     def __init__(self):
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
@@ -217,5 +221,4 @@ class PPTParser:
 ppt_parser = PPTParser()
 
 if __name__ == "__main__":
-    ppt = PPTParser()
-    ppt.parse("D:\机密\毕设\开发\知识库文档\WFQ自动拆分失败案例排查.pptx")
+    pass

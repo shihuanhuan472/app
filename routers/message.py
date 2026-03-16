@@ -19,7 +19,16 @@ from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/message", tags=["消息"])
 
+"""
+ai对话部分其实包含对话和消息，一个对话里有很多消息
+前面的对话路由只是针对对话的增删改查
+该路由为消息路由，是用户对话的具体操作
+"""
+
 def image_to_base64(image: str, dir: str = None):
+    """
+    将图片编码的，用于跟ai对话传输的
+    """
     if dir is not None:
         image = os.path.join(dir, image)
     with open(image, "rb") as f:
@@ -40,6 +49,7 @@ def get_image_config():
 
 @router.post("/upload_images", summary="上传图片")
 async def upload_images(images: List[UploadFile]):
+    # 预设：消息中的图片存储于upload/ask
     config = get_image_config()
     url = os.path.join(config["MESSAGE_BASE_DIR"], config["MESSAGE_IMAGE_DIR"].lstrip("/").lstrip("\\"))
 
@@ -48,7 +58,6 @@ async def upload_images(images: List[UploadFile]):
         os.makedirs(url)
         print(f"创建路径{url}")
     for image in images:
-        print(1100)
         try:
             if image.size > config["MESSAGE_MAX_IMAGE_SIZE"]:
                 continue
@@ -86,6 +95,7 @@ async def ask(message: MessageCreate,
               current_user: User = Depends(get_current_active_user)):
     try:
         config = get_image_config()
+        # 检查对话存在
         conversation = db.query(Conversation).filter(Conversation.id == message.session_id).first()
         if not conversation:
             return Result.error("请先新建对话！")
@@ -93,6 +103,7 @@ async def ask(message: MessageCreate,
                      .filter(Message.session_id == message.session_id)
                      .scalar()) or 0
 
+        # 检查图片已上传服务器
         if message.user_uploaded_images is not None:
             urls = [url.strip() for url in message.user_uploaded_images.split(", ") if url.strip()]
             base_url = os.path.join(config["MESSAGE_BASE_DIR"], config["MESSAGE_IMAGE_DIR"].lstrip("/").lstrip("\\"))
@@ -110,6 +121,7 @@ async def ask(message: MessageCreate,
                                             .removeprefix("/")
                                             .removesuffix(", "))
 
+        # 创建用户的消息
         # print(111)
         db_message = Message(
             session_id=message.session_id,
@@ -121,6 +133,7 @@ async def ask(message: MessageCreate,
         )
         print(222)
 
+        # 得到ai的回答
         answer = get_answer(max_order + 1, message.session_id, db_message, db)
         db.add(db_message)
         db.flush()
@@ -129,6 +142,8 @@ async def ask(message: MessageCreate,
         db.flush()
 
         conversation.updated_time = datetime.now()
+
+        # 如果是该对话的首个消息，就为这个对话总结一个标题
         if max_order == 0:
             new_title = get_new_title_by_ai(message.content_text)
             conversation.title = new_title
@@ -149,6 +164,9 @@ async def ask(message: MessageCreate,
         )
 
 def generate_messages(db, id, message_now, prompt):
+    """
+    生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
+    """
     print("generate_messages")
     messages_db = (db.query(Message).
                    filter(Message.session_id == id).
@@ -202,6 +220,9 @@ def generate_messages(db, id, message_now, prompt):
     return messages
 
 def get_new_title_by_ai(content):
+    """
+    让ai给我总结一个标题
+    """
     # ai_url: str = os.getenv("AI_API")
     # model = os.getenv("MODEL")
     # message = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。内容：{content}"}]
@@ -232,6 +253,9 @@ def get_new_title_by_ai(content):
     return new_title
 
 def get_reference_documents(db, question: str, image: str = None):
+    """
+    检索出相关文档，并返回文档id
+    """
     vector_service = VectorService(db)
     vector_service.batch_vectorize_existing_documents()
     documents = vector_service.search_similar_documents(question, image)
@@ -243,6 +267,9 @@ def get_reference_documents(db, question: str, image: str = None):
     # return ", ".join(document_ids) if len(document_ids) > 0 else None
 
 def get_prompt(db, document_ids):
+    """
+    生成提示词（包括根据相关文档id，提取文档内容作为提示词）
+    """
     if not document_ids:
         return ""
     prompts = []
@@ -270,12 +297,21 @@ def get_prompt(db, document_ids):
         return ""
 
 def get_ai_reference_document_ids_str(ai_reference_document_ids):
+    """
+    把相关文档id列表转为字符串
+    为了存进mysql数据库
+    """
     if len(ai_reference_document_ids) == 0:
         return ""
     result = ", ".join(map(str, ai_reference_document_ids))
     return result
 
 def get_ai_answer(db, session_id, message_now):
+    """
+    获取ai回答.
+    流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
+          -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
+    """
     ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
     ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
     prompt = get_prompt(db, ai_reference_document_ids)
@@ -356,6 +392,7 @@ def get_answer(message_order: int,
     try:
         content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
 
+        # 生成ai回答的消息
         message = Message(
             session_id=session_id,
             role=0,
@@ -399,6 +436,9 @@ async def get_by_conversation(id: int,
 async def get_reference(question: str,
                         db: Session = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
+    """
+    一个拿来后端测试的api，前端并未调用，不用管
+    """
     documents = get_reference_documents(db, question)
     print(documents)
     return Result.success_with_data(documents)

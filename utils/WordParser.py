@@ -9,6 +9,10 @@ from openai import OpenAI
 
 from models import Document
 
+"""
+word解析器，使用python-docx提取docx中的文本图像和表格
+无法操作doc文件（太老了）
+"""
 
 class WordParser:
     def __init__(self):
@@ -34,13 +38,16 @@ class WordParser:
 
         doc = Docx(file_path)
         text = ""
+        # 文本
         for para in doc.paragraphs:
             text = text + str(para.text).strip()
 
+        # 表格
         for i, table in enumerate(doc.tables):
             text += f"\n表格{i + 1}\n"
             text += self.table_to_markdown(table) + "\n"
 
+        # 图像
         image_urls = []
         file_names = []
         base_url = os.path.join(self.document_base_dir, self.image_dir)
@@ -63,8 +70,7 @@ class WordParser:
 
     def table_to_markdown(self, table):
         """
-        将 python-docx 的 Table 对象转换为 Markdown 表格字符串。
-        支持简单的合并单元格（被合并的单元格内容置为空）。
+        将表格转换为Markdown表格字符串。
         """
         # 获取表格的行数和列数（考虑合并单元格）
         rows = table.rows
@@ -248,7 +254,4 @@ class WordParser:
 word_parser = WordParser()
 
 if __name__ == "__main__":
-    # word_parser = WordParser()
-    text, image_urls, file_names = word_parser.get_content("D:\机密\毕设\文献翻译及开题报告\开题报告.docx")
-    print(text)
-    print(file_names)
+    pass

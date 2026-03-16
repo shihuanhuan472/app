@@ -2,17 +2,18 @@
 import os
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
-import jieba
 from pymilvus.orm import utility
-
 
 import torch  # 添加导入
 from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
-from sentence_transformers import SentenceTransformer
 from models import Document
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
+
+"""
+向量生成的核心模块，使用BAAI/bge-m3模型
+"""
 
 class VectorStoreMultimodal:
     def __init__(self):
@@ -20,9 +21,10 @@ class VectorStoreMultimodal:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
         print(f"Using device: {device}")
-        self.model_embedding = os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
-        self.model_embedding_local = os.getenv("EMBEDDING_MODEL_LOCAL_PATH", 
-                                                "D:/Pycharm/code/Maintenance_Assistance_System/embedding-model")
+
+        # self.model_embedding = os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+        # self.model_embedding_local = os.getenv("EMBEDDING_MODEL_LOCAL_PATH",
+        #                                         "D:/Pycharm/code/Maintenance_Assistance_System/embedding-model")
 
         self.model_name = os.getenv("MODEL_NAME", "BAAI/bge-m3")
         self.model_weight = os.getenv("MODEL_WEIGHT", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\Visualized_m3.pth")
@@ -33,6 +35,7 @@ class VectorStoreMultimodal:
         self.image_config = self.get_config()
 
         self.top_k = int(os.getenv("TOP_K", 3))
+        # 虽然有硬分块参数，但是其实根本没用上（最开始怕某个字段特别长，后来感觉再长也不会好几千个字）
         self.chunk_size = int(os.getenv("CHUNK_SIZE", 500))
         self.overlap = int(os.getenv("OVERLAP", 50))
         # 尝试使用flash_attention_2加速（如果可用）
@@ -176,7 +179,10 @@ class VectorStoreMultimodal:
         print("索引创建完成")
 
     def create_new_collection(self):
-        """创建新集合"""
+        """
+        创建新集合
+        metadata为原数据
+        """
         # 定义字段
         fields = [
             FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
@@ -198,7 +204,10 @@ class VectorStoreMultimodal:
         self.load_collection()
 
     def load_collection(self):
-        """加载集合到内存"""
+        """
+        加载集合到内存
+        （所以快是真快，但也挺吃内存的）
+        """
         try:
             print(f"正在加载集合 '{self.collection_name}' 到内存...")
             self.collection.load()
@@ -274,8 +283,12 @@ class VectorStoreMultimodal:
             ("solutions", "解决方案"),
             ("key_points", "总结")
         ]
+
+        # 按照字段分块，标题和问题简介在同一块
+
         for section in sections:
             content = ""
+            # 处理标题块
             if section[0] == "title":
                 content = f"标题：{document.title}，\n问题简介：{document.problem_intro}"
                 images_str = getattr(document, "image_urls_problem_intro", "")
@@ -283,7 +296,6 @@ class VectorStoreMultimodal:
                 flag = 0
                 for image in images:
                     url = os.path.join(self.get_config()["DOCUMENT_IMAGE_BASE_DIR"], image)
-                    print(self.get_config()["DOCUMENT_IMAGE_BASE_DIR"])
                     print(url)
                     if os.path.exists(url):
                         flag = 1
@@ -300,6 +312,7 @@ class VectorStoreMultimodal:
                             })
                         }
                         chunks.append(chunk)
+                # 如果没有图片
                 if flag == 0:
                     chunks.append({
                         "doc_id": document.id,
@@ -337,6 +350,7 @@ class VectorStoreMultimodal:
                             "chunk_size": len(content)
                         })
                     })
+            # 没图片但是有文本
             if flag == 0 and len(getattr(document, section[0])) > 0:
                 chunks.append({
                     "doc_id": document.id,
@@ -353,7 +367,10 @@ class VectorStoreMultimodal:
         return chunks
 
     def embed_texts(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
-        """将文本转换为向量"""
+        """
+        将文本转换为向量
+        （废弃，之前单模用的）
+        """
         # 根据是否是查询使用不同的编码方式
         if is_query:
             # 查询使用提示词（query prompt）
@@ -480,6 +497,7 @@ class VectorStoreMultimodal:
         print(f"Deleted document {doc_id} from vector store")
 
     def embed_multimodal(self, chunks):
+        """生成向量"""
         embeds = []
         with torch.no_grad():
             for chunk in chunks:
@@ -489,6 +507,7 @@ class VectorStoreMultimodal:
         return embeds
 
     def embed_multimodal_query(self, text=None, image=None):
+        """查询"""
         print(f"{text}")
         if image is None:
             print("None")
@@ -501,7 +520,8 @@ class VectorStoreMultimodal:
 # 全局向量存储实例
 vector_store_multimodal = VectorStoreMultimodal()
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    pass
     # vector_store = VectorStoreMultimodal()
 # #
 #     document = Document()

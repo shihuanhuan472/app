@@ -47,6 +47,60 @@
             cursor: pointer;
         }
 
+        /* AI 消息中的表格样式 */
+        .message-content.ai table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+            font-size: 14px;
+        }
+
+        .message-content.ai th,
+        .message-content.ai td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .message-content.ai th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+
+        .message-content.ai tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .message-content.ai table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+            font-size: 14px;
+            line-height: 1.6; /* 增加行高，让文字呼吸 */
+        }
+
+        .message-content.ai th,
+        .message-content.ai td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;  /* 增加内边距，单元格更宽松 */
+            text-align: left;
+            vertical-align: top; /* 内容顶部对齐，避免挤压 */
+        }
+
+        .message-content.ai th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+
+        .message-content.ai tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* 可选：让表格在小屏幕上可横向滚动 */
+        .message-content.ai {
+            overflow-x: auto;
+        }
+
         /* 思考中动画样式 */
         .ai-thinking-container {
             margin: 20px;
@@ -351,6 +405,32 @@
 <script src="js/api.js"></script>
 <!-- 替换原来的 <script> 部分 -->
 <script>
+
+    function ensureTableSpacing(text) {
+        // 简单的启发式：如果三行以上以 | 开头，且前后没有空行，则在前后各加一个换行
+        console.log(text);
+        const lines = text.split('\n');
+        let modified = false;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().startsWith('|')) {
+                let j = i;
+                while (j < lines.length && lines[j].trim().startsWith('|')) j++;
+                // 如果表格块前后不是空行，插入空行
+                if (i > 0 && lines[i-1].trim() !== '') {
+                    lines.splice(i, 0, '');
+                    j++;
+                    modified = true;
+                }
+                if (j < lines.length && lines[j].trim() !== '') {
+                    lines.splice(j, 0, '');
+                    modified = true;
+                }
+                i = j;
+            }
+        }
+        return modified ? lines.join('\n') : text;
+    }
+
     // Markdown解析配置
     const MarkdownParser = {
         // 配置marked解析器
@@ -378,6 +458,7 @@
             if (!text) return '';
 
             try {
+                ensureTableSpacing(text)
                 // 先转换Markdown为HTML
                 let html = marked.parse(text);
                 // 使用DOMPurify进行安全清理
@@ -1279,6 +1360,7 @@
 
             // 如果是AI消息，使用Markdown渲染
             if (isAI) {
+                content = ensureTableSpacing(content)
                 return MarkdownParser.render(content);
             }
 

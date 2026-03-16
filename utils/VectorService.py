@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.orm import Session
 
-from database import get_db
-# from utils.VectorStore import vector_store
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from models import Document
 
 logger = logging.getLogger(__name__)
 
+"""
+向量库service，文档增删查在向量层面的service层，会操控mysql数据库
+"""
 
 class VectorService:
     def __init__(self, db: Session):

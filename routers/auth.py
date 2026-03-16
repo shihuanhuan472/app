@@ -14,14 +14,6 @@ logger = logging.getLogger(__name__)
 
 @router.post("/login", summary="用户登录")
 async def login(login_data: UserLogin, db: Session = Depends(get_db)):
-    """
-    用户登录接口
-
-    - username: 用户名
-    - password: 密码
-
-    返回 access_token、refresh_token 和用户信息
-    """
     print("用户登录")
     # 验证用户名
     user = db.query(User).filter(User.username == login_data.username).first()
@@ -89,14 +81,7 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
 async def refresh_token(
         token_data: dict = Body(..., description="刷新令牌请求体，包含refresh_token")
 ):
-    """
-    使用 refresh_token 获取新的 access_token
 
-    请求体示例:
-    {
-        "refresh_token": "your_refresh_token_here"
-    }
-    """
     refresh_token = token_data.get("refresh_token")
     # print("刷新token！！！")
     if not refresh_token:

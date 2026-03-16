@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # 数据库连接URL（修改为你的MySQL配置）
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:cxx20040914@localhost:3306/repair"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:your_password@localhost:your_port/your_database_name"
 
 # 创建引擎
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

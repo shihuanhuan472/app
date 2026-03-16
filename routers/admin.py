@@ -11,6 +11,10 @@ from dependencies import require_roles
 from models import User
 from schemas import Result, Page, UserResponse, UserCreate, UserUpdateByAdmin, UserQueryByPage
 
+"""
+管理员相关操作，即对员工的增删改查
+"""
+
 router = APIRouter(prefix="/admin", tags=["管理员"])
 logger = logging.getLogger(__name__)
 
@@ -37,10 +41,10 @@ async def add_user(user: UserCreate,
             if user_username_find:
                 return Result.error("用户名已存在，添加失败")
 
-        # 默认密码为123456
+        # 默认密码为123456，进行哈希，数据库不会明文存储
         hashed_password = hashlib.md5("123456".encode()).hexdigest()
 
-        # 查询是否有软删除用户
+        # 查询是否有软删除用户（这里是处理，某个用户返聘，直接恢复原账号）
         user_delete = db.query(User).filter(User.username == username, User.status == 0).first()
         if user_delete:
             user_delete.status = 1
@@ -186,6 +190,7 @@ async def query(query: UserQueryByPage,
                 db: Session = Depends(get_db),
                 current_user: User = Depends(require_roles("admin"))):
     try:
+        # 根据用户名，电话，姓名，部门查询
         offset = (query.page - 1) * query.size
         total_count = db.query(User).filter(
             and_(

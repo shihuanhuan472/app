@@ -11,6 +11,9 @@ from fastapi import HTTPException, status
 # 加载环境变量
 load_dotenv()
 
+"""
+拿来生成和解析JWT令牌的
+"""
 
 # JWT配置模型
 class JWTConfig(BaseModel):
@@ -45,17 +48,6 @@ class JwtUtils:
             payload: Optional[Dict[str, Any]] = None,
             expires_delta: Optional[timedelta] = None
     ) -> str:
-        """
-        创建访问令牌
-
-        Args:
-            subject: 令牌主题（通常是用户ID）
-            payload: 额外的载荷数据
-            expires_delta: 过期时间增量
-
-        Returns:
-            JWT token字符串
-        """
         if payload is None:
             payload = {}
 
@@ -96,16 +88,6 @@ class JwtUtils:
             subject: str,
             payload: Optional[Dict[str, Any]] = None
     ) -> str:
-        """
-        创建刷新令牌
-
-        Args:
-            subject: 令牌主题
-            payload: 额外的载荷数据
-
-        Returns:
-            JWT token字符串
-        """
         if payload is None:
             payload = {}
 
@@ -135,20 +117,6 @@ class JwtUtils:
             token_type: str = "access",
             leeway: int = 0
     ) -> Dict[str, Any]:
-        """
-        验证并解析JWT令牌
-
-        Args:
-            token: JWT token字符串
-            token_type: 令牌类型（"access" 或 "refresh"）
-            leeway: 过期时间宽容度（秒）
-
-        Returns:
-            解析后的载荷数据
-
-        Raises:
-            HTTPException: 令牌无效时抛出
-        """
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -193,28 +161,10 @@ class JwtUtils:
             )
 
     def get_subject(self, token: str) -> str:
-        """
-        从令牌中获取主题（用户ID）
-
-        Args:
-            token: JWT token字符串
-
-        Returns:
-            用户ID字符串
-        """
         payload = self.verify_token(token)
         return payload.get("sub")
 
     def refresh_access_token(self, refresh_token: str) -> str:
-        """
-        使用刷新令牌获取新的访问令牌
-
-        Args:
-            refresh_token: 刷新令牌
-
-        Returns:
-            新的访问令牌
-        """
         # 验证刷新令牌
         payload = self.verify_token(refresh_token, token_type="refresh")
 
@@ -229,17 +179,7 @@ class JwtUtils:
         )
 
     def decode_token_without_verification(self, token: str) -> Dict[str, Any]:
-        """
-        解码令牌但不验证签名（仅用于调试或特定场景）
 
-        Warning: 不要在正式验证中使用此方法
-
-        Args:
-            token: JWT token字符串
-
-        Returns:
-            解码后的载荷数据
-        """
         import warnings
         warnings.warn(
             "This method does not verify the token signature. Use for debugging only.",

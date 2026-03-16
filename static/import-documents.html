@@ -245,7 +245,7 @@
                     <i class="fas fa-cloud-upload-alt"></i>
                     <div class="image-upload-text">点击或拖拽文件到这里</div>
                     <div class="image-upload-hint">支持 PDF、PPT、HTML、DOCX等格式，每个文件不超过20MB</div>
-                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf, .docx,.pptx, .ppt, .html">
+                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf, .docx, .pptx, .ppt, .html, .mhtml">
                 </div>
 
                 <div id="selectedFilesList" class="file-list" style="display: none;">
@@ -289,16 +289,6 @@
     </div>
 </div>
 
-<!-- 图片预览模态框（复用 add-document.html 的样式和结构） -->
-<div class="image-modal" id="imageModal">
-    <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-    <button class="image-modal-nav image-modal-prev" onclick="changeImage(-1)">❮</button>
-    <div class="image-modal-content">
-        <img id="modalImage" src="" alt="大图预览">
-    </div>
-    <button class="image-modal-nav image-modal-next" onclick="changeImage(1)">❯</button>
-</div>
-
 <script>
     // 状态变量
     let selectedFiles = [];                // 用户选择的待上传文件列表（File对象）
@@ -330,7 +320,7 @@
         if (!filename) return false;
         const ext = filename.split('.').pop().toLowerCase();
         // 可预览的扩展名列表（可根据实际需求调整）
-        const previewExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'html', 'htm', 'txt'];
+        const previewExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'html', 'htm', 'mhtml'];
         return previewExts.includes(ext);
     }
 
@@ -483,8 +473,8 @@
                 uploadedFiles = successNames.map((name, idx) => ({
                     name: name,
                     url: successUrls[idx],
-                    size: selectedFiles.find(f => f.name === name)?.size || 0,
-                    type: selectedFiles.find(f => f.name === name)?.type || ''
+                    size: selectedFiles.find(f => f.name === name).size || 0,
+                    type: selectedFiles.find(f => f.name === name).type || ''
                 }));
                 uploadErrorFiles = errorNames;
 

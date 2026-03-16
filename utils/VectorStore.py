@@ -12,6 +12,10 @@ from models import Document
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
 
+"""
+已经是废文件了，最早期的单模嵌入
+"""
+
 class VectorStore:
     def __init__(self):
         # 检测可用设备
@@ -384,43 +388,44 @@ class VectorStore:
 # vector_store = VectorStore()
 
 if __name__ == "__main__":
-    vector_store = VectorStore()
-
-    document = Document()
-    document.id = 100
-    document.title = "作业的基本概念"
-    document.contributor_id = 1
-    document.problem_intro = "作业：要求计算机系统按照指定步骤对应用程序进行处理并得到计算结果的加工工作。从用户角度看的话，就是在一次应用业务处理过程中，从输入开始到输出结束，用户要求计算机所做的有关该次业务处理的全部工作"
-    document.causes = "作业说明书中有<u>作业的基本情况</u>（用户名，作业名，编程语言等），<u>作业控制描述</u>（作业的控制方式，作业步的操作顺序，作业执行出错处理），<u>作业资源要求描述</u>（处理时间，优先级，内存空间，外设类型和数量等）"
-    document.evaluation = """作业的输入：将作业的程序，数据和作业说明书从输入设备输入到外存
-
-作业控制块的建立：作业控制块就是一张表，里面有一些必要信息，比如作业名，优先数，资源要求等等。操作系统通过这张表了解到作业的要求，并分配资源和控制作业中程序和数据的编译，连接，装入和执行等
-
-当一个作业的全部程序和数据输入到外存并且在系统中建立了作业控制块之后，一个作业就建立了"""
-    document.inspection = "系统调用指令（访管指令，陷阱指令）：由于系统调用引起的处理机中断指令（可能你在执行你的程序，跑的好好的，系统给个指令，处理机就跑去他那里了，处理机就中断了）"
-    document.solutions = "程序执行的两种方式 —— 顺序执行（单道批处理），并发执行（提高资源利用率）"
-    document.key_points = "区别是，系统进程被分配一个初始资源集合，它可以独占，有着最高优先权，用户进程通过系统服务请求手段竞争使用系统资源。系统进程可以直接进行IO操作，用户进程不行。系统在核心态（系统态，管态）下活动，用户进程就在用户态了"
-    document.is_vectorized = 0
-
-    chunk_document = vector_store.chunk_document(document, chunk_size=100, overlap=10)
-    print(chunk_document)
-    print(len(chunk_document))
-
-    # 准备批量插入数据
-    data = []
-    chunk_contents = []
-
-    for i, chunk in enumerate(chunk_document):
-        data.append([
-            chunk["doc_id"],  # doc_id
-            i,  # chunk_id
-            chunk["title"],  # title
-            chunk["content"],  # content
-            chunk["metadata"]  # metadata
-        ])
-        chunk_contents.append(chunk["content"])
-
-    # 生成向量（文档不使用提示词）
-    embeddings = vector_store.embed_texts(chunk_contents, is_query=False)
-    # print(embeddings)
-    # print(len(embeddings))
+    pass
+#     vector_store = VectorStore()
+#
+#     document = Document()
+#     document.id = 100
+#     document.title = "作业的基本概念"
+#     document.contributor_id = 1
+#     document.problem_intro = "作业：要求计算机系统按照指定步骤对应用程序进行处理并得到计算结果的加工工作。从用户角度看的话，就是在一次应用业务处理过程中，从输入开始到输出结束，用户要求计算机所做的有关该次业务处理的全部工作"
+#     document.causes = "作业说明书中有<u>作业的基本情况</u>（用户名，作业名，编程语言等），<u>作业控制描述</u>（作业的控制方式，作业步的操作顺序，作业执行出错处理），<u>作业资源要求描述</u>（处理时间，优先级，内存空间，外设类型和数量等）"
+#     document.evaluation = """作业的输入：将作业的程序，数据和作业说明书从输入设备输入到外存
+#
+# 作业控制块的建立：作业控制块就是一张表，里面有一些必要信息，比如作业名，优先数，资源要求等等。操作系统通过这张表了解到作业的要求，并分配资源和控制作业中程序和数据的编译，连接，装入和执行等
+#
+# 当一个作业的全部程序和数据输入到外存并且在系统中建立了作业控制块之后，一个作业就建立了"""
+#     document.inspection = "系统调用指令（访管指令，陷阱指令）：由于系统调用引起的处理机中断指令（可能你在执行你的程序，跑的好好的，系统给个指令，处理机就跑去他那里了，处理机就中断了）"
+#     document.solutions = "程序执行的两种方式 —— 顺序执行（单道批处理），并发执行（提高资源利用率）"
+#     document.key_points = "区别是，系统进程被分配一个初始资源集合，它可以独占，有着最高优先权，用户进程通过系统服务请求手段竞争使用系统资源。系统进程可以直接进行IO操作，用户进程不行。系统在核心态（系统态，管态）下活动，用户进程就在用户态了"
+#     document.is_vectorized = 0
+#
+#     chunk_document = vector_store.chunk_document(document, chunk_size=100, overlap=10)
+#     print(chunk_document)
+#     print(len(chunk_document))
+#
+#     # 准备批量插入数据
+#     data = []
+#     chunk_contents = []
+#
+#     for i, chunk in enumerate(chunk_document):
+#         data.append([
+#             chunk["doc_id"],  # doc_id
+#             i,  # chunk_id
+#             chunk["title"],  # title
+#             chunk["content"],  # content
+#             chunk["metadata"]  # metadata
+#         ])
+#         chunk_contents.append(chunk["content"])
+#
+#     # 生成向量（文档不使用提示词）
+#     embeddings = vector_store.embed_texts(chunk_contents, is_query=False)
+#     # print(embeddings)
+#     # print(len(embeddings))

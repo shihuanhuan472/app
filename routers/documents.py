@@ -19,14 +19,21 @@ import aiofiles
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
 from utils.WordParser import word_parser
+from utils.HTMLParser import html_parser
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-ALLOWED_EXTENSIONS = {".pdf", ".pptx",".ppt" ,".html", ".mhtml", ".docx"}
+# 目前支持的文档类型
+ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx"}
 
 def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
+    """
+    document类型转为documentResponse类型
+    （其实是因为document类型没有作者姓名，所以不能直接用from_orm）
+    当然也可以用循环，但是最开始的document没有这么多字段，就直接手写了
+    """
     return DocumentResponse(
         id=document.id,
         title=document.title,
@@ -104,6 +111,9 @@ def documents_to_responses(
     return responses
 
 def check_image_url(image_urls: str):
+    """
+    如果有图片不存在，返回False，用来判断图片是不是都上传服务器了
+    """
     if image_urls:
         config = get_image_config()
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
@@ -152,6 +162,14 @@ async def create_document(document: DocumentCreate,
         #                        .removeprefix("/")
         #                        .removesuffix(", "))
 
+
+        """
+        解释一下为什么这里我这么复杂地处理字符串
+        我最后在数据库存的路径都是相对路径，方便前端预览图片或者文档
+        如：upload/images/xxxxx.jpg
+        但是在os.path.join，会使用反斜杠，反斜杠又可能出现转义，导致出错
+        所以我在存储进数据库前同意处理成斜杠的格式，并且多个地址，中间以', '间隔
+        """
         for attr in attrs:
             value = getattr(document, attr)
             if value is not None:
@@ -196,6 +214,9 @@ def get_image_config():
 
 @router.post("/upload_images", summary="上传文档图片")
 async def upload_images(images: List[UploadFile]):
+    """
+    图片上传是单独的api，当前端用户一上传图片就会调用该api，避免全部堆到添加文档的时候
+    """
     config = get_image_config()
     url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
     uploaded_images = []
@@ -326,6 +347,8 @@ async def update_document(id: int,
         # setattr(document_now, "image_urls", image_urls_str)
 
         document_now.is_vectorized = 0
+
+        # 更新文档内容的时候，向量需要重新生成
         vector_service = VectorService(db)
         vector_service.delete_document_from_vector_store(id)
 
@@ -359,6 +382,7 @@ async def delete(id: int,
         config = get_image_config()
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
 
+        # 删除文档的时候，把文档里的图片都删掉
         for attr in attrs:
             value = getattr(document, attr)
             if value is not None:
@@ -389,12 +413,14 @@ async def delete(id: int,
         #             os.remove(url)
         #             print(f"删除了{url}")
 
+        # 把原始文件也删掉
         if document.origin_file_dir:
             url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
             if os.path.exists(url):
                 os.remove(url)
                 print(f"已删除源文件{document.origin_file_dir}")
 
+        # 删掉向量
         vector_service = VectorService(db)
         vector_service.delete_document_from_vector_store(id)
 
@@ -459,6 +485,7 @@ async def query(query: DocumentQuery,
                 db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_active_user)):
     try:
+        # 根据文档的标题或问题简介，作者姓名或用户名查询
         offset = (query.page - 1) * query.size
 
         total_count = db.query(Document).join(
@@ -504,6 +531,10 @@ async def query(query: DocumentQuery,
 async def upload_files(files: List[UploadFile] = File(...),
                        db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
+    """
+    该aoi仅将文档保存至后端服务器，不做任何其他处理
+    其实是为了把文档上传和分析分开，让分析过程看起来短一点
+    """
     success_origin_filename = []
     success_file_url = []
     error_origin_filename = []
@@ -563,10 +594,15 @@ async def analyze_files(file_list: AnalyzeRequest,
             url = os.path.join(document_base_dir, file)
             # print(url)
             document = None
+
+            # 根据不同的文件类型调用不同的解析器
             if file_ext == ".pdf":
                 document = pdf_parser.parse(url)
             elif file_ext == ".pptx" or file_ext == ".ppt":
                 document = ppt_parser.parse(url)
+            elif file_ext == ".html" or file_ext == ".mhtml":
+                # document = await asyncio.to_thread(html_parser.parse(url))
+                document = html_parser.parse(url)
                 # document.contributor_id = current_user.id
                 # document.origin_file_name = file_name
                 # document.origin_file_dir = file
@@ -583,6 +619,11 @@ async def analyze_files(file_list: AnalyzeRequest,
                 # success_origin_filename.append(file_name)
             elif file_ext == ".docx":
                 document = word_parser.parse(url)
+            if not document.title:
+                if os.path.exists(url):
+                    os.remove(url)
+                error_origin_filename.append(file_name)
+                continue
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
             document.origin_file_dir = file

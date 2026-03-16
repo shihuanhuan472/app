@@ -10,6 +10,9 @@ from utils.JwtUtils import jwt_utils
 # 定义 HTTP Bearer 认证方案
 security = HTTPBearer()
 
+"""
+用来登录校验的依赖
+"""
 
 def get_current_user(
         credentials: HTTPAuthorizationCredentials = Depends(security),

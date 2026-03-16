@@ -9,6 +9,9 @@ import pymupdf
 import os
 from openai import OpenAI
 
+"""
+解析pdf文件的，使用了pymupdf提取文本和图像
+"""
 
 class PdfParser:
     def __init__(self):
@@ -232,7 +235,4 @@ class PdfParser:
 pdf_parser = PdfParser()
 
 if __name__ == "__main__":
-    pdf_parser = PdfParser()
-    # text = pdf_parser.get_pdf_text("D:\机密\毕设\文献翻译及开题报告\开题报告.pdf")
-    # pdf_parser.get_pdf_images("D:\机密\毕设\文献翻译及开题报告\开题报告.pdf")
-    pdf_parser.parse("D:\机密\毕设\开发\知识库文档\T7-结晶问题-TS红宝书.pdf")
+    pass

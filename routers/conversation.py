@@ -26,8 +26,6 @@ async def create_conversation(db: Session = Depends(get_db),
     db.commit()
     db.refresh(conversation)
 
-
-
     conversationResponse = ConversationResponse.from_orm(conversation)
     return Result.success_with_data(conversationResponse)
 
@@ -51,7 +49,6 @@ async def get_history(db: Session = Depends(get_db),
 async def create_page(page: Page,
                       db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_active_user)):
-    print("分页获取对话历史")
     try:
         offset = (page.page - 1) * page.size
         total_count = db.query(Conversation).filter(Conversation.user_id == current_user.id).count()
@@ -158,18 +155,3 @@ async def query(data: str,
         return Result.success_with_data(conversation_response)
     except Exception as e:
         return Result.error("查询失败")
-
-# 创建对话
-# @router.post("/", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
-# def create_conversation(conversation: ConversationCreate, db: Session = Depends(get_db)):
-#     db_conversation = Conversation(**conversation.dict())
-#     db.add(db_conversation)
-#     db.commit()
-#     db.refresh(db_conversation)
-#     return db_conversation
-#
-# # 获取用户的所有对话
-# @router.get("/user/{user_id}", response_model=List[ConversationResponse])
-# def get_user_conversations(user_id: int, db: Session = Depends(get_db)):
-#     conversations = db.query(Conversation).filter(Conversation.user_id == user_id).all()
-#     return conversations
