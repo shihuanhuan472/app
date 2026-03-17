@@ -145,12 +145,16 @@ pip install -r requirements.txt
 
 ### 嵌入模型安装
 
-向量嵌入模型选用BAAI/bge-visualized，详细介绍见下方链接，并从下方链接的仓库中下载权重文件Visualized_m3.pth
+向量嵌入模型选用BAAI/bge-visualized，详细介绍见下方链接，并从下方链接的仓库中下载权重文件Visualized_m3.pth，权重文件放在`bge`文件夹下。
 
 [BAAI/bge-visualized · Hugging Face](https://huggingface.co/BAAI/bge-visualized)
 
 具体的安装流程请参考下发链接
 [Visualized_BGE 安装—多模态嵌入技术_visual bge-CSDN博客](https://blog.csdn.net/weixin_44190648/article/details/148651418)
+
+程序第一次运行的时候会自动下载模型，下载的地址是`bge/model`文件夹，切记要去.env中修改地址，不然找不到地址，很可能把模型丢去C盘了（当然如果C盘空间很大，就当我没说）
+
+下载完成后，`bge/model`文件夹中会多一些内容，就是模型，具体是什么内容不用管
 
 
 
