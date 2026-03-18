@@ -13,6 +13,7 @@ from email import policy
 from email.parser import BytesParser
 import base64
 from PIL import Image
+from qwen_token_counter import get_token_count
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -35,6 +36,7 @@ class HTMLParser:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 3000))
+        self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
         self.decorative_keywords = ['icon', 'logo', 'btn', 'background']
         self.allow_image = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -323,7 +325,7 @@ class HTMLParser:
         messages = []
         data = {}
         # print(text)
-        prompt = """你是一位专业的设备维修分析专家。我将给你一段关于设备维修的文本（包含文字描述）以及若干张相关图片，每张图片都有唯一的编号（从1开始）且只属于一个字段。你的任务是基于这些内容，严格按照以下模板生成JSON格式的总结。请确保所有信息均来源于提供的文本和图片，不得杜撰。对于缺失的信息，对应字段留空（文本为空字符串，图片为空列表）。
+        prompt = """你是一位专业的设备维修分析专家。我将给你一段关于设备维修的文本（包含文字描述）以及若干张相关图片，每张图片都有唯一的编号（从1开始）且只属于一个字段。你的任务是基于这些内容，严格按照以下模板生成JSON格式的总结。请确保所有信息均来源于提供的文本和图片，不得杜撰。对于缺失的信息，对应字段留空，但不可缺失字段（文本为空字符串，图片为空列表）。
 模板：
 标题：<简洁的标题，点明案例名称，必须填写>
 问题简介：<可包含定义解释，现象介绍，问题发生频率，后果等内容>
@@ -365,11 +367,15 @@ class HTMLParser:
 {text}
 
 [图片内容由base64给出]""".format(text=text)
-        # l = len(prompt)
-        # print(prompt)
         msg_content = [{"type": "text", "text": prompt}]
+        # encoding = tiktoken.get_encoding("cl100k_base")
+        token_cnt = get_token_count(prompt)
+
+        print(f"token1: {token_cnt}")
         for image in image_urls:
-            # print(image)
+            print(image)
+            if token_cnt >= self.input_token - 258:
+                break
             compress_image = self.compress_image(image)
             mime_type, _ = mimetypes.guess_type(compress_image)
             if mime_type is None:
@@ -386,6 +392,7 @@ class HTMLParser:
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
             })
+            token_cnt += 258
             # l += len(image_base64)
         data["role"] = "user"
         data["content"] = msg_content

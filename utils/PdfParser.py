@@ -1,8 +1,10 @@
 import base64
 import json
+import mimetypes
 import uuid
 from datetime import datetime
 from PIL import Image
+from qwen_token_counter import get_token_count
 
 from models import Document
 import pymupdf
@@ -23,6 +25,7 @@ class PdfParser:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 3000))
+        self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
         base_url = os.path.join(self.document_base_dir, self.document_dir)
         if not os.path.exists(base_url):
             os.makedirs(base_url)
@@ -49,7 +52,7 @@ class PdfParser:
         # print(text)
         return text
 
-    def compress_image(self, image_path: str, max_size=648, pad_color=(0, 0, 0)):
+    def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
         if not os.path.exists(image_path):
             raise FileNotFoundError()
 
@@ -125,7 +128,7 @@ class PdfParser:
         messages = []
         data = {}
         # msg_content = []
-        prompt = """你好，你是一位问题分析专家，我将给你一段有关设备维修的文本和几张图片。请你最大限度使用内容，按照以下的模板提供信息，以JSON格式返回。若内容未提供，字段可以为空。对于图片，请给出图片编号。
+        prompt = """你好，你是一位问题分析专家，我将给你一段有关设备维修的文本和几张图片。请你最大限度使用内容，按照以下的模板提供信息，以JSON格式返回。若内容未提供，字段可以为空，但不可缺失字段。对于图片，请给出图片编号。
 模板：
 标题：<简洁的标题，点明核心内容>
 问题简介：<可包含定义解释，现象介绍，问题发生频率，后果等内容>
@@ -169,11 +172,31 @@ class PdfParser:
 [图片内容由后续base64给出]
 """.format(text=text)
         msg_content = [{"type": "text", "text": prompt}]
+        # encoding = tiktoken.get_encoding("cl100k_base")
+        token_cnt = get_token_count(prompt)
+
+        print(f"token1: {token_cnt}")
         for image in image_urls:
-            # print(image)
-            compressed_image = self.compress_image(image)
-            image_base64 = self.image_to_base64(compressed_image)
-            msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+            print(image)
+            if token_cnt >= self.input_token - 258:
+                break
+            compress_image = self.compress_image(image)
+            mime_type, _ = mimetypes.guess_type(compress_image)
+            if mime_type is None:
+                ext = os.path.splitext(compress_image)[1].lower()
+                mime_type = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.webp': 'image/webp',
+                    '.bmp': 'image/bmp'
+                }.get(ext, 'image/jpeg')
+            image_base64 = self.image_to_base64(compress_image)
+            msg_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+            })
+            token_cnt += 258
         data["role"] = "user"
         data["content"] = msg_content
         messages.append(data)
