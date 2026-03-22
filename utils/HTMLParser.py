@@ -35,7 +35,7 @@ class HTMLParser:
         self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = int(os.getenv("MAX_TOKEN", 3000))
+        self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
         self.decorative_keywords = ['icon', 'logo', 'btn', 'background']
         self.allow_image = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
@@ -374,7 +374,7 @@ class HTMLParser:
         print(f"token1: {token_cnt}")
         for image in image_urls:
             print(image)
-            if token_cnt >= self.input_token - 258:
+            if token_cnt >= self.input_token - 1000:
                 break
             compress_image = self.compress_image(image)
             mime_type, _ = mimetypes.guess_type(compress_image)
@@ -428,6 +428,8 @@ class HTMLParser:
                 if "image" in key:
                     image_url_content = ""
                     for image_index in result[key]:
+                        if flag[image_index - 1] == 1:
+                            continue
                         url = image_names[image_index - 1]
                         url = self.image_dir + "/" + url
                         image_url_content += url + ", "

@@ -21,6 +21,8 @@ class VectorStoreMultimodal:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
         print(f"Using device: {device}")
+        print(f"HF_HOME = {os.environ.get('HF_HOME')}")
+        print(f"TRANSFORMERS_CACHE = {os.environ.get('TRANSFORMERS_CACHE')}")
 
         # self.model_embedding = os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
         # self.model_embedding_local = os.getenv("EMBEDDING_MODEL_LOCAL_PATH",

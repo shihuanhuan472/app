@@ -35,7 +35,8 @@ from cxx
 """
 import os
 from urllib.request import Request
-
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, FileResponse

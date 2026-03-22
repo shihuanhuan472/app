@@ -196,7 +196,7 @@ class WordParser:
         print(f"token1: {token_cnt}")
         for image in image_urls:
             print(image)
-            if token_cnt >= self.input_token - 258:
+            if token_cnt >= self.input_token - 1000:
                 break
             compress_image = self.compress_image(image)
             mime_type, _ = mimetypes.guess_type(compress_image)
@@ -246,6 +246,8 @@ class WordParser:
                 if "image" in key:
                     image_url_content = ""
                     for image_index in result[key]:
+                        if flag[image_index - 1] == 1:
+                            continue
                         url = image_names[image_index - 1]
                         flag[image_index - 1] = 1
                         url = self.image_dir + "/" + url

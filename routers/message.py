@@ -1,11 +1,13 @@
 # routers/message.py
+import mimetypes
 import os
 import uuid
 import base64
+from PIL import Image
 from openai import OpenAI
 from datetime import datetime
 from pathlib import Path
-import requests
+from qwen_token_counter import get_token_count
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
 from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
@@ -88,6 +90,37 @@ async def upload_images(images: List[UploadFile]):
 
     return Result.success_with_data(uploaded_images)
 
+def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
+    if not os.path.exists(image_path):
+        raise FileNotFoundError()
+    return image_path
+    image = Image.open(image_path).convert("RGB")
+    # new_size = (448, 448)
+    max_length = max(image.width, image.height)
+    # if short_length < max_size:
+    #     return image_path
+    # if max_length <= max_size:
+    #     return image_path
+    rate = max_size / max_length
+    new_size = (int(image.width * rate), int(image.height * rate))
+    resized_image = image.resize(new_size)
+
+    new_image = Image.new("RGB", (max_size, max_size), pad_color)
+
+    x = (max_size - new_size[0]) // 2
+    y = (max_size - new_size[1]) // 2
+
+    new_image.paste(resized_image, (x, y))
+
+    # new_size = (512, 512)
+    # print(new_size)
+
+    dir_name, filename = os.path.split(image_path)
+    name, ext = os.path.splitext(filename)
+    new_path = f"{name}_compressed{ext}"
+    new_path = os.path.join(dir_name, new_path)
+    new_image.save(new_path)
+    return new_path
 
 @router.post("/ask", summary="提问以获得回答")
 async def ask(message: MessageCreate,
@@ -163,23 +196,28 @@ async def ask(message: MessageCreate,
             detail="服务器内部错误，请稍后重试"
         )
 
-def generate_messages(db, id, message_now, prompt):
+def generate_messages(db, id, message_now, documents_id):
     """
     生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
     """
     print("generate_messages")
+    message_order = max(message_now.message_order - 6, 0)
     messages_db = (db.query(Message).
                    filter(Message.session_id == id).
+                   filter(Message.message_order > message_order).
                    order_by(Message.created_time).
                    all())
     messages = []
     config = get_image_config()
+    tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
     print("get_config")
+    tokens = 0
+
     if messages_db:
         print("messages_db")
         for message in messages_db:
             data = {}
-            role = "user" if message.role == 1 else "system"
+            role = "user" if message.role == 1 else "assistant"
             # print("role: ", role)
             # msg_text = message.content_text
             # if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
@@ -187,18 +225,54 @@ def generate_messages(db, id, message_now, prompt):
             #     data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
             msg_text = []
             msg_text.append({"type": "text", "text": message.content_text})
+
+            tokens += get_token_count(message.content_text)
+
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
                 images = message.user_uploaded_images.split(", ")
                 for image in images:
-                    image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
-                    msg_text.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
-            if role == "system":
-                print("123")
+
+                    image_compressed = compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
+
+                    # image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
+
+                    mime_type, _ = mimetypes.guess_type(image_compressed)
+                    if mime_type is None:
+                        ext = os.path.splitext(image_compressed)[1].lower()
+                        mime_type = {
+                            '.png': 'image/png',
+                            '.jpg': 'image/jpeg',
+                            '.jpeg': 'image/jpeg',
+                            '.webp': 'image/webp',
+                            '.bmp': 'image/bmp'
+                        }.get(ext, 'image/jpeg')
+                    image_base64 = image_to_base64(image_compressed)
+                    msg_text.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+                    })
+                    tokens += 258
+
+
+                    # msg_text.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
             data["role"] = role
             data["content"] = msg_text
             messages.append(data)
+            print(f"token: {tokens}")
+            if tokens > tokens_max:
+                raise HTTPException(status_code=500, detail="对话内容达到上限，请重新创建对话")
     # print("messages: ", messages)
     data = {}
+
+    print(f"tokens: {tokens}")
+
+    image_tokens = 0
+    if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
+        image_tokens = len(message_now.user_uploaded_images.split(", ")) * 258
+    tokens_tmp = tokens_max - tokens - image_tokens - get_token_count(message_now.content_text)
+    prompt = get_prompt(db, documents_id, tokens_tmp)
+
+
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
@@ -206,8 +280,27 @@ def generate_messages(db, id, message_now, prompt):
 
         # images = message.user_uploaded_images.split(", ")
         for image in images:
-            image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
-            msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+            image_compressed = compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
+            # image_base64 = image_to_base64(image_compressed)
+
+            mime_type, _ = mimetypes.guess_type(image_compressed)
+            if mime_type is None:
+                ext = os.path.splitext(image_compressed)[1].lower()
+                mime_type = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.webp': 'image/webp',
+                    '.bmp': 'image/bmp'
+                }.get(ext, 'image/jpeg')
+            image_base64 = image_to_base64(image_compressed)
+            msg_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+            })
+
+
+            # msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
 
         # print(images)
         # data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
@@ -266,17 +359,19 @@ def get_reference_documents(db, question: str, image: str = None):
     return document_ids
     # return ", ".join(document_ids) if len(document_ids) > 0 else None
 
-def get_prompt(db, document_ids):
+def get_prompt(db, document_ids, max_tokens):
     """
     生成提示词（包括根据相关文档id，提取文档内容作为提示词）
     """
     if not document_ids:
         return ""
+    tokens = 0
     prompts = []
     for i, document_id in enumerate(document_ids):
         document = db.query(Document).filter(Document.id == document_id).scalar()
         if not document:
             continue
+        token_tmp = 0
         doc_prompt = f"""【文档{i}：】{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
@@ -285,16 +380,19 @@ def get_prompt(db, document_ids):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
+        token_tmp = get_token_count(doc_prompt)
+        if tokens + token_tmp >= max_tokens:
+            break
         prompts.append(doc_prompt)
 
-        # 添加指令
-        if prompts:
-            final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
-            final_prompt += "\n---\n".join(prompts)
-            final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
-            return final_prompt
+    # 添加指令
+    if prompts:
+        final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
+        final_prompt += "\n---\n".join(prompts)
+        final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
+        return final_prompt
 
-        return ""
+    return ""
 
 def get_ai_reference_document_ids_str(ai_reference_document_ids):
     """
@@ -314,8 +412,8 @@ def get_ai_answer(db, session_id, message_now):
     """
     ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
     ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
-    prompt = get_prompt(db, ai_reference_document_ids)
-    messages = generate_messages(db, session_id, message_now, prompt)
+    # prompt = get_prompt(db, ai_reference_document_ids)
+    messages = generate_messages(db, session_id, message_now, ai_reference_document_ids)
     # print(messages)
     # ai_url: str = os.getenv("AI_API")
     # model = os.getenv("MODEL")
