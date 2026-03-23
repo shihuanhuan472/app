@@ -383,6 +383,7 @@ def get_prompt(db, document_ids, max_tokens):
         token_tmp = get_token_count(doc_prompt)
         if tokens + token_tmp >= max_tokens:
             break
+        tokens += token_tmp
         prompts.append(doc_prompt)
 
     # 添加指令
