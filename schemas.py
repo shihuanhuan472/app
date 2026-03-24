@@ -122,7 +122,6 @@ class ConversationCreate(BaseModel):
     user_id: int
     title: Optional[str] = None
 
-
 class ConversationResponse(BaseModel):
     id: int
     user_id: int
@@ -133,6 +132,17 @@ class ConversationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ConversationCreateNew(BaseModel):
+    name: str
+    user_id: Optional[str] = None
+
+class ConversationResponseNew(BaseModel):
+    code: int
+    data: Optional[dict] = None
+    message: Optional[str] = None
+
+class ConversationDeleteRequest(BaseModel):
+    ids: List[int]
 
 # 消息相关的Schema
 class MessageCreate(BaseModel):
@@ -189,3 +199,13 @@ class Result(BaseModel, Generic[T]):
     def error(cls, msg: str):
         """操作失败"""
         return cls(code=0, msg=msg, data=None)
+
+class ResultNew(BaseModel, Generic[T]):
+    """统一响应模型 (Pydantic v2 语法)"""
+    code: int = 1
+    msg: Optional[str] = None
+    data: Optional[T] = None
+
+    @classmethod
+    def result(cls, code: int, msg: str = None, data: Optional[T] = None):
+        return cls(code=code, msg=msg, data=data)
