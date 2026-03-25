@@ -145,6 +145,12 @@ class ConversationDeleteRequest(BaseModel):
     ids: List[int]
 
 # 消息相关的Schema
+class MessageCreateNew(BaseModel):
+    question: str
+    session_id: int
+    stream: bool
+    user_uploaded_images: Optional[str] = None
+
 class MessageCreate(BaseModel):
     session_id: int
     content_text: str = None

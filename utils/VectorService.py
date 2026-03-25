@@ -82,7 +82,7 @@ class VectorService:
                 result = self.vector_store_multimodal.search(query, None, top_k)
                 results.extend(result)
             # results = self.vector_store_multimodal.search(query, query_image, top_k)
-            print(results)
+            # print(results)
             # 整理结果，去重（按文档ID）
             unique_docs = {}
             for result in results:
