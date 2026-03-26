@@ -562,7 +562,7 @@
     {
         "filename": "Refrigerator Door Not Closing.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Door Not Closing.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "Refrigerator Has Freezer Leaking Water Into Fridge.pdf",
@@ -612,647 +612,647 @@
     {
         "filename": "Washing Machine Is Leaking.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Is Leaking.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "Washing Machine Not Draining.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Not Draining.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "Washing Machine Not Spinning.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Not Spinning.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "Washing Machine Shaking.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Shaking.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "Washing Machine Won't Turn On.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Won't Turn On.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "冰箱压缩机正在运转但不制冷.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\冰箱压缩机正在运转但不制冷.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "冷藏室不制冷.pdf",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\冷藏室不制冷.pdf",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "夏普32AK7型液晶彩电副电源次级电路原理与检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\夏普32AK7型液晶彩电副电源次级电路原理与检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "巨鹰GE.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\巨鹰GE.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "康佳LC32BT20型液晶彩电满屏竖线故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\康佳LC32BT20型液晶彩电满屏竖线故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "排除松下NV.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\排除松下NV.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "检修复蓝宇V60 LY.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\检修复蓝宇V60 LY.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "检修外置式闪光灯常见故障.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\检修外置式闪光灯常见故障.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "监控系统常用开关电源电路与常见故障维修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\监控系统常用开关电源电路与常见故障维修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "调频无线耳机常见故障和处理方法.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\调频无线耳机常见故障和处理方法.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "全新雪佛兰迈锐宝后备箱有时无法开启.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\全新雪佛兰迈锐宝后备箱有时无法开启.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克GL8为何机油灯闪烁报警检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8为何机油灯闪烁报警检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克GL8冷车启动后换入前进挡无任何动力.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8冷车启动后换入前进挡无任何动力.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克GL8发动机动力不足故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8发动机动力不足故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克GL8右侧转向灯闪烁异常检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8右侧转向灯闪烁异常检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克凯越轿车漏电故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克凯越轿车漏电故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克君越提速缓慢.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克君越提速缓慢.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克威朗发动机怠速运转不稳.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克威朗发动机怠速运转不稳.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克威朗轿车发动机偶尔出现怠速不稳.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克威朗轿车发动机偶尔出现怠速不稳.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克昂科威发动机故障灯报警.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克昂科威发动机故障灯报警.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "别克英朗XT行驶时冷却水管破裂.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克英朗XT行驶时冷却水管破裂.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "北京现代朗动中控台温度显示闪烁且无数值.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\北京现代朗动中控台温度显示闪烁且无数值.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "北京现代瑞纳轿车熄火后无法再次启动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\北京现代瑞纳轿车熄火后无法再次启动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "华晨宝马525Li启停状态下变速器自动挂P挡.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\华晨宝马525Li启停状态下变速器自动挂P挡.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "吉利帝豪ABJ和EBD故障灯常亮故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪ABJ和EBD故障灯常亮故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "吉利帝豪EV300无法连通高压电检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪EV300无法连通高压电检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "吉利帝豪EV300无钥匙进入系统故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪EV300无钥匙进入系统故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众CC仪表上显示故障大灯随动AFS.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众CC仪表上显示故障大灯随动AFS.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众CC轿车发动机加速无力检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众CC轿车发动机加速无力检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众宝来提示.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众宝来提示.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众新波罗行驶时EPC灯偶发点亮检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众新波罗行驶时EPC灯偶发点亮检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众朗逸无法启动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众朗逸无法启动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众朗逸轿车仪表挡位显示屏出现红屏.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众朗逸轿车仪表挡位显示屏出现红屏.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众波罗劲情行驶中制动时偶尔有闯动感.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众波罗劲情行驶中制动时偶尔有闯动感.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众辉昂无法启动故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众辉昂无法启动故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众迈腾B8发动机无法启动故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众迈腾B8发动机无法启动故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众迈腾发动机冷车启动后怠速不稳.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众迈腾发动机冷车启动后怠速不稳.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众途安L发动机偶发熄火故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途安L发动机偶发熄火故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众途安行驶中突然熄火故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途安行驶中突然熄火故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众途昂自动启停系统故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途昂自动启停系统故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众途观加速踏板发动机转速升高时出现异响.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途观加速踏板发动机转速升高时出现异响.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "大众速腾发动机故障警告灯亮.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众速腾发动机故障警告灯亮.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰C180L仪表中出现黄色的故障灯提示.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C180L仪表中出现黄色的故障灯提示.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰C200轿车有时启动无反应.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C200轿车有时启动无反应.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰C260L仪表出现冷却液停车关闭发动机.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C260L仪表出现冷却液停车关闭发动机.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰C260L轿车手机无线充电器工作时噪声大.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C260L轿车手机无线充电器工作时噪声大.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰E200仪表台黑屏且发动机无法启动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E200仪表台黑屏且发动机无法启动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰E220轿车前照灯的右侧远光灯存在故障.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E220轿车前照灯的右侧远光灯存在故障.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰E300L轿车驾驶侧车窗无法升降.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E300L轿车驾驶侧车窗无法升降.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰GLE320 ABS.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰GLE320 ABS.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "奔驰GLE400仪表中出现多个故障灯点亮.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰GLE400仪表中出现多个故障灯点亮.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马328i轿车DME.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马328i轿车DME.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马328i轿车安全气囊灯亮检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马328i轿车安全气囊灯亮检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马330i硬顶无法关闭.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马330i硬顶无法关闭.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马525Li发动机故障灯亮检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马525Li发动机故障灯亮检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马5系轿车机油油位无法测量.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马5系轿车机油油位无法测量.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马7系轿车空调制冷效果不好.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马7系轿车空调制冷效果不好.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马X5仪表中气囊灯常亮故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5仪表中气囊灯常亮故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马X5发动机无法启动的故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5发动机无法启动的故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "宝马X5后部车窗有时无法升降.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5后部车窗有时无法升降.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田冠道仪表中出现多个故障灯报警.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田冠道仪表中出现多个故障灯报警.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田凌派轿车ABS故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田凌派轿车ABS故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田奥德赛混动行驶时仪表故障灯点亮且车身抖动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田奥德赛混动行驶时仪表故障灯点亮且车身抖动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田第九代雅阁挂入D挡和R挡时车辆无法正常起步.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田第九代雅阁挂入D挡和R挡时车辆无法正常起步.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田艾力绅无法遥控闭锁故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田艾力绅无法遥控闭锁故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田雅阁保险丝缺失导致发动机故障灯亮维修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁保险丝缺失导致发动机故障灯亮维修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田雅阁正常行驶时仪表出现多个故障灯提示.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁正常行驶时仪表出现多个故障灯提示.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田雅阁突然无法加速.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁突然无法加速.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "本田飞度轿车换到D挡时有顿挫感.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田飞度轿车换到D挡时有顿挫感.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5 BPTC绝缘故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 BPTC绝缘故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5 B柱立柱扣板变形故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 B柱立柱扣板变形故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5 GPS天线短路故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 GPS天线短路故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5主驾玻璃升降开关失效.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5主驾玻璃升降开关失效.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5仪表上盲区监测故障灯亮起故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表上盲区监测故障灯亮起故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5仪表提示驻车制动力不足.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表提示驻车制动力不足.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5仪表显示增程器故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表显示增程器故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5低压蓄电池亏电车辆搭电后无法启动处理方法.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5低压蓄电池亏电车辆搭电后无法启动处理方法.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5低速滑行中掉高压.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5低速滑行中掉高压.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5即墨天气定位无法准确更新.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5即墨天气定位无法准确更新.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5发动机故障灯常亮故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5发动机故障灯常亮故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5增程器启动异常.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器启动异常.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5增程器启动有焦糊味故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器启动有焦糊味故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5增程器工作噪音异常故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器工作噪音异常故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5左后转向灯.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5左后转向灯.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5慢充充电座温度高故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5慢充充电座温度高故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5慢充无法充电故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5慢充无法充电故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5灯光小灯档右侧日间行车灯不亮.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5灯光小灯档右侧日间行车灯不亮.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5电子转向柱锁解锁失败.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电子转向柱锁解锁失败.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5电池散热水泵故障检1.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电池散热水泵故障检1.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5电池散热水泵故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电池散热水泵故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5空调不制冷.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5空调不制冷.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5胎压丢失故障故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5胎压丢失故障故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5行驶中动力降级.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5行驶中动力降级.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5进气VVT控制电路开路故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5进气VVT控制电路开路故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5颠簸路异响故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5颠簸路异响故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "赛力斯SF5高速行驶掉高压.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5高速行驶掉高压.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "长城哈弗CUV怠速运转时排烟为灰白色.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长城哈弗CUV怠速运转时排烟为灰白色.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "长城哈弗H5发动机抖动故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长城哈弗H5发动机抖动故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "长安CS75一键启动无反应故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安CS75一键启动无反应故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "长安CX30轿车空调故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安CX30轿车空调故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "长安欧诺热车启动机不转.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安欧诺热车启动机不转.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5 BCM节点丢失通讯频繁.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5 BCM节点丢失通讯频繁.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5 EV开车门仪表不上电.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5 EV开车门仪表不上电.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5EV行车记录仪和全景影像黑屏.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5EV行车记录仪和全景影像黑屏.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5EV解锁时左后门儿童锁关闭的情况下.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5EV解锁时左后门儿童锁关闭的情况下.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5交流慢充不工作.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5交流慢充不工作.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5增程器异常故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5增程器异常故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5增程器无法正常启动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5增程器无法正常启动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5打方向异响.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5打方向异响.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5背门偶发无法关闭.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5背门偶发无法关闭.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M5车顶部位有.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5车顶部位有.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7 360工作时黑屏后闪退.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7 360工作时黑屏后闪退.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7低速打方向异响.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7低速打方向异响.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7前部空调不制冷.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7前部空调不制冷.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7后台提示LIN1故障.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7后台提示LIN1故障.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7增程器无法启动.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7增程器无法启动.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7手机蓝牙不能解锁车辆.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7手机蓝牙不能解锁车辆.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7无法上高压.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7无法上高压.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7热量管理模块故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7热量管理模块故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7行驶中动力系统受限.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7行驶中动力系统受限.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界M7零重力座椅无法展开.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7零重力座椅无法展开.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "问界后超声波雷达故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界后超声波雷达故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "雪佛兰乐驰烧电动玻璃保险丝故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰乐驰烧电动玻璃保险丝故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "雪佛兰探界者没有倒挡故障检修.docx",
         "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰探界者没有倒挡故障检修.docx",
-        "is_vectorized": 0
+        "is_vectorized": 1
     },
     {
         "filename": "雪佛兰新科鲁兹轿车转向无助力.docx",

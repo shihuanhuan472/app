@@ -36,7 +36,11 @@ def add_file(file_path):
             document = html_parser.parse(file_path)
         elif file_ext == ".docx":
             document = word_parser.parse(file_path)
+        else:
+            print(f"{file_path} 类型不对，请检查文件类型")
+            return False
         if not document.title:
+            print(f"{file_path} ai未解析出标题")
             if os.path.exists(file_path):
                 os.remove(file_path)
             return False
@@ -44,7 +48,7 @@ def add_file(file_path):
         document.origin_file_name = os.path.basename(file_path)
         # document.origin_file_dir = file
         document.first_edit_date = datetime.now()
-        print(document.title)
+        # print(document.title)
         db.add(document)
         db.commit()
         db.refresh(document)
@@ -87,7 +91,7 @@ def analyze_files(file_save: str):
             print(f"len of success_files: {len(success_files)}")
             with open(file_save, "w", encoding="utf-8") as f:
                 json.dump(dataset, f, ensure_ascii=False, indent=4)
-        if len(success_files) % 20 == 0:
+        if len(success_files) % 50 == 0 and len(success_files) != 0:
             break
 
     with open(file_save, "w", encoding="utf-8") as f:
