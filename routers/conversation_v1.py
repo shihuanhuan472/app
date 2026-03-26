@@ -1,14 +1,15 @@
 import base64
+import json
 import mimetypes
 import os
 from datetime import datetime
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from qwen_token_counter import get_token_count
 from sqlalchemy import desc, and_, asc, func
 from sqlalchemy.orm import Session
-
+from fastapi.responses import StreamingResponse
 from dependencies import get_current_active_user
 from models import User, Message, Document
 from models import Conversation
@@ -278,6 +279,7 @@ def generate_messages(db, id, message_now, documents_id):
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         image_tokens = len(message_now.user_uploaded_images.split(", ")) * 258
     tokens_tmp = tokens_max - tokens - image_tokens - get_token_count(message_now.content_text)
+
     prompt = get_prompt(db, documents_id, tokens_tmp)
 
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
@@ -411,22 +413,67 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
     result = ", ".join(map(str, ai_reference_document_ids))
     return result
 
-def get_ai_answer(db, session_id, message_now):
-    """
-    获取ai回答.
-    流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
-          -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
-    """
-    ai_reference_document_ids = get_reference_documents(db, message_now.content_text,
-                                                        message_now.user_uploaded_images)
-    ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
-    # prompt = get_prompt(db, ai_reference_document_ids)
-    messages = generate_messages(db, session_id, message_now, ai_reference_document_ids)
-    # print(messages)
-    # ai_url: str = os.getenv("AI_API")
-    # model = os.getenv("MODEL")
-    # data = {"model": model, "messages": messages, "stream": False}
-    # result = requests.post(ai_url, json=data)
+
+async def stream_ai_response(id, messages: list, db: Session, session_id: int, doc_ids):
+    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    api_key = os.getenv("API_KEY", "EMPTY")
+    client = AsyncOpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+    max_token = int(os.getenv("MAX_TOKEN", 2000))
+
+    response_data = {}
+    data = {}
+    data["id"] = id
+    data["session_id"] = session_id
+    if doc_ids and len(doc_ids) > 0:
+        doc_aggs = []
+        for id in doc_ids:
+            doc_title = db.query(Document.title).filter(Document.id == id).scalar()
+            doc_aggs.append({"doc_id": id, "doc_name": doc_title})
+        data["reference"] = {
+            "total": len(doc_ids),
+            "doc_aggs": doc_aggs
+        }
+    else:
+        data["reference"] = {}
+
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_token,
+            stream=True
+        )
+        full_content = ""
+        async for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                if not full_content == "":
+                    data["reference"] = {}
+                content = chunk.choices[0].delta.content
+                full_content += content
+                data["answer"] = full_content
+                response_data["code"] = 0
+                response_data["data"] = data
+                yield f"data: {json.dumps(response_data)}\n\n"
+
+        # 流结束，保存 AI 消息
+        ai_msg = db.query(Message).filter(Message.id == id).first()
+        if ai_msg:
+            ai_msg.content_text = full_content
+            db.commit()
+        final_data = {"code": 0, "data": "true"}
+        yield f"{json.dumps(final_data)}\n\n"
+    except Exception as e:
+        # error_msg = f"AI服务错误: {str(e)}"
+        print(e)
+        error_data = {
+            "code": 102,
+            "message": "回答失败"
+        }
+        yield f"data: {json.dumps(error_data)}\n\n"
+
+
+def get_ai_answer(messages, db: Session, id):
     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     client = OpenAI(
@@ -434,7 +481,7 @@ def get_ai_answer(db, session_id, message_now):
         api_key=api_key
     )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 2000))
+    max_token = int(os.getenv("MAX_TOKEN", 3000))
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -445,36 +492,13 @@ def get_ai_answer(db, session_id, message_now):
                  .replace("\n---\n", "---")
                  .replace("\n\n", "\n"))
 
-    # print(response)
-    # return result.json()["message"]["content"], ai_reference_document_ids_str
-    return final_ans, ai_reference_document_ids_str
+    ai_msg = db.query(Message).filter(Message.id == id).first()
+    if ai_msg:
+        ai_msg.content_text = final_ans
+        db.commit()
 
-def get_answer(message_order: int,
-               session_id: int,
-               message_now: Message,
-               db):
-    try:
-        content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
+    return final_ans
 
-        # 生成ai回答的消息
-        message = Message(
-            session_id=session_id,
-            role=0,
-            message_order=message_order,
-            content_text=content_text,
-            ai_reference_doc_ids=ai_reference_document_ids,
-            created_time=datetime.now()
-        )
-
-        return message
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试，或尝试新建对话"
-        )
 
 @router.post("/{chat_id}/completions")
 async def chat(message: MessageCreateNew,
@@ -519,14 +543,15 @@ async def chat(message: MessageCreateNew,
             created_time=datetime.now()
         )
 
-        # 得到ai的回答
-        answer = get_answer(max_order + 1, message.session_id, db_message, db)
         db.add(db_message)
-        db.flush()
+        db.commit()
+        db.refresh(db_message)
 
-        db.add(answer)
-        db.flush()
-        db.refresh(answer)
+        ai_reference_document_ids = get_reference_documents(db, db_message.content_text,
+                                                            db_message.user_uploaded_images)
+        ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
+
+        messages = generate_messages(db, conversation.id, db_message, ai_reference_document_ids)
 
         conversation.updated_time = datetime.now()
 
@@ -537,21 +562,32 @@ async def chat(message: MessageCreateNew,
         db.commit()
         db.refresh(db_message)
 
-        # user_response = MessageResponse.from_orm(db_message)
-        # ai_response = MessageResponse.from_orm(answer)
-        # return Result.success_with_data([user_response, ai_response])
-        documents_cnt = len(answer.ai_reference_doc_ids.split(",")) if answer.ai_reference_doc_ids else 0
-        data = {
-            "answer": answer.content_text,
-            "reference": {
-                "total": documents_cnt,
-                "doc_aggs": []
-            },
-            "created_at": datetime.now().timestamp(),
-            "id": answer.id,
-            "session_id": answer.session_id
-        }
-        return ResultNew.result(0, None, data)
+
+        ai_msg = Message(
+            session_id=message.session_id,
+            role=0,
+            message_order=max_order + 1,
+            content_text="",
+            ai_reference_doc_ids=ai_reference_document_ids_str,
+            created_time=datetime.now()
+        )
+        db.add(ai_msg)
+        db.commit()
+        db.refresh(ai_msg)
+
+        if message.stream:
+            return StreamingResponse(
+                stream_ai_response(ai_msg.id, messages, db, message.session_id, ai_reference_document_ids),
+                media_type="text/event-stream"
+            )
+        else:
+            answer = get_ai_answer(messages, db, ai_msg.id)
+            return ResultNew.result(0, None, {
+                "answer": answer,
+                "reference": ai_reference_document_ids_str,
+                "id": ai_msg.id,
+                "session_id": message.session_id
+            })
 
     except HTTPException:
         raise
