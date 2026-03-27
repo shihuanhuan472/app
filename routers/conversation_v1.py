@@ -427,9 +427,9 @@ async def stream_ai_response(id, messages: list, db: Session, session_id: int, d
     data["session_id"] = session_id
     if doc_ids and len(doc_ids) > 0:
         doc_aggs = []
-        for id in doc_ids:
-            doc_title = db.query(Document.title).filter(Document.id == id).scalar()
-            doc_aggs.append({"doc_id": id, "doc_name": doc_title})
+        for doc_id in doc_ids:
+            doc_title = db.query(Document.title).filter(Document.id == doc_id).scalar()
+            doc_aggs.append({"doc_id": doc_id, "doc_name": doc_title})
         data["reference"] = {
             "total": len(doc_ids),
             "doc_aggs": doc_aggs
@@ -456,6 +456,7 @@ async def stream_ai_response(id, messages: list, db: Session, session_id: int, d
                 response_data["data"] = data
                 yield f"data: {json.dumps(response_data)}\n\n"
 
+        # print(full_content)
         # 流结束，保存 AI 消息
         ai_msg = db.query(Message).filter(Message.id == id).first()
         if ai_msg:
@@ -560,7 +561,6 @@ async def chat(message: MessageCreateNew,
             new_title = get_new_title_by_ai(message.question)
             conversation.title = new_title
         db.commit()
-        db.refresh(db_message)
 
 
         ai_msg = Message(

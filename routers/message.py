@@ -1,10 +1,11 @@
 # routers/message.py
+import json
 import mimetypes
 import os
 import uuid
 import base64
 from PIL import Image
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from datetime import datetime
 from pathlib import Path
 from qwen_token_counter import get_token_count
@@ -18,6 +19,7 @@ from schemas import MessageCreate, MessageResponse
 from database import get_db
 from dependencies import get_current_active_user
 from utils.VectorService import VectorService
+from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
 
@@ -122,6 +124,53 @@ def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
     new_image.save(new_path)
     return new_path
 
+async def stream_ai_response(id, messages: list, db: Session, session_id: int, doc_ids, doc_ids_str):
+    print("stream ai answer")
+    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    api_key = os.getenv("API_KEY", "EMPTY")
+    client = AsyncOpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+    max_token = int(os.getenv("MAX_TOKEN", 2000))
+
+    # response_data = {}
+    data = {}
+    data["id"] = id
+    data["session_id"] = session_id
+    data["reference"] = None if doc_ids is None or len(doc_ids) == 0 else doc_ids_str
+
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_token,
+            stream=True
+        )
+        full_content = ""
+        async for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                full_content += content
+                data["answer"] = full_content
+                data["code"] = 1
+                yield f"data: {json.dumps(data)}\n\n"
+        # print(f"full_content: {full_content}")
+        # 流结束，保存 AI 消息
+        print(id)
+        ai_msg = db.query(Message).filter(Message.id == id).first()
+        if ai_msg:
+            ai_msg.content_text = full_content
+            db.commit()
+        final_data = {"code": 1, "data": "true"}
+        yield f"{json.dumps(final_data)}\n\n"
+    except Exception as e:
+        # error_msg = f"AI服务错误: {str(e)}"
+        print(e)
+        error_data = {
+            "code": 0,
+            "message": "回答失败"
+        }
+        yield f"data: {json.dumps(error_data)}\n\n"
+
 @router.post("/ask", summary="提问以获得回答")
 async def ask(message: MessageCreate,
               db: Session = Depends(get_db),
@@ -164,28 +213,59 @@ async def ask(message: MessageCreate,
             user_uploaded_images=message.user_uploaded_images,
             created_time=datetime.now()
         )
-        print(222)
 
-        # 得到ai的回答
-        answer = get_answer(max_order + 1, message.session_id, db_message, db)
         db.add(db_message)
-        db.flush()
-
-        db.add(answer)
-        db.flush()
-
-        conversation.updated_time = datetime.now()
-
-        # 如果是该对话的首个消息，就为这个对话总结一个标题
-        if max_order == 0:
-            new_title = get_new_title_by_ai(message.content_text)
-            conversation.title = new_title
         db.commit()
         db.refresh(db_message)
 
-        user_response = MessageResponse.from_orm(db_message)
-        ai_response = MessageResponse.from_orm(answer)
-        return Result.success_with_data([user_response, ai_response])
+        ai_reference_document_ids = get_reference_documents(db, db_message.content_text,
+                                                            db_message.user_uploaded_images)
+        ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
+
+        messages = generate_messages(db, db_message.session_id, db_message, ai_reference_document_ids)
+
+        conversation.updated_time = datetime.now()
+
+        if max_order == 0:
+            new_title = get_new_title_by_ai(message.content_text)
+            conversation.title = new_title
+
+        db.commit()
+
+        ai_msg = Message(
+            session_id=message.session_id,
+            role=0,
+            message_order=max_order + 1,
+            content_text="",
+            ai_reference_doc_ids=ai_reference_document_ids_str,
+            created_time=datetime.now()
+        )
+        db.add(ai_msg)
+        db.commit()
+        db.refresh(ai_msg)
+
+        if message.stream:
+            return StreamingResponse(
+                stream_ai_response(ai_msg.id, messages, db, message.session_id,
+                                   ai_reference_document_ids, ai_reference_document_ids_str),
+                media_type="text/event-stream"
+            )
+        else:
+            answer = get_ai_answer(db, messages, ai_msg.id)
+            ai_response = MessageResponse.from_orm(answer)
+            return Result.success_with_data(ai_response)
+
+
+        # # 得到ai的回答
+        # # answer = get_answer(max_order + 1, message.session_id, db_message, db)
+        # # 如果是该对话的首个消息，就为这个对话总结一个标题
+        #
+        # db.commit()
+        # db.refresh(db_message)
+        #
+        # user_response = MessageResponse.from_orm(db_message)
+        #
+        # return Result.success_with_data([user_response, ai_response])
     except HTTPException:
         raise
     except Exception as e:
@@ -201,7 +281,7 @@ def generate_messages(db, id, message_now, documents_id):
     生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
     """
     print("generate_messages")
-    message_order = max(message_now.message_order - 6, 0)
+    message_order = max(message_now.message_order - 5, 0)
     messages_db = (db.query(Message).
                    filter(Message.session_id == id).
                    filter(Message.message_order > message_order).
@@ -404,21 +484,50 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
     result = ", ".join(map(str, ai_reference_document_ids))
     return result
 
-def get_ai_answer(db, session_id, message_now):
+# def get_ai_answer(db, session_id, message_now):
+#     """
+#     获取ai回答.
+#     流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
+#           -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
+#     """
+#     ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
+#     ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
+#     # prompt = get_prompt(db, ai_reference_document_ids)
+#     messages = generate_messages(db, session_id, message_now, ai_reference_document_ids)
+#     # print(messages)
+#     # ai_url: str = os.getenv("AI_API")
+#     # model = os.getenv("MODEL")
+#     # data = {"model": model, "messages": messages, "stream": False}
+#     # result = requests.post(ai_url, json=data)
+#     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+#     api_key = os.getenv("API_KEY", "EMPTY")
+#     client = OpenAI(
+#         base_url=f"http://{server_ip}:8000/v1",
+#         api_key=api_key
+#     )
+#     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+#     max_token = int(os.getenv("MAX_TOKEN", 3000))
+#     response = client.chat.completions.create(
+#         model=model,
+#         messages=messages,
+#         max_tokens=max_token
+#     )
+#
+#     final_ans = (response.choices[0].message.content
+#                  .replace("\n---\n", "---")
+#                  .replace("\n\n", "\n"))
+#
+#     # print(response)
+#     # return result.json()["message"]["content"], ai_reference_document_ids_str
+#     return final_ans, ai_reference_document_ids_str
+
+
+def get_ai_answer(db, messages, id):
     """
     获取ai回答.
     流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
           -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
     """
-    ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
-    ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
-    # prompt = get_prompt(db, ai_reference_document_ids)
-    messages = generate_messages(db, session_id, message_now, ai_reference_document_ids)
-    # print(messages)
-    # ai_url: str = os.getenv("AI_API")
-    # model = os.getenv("MODEL")
-    # data = {"model": model, "messages": messages, "stream": False}
-    # result = requests.post(ai_url, json=data)
     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     client = OpenAI(
@@ -437,9 +546,12 @@ def get_ai_answer(db, session_id, message_now):
                  .replace("\n---\n", "---")
                  .replace("\n\n", "\n"))
 
-    # print(response)
-    # return result.json()["message"]["content"], ai_reference_document_ids_str
-    return final_ans, ai_reference_document_ids_str
+    ai_msg = db.query(Message).filter(Message.id == id).first()
+    if ai_msg:
+        ai_msg.text = final_ans
+        db.commit()
+
+    return ai_msg
 
 
 """
@@ -483,32 +595,32 @@ print(response.choices[0].message.content)
 
 """
 
-def get_answer(message_order: int,
-               session_id: int,
-               message_now: Message,
-               db):
-    try:
-        content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
-
-        # 生成ai回答的消息
-        message = Message(
-            session_id=session_id,
-            role=0,
-            message_order=message_order,
-            content_text=content_text,
-            ai_reference_doc_ids=ai_reference_document_ids,
-            created_time=datetime.now()
-        )
-
-        return message
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试，或尝试新建对话"
-        )
+# def get_answer(message_order: int,
+#                session_id: int,
+#                message_now: Message,
+#                db):
+#     try:
+#         content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
+#
+#         # 生成ai回答的消息
+#         message = Message(
+#             session_id=session_id,
+#             role=0,
+#             message_order=message_order,
+#             content_text=content_text,
+#             ai_reference_doc_ids=ai_reference_document_ids,
+#             created_time=datetime.now()
+#         )
+#
+#         return message
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         print(e)
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="服务器内部错误，请稍后重试，或尝试新建对话"
+#         )
 
 @router.get("/get_by_conversation", summary="获得某个对话的消息")
 async def get_by_conversation(id: int,

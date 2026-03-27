@@ -155,6 +155,7 @@ class MessageCreate(BaseModel):
     session_id: int
     content_text: str = None
     user_uploaded_images: Optional[str] = None
+    stream: bool = True
 
 
 class MessageResponse(BaseModel):
