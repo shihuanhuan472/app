@@ -210,9 +210,9 @@ class Result(BaseModel, Generic[T]):
 class ResultNew(BaseModel, Generic[T]):
     """统一响应模型 (Pydantic v2 语法)"""
     code: int = 1
-    msg: Optional[str] = None
+    message: Optional[str] = None
     data: Optional[T] = None
 
     @classmethod
     def result(cls, code: int, msg: str = None, data: Optional[T] = None):
-        return cls(code=code, msg=msg, data=data)
+        return cls(code=code, message=msg, data=data)

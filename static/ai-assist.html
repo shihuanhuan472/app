@@ -653,10 +653,10 @@
                     let title = `文档 ${docId}`;
                     if (response) {
                         if (response.code !== undefined && response.code === 1) {
-                            title = response.data?.title || title;
+                            title = response.data.title || title;
                         } else if (response.title) {
                             title = response.title;
-                        } else if (response.data?.title) {
+                        } else if (response.data.title) {
                             title = response.data.title;
                         }
                     }
