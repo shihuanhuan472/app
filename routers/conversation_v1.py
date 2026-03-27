@@ -215,7 +215,7 @@ def generate_messages(db, id, message_now, documents_id):
     messages_db = (db.query(Message).
                    filter(Message.session_id == id).
                    filter(Message.message_order > message_order).
-                   order_by(Message.created_time).
+                   order_by(Message.created_time.desc()).
                    all())
     messages = []
     config = get_image_config()
@@ -223,20 +223,30 @@ def generate_messages(db, id, message_now, documents_id):
     print("get_config")
     tokens = 0
 
+    user_question_tokens = get_token_count(message_now.content_text)
+    if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
+        user_question_tokens += len(message_now.user_uploaded_images.split(",")) * 258
+
+    tokens_max -= user_question_tokens
+
+    if tokens_max < 0:
+        raise HTTPException(500, "消息长度过长")
+
+    flag = 0
+
     if messages_db:
         print("messages_db")
         for message in messages_db:
+            if flag == 0:
+                flag = 1
+                continue
             data = {}
+            token_tmp = 0
             role = "user" if message.role == 1 else "assistant"
-            # print("role: ", role)
-            # msg_text = message.content_text
-            # if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
-            #     images = message.user_uploaded_images.split(", ")
-            #     data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
             msg_text = []
             msg_text.append({"type": "text", "text": message.content_text})
 
-            tokens += get_token_count(message.content_text)
+            token_tmp += get_token_count(message.content_text)
 
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
                 images = message.user_uploaded_images.split(", ")
@@ -244,7 +254,6 @@ def generate_messages(db, id, message_now, documents_id):
 
                     image_compressed = compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
 
-                    # image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
 
                     mime_type, _ = mimetypes.guess_type(image_compressed)
                     if mime_type is None:
@@ -261,29 +270,30 @@ def generate_messages(db, id, message_now, documents_id):
                         "type": "image_url",
                         "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
                     })
-                    tokens += 258
+                    # tokens += 258
+                    token_tmp += 258
 
-                    # msg_text.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+
             data["role"] = role
             data["content"] = msg_text
+
+            if tokens + token_tmp >= tokens_max:
+                break
             messages.append(data)
+            tokens += token_tmp
             print(f"token: {tokens}")
             if tokens > tokens_max:
                 raise HTTPException(status_code=500, detail="对话内容达到上限，请重新创建对话")
     # print("messages: ", messages)
     data = {}
-
+    messages.reverse()
     print(f"tokens: {tokens}")
 
-    image_tokens = 0
-    if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
-        image_tokens = len(message_now.user_uploaded_images.split(", ")) * 258
-    tokens_tmp = tokens_max - tokens - image_tokens - get_token_count(message_now.content_text)
-
+    tokens_tmp = tokens_max - tokens
     prompt = get_prompt(db, documents_id, tokens_tmp)
 
+
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
-    print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
 
@@ -307,16 +317,13 @@ def generate_messages(db, id, message_now, documents_id):
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
             })
-
-            # msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
-
-        # print(images)
-        # data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
     data["role"] = "user"
     # data["content"] = prompt + "\n问题：" + message_now.content_text
     data["content"] = msg_content
 
     messages.append(data)
+    print(len(messages))
+
     # print("messages: ", messages)
     return messages
 
@@ -380,7 +387,6 @@ def get_prompt(db, document_ids, max_tokens):
         document = db.query(Document).filter(Document.id == document_id).scalar()
         if not document:
             continue
-        token_tmp = 0
         doc_prompt = f"""【文档{i}：】{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
@@ -392,6 +398,7 @@ def get_prompt(db, document_ids, max_tokens):
         token_tmp = get_token_count(doc_prompt)
         if tokens + token_tmp >= max_tokens:
             break
+        tokens += token_tmp
         prompts.append(doc_prompt)
 
     # 添加指令
