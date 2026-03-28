@@ -485,7 +485,7 @@ class VectorStoreMultimodal:
 
         # 按分数排序
         retrieved_docs.sort(key=lambda x: x["score"], reverse=True)
-        print(retrieved_docs)
+        # print(retrieved_docs)
         return retrieved_docs
 
     def delete_document(self, doc_id: int):

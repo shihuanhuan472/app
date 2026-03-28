@@ -22,6 +22,7 @@ class VectorService:
         self.batch_size = int(os.getenv("BATCH_SIZE", 10))
         self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
         self.message_image_base_dir = os.getenv("MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+        self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 3))
 
     def add_document_to_vector_store(self, document: Document):
         """将文档添加到向量数据库"""
@@ -82,7 +83,7 @@ class VectorService:
                 result = self.vector_store_multimodal.search(query, None, top_k)
                 results.extend(result)
             # results = self.vector_store_multimodal.search(query, query_image, top_k)
-            print(results)
+            # print(results)
             # 整理结果，去重（按文档ID）
             unique_docs = {}
             for result in results:
@@ -103,8 +104,10 @@ class VectorService:
                     # 更新最高分
                     if result["score"] > unique_docs[doc_id]["score"]:
                         unique_docs[doc_id]["score"] = result["score"]
-            print(unique_docs.keys())
-            return list(unique_docs.values())
+            # print(unique_docs.keys())
+            # for doc_id in unique_docs:
+            #     print(doc_id, unique_docs[doc_id]["score"])
+            return list(unique_docs.values())[:self.top_k_documents]
 
         except Exception as e:
             print(f"向量搜索失败: {e}")
