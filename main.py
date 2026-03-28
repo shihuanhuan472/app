@@ -42,7 +42,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
-from routers import auth, users, admin, conversation, message
+from routers import auth, users, admin, conversation, message, conversation_v1
+# from routers import auth, conversation_v1
 from routers import documents
 from models import Base
 from database import engine
@@ -97,7 +98,7 @@ app.include_router(admin.router)
 app.include_router(documents.router)
 app.include_router(conversation.router)
 app.include_router(message.router)
-
+app.include_router(conversation_v1.router)
 
 @app.get("/", summary="根路径")
 async def root():

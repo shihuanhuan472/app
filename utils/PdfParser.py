@@ -37,17 +37,13 @@ class PdfParser:
 
     def parse(self, pdf_url: str):
         text = self.get_pdf_text(pdf_url)
-        print(f"pdf_text: {text}")
         image_urls, image_names = self.get_pdf_images(pdf_url)
-        print(image_names)
         document = self.file2document(text, image_urls, image_names)
 
         return document
 
     def get_pdf_text(self, pdf_url: str):
         if not os.path.exists(pdf_url):
-            print(pdf_url)
-            print("file not found")
             raise FileNotFoundError(pdf_url)
         doc = pymupdf.open(pdf_url)
         text = ""
@@ -146,17 +142,17 @@ class PdfParser:
 {{
     "title": "标题", // 案例名
     "problem_intro": "问题简介文本",
-    "image_urls_problem_intro": [1, 2], // 与问题简介相关的图片编号
+    "image_urls_problem_intro": [1, 3], // 与问题简介相关的图片编号
     "causes": "原因文本",
-    "image_urls_causes": [3], // 与原因相关的图片编号
+    "image_urls_causes": [2], // 与原因相关的图片编号
     "evaluation": "评估方法文本",
-    "image_urls_evaluation": [], // 与评估相关的图片编号
+    "image_urls_evaluation": [4], // 与评估相关的图片编号
     "inspection": "检查方法文本",
-    "image_urls_inspection": [], // 与检查相关的图片编号
+    "image_urls_inspection": [5], // 与检查相关的图片编号
     "solutions": "解决方案文本",
-    "image_urls_solutions": [], // 与解决方案相关的图片编号
+    "image_urls_solutions": [6], // 与解决方案相关的图片编号
     "key_points": "总结文本",
-    "image_urls_key_points": [] // 与总结相关的图片编号
+    "image_urls_key_points": [7, 8] // 与总结相关的图片编号
 }}
 
 注意：
@@ -223,14 +219,14 @@ class PdfParser:
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
-            print(f"len: {len(image_names)}")
+
             flag = [0] * len(image_names)
 
             for key in result.keys():
                 if "image" in key:
                     image_url_content = ""
                     for image_index in result[key]:
-                        if image_index > len(image_names) or flag[image_index - 1] == 1:
+                        if image_index > len(image_urls) or flag[image_index - 1] == 1:
                             continue
                         url = image_names[image_index - 1]
                         flag[image_index - 1] = 1

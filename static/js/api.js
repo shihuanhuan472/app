@@ -1343,7 +1343,89 @@ const messageAPI = {
             console.error('获取消息失败:', error);
             return [];
         }
-    }
+    },
+
+    async askStream(messageData, onChunk, onComplete, onError) {
+    const url = `${this.client.baseUrl}/message/ask`;
+    const token = localStorage.getItem('token');
+
+    return new Promise((resolve, reject) => {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                session_id: messageData.session_id,
+                content_text: messageData.content_text,
+                user_uploaded_images: messageData.user_uploaded_images,
+                stream: true
+            })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            const processStream = async () => {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+
+                        for (const line of lines) {
+                            const trimmedLine = line.trim();
+                            if (!trimmedLine) continue;
+
+                            let jsonStr = trimmedLine;
+                            if (trimmedLine.startsWith('data:')) {
+                                jsonStr = trimmedLine.slice(5).trim();
+                            }
+
+                            try {
+                                const parsed = JSON.parse(jsonStr);
+                                // 结束标志
+                                if (parsed.code === 1 && parsed.data === "true") {
+                                    onComplete && onComplete();
+                                    resolve(); // 流式正常结束
+                                    return;
+                                }
+                                // 正常流数据
+                                if (parsed.code === 1 && typeof parsed.answer === 'string') {
+                                    onChunk && onChunk(parsed);
+                                }
+                            } catch (e) {
+                                console.warn('解析 JSON 失败:', e);
+                            }
+                        }
+                    }
+                    // 如果正常读完流未收到结束消息，也认为完成
+                    onComplete && onComplete();
+                    resolve();
+                } catch (err) {
+                    onError && onError(err);
+                    reject(err);
+                }
+            };
+
+            processStream();
+        })
+        .catch(err => {
+            onError && onError(err);
+            reject(err);
+        });
+    });
+}
 };
 
 // 导出到全局

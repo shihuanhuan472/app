@@ -210,7 +210,7 @@ class PPTParser:
                 if "image" in key:
                     image_url_content = ""
                     for image_index in result[key]:
-                        if image_index > len(image_names) or flag[image_index - 1] == 1:
+                        if image_index > len(image_urls) or flag[image_index - 1] == 1:
                             continue
                         url = image_names[image_index - 1]
                         url = self.image_dir + "/" + url
