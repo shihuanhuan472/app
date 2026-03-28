@@ -67,14 +67,16 @@ def get_problem_answer_by_ai(file_path: str):
 【内容】：
 {text}
 【注意】：
-严格按照模板格式回答
+1. 严格按照模板格式回答。
+2. 问题需准确且包含具体设备名称，需要能从大量文档中定位到该文档。
+3. 请勿出现“该”，“这”等词汇，需具体指明设备类型，名称或品牌。
 """.format(text=text)
             }
         ],
         "stream": False
     }
     header = {
-        "Authorization": "Bearer DEJhWQHPeNzsKUgwsLky:ZSIwSfiNIufgdgpmQujB"  # 注意此处把“123456”替换为自己的APIPassword
+        "Authorization": "Bearer IeGvgGqUjCvTljREtNTM:cjixgGtnVrsCwPvXwbia"  # 注意此处把“123456”替换为自己的APIPassword
     }
     response = requests.post(url, headers=header, json=data, stream=True)
     if response.status_code == 200:
@@ -100,10 +102,11 @@ def get_problem_answer_by_ai(file_path: str):
             print(response.text)
             return None
     else:
+        print(response.text)
         print("ai响应码非200")
         return None
 
-def prepare_problems_answers(save_path, file_dir):
+def prepare_problems_answers(save_path, file_dir, file_paths):
     if not os.path.exists(save_path):
         with open(save_path, 'w', encoding='utf-8') as f:
             pass  # 创建空文件，也可以写入初始内容
@@ -124,6 +127,9 @@ def prepare_problems_answers(save_path, file_dir):
 
     for file in os.listdir(file_dir):
         filepath = os.path.join(file_dir, file)
+        if filepath not in file_paths:
+            print(f"{filepath}未向量化，跳过")
+            continue
         if os.path.isfile(filepath):
             filename = os.path.basename(filepath)
             if filename in filename_done:
@@ -146,6 +152,12 @@ def prepare_problems_answers(save_path, file_dir):
         json.dump(dataset, f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
+
+    url = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\files_data.json"
+    with open(url, "r", encoding='utf-8') as f:
+        data = json.load(f)
+    file_paths = [d["file_path"] for d in data]
+
     # response = get_problem_answer_by_ai("D:\机密\毕设\开发\数据集\电子产品\PS Vita Slim Unresponsive Black Screen.pdf")
     prepare_problems_answers("D:\Pycharm\code\Maintenance_Assistance_System\datasets\data.json",
-                             "D:\机密\毕设\开发\数据集\电子产品")
+                             "D:\机密\毕设\开发\数据集\新能源汽车维修故障案例", file_paths)
