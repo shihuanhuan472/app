@@ -28,6 +28,7 @@ def add_file(file_path):
 
         # 根据不同的文件类型调用不同的解析器
         if file_ext == ".pdf":
+            print(".pdf")
             document = pdf_parser.parse(file_path)
         elif file_ext == ".pptx" or file_ext == ".ppt":
             document = ppt_parser.parse(file_path)
@@ -35,10 +36,14 @@ def add_file(file_path):
             # document = await asyncio.to_thread(html_parser.parse(url))
             document = html_parser.parse(file_path)
         elif file_ext == ".docx":
+            print(".docx")
             document = word_parser.parse(file_path)
         else:
             print(f"{file_path} 类型不对，请检查文件类型")
             return False
+
+        print(type(document))
+
         if not document.title:
             print(f"{file_path} ai未解析出标题")
             if os.path.exists(file_path):
@@ -58,6 +63,7 @@ def add_file(file_path):
     except Exception as e:
         print(file_path)
         print(e)
+        print("---------")
         return False
 
 
@@ -142,4 +148,20 @@ if __name__ == '__main__':
     #               "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\files.json")
 
     analyze_files("D:\Pycharm\code\Maintenance_Assistance_System\datasets\\files.json")
-    # add_file("D:\机密\毕设\开发\知识库文档\T7-结晶问题-TS红宝书.pdf")
+    path = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\files.json"
+    with open(path, 'r', encoding='utf-8') as f:
+        try:
+            dataset = json.load(f)
+            if not isinstance(dataset, list):
+                dataset = []
+        except json.JSONDecodeError:
+            # 文件损坏或为空，重新初始化为空列表
+            dataset = []
+    datas = []
+    for data in dataset:
+        if data["is_vectorized"] == 1:
+            datas.append(data)
+
+    new_path = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\files_data.json"
+    with open(new_path, 'w', encoding='utf-8') as f:
+        json.dump(datas, f, ensure_ascii=False, indent=4)

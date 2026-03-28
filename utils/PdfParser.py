@@ -37,13 +37,17 @@ class PdfParser:
 
     def parse(self, pdf_url: str):
         text = self.get_pdf_text(pdf_url)
+        print(f"pdf_text: {text}")
         image_urls, image_names = self.get_pdf_images(pdf_url)
+        print(image_names)
         document = self.file2document(text, image_urls, image_names)
 
         return document
 
     def get_pdf_text(self, pdf_url: str):
         if not os.path.exists(pdf_url):
+            print(pdf_url)
+            print("file not found")
             raise FileNotFoundError(pdf_url)
         doc = pymupdf.open(pdf_url)
         text = ""
