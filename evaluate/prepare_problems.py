@@ -5,6 +5,10 @@ import json
 import pymupdf
 from docx import Document as Docx
 
+"""
+根据文档生成问题的
+"""
+
 def get_text_by_docx(file_path):
     doc = Docx(file_path)
     text = ""

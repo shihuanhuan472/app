@@ -12,10 +12,11 @@ from database import SessionLocal
 db = SessionLocal()
 vector_service = VectorService(db)
 
+"""
+拿来让ai回答所有问题，生成最终数据集的
+"""
+
 def get_prompt(db, document_ids, max_tokens):
-    """
-    生成提示词（包括根据相关文档id，提取文档内容作为提示词）
-    """
     print(document_ids)
     if not document_ids:
         return ""
@@ -74,11 +75,12 @@ def get_ai_answer(messages):
 
     return final_ans
 
-def generate_messages(db, question, documents_ids):
+def generate_messages(db, question, documents_ids, ans):
     tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
     tokens_max -= get_token_count(question)
     prompt = get_prompt(db, documents_ids, tokens_max)
-    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{question}"}]
+    prompt += "\n" + ans
+    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{question}\n要求回答精简一点！"}]
     data = {}
     data["role"] = "user"
     data["content"] = msg_content
@@ -118,7 +120,7 @@ def prepare_all_dataset(question_url: str, save_url):
         for document in documents:
             print(document["score"])
             document_ids.append(document["doc_id"])
-        messages = generate_messages(db, q_a["question"], document_ids)
+        messages = generate_messages(db, q_a["question"], document_ids, q_a["ground_truth"])
         response = get_ai_answer(messages)
         dataset.append({
             "question": q_a["question"],
@@ -136,9 +138,7 @@ def prepare_all_dataset(question_url: str, save_url):
     with open(save_url, "w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=4)
 
-
 if __name__ == "__main__":
-    # prepare_all_dataset("D:\Pycharm\code\Maintenance_Assistance_System\datasets\data.json",
-    #                     "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data.json")
+    prepare_all_dataset("D:\Pycharm\code\Maintenance_Assistance_System\datasets\data.json",
+                        "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data_1.json")
 
-    prepare_all_dataset("D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data.json")

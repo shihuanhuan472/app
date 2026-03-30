@@ -13,6 +13,15 @@ from utils.PdfParser import pdf_parser
 from utils.VectorService import VectorService
 from utils.WordParser import word_parser
 
+"""
+往数据库加文档的.
+datasets里的几个文件顺便解释一下.
+- data.json：记录问题/真实答案/对应的文档名
+- final_data.json：废弃了，一开始直接用的系统对话的提示词，发现冗余信息太多了，得到的指标太差了
+- final_data_1.json：修改了一下提示词，让ai简洁回答，指标好了很多
+- files.json：我拿来记录文档有没有被加入数据库的
+"""
+
 questions = []
 ground_truth = []
 answers = []
