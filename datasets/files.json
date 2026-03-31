@@ -1,0 +1,1707 @@
+[
+    {
+        "filename": "3D Prints Warping.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\3D Prints Warping.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Battery Draining Fast.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Battery Draining Fast.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Black Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Black Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Frozen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Frozen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Keeps Restarting.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Keeps Restarting.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Keyboard Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Keyboard Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Running Slow.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Running Slow.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dell Laptop Won't Turn On.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Dell Laptop Won't Turn On.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds Crackling or Static Noise.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds Crackling or Static Noise.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds No Sound.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds No Sound.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds Noise Canceling Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds Noise Canceling Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds One Side Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds One Side Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds Will Not Charge.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds Will Not Charge.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Earbuds Will Not Connect or Pair to Bluetooth.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Earbuds Will Not Connect or Pair to Bluetooth.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iNNEXT N64 Classic Controller Joystick Drift.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iNNEXT N64 Classic Controller Joystick Drift.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPad Black Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPad Black Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPad Slow Charge.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPad Slow Charge.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPad Stuck on Apple Logo.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPad Stuck on Apple Logo.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Blurry Camera.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Blurry Camera.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Frozen Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Frozen Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Ghost Touch.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Ghost Touch.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Glitching Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Glitching Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Home Button Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Home Button Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Slow Charge.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Slow Charge.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Touch ID Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Touch ID Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Touch Screen Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Touch Screen Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone Volume Buttons Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone Volume Buttons Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 不充电.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 不充电.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 屏幕上出现彩色线条.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 屏幕上出现彩色线条.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 无法启动.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 无法启动.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 无法连接到 Wi-Fi 网络.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 无法连接到 Wi-Fi 网络.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 显示‘无效 SIM 卡’或‘无 SIM 卡’.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 显示‘无效 SIM 卡’或‘无 SIM 卡’.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 电量消耗故障检修.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 电量消耗故障检修.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 背光不亮.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 背光不亮.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 能充电但是不能开机.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 能充电但是不能开机.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 莫名其妙关机.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 莫名其妙关机.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 蓝牙无法工作.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 蓝牙无法工作.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone 过热.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone 过热.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "iPhone不断重启.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\iPhone不断重启.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Keyboard Double Typing.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Keyboard Double Typing.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Keyboard Sticky Keys.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Keyboard Sticky Keys.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Keyboard Won't Connect.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Keyboard Won't Connect.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Liquid Detected in Lightning Connector.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Liquid Detected in Lightning Connector.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook Black Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook Black Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook Stuck On Loading Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook Stuck On Loading Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook 无法开机.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook 无法开机.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook 运行缓慢.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook 运行缓慢.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook带有问号的文件夹.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook带有问号的文件夹.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "MacBook风扇异常响动.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\MacBook风扇异常响动.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Monitor No Signal.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Monitor No Signal.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Mouse Click Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Mouse Click Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Mouse Cursor Shaking.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Mouse Cursor Shaking.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Mouse Moving Slow.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Mouse Moving Slow.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Mouse Scroll Wheel Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Mouse Scroll Wheel Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch Joy-Con 漂移.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch Joy-Con 漂移.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch Lite Battery Draining Fast.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch Lite Battery Draining Fast.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 无法充电.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 无法充电.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 无法连接到Wi-Fi网络.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 无法连接到Wi-Fi网络.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 没有视频输出.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 没有视频输出.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 耗电过快.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 耗电过快.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 蓝屏死机.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 蓝屏死机.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 过热.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 过热.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Nintendo Switch 黑屏.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Nintendo Switch 黑屏.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "PS Vita Slim Not Charging.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\PS Vita Slim Not Charging.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "PS Vita Slim Unresponsive Black Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\PS Vita Slim Unresponsive Black Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Samsung Galaxy Camera Blurry.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Samsung Galaxy Camera Blurry.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Samsung Galaxy Frozen Screen.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Samsung Galaxy Frozen Screen.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Samsung Galaxy No Sound.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Samsung Galaxy No Sound.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Soldering Iron Not Heating.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Soldering Iron Not Heating.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Soldering Iron Not Melting Solder.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Soldering Iron Not Melting Solder.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Buttons Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Buttons Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Crashing.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Crashing.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Joystick Drift.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Joystick Drift.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Not Booting.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Not Booting.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Not Charging.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Not Charging.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck Won't Turn On.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck Won't Turn On.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck 无法识别 SD 卡.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck 无法识别 SD 卡.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck 黑屏.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck 黑屏.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck触摸屏失效（无响应）.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck触摸屏失效（无响应）.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Steam Deck风扇噪音问题.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Steam Deck风扇噪音问题.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Switch Pro Controller Joystick Drift.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\Switch Pro Controller Joystick Drift.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "三星Galaxy电池耗电快原因.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\三星Galaxy电池耗电快原因.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "三星安卓手机不断重启.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\三星安卓手机不断重启.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "三星手机屏幕上的线条.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\电子产品\\三星手机屏幕上的线条.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Leaking.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Leaking.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Not Cleaning.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Not Cleaning.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Not Draining.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Not Draining.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Not Drying.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Not Drying.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Smells Bad.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Smells Bad.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Soap Pods Not Dissolving.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Soap Pods Not Dissolving.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Stops Mid Cycle.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Stops Mid Cycle.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dishwasher Troubleshooting.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Troubleshooting.pdf",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "Dishwasher Won't Turn On.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dishwasher Won't Turn On.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Making Loud Noise.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Making Loud Noise.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Not Spinning.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Not Spinning.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Smells Like Gas.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Smells Like Gas.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Smells Like It's Burning.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Smells Like It's Burning.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Squeaking.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Squeaking.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Stops Mid Cycle.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Stops Mid Cycle.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Dryer Won't Start.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Dryer Won't Start.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Electric Dryer Not Heating.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Electric Dryer Not Heating.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Electric Stove Burner Not Working.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Electric Stove Burner Not Working.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Freezer Ice Building Up.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Freezer Ice Building Up.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Gas Dryer Not Heating.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Gas Dryer Not Heating.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Gas Dryer Overheating.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Gas Dryer Overheating.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Gas Stove Clicking But Not Lighting.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Gas Stove Clicking But Not Lighting.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Ice Maker Making Cloudy Ice Cubes.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Ice Maker Making Cloudy Ice Cubes.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Ice Maker Not Making Ice.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Ice Maker Not Making Ice.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Ice Maker Only Crushing Ice.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Ice Maker Only Crushing Ice.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "JC8000高清数字电视机顶盒启动困难故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\JC8000高清数字电视机顶盒启动困难故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Oven Not Turning On.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Oven Not Turning On.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Oven Smells Like Gas When Preheating.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Oven Smells Like Gas When Preheating.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Door Not Closing.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Door Not Closing.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Has Freezer Leaking Water Into Fridge.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Has Freezer Leaking Water Into Fridge.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Leaking Water.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Leaking Water.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Light Flickering.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Light Flickering.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Makes Humming Noise.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Makes Humming Noise.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Making Knocking Noise.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Making Knocking Noise.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Sounds and Possible Causes.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Sounds and Possible Causes.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Tripping GFCI.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Tripping GFCI.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Refrigerator Won't Dispense Water.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Refrigerator Won't Dispense Water.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Door Is Locked.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Door Is Locked.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Is Leaking.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Is Leaking.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Not Draining.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Not Draining.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Not Spinning.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Not Spinning.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Shaking.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Shaking.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "Washing Machine Won't Turn On.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\Washing Machine Won't Turn On.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "冰箱压缩机正在运转但不制冷.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\冰箱压缩机正在运转但不制冷.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "冷藏室不制冷.pdf",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\冷藏室不制冷.pdf",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "夏普32AK7型液晶彩电副电源次级电路原理与检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\夏普32AK7型液晶彩电副电源次级电路原理与检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "巨鹰GE.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\巨鹰GE.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "康佳LC32BT20型液晶彩电满屏竖线故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\康佳LC32BT20型液晶彩电满屏竖线故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "排除松下NV.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\排除松下NV.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "检修复蓝宇V60 LY.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\检修复蓝宇V60 LY.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "检修外置式闪光灯常见故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\检修外置式闪光灯常见故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "监控系统常用开关电源电路与常见故障维修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\监控系统常用开关电源电路与常见故障维修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "调频无线耳机常见故障和处理方法.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\家电维修\\调频无线耳机常见故障和处理方法.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "全新雪佛兰迈锐宝后备箱有时无法开启.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\全新雪佛兰迈锐宝后备箱有时无法开启.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克GL8为何机油灯闪烁报警检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8为何机油灯闪烁报警检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克GL8冷车启动后换入前进挡无任何动力.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8冷车启动后换入前进挡无任何动力.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克GL8发动机动力不足故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8发动机动力不足故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克GL8右侧转向灯闪烁异常检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克GL8右侧转向灯闪烁异常检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克凯越轿车漏电故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克凯越轿车漏电故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克君越提速缓慢.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克君越提速缓慢.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克威朗发动机怠速运转不稳.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克威朗发动机怠速运转不稳.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克威朗轿车发动机偶尔出现怠速不稳.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克威朗轿车发动机偶尔出现怠速不稳.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克昂科威发动机故障灯报警.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克昂科威发动机故障灯报警.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克英朗XT行驶时冷却水管破裂.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\别克英朗XT行驶时冷却水管破裂.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北京现代朗动中控台温度显示闪烁且无数值.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\北京现代朗动中控台温度显示闪烁且无数值.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北京现代瑞纳轿车熄火后无法再次启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\北京现代瑞纳轿车熄火后无法再次启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "华晨宝马525Li启停状态下变速器自动挂P挡.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\华晨宝马525Li启停状态下变速器自动挂P挡.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "吉利帝豪ABJ和EBD故障灯常亮故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪ABJ和EBD故障灯常亮故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "吉利帝豪EV300无法连通高压电检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪EV300无法连通高压电检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "吉利帝豪EV300无钥匙进入系统故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\吉利帝豪EV300无钥匙进入系统故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众CC仪表上显示故障大灯随动AFS.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众CC仪表上显示故障大灯随动AFS.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众CC轿车发动机加速无力检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众CC轿车发动机加速无力检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众宝来提示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众宝来提示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众新波罗行驶时EPC灯偶发点亮检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众新波罗行驶时EPC灯偶发点亮检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众朗逸无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众朗逸无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众朗逸轿车仪表挡位显示屏出现红屏.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众朗逸轿车仪表挡位显示屏出现红屏.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众波罗劲情行驶中制动时偶尔有闯动感.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众波罗劲情行驶中制动时偶尔有闯动感.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众辉昂无法启动故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众辉昂无法启动故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众迈腾B8发动机无法启动故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众迈腾B8发动机无法启动故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众迈腾发动机冷车启动后怠速不稳.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众迈腾发动机冷车启动后怠速不稳.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众途安L发动机偶发熄火故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途安L发动机偶发熄火故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众途安行驶中突然熄火故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途安行驶中突然熄火故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众途昂自动启停系统故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途昂自动启停系统故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众途观加速踏板发动机转速升高时出现异响.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众途观加速踏板发动机转速升高时出现异响.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众速腾发动机故障警告灯亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\大众速腾发动机故障警告灯亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰C180L仪表中出现黄色的故障灯提示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C180L仪表中出现黄色的故障灯提示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰C200轿车有时启动无反应.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C200轿车有时启动无反应.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰C260L仪表出现冷却液停车关闭发动机.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C260L仪表出现冷却液停车关闭发动机.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰C260L轿车手机无线充电器工作时噪声大.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰C260L轿车手机无线充电器工作时噪声大.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰E200仪表台黑屏且发动机无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E200仪表台黑屏且发动机无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰E220轿车前照灯的右侧远光灯存在故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E220轿车前照灯的右侧远光灯存在故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰E300L轿车驾驶侧车窗无法升降.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰E300L轿车驾驶侧车窗无法升降.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰GLE320 ABS.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰GLE320 ABS.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰GLE400仪表中出现多个故障灯点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\奔驰GLE400仪表中出现多个故障灯点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马328i轿车DME.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马328i轿车DME.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马328i轿车安全气囊灯亮检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马328i轿车安全气囊灯亮检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马330i硬顶无法关闭.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马330i硬顶无法关闭.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马525Li发动机故障灯亮检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马525Li发动机故障灯亮检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马5系轿车机油油位无法测量.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马5系轿车机油油位无法测量.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马7系轿车空调制冷效果不好.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马7系轿车空调制冷效果不好.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马X5仪表中气囊灯常亮故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5仪表中气囊灯常亮故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马X5发动机无法启动的故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5发动机无法启动的故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马X5后部车窗有时无法升降.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\宝马X5后部车窗有时无法升降.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田冠道仪表中出现多个故障灯报警.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田冠道仪表中出现多个故障灯报警.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田凌派轿车ABS故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田凌派轿车ABS故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田奥德赛混动行驶时仪表故障灯点亮且车身抖动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田奥德赛混动行驶时仪表故障灯点亮且车身抖动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田第九代雅阁挂入D挡和R挡时车辆无法正常起步.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田第九代雅阁挂入D挡和R挡时车辆无法正常起步.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田艾力绅无法遥控闭锁故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田艾力绅无法遥控闭锁故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田雅阁保险丝缺失导致发动机故障灯亮维修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁保险丝缺失导致发动机故障灯亮维修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田雅阁正常行驶时仪表出现多个故障灯提示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁正常行驶时仪表出现多个故障灯提示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田雅阁突然无法加速.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田雅阁突然无法加速.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田飞度轿车换到D挡时有顿挫感.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\本田飞度轿车换到D挡时有顿挫感.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5 BPTC绝缘故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 BPTC绝缘故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5 B柱立柱扣板变形故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 B柱立柱扣板变形故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5 GPS天线短路故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5 GPS天线短路故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5主驾玻璃升降开关失效.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5主驾玻璃升降开关失效.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5仪表上盲区监测故障灯亮起故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表上盲区监测故障灯亮起故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5仪表提示驻车制动力不足.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表提示驻车制动力不足.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5仪表显示增程器故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5仪表显示增程器故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5低压蓄电池亏电车辆搭电后无法启动处理方法.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5低压蓄电池亏电车辆搭电后无法启动处理方法.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5低速滑行中掉高压.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5低速滑行中掉高压.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5即墨天气定位无法准确更新.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5即墨天气定位无法准确更新.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5发动机故障灯常亮故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5发动机故障灯常亮故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5增程器启动异常.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器启动异常.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5增程器启动有焦糊味故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器启动有焦糊味故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5增程器工作噪音异常故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5增程器工作噪音异常故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5左后转向灯.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5左后转向灯.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5慢充充电座温度高故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5慢充充电座温度高故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5慢充无法充电故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5慢充无法充电故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5灯光小灯档右侧日间行车灯不亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5灯光小灯档右侧日间行车灯不亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5电子转向柱锁解锁失败.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电子转向柱锁解锁失败.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5电池散热水泵故障检1.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电池散热水泵故障检1.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5电池散热水泵故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5电池散热水泵故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5空调不制冷.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5空调不制冷.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5胎压丢失故障故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5胎压丢失故障故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5行驶中动力降级.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5行驶中动力降级.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5进气VVT控制电路开路故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5进气VVT控制电路开路故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5颠簸路异响故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5颠簸路异响故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "赛力斯SF5高速行驶掉高压.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\赛力斯SF5高速行驶掉高压.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "长城哈弗CUV怠速运转时排烟为灰白色.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长城哈弗CUV怠速运转时排烟为灰白色.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "长城哈弗H5发动机抖动故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长城哈弗H5发动机抖动故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "长安CS75一键启动无反应故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安CS75一键启动无反应故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "长安CX30轿车空调故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安CX30轿车空调故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "长安欧诺热车启动机不转.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\长安欧诺热车启动机不转.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5 BCM节点丢失通讯频繁.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5 BCM节点丢失通讯频繁.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5 EV开车门仪表不上电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5 EV开车门仪表不上电.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5EV行车记录仪和全景影像黑屏.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5EV行车记录仪和全景影像黑屏.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5EV解锁时左后门儿童锁关闭的情况下.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5EV解锁时左后门儿童锁关闭的情况下.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5交流慢充不工作.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5交流慢充不工作.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5增程器异常故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5增程器异常故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5增程器无法正常启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5增程器无法正常启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5打方向异响.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5打方向异响.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5背门偶发无法关闭.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5背门偶发无法关闭.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M5车顶部位有.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M5车顶部位有.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7 360工作时黑屏后闪退.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7 360工作时黑屏后闪退.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7低速打方向异响.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7低速打方向异响.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7前部空调不制冷.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7前部空调不制冷.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7后台提示LIN1故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7后台提示LIN1故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7增程器无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7增程器无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7手机蓝牙不能解锁车辆.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7手机蓝牙不能解锁车辆.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7无法上高压.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7无法上高压.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7热量管理模块故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7热量管理模块故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7行驶中动力系统受限.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7行驶中动力系统受限.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界M7零重力座椅无法展开.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界M7零重力座椅无法展开.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "问界后超声波雷达故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\问界后超声波雷达故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰乐驰烧电动玻璃保险丝故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰乐驰烧电动玻璃保险丝故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰探界者没有倒挡故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰探界者没有倒挡故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰新科鲁兹轿车转向无助力.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰新科鲁兹轿车转向无助力.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰新赛欧仪表中的变速器故障灯有时点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰新赛欧仪表中的变速器故障灯有时点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰新迈锐宝漏电导致无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰新迈锐宝漏电导致无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰科鲁兹行李箱不能关闭故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰科鲁兹行李箱不能关闭故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰科鲁兹轿车不能加速.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰科鲁兹轿车不能加速.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰迈锐宝XL环境温度显示异常.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\汽车维修\\雪佛兰迈锐宝XL环境温度显示异常.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "2017款比亚迪E5纯电动车无法充电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\2017款比亚迪E5纯电动车无法充电.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "2017款比亚迪唐无电动行驶模式.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\2017款比亚迪唐无电动行驶模式.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "BMWi3电池系统及冷却方案解析.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\BMWi3电池系统及冷却方案解析.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "~$E150EV电动汽车驱动电动机故障诊断.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\~$E150EV电动汽车驱动电动机故障诊断.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "东风纯电动微型客车故障解析及排除.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\东风纯电动微型客车故障解析及排除.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "中通混合动力客车发动机机油严重缺失.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\中通混合动力客车发动机机油严重缺失.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田凯美瑞HV2混合动力车无法行驶.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田凯美瑞HV2混合动力车无法行驶.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田凯美瑞HV混合动力系统故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田凯美瑞HV混合动力系统故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田凯美瑞混合动力系统故障灯亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田凯美瑞混合动力系统故障灯亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田凯美瑞混合动力轿车发动机故障灯点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田凯美瑞混合动力轿车发动机故障灯点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田凯美瑞混合动力轿车行驶中会突然失去动力.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田凯美瑞混合动力轿车行驶中会突然失去动力.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "丰田普锐斯混合动力汽车动力系统主警告灯点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\丰田普锐斯混合动力汽车动力系统主警告灯点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "五洲龙混合动力客车动力电池辅助充电系统维修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\五洲龙混合动力客车动力电池辅助充电系统维修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "五洲龙混合电动大客车无法启动检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\五洲龙混合电动大客车无法启动检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "保时捷Cayenne S E.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\保时捷Cayenne S E.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "保时捷Cayenne轿车混合动力报警.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\保时捷Cayenne轿车混合动力报警.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "凯迪拉克凯雷德混合动力轿车无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\凯迪拉克凯雷德混合动力轿车无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "别克君越混合动力轿车空调间歇性不工作.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\别克君越混合动力轿车空调间歇性不工作.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "动力电池成组问题检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\动力电池成组问题检修.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "动力电池断电故障检测.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\动力电池断电故障检测.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "动力电池绝缘故障故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\动力电池绝缘故障故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽E150EV电动汽车驱动电动机故障诊断.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽E150EV电动汽车驱动电动机故障诊断.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽E150EV驱动电机超速保护故障诊断及排除.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽E150EV驱动电机超速保护故障诊断及排除.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽EV160电动汽车空调压缩机电控原理及故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽EV160电动汽车空调压缩机电控原理及故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽EV160纯电动汽车无法行驶.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽EV160纯电动汽车无法行驶.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽EV200纯电动汽车DC.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽EV200纯电动汽车DC.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽EV200高压系统绝缘性能检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽EV200高压系统绝缘性能检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽新能源EV200慢充系统指示灯都不亮的检修方法.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽新能源EV200慢充系统指示灯都不亮的检修方法.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽新能源EV200慢充系统无充电电流的检修方法.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽新能源EV200慢充系统无充电电流的检修方法.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "北汽新能源EV200慢充系统无动力电池数据的检修方法.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\北汽新能源EV200慢充系统无动力电池数据的检修方法.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "大众途锐混合动力车加速时发动机舱内异响.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\大众途锐混合动力车加速时发动机舱内异响.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奇瑞艾瑞泽7e插电式混合动力模式定义.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奇瑞艾瑞泽7e插电式混合动力模式定义.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "奔驰S400L混合动力系统CAN通信故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰S400L混合动力系统CAN通信故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰S400混合动力启动不着车.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰S400混合动力启动不着车.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰S400混合动力无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰S400混合动力无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰S400混合动力纯电动模式不能使用.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰S400混合动力纯电动模式不能使用.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰S400混合动力轿车无法启动.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰S400混合动力轿车无法启动.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奔驰混合动力车型无法启动或组合仪表提示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奔驰混合动力车型无法启动或组合仪表提示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奥迪A8L混合动力系统故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奥迪A8L混合动力系统故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奥迪A8混合动力更换J393无法编码故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奥迪A8混合动力更换J393无法编码故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奥迪A8混合动力系统故障灯点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奥迪A8混合动力系统故障灯点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "奥迪A8混合动力高压蓄电池故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\奥迪A8混合动力高压蓄电池故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "如何保养混合动力车型库存车辆的电池.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\如何保养混合动力车型库存车辆的电池.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马750Li混合动力轿车高压蓄电池故障.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\宝马750Li混合动力轿车高压蓄电池故障.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马750Li轿车混合动力声音报警系统失效.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\宝马750Li轿车混合动力声音报警系统失效.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马F04车混合动力发动机启动困难并启停功能不好用.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\宝马F04车混合动力发动机启动困难并启停功能不好用.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马F04车系高压.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\宝马F04车系高压.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "宝马X6混合动力车无法行驶检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\宝马X6混合动力车无法行驶检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "帝豪EV300纯电动汽车慢充系统不能充电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\帝豪EV300纯电动汽车慢充系统不能充电.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "康迪K10纯电动汽车行驶途中偶尔熄火.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\康迪K10纯电动汽车行驶途中偶尔熄火.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "快充桩与车辆无法通讯故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\快充桩与车辆无法通讯故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "快充桩无充电电流故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\快充桩无充电电流故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "思域1. 3L混合动力轿车常见故障排除及维修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\思域1. 3L混合动力轿车常见故障排除及维修.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "新能源客车6速变速器噪声异常分析与研究.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\新能源客车6速变速器噪声异常分析与研究.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "本田思域混合动力车EPS.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\本田思域混合动力车EPS.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "本田雅阁混动车READY灯无法点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\本田雅阁混动车READY灯无法点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪e5无法交流充电故障检修.doc",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪e5无法交流充电故障检修.doc",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "比亚迪F3DM电动汽车充电困难.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪F3DM电动汽车充电困难.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪电动车E6无法充电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪电动车E6无法充电.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪秦仪表报动力系统故障及风扇常转.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪秦仪表报动力系统故障及风扇常转.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪秦偶发性SOC为0.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪秦偶发性SOC为0.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪秦无法使用EV模式.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪秦无法使用EV模式.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪秦混合动力车电动模式无法行驶.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪秦混合动力车电动模式无法行驶.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "比亚迪秦行驶中仪表偶发性提示请检查动力.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\比亚迪秦行驶中仪表偶发性提示请检查动力.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "江淮同悦纯电动汽车无倒挡的故障诊断.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\江淮同悦纯电动汽车无倒挡的故障诊断.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "江淮瑞风M混合动力车型技术.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\江淮瑞风M混合动力车型技术.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "混合动力变速器的结构特性与维修注意事项.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\混合动力变速器的结构特性与维修注意事项.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "瑞风M4弱混车无法进入混合动力模式.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\瑞风M4弱混车无法进入混合动力模式.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "电动公交车CAN总线故障检修.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\电动公交车CAN总线故障检修.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "电动汽车组合仪表黑屏故障的排除.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\电动汽车组合仪表黑屏故障的排除.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "纯电动汽车的电机研究.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\纯电动汽车的电机研究.docx",
+        "is_vectorized": 0
+    },
+    {
+        "filename": "英菲尼迪QX60混动车天窗无法关闭.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\英菲尼迪QX60混动车天窗无法关闭.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "英菲尼迪QX60混动车混合动力故障灯及防侧滑指示灯突然点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\英菲尼迪QX60混动车混合动力故障灯及防侧滑指示灯突然点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "英菲尼迪QX60混动车混合动力故障灯点亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\英菲尼迪QX60混动车混合动力故障灯点亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "金龙纯电动客车CAN故障排除.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\金龙纯电动客车CAN故障排除.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雪佛兰沃兰达混合动力故障灯亮.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雪佛兰沃兰达混合动力故障灯亮.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雷克萨斯CT200h轿车混合动力系统报警.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雷克萨斯CT200h轿车混合动力系统报警.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雷克萨斯ES300H混合动力轿车无法行驶.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雷克萨斯ES300H混合动力轿车无法行驶.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雷克萨斯ES300h组合仪表显示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雷克萨斯ES300h组合仪表显示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雷克萨斯ES300H行驶时突然失去动力.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雷克萨斯ES300H行驶时突然失去动力.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "雷克萨斯RX450h组合仪表显示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\雷克萨斯RX450h组合仪表显示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "青年jNP6 123BEV型纯电动客车无法充电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\青年jNP6 123BEV型纯电动客车无法充电.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "青年电动客车充电时仪表提示.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\青年电动客车充电时仪表提示.docx",
+        "is_vectorized": 1
+    },
+    {
+        "filename": "青年电动客车无法充电.docx",
+        "file_path": "D:\\机密\\毕设\\开发\\数据集\\新能源汽车维修故障案例\\青年电动客车无法充电.docx",
+        "is_vectorized": 1
+    }
+]
