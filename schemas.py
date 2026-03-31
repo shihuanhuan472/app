@@ -113,6 +113,13 @@ class UploadDocumentResponse(BaseModel):
     success_file_url: List[str]
     error_origin_filename: List[str]
 
+class UploadDocumentRequestNew(BaseModel):
+    name: str
+    size: int
+    type: str
+    location: str
+    create: datetime
+
 class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]

@@ -344,7 +344,7 @@ def get_new_title_by_ai(content):
         base_url=f"http://{server_ip}:8000/v1",
         api_key=api_key
     )
-    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-4B-Instruct")
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
     response = client.chat.completions.create(
         model=model,
