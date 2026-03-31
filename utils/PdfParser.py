@@ -238,16 +238,16 @@ class PdfParser:
                     result[key] = image_url_content
             document = Document(**result,
                                 is_vectorized=0)
-
-            for i in range(len(image_urls)):
-                if flag[i] == 0:
-                    os.remove(image_urls[i])
-                    dir_name, filename = os.path.split(image_urls[i])
-                    name, ext = os.path.splitext(filename)
-                    new_path = f"{name}_compressed.{ext}"
-                    new_path = os.path.join(dir_name, new_path)
-                    if os.path.exists(new_path):
-                        os.remove(new_path)
+            if len(image_urls) > 0:
+                for i in range(len(image_urls)):
+                    if flag[i] == 0:
+                        os.remove(image_urls[i])
+                        dir_name, filename = os.path.split(image_urls[i])
+                        name, ext = os.path.splitext(filename)
+                        new_path = f"{name}_compressed.{ext}"
+                        new_path = os.path.join(dir_name, new_path)
+                        if os.path.exists(new_path):
+                            os.remove(new_path)
 
             return document
 

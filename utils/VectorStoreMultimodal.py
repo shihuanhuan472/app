@@ -524,6 +524,14 @@ vector_store_multimodal = VectorStoreMultimodal()
 
 if __name__ == "__main__":
     pass
+    # connections.connect(host='localhost', port='19530')
+    # collection_name = "documents_collection_multimodal"
+    # if utility.has_collection(collection_name):
+    #     collection = Collection(collection_name)
+    #     collection.drop()
+    #     print(f"集合 '{collection_name}' 已成功删除。")
+
+    # pass
     # vector_store = VectorStoreMultimodal()
 # #
 #     document = Document()
