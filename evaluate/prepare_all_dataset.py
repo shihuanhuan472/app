@@ -75,11 +75,10 @@ def get_ai_answer(messages):
 
     return final_ans
 
-def generate_messages(db, question, documents_ids, ans):
+def generate_messages(db, question, documents_ids):
     tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
     tokens_max -= get_token_count(question)
     prompt = get_prompt(db, documents_ids, tokens_max)
-    prompt += "\n" + ans
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{question}\n要求回答精简一点！"}]
     data = {}
     data["role"] = "user"
@@ -115,12 +114,13 @@ def prepare_all_dataset(question_url: str, save_url):
             print(f"{q_a['question']}已有回答，跳过")
             continue
         print(f"开始回答问题：{q_a['question']}")
-        documents = vector_service.search_similar_documents(q_a["question"], None)
+        # documents = vector_service.search_similar_documents(q_a["question"], None)
+        documents = []
         document_ids = []
         for document in documents:
             print(document["score"])
             document_ids.append(document["doc_id"])
-        messages = generate_messages(db, q_a["question"], document_ids, q_a["ground_truth"])
+        messages = generate_messages(db, q_a["question"], document_ids)
         response = get_ai_answer(messages)
         dataset.append({
             "question": q_a["question"],
@@ -133,12 +133,12 @@ def prepare_all_dataset(question_url: str, save_url):
             print(f"{cnt} 个问题已回答")
             with open(save_url, "w", encoding="utf-8") as f:
                 json.dump(dataset, f, ensure_ascii=False, indent=4)
-        if cnt % 100 == 0:
+        if cnt % 200 == 0:
             break
     with open(save_url, "w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
     prepare_all_dataset("D:\Pycharm\code\Maintenance_Assistance_System\datasets\data.json",
-                        "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data_1.json")
+                        "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data_2.json")
 
