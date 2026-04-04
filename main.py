@@ -42,6 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
+# from routers import auth
 from routers import auth, users, admin, conversation, message, conversation_v1, file_manage
 # from routers import auth, conversation_v1
 from routers import documents
@@ -50,7 +51,7 @@ from database import engine
 from starlette.types import Scope
 
 # 创建数据库表
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 class CORSStaticFiles(StaticFiles):

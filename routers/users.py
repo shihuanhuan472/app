@@ -1,21 +1,17 @@
 import hashlib
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 import logging
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from database import get_db
-from dependencies import get_current_user, get_current_active_user, require_roles, get_optional_user
+from dependencies import get_current_user, get_current_active_user, require_roles
 from typing import Optional
+from sqlalchemy import select
 from models import User
 from schemas import Result, UserUpdate, UserResponse, UserChangePassword
 
 router = APIRouter(prefix="/user", tags=["用户"])
 logger = logging.getLogger(__name__)
-
-@router.get("/me", summary="获取当前用户信息")
-async def get_user_info(current_user: dict = Depends(get_current_user)):
-    return Result.success_with_data(current_user)
 
 
 @router.get("/profile", summary="获取用户详细资料")
@@ -36,10 +32,14 @@ async def get_user_profile(current_user: User = Depends(get_current_active_user)
 @router.patch("/update", summary="更新用户信息")
 async def update_user(new_user: UserUpdate,
                       current_user: User = Depends(get_current_active_user),
-                      db: Session = Depends(get_db)):
+                      db: AsyncSession = Depends(get_db)):
     try:
         print(new_user)
-        user = db.query(User).filter(User.id == current_user.id).first()
+        # user = db.query(User).filter(User.id == current_user.id).first()
+
+        result = await db.execute(select(User).where(User.id == current_user.id))
+        user = result.scalar_one_or_none()
+
         if not user:
             return Result.error("用户不存在，更新用户信息失败")
 
@@ -51,18 +51,38 @@ async def update_user(new_user: UserUpdate,
 
         # 检查一下手机号唯一性
         if "phone" in new_user and new_user["phone"] != user.phone:
-            exist_phone = db.query(User).filter(User.phone == new_user["phone"],
-                                                User.id != user.id,
-                                                User.status == 1).first()
+            # exist_phone = db.query(User).filter(User.phone == new_user["phone"],
+            #                                     User.id != user.id,
+            #                                     User.status == 1).first()
+
+            phone_result = await db.execute(
+                select(User).where(
+                    User.phone == new_user["phone"],
+                    User.id != user.id,
+                    User.status == 1
+                )
+            )
+            exist_phone = phone_result.scalar_one_or_none()
+
             if exist_phone:
                 return Result.error("手机号已被占用")
 
         # 检查一下邮箱的唯一性
         if "email" in new_user and new_user["email"] and new_user["email"] != user.email:
             if new_user["email"]:
-                exist_email = db.query(User).filter(User.email == new_user["email"],
-                                                    User.id != user.id,
-                                                    User.status == 1).first()
+                # exist_email = db.query(User).filter(User.email == new_user["email"],
+                #                                     User.id != user.id,
+                #                                     User.status == 1).first()
+
+                email_result = await db.execute(
+                    select(User).where(
+                        User.email == new_user["email"],
+                        User.id != user.id,
+                        User.status == 1
+                    )
+                )
+                exist_email = email_result.scalar_one_or_none()
+
                 if exist_email:
                     return Result.error("邮箱已被占用")
 
@@ -70,8 +90,8 @@ async def update_user(new_user: UserUpdate,
             if value is not None:
                 setattr(user, field, value)
 
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
         data = UserResponse.from_orm(user)
 
@@ -79,19 +99,23 @@ async def update_user(new_user: UserUpdate,
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         return Result.error(f"用户更新失败：{str(e)}")
 
 @router.put("/change_password", summary="修改密码")
 async def change_password(password: UserChangePassword,
                           current_user: User = Depends(get_current_active_user),
-                          db: Session = Depends(get_db)):
+                          db: AsyncSession = Depends(get_db)):
     try:
         # 检查一下旧密码
         old_password = password.old_password
         new_password = password.new_password
         hashed_old_password = hashlib.md5(old_password.encode()).hexdigest()
-        user = db.query(User).filter(User.id == current_user.id).first()
+        # user = db.query(User).filter(User.id == current_user.id).first()
+
+        result = await db.execute(select(User).where(User.id == current_user.id))
+        user = result.scalar_one_or_none()
+
         if not user:
             return Result.error("用户不存在，更新密码失败")
 
@@ -100,36 +124,11 @@ async def change_password(password: UserChangePassword,
 
         hashed_new_password = hashlib.md5(new_password.encode()).hexdigest()
         user.password = hashed_new_password
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return Result.success()
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         return Result.error(f"用户更新密码失败：{str(e)}")
-
-@router.get("/admin-only", summary="仅管理员可访问")
-async def admin_only_route(current_user: dict = Depends(require_roles("admin"))):
-    return {
-        "code": 200,
-        "message": "欢迎，管理员！",
-        "data": current_user
-    }
-
-
-@router.get("/public", summary="公开接口（可选认证）")
-async def public_route(current_user: Optional[dict] = Depends(get_optional_user)):
-    if current_user:
-        return {
-            "code": 200,
-            "message": f"欢迎，{current_user.get('username')}！",
-            "is_authenticated": True,
-            "user": current_user
-        }
-    else:
-        return {
-            "code": 200,
-            "message": "欢迎，游客！",
-            "is_authenticated": False
-        }

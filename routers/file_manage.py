@@ -4,6 +4,7 @@ from datetime import datetime
 
 import aiofiles
 from fastapi import APIRouter, UploadFile, Depends, File
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
@@ -73,7 +74,7 @@ async def upload_files(files: List[UploadFile] = File(...),
 
 @router.post("/analyze", summary="解析文件")
 async def analyze_files(file_list: AnalyzeRequest,
-                        db: Session = Depends(get_db),
+                        db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
     # file_list是后端相对路径
     success_file_url = []

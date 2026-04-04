@@ -1,12 +1,13 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
 from typing import List, Dict
-from sqlalchemy.orm import Session
-
+# from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from models import Document
-
+from sqlalchemy import select
 logger = logging.getLogger(__name__)
 
 """
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 """
 
 class VectorService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         # self.vector_store = vector_store
         self.vector_store_multimodal = vector_store_multimodal
@@ -24,7 +25,7 @@ class VectorService:
         self.message_image_base_dir = os.getenv("MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 3))
 
-    def add_document_to_vector_store(self, document: Document):
+    async def add_document_to_vector_store(self, document: Document):
         """将文档添加到向量数据库"""
         try:
             # 检查文档是否已向量化
@@ -34,31 +35,32 @@ class VectorService:
 
             # 添加到向量数据库
             # self.vector_store.add_document(document)
-            self.vector_store_multimodal.add_document(document)
+            await asyncio.to_thread(self.vector_store_multimodal.add_document, document)
             print("向量化完成")
             # 更新数据库状态
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
-            self.db.commit()
+            await self.db.commit()
 
             print(f"文档 {document.id} 向量化完成")
 
         except Exception as e:
             print(f"文档向量化失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             raise
 
-    def delete_document_from_vector_store(self, doc_id: int):
+    async def delete_document_from_vector_store(self, doc_id: int):
         """从向量库删除文档"""
         try:
             # self.vector_store.delete_document(doc_id)
-            self.vector_store_multimodal.delete_document(doc_id)
+            # self.vector_store_multimodal.delete_document(doc_id)
+            await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id)
             print(f"文档 {doc_id} 已从向量库删除")
         except Exception as e:
             print(f"从向量库删除文档失败: {e}")
             raise
 
-    def search_similar_documents(self, query: str, query_images: str = None, top_k: int = -1) -> List[Dict]:
+    async def search_similar_documents(self, query: str, query_images: str = None, top_k: int = -1) -> List[Dict]:
         """搜索相似文档"""
         try:
             top_k = self.top_k if top_k < 1 else top_k
@@ -72,11 +74,17 @@ class VectorService:
                         continue
                     image_url = os.path.join(self.message_image_base_dir, image.strip())
                     if os.path.exists(image_url):
-                        result = self.vector_store_multimodal.search(query, image_url, top_k)
+                        result = await asyncio.to_thread(
+                            self.vector_store_multimodal.search, query, image_url, top_k
+                        )
+
+                        # result = self.vector_store_multimodal.search(query, image_url, top_k)
                         results.extend(result)
                         flag = 1
             else:
-                result = self.vector_store_multimodal.search(query, None, top_k)
+                # result = self.vector_store_multimodal.search(query, None, top_k)
+                result = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
+
                 results.extend(result)
                 flag = 1
             if flag == 0:
@@ -113,18 +121,23 @@ class VectorService:
             print(f"向量搜索失败: {e}")
             return []
 
-    def batch_vectorize_existing_documents(self, batch_size: int = -1):
+    async def batch_vectorize_existing_documents(self, batch_size: int = -1):
         """批量向量化现有文档"""
         try:
             batch_size = self.batch_size if batch_size < 1 else batch_size
             # 获取未向量化的文档
-            documents = self.db.query(Document) \
-                .filter(Document.is_vectorized == 0) \
-                .limit(batch_size) \
-                .all()
+            # documents = self.db.query(Document) \
+            #     .filter(Document.is_vectorized == 0) \
+            #     .limit(batch_size) \
+            #     .all()
+
+            result = await self.db.execute(
+                select(Document).where(Document.is_vectorized == 0).limit(batch_size)
+            )
+            documents = result.scalars().all()
 
             for doc in documents:
-                self.add_document_to_vector_store(doc)
+                await self.add_document_to_vector_store(doc)
 
             return len(documents)
 

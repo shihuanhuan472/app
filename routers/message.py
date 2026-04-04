@@ -1,9 +1,12 @@
 # routers/message.py
+import asyncio
 import json
 import mimetypes
 import os
 import uuid
 import base64
+
+import aiofiles
 from PIL import Image
 from openai import OpenAI, AsyncOpenAI
 from datetime import datetime
@@ -11,12 +14,14 @@ from pathlib import Path
 from qwen_token_counter import get_token_count
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
 from sqlalchemy import func, and_
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, and_, select, desc
 from typing import List
 from schemas import Result
 from models import Message, User, Conversation, Document
 from schemas import MessageCreate, MessageResponse
-from database import get_db
+from database import get_db, AsyncSessionLocal
 from dependencies import get_current_active_user
 from utils.VectorService import VectorService
 from fastapi.responses import StreamingResponse
@@ -75,8 +80,11 @@ async def upload_images(images: List[UploadFile]):
             print("save_path: ", save_path)
             # 保存文件
             contents = await image.read()
-            with open(save_path, "wb") as buffer:
-                buffer.write(contents)
+            # with open(save_path, "wb") as buffer:
+            #     buffer.write(contents)
+
+            async with aiofiles.open(save_path, "wb") as buffer:
+                await buffer.write(contents)
 
             # 构建文件信息
             relative_url = Path(config["MESSAGE_IMAGE_DIR"]) / unique_filename
@@ -86,45 +94,49 @@ async def upload_images(images: List[UploadFile]):
                 "filename": unique_filename,
                 "original_name": image.filename
             })
+            print("上传图片！！！！")
+            print(uploaded_images[0])
         except Exception as e:
             # 记录错误但继续处理其他文件
             print(f"文件 {image.filename} 上传失败: {str(e)}")
 
     return Result.success_with_data(uploaded_images)
 
-def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
-    if not os.path.exists(image_path):
-        raise FileNotFoundError()
-    return image_path
-    image = Image.open(image_path).convert("RGB")
-    # new_size = (448, 448)
-    max_length = max(image.width, image.height)
-    # if short_length < max_size:
-    #     return image_path
-    # if max_length <= max_size:
-    #     return image_path
-    rate = max_size / max_length
-    new_size = (int(image.width * rate), int(image.height * rate))
-    resized_image = image.resize(new_size)
+async def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
 
-    new_image = Image.new("RGB", (max_size, max_size), pad_color)
+    def _compress():
+        if not os.path.exists(image_path):
+            raise FileNotFoundError()
 
-    x = (max_size - new_size[0]) // 2
-    y = (max_size - new_size[1]) // 2
+        dir_name, filename = os.path.split(image_path)
+        name, ext = os.path.splitext(filename)
+        new_path = f"{name}_compressed_{max_size}{ext}"
+        new_path = os.path.join(dir_name, new_path)
 
-    new_image.paste(resized_image, (x, y))
+        if os.path.exists(new_path):
+            return new_path
 
-    # new_size = (512, 512)
-    # print(new_size)
+        # return image_path
+        image = Image.open(image_path).convert("RGB")
+        # new_size = (448, 448)
+        max_length = max(image.width, image.height)
+        rate = max_size / max_length
+        new_size = (int(image.width * rate), int(image.height * rate))
+        resized_image = image.resize(new_size)
 
-    dir_name, filename = os.path.split(image_path)
-    name, ext = os.path.splitext(filename)
-    new_path = f"{name}_compressed{ext}"
-    new_path = os.path.join(dir_name, new_path)
-    new_image.save(new_path)
-    return new_path
+        new_image = Image.new("RGB", (max_size, max_size), pad_color)
 
-async def stream_ai_response(id, messages: list, db: Session, session_id: int, doc_ids, doc_ids_str):
+        x = (max_size - new_size[0]) // 2
+        y = (max_size - new_size[1]) // 2
+
+        new_image.paste(resized_image, (x, y))
+
+        new_image.save(new_path)
+        return new_path
+
+    return await asyncio.to_thread(_compress)
+
+async def stream_ai_response(id, messages: list, session_id: int, doc_ids, doc_ids_str):
     print("stream ai answer")
     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
@@ -155,13 +167,17 @@ async def stream_ai_response(id, messages: list, db: Session, session_id: int, d
                 yield f"data: {json.dumps(data)}\n\n"
         # print(f"full_content: {full_content}")
         # 流结束，保存 AI 消息
-        print(id)
-        ai_msg = db.query(Message).filter(Message.id == id).first()
-        if ai_msg:
-            ai_msg.content_text = full_content
-            db.commit()
+        # ai_msg = db.query(Message).filter(Message.id == id).first()
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Message).where(Message.id == id))
+            ai_msg = result.scalar_one_or_none()
+
+            if ai_msg:
+                ai_msg.content_text = full_content
+                await db.commit()
         final_data = {"code": 1, "data": "true"}
-        yield f"{json.dumps(final_data)}\n\n"
+        yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
         # error_msg = f"AI服务错误: {str(e)}"
         print(e)
@@ -173,20 +189,31 @@ async def stream_ai_response(id, messages: list, db: Session, session_id: int, d
 
 @router.post("/ask", summary="提问以获得回答")
 async def ask(message: MessageCreate,
-              db: Session = Depends(get_db),
+              db: AsyncSession = Depends(get_db),
               current_user: User = Depends(get_current_active_user)):
     try:
         config = get_image_config()
         # 检查对话存在
-        conversation = db.query(Conversation).filter(Conversation.id == message.session_id).first()
+        # conversation = db.query(Conversation).filter(Conversation.id == message.session_id).first()
+
+        conv_result = await db.execute(select(Conversation).where(Conversation.id == message.session_id))
+        conversation = conv_result.scalar_one_or_none()
+
         if not conversation:
             return Result.error("请先新建对话！")
-        max_order = (db.query(func.max(Message.message_order))
-                     .filter(Message.session_id == message.session_id)
-                     .scalar()) or 0
+        # max_order = (db.query(func.max(Message.message_order))
+        #              .filter(Message.session_id == message.session_id)
+        #              .scalar()) or 0
+
+        max_order_result = await db.execute(
+            select(func.max(Message.message_order)).where(Message.session_id == message.session_id)
+        )
+        max_order = max_order_result.scalar() or 0
+        print(message.user_uploaded_images)
 
         # 检查图片已上传服务器
         if message.user_uploaded_images is not None:
+            message.user_uploaded_images = message.user_uploaded_images.replace("\\", "/")
             urls = [url.strip() for url in message.user_uploaded_images.split(", ") if url.strip()]
             base_url = os.path.join(config["MESSAGE_BASE_DIR"], config["MESSAGE_IMAGE_DIR"].lstrip("/").lstrip("\\"))
 
@@ -194,10 +221,15 @@ async def ask(message: MessageCreate,
                 url_check = os.path.basename(url)
                 url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
                 # print(url_check)
-                if not os.path.exists(url_check):
+                # if not os.path.exists(url_check):
+                #     print(url_check)
+                #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                #                         detail="图片未上传")
+
+                if not await asyncio.to_thread(os.path.exists, url_check):
                     print(url_check)
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                        detail="图片未上传")
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="图片未上传")
+
             message.user_uploaded_images = (message.user_uploaded_images.replace("\\", "/")
                                             .replace(", /", ", ")
                                             .removeprefix("/")
@@ -205,6 +237,7 @@ async def ask(message: MessageCreate,
 
         # 创建用户的消息
         # print(111)
+        print(message.user_uploaded_images)
         db_message = Message(
             session_id=message.session_id,
             role=1,
@@ -215,22 +248,25 @@ async def ask(message: MessageCreate,
         )
 
         db.add(db_message)
-        db.commit()
-        db.refresh(db_message)
+        await db.commit()
+        await db.refresh(db_message)
 
-        ai_reference_document_ids = get_reference_documents(db, db_message.content_text,
-                                                            db_message.user_uploaded_images)
+        # ai_reference_document_ids = get_reference_documents(db, db_message.content_text,
+        #                                                     db_message.user_uploaded_images)
+        ai_reference_document_ids = await get_reference_documents(db, db_message.content_text,
+                                                                  db_message.user_uploaded_images)
+
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
 
-        messages = generate_messages(db, db_message.session_id, db_message, ai_reference_document_ids)
+        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_document_ids)
 
         conversation.updated_time = datetime.now()
 
         if max_order == 0:
-            new_title = get_new_title_by_ai(message.content_text)
+            new_title = await get_new_title_by_ai(message.content_text)
             conversation.title = new_title
 
-        db.commit()
+        # await db.commit()
 
         ai_msg = Message(
             session_id=message.session_id,
@@ -241,17 +277,17 @@ async def ask(message: MessageCreate,
             created_time=datetime.now()
         )
         db.add(ai_msg)
-        db.commit()
-        db.refresh(ai_msg)
+        await db.commit()
+        await db.refresh(ai_msg)
 
         if message.stream:
             return StreamingResponse(
-                stream_ai_response(ai_msg.id, messages, db, message.session_id,
+                stream_ai_response(ai_msg.id, messages, message.session_id,
                                    ai_reference_document_ids, ai_reference_document_ids_str),
                 media_type="text/event-stream"
             )
         else:
-            answer = get_ai_answer(db, messages, ai_msg.id)
+            answer = await get_ai_answer(db, messages, ai_msg.id)
             ai_response = MessageResponse.from_orm(answer)
             return Result.success_with_data(ai_response)
 
@@ -269,33 +305,44 @@ async def ask(message: MessageCreate,
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         print(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="服务器内部错误，请稍后重试"
         )
 
-def generate_messages(db, id, message_now, documents_id):
+async def generate_messages(db, id, message_now, documents_id):
     """
     生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
     """
     print("generate_messages")
     message_order = max(message_now.message_order - 6, 0)
-    messages_db = (db.query(Message).
-                   filter(Message.session_id == id).
-                   filter(Message.message_order > message_order).
-                   order_by(Message.created_time.desc()).
-                   all())
+    # messages_db = (db.query(Message).
+    #                filter(Message.session_id == id).
+    #                filter(Message.message_order > message_order).
+    #                order_by(Message.created_time.desc()).
+    #                all())
+
+    result = await db.execute(
+        select(Message)
+        .where(Message.session_id == id, Message.message_order > message_order)
+        .order_by(desc(Message.created_time))
+    )
+    messages_db = result.scalars().all()
+
     messages = []
     config = get_image_config()
     tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
     print("get_config")
     tokens = 0
 
-    user_question_tokens = get_token_count(message_now.content_text)
+    # user_question_tokens = get_token_count(message_now.content_text)
+
+    user_question_tokens = await asyncio.to_thread(get_token_count, message_now.content_text)
+
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
-        user_question_tokens += len(message_now.user_uploaded_images.split(",")) * 258
+        user_question_tokens += len(message_now.user_uploaded_images.split(",")) * 578
 
     tokens_max -= user_question_tokens
 
@@ -322,13 +369,14 @@ def generate_messages(db, id, message_now, documents_id):
             msg_text.append({"type": "text", "text": message.content_text})
 
             # tokens += get_token_count(message.content_text)
-            token_tmp += get_token_count(message.content_text)
+            # token_tmp += get_token_count(message.content_text)
+            token_tmp += await asyncio.to_thread(get_token_count, message.content_text)
 
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
                 images = message.user_uploaded_images.split(", ")
                 for image in images:
 
-                    image_compressed = compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
+                    image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
 
                     # image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
 
@@ -368,19 +416,18 @@ def generate_messages(db, id, message_now, documents_id):
     print(f"tokens: {tokens}")
 
     tokens_tmp = tokens_max - tokens
-    prompt = get_prompt(db, documents_id, tokens_tmp)
+    prompt = await get_prompt(db, documents_id, tokens_tmp)
 
 
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
-
         # images = message.user_uploaded_images.split(", ")
         for image in images:
-            image_compressed = compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
+            image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image), max_size=768)
             # image_base64 = image_to_base64(image_compressed)
-
+            print(image_compressed)
             mime_type, _ = mimetypes.guess_type(image_compressed)
             if mime_type is None:
                 ext = os.path.splitext(image_compressed)[1].lower()
@@ -412,7 +459,7 @@ def generate_messages(db, id, message_now, documents_id):
     # print("messages: ", messages)
     return messages
 
-def get_new_title_by_ai(content):
+async def get_new_title_by_ai(content):
     """
     让ai给我总结一个标题
     """
@@ -424,42 +471,55 @@ def get_new_title_by_ai(content):
 
     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = OpenAI(
-        base_url=f"http://{server_ip}:8000/v1",
-        api_key=api_key
-    )
-    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-4B-Instruct")
+    # client = OpenAI(
+    #     base_url=f"http://{server_ip}:8000/v1",
+    #     api_key=api_key
+    # )
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=max_token
-    )
-    new_title = response.choices[0].message.content
+
+    def _call_openai():
+        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_token
+        )
+        return response.choices[0].message.content
+
+    # response = client.chat.completions.create(
+    #     model=model,
+    #     messages=messages,
+    #     max_tokens=max_token
+    # )
+
+    # new_title = response.choices[0].message.content
+
+    new_title = await asyncio.to_thread(_call_openai)
+
     # data = {"model": model, "messages": message, "stream": False}
     # new_title = requests.post(ai_url, json=data).json()["message"]["content"]
     print("new_title: ", new_title)
     # print("message: ", message)
     if len(new_title) > 15 or len(new_title) == 0:
-        new_title = "新标题"
+        new_title = "新对话"
 
     return new_title
 
-def get_reference_documents(db, question: str, image: str = None):
+async def get_reference_documents(db, question: str, image: str = None):
     """
     检索出相关文档，并返回文档id
     """
     vector_service = VectorService(db)
-    vector_service.batch_vectorize_existing_documents()
-    documents = vector_service.search_similar_documents(question, image)
-    # return documents
-    document_ids = []
-    for document in documents:
-        document_ids.append(document["doc_id"])
+    # await vector_service.batch_vectorize_existing_documents()
+    documents = await vector_service.search_similar_documents(question, image)
+
+    document_ids = [document["doc_id"] for document in documents]
+
     return document_ids
     # return ", ".join(document_ids) if len(document_ids) > 0 else None
 
-def get_prompt(db, document_ids, max_tokens):
+async def get_prompt(db, document_ids, max_tokens):
     """
     生成提示词（包括根据相关文档id，提取文档内容作为提示词）
     """
@@ -467,11 +527,21 @@ def get_prompt(db, document_ids, max_tokens):
         return ""
     tokens = 0
     prompts = []
-    for i, document_id in enumerate(document_ids):
-        document = db.query(Document).filter(Document.id == document_id).scalar()
+
+    result = await db.execute(
+        select(Document).where(Document.id.in_(document_ids))
+    )
+    documents = result.scalars().all()
+
+    for i, document in enumerate(documents):
+        # document = db.query(Document).filter(Document.id == document_id).scalar()
+
+        # result = await db.execute(select(Document).where(Document.id == document_id))
+        # document = result.scalar_one_or_none()
+
         if not document:
             continue
-        doc_prompt = f"""【文档{i}：】{document.title}
+        doc_prompt = f"""【文档{i + 1}：】{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
 评估建议：{document.evaluation}
@@ -479,7 +549,9 @@ def get_prompt(db, document_ids, max_tokens):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
-        token_tmp = get_token_count(doc_prompt)
+        # token_tmp = get_token_count(doc_prompt)
+        token_tmp = await asyncio.to_thread(get_token_count, doc_prompt)
+
         if tokens + token_tmp >= max_tokens:
             break
         tokens += token_tmp
@@ -542,7 +614,7 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
 #     return final_ans, ai_reference_document_ids_str
 
 
-def get_ai_answer(db, messages, id):
+async def get_ai_answer(db, messages, id):
     """
     获取ai回答.
     流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
@@ -550,26 +622,45 @@ def get_ai_answer(db, messages, id):
     """
     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = OpenAI(
-        base_url=f"http://{server_ip}:8000/v1",
-        api_key=api_key
-    )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=max_token
-    )
+    # client = OpenAI(
+    #     base_url=f"http://{server_ip}:8000/v1",
+    #     api_key=api_key
+    # )
 
-    final_ans = (response.choices[0].message.content
-                 .replace("\n---\n", "---")
-                 .replace("\n\n", "\n"))
+    def _call_openai():
+        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_token
+        )
+        return response.choices[0].message.content
 
-    ai_msg = db.query(Message).filter(Message.id == id).first()
+
+    # response = client.chat.completions.create(
+    #     model=model,
+    #     messages=messages,
+    #     max_tokens=max_token
+    # )
+
+    final_ans = await asyncio.to_thread(_call_openai)
+    final_ans = final_ans.replace("\n---\n", "---").replace("\n\n", "\n")
+
+    # final_ans = (response.choices[0].message.content
+    #              .replace("\n---\n", "---")
+    #              .replace("\n\n", "\n"))
+
+    # ai_msg = db.query(Message).filter(Message.id == id).first()
+
+    result = await db.execute(select(Message).where(Message.id == id))
+    ai_msg = result.scalar_one_or_none()
+
     if ai_msg:
-        ai_msg.text = final_ans
-        db.commit()
+        ai_msg.content_text = final_ans
+        await db.commit()
+        await db.refresh(ai_msg)
 
     return ai_msg
 
@@ -644,31 +735,42 @@ print(response.choices[0].message.content)
 
 @router.get("/get_by_conversation", summary="获得某个对话的消息")
 async def get_by_conversation(id: int,
-                              db: Session = Depends(get_db),
+                              db: AsyncSession = Depends(get_db),
                               current_user: User = Depends(get_current_active_user)):
     try:
-        conversation = (db.query(Conversation)
-                        .filter(and_(Conversation.id == id, Conversation.user_id == current_user.id))
-                        .first())
+        conv_result = await db.execute(
+            select(Conversation).where(
+                and_(Conversation.id == id, Conversation.user_id == current_user.id))
+        )
+        conversation = conv_result.scalar_one_or_none()
+        # conversation = (db.query(Conversation)
+        #                 .filter(and_(Conversation.id == id, Conversation.user_id == current_user.id))
+        #                 .first())
         if not conversation:
             return Result.error("无该对话或无权限访问该对话")
-        messages = (db.query(Message)
-                    .filter(Message.session_id == id)
-                    .order_by(Message.created_time)
-                    .all())
+        # messages = (db.query(Message)
+        #             .filter(Message.session_id == id)
+        #             .order_by(Message.created_time)
+        #             .all())
+
+        msg_result = await db.execute(
+            select(Message).where(Message.session_id == id).order_by(Message.created_time)
+        )
+        messages = msg_result.scalars().all()
+
         message_response = [MessageResponse.from_orm(message) for message in messages]
         return Result.success_with_data(message_response)
     except Exception as e:
         return Result.error("获取对话消息失败")
 
 
-@router.get("/test_get_reference/{question}")
-async def get_reference(question: str,
-                        db: Session = Depends(get_db),
-                        current_user: User = Depends(get_current_active_user)):
-    """
-    一个拿来后端测试的api，前端并未调用，不用管
-    """
-    documents = get_reference_documents(db, question)
-    print(documents)
-    return Result.success_with_data(documents)
+# @router.get("/test_get_reference/{question}")
+# async def get_reference(question: str,
+#                         db: AsyncSession = Depends(get_db),
+#                         current_user: User = Depends(get_current_active_user)):
+#     """
+#     一个拿来后端测试的api，前端并未调用，不用管
+#     """
+#     documents = get_reference_documents(db, question)
+#     print(documents)
+#     return Result.success_with_data(documents)

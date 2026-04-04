@@ -103,7 +103,7 @@ class PPTParser:
 
         dir_name, filename = os.path.split(image_path)
         name, ext = os.path.splitext(filename)
-        new_path = f"{name}_compressed{ext}"
+        new_path = f"{name}_compressed_{max_size}{ext}"
         new_path = os.path.join(dir_name, new_path)
         new_image.save(new_path)
         return new_path
