@@ -148,6 +148,7 @@ async def delete_session(chat_id: str, ids: ConversationDeleteRequest,
                          db: AsyncSession = Depends(get_db),
                          current_user: User = Depends(get_current_active_user)):
     try:
+        error_session_ids = []
         for id in ids.ids:
             print(id)
 
@@ -156,17 +157,24 @@ async def delete_session(chat_id: str, ids: ConversationDeleteRequest,
 
             # conversation = db.query(Conversation).filter(Conversation.id == id).first()
             if not conversation:
-                return ResultNew.result(102, f"对话不存在", None)
+                continue
+                # return ResultNew.result(102, f"对话不存在", None)
 
             if conversation.user_id != current_user.id:
-                return ResultNew.result(102, "您无权删除此对话", None)
+                error_session_ids.append(id)
+                # return ResultNew.result(102, "您无权删除此对话", None)
 
             await db.execute(delete(Message).where(Message.session_id == id))
             await db.execute(delete(Conversation).where(Conversation.id == id))
             await db.commit()
 
             print(f"对话{id}已删除")
-        return ResultNew.result(0, None, None)
+        msg = ""
+        if len(error_session_ids) > 0:
+            msg = ", ".join(map(str, error_session_ids))
+            msg = "对话" + msg + "无权限删除"
+
+        return ResultNew.result(0, msg, None)
     except Exception as e:
         await db.rollback()
         print(e)

@@ -440,6 +440,11 @@ async def delete(id: int,
                         await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
                                                                                            url) else None
 
+                        name = f"{name}_compressed_512{ext}"
+                        url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
+                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                           url) else None
+
         # if document.image_urls:
         #     config = get_image_config()
         #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))

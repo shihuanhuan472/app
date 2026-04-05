@@ -120,6 +120,9 @@ class UploadDocumentRequestNew(BaseModel):
     location: str
     create: datetime
 
+class DeleteDocumentRequestNew(BaseModel):
+    ids: List[int]
+
 class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]
