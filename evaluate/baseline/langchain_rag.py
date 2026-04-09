@@ -140,7 +140,7 @@ class MilvusVectorStore:
         self.collection.flush()
         print(f"成功插入 {len(texts)} 条记录到 Milvus")
 
-    def search(self, query_text: str, query_image: Optional[Image.Image] = None, top_k: int = 5) -> List[Document]:
+    def search(self, query_text: str, query_image: Optional[Image.Image] = None, top_k: int = 3) -> List[Document]:
         """混合检索（文本+图片）"""
         query_vec = self.embed_model.embed_query(query_text, query_image)
         search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
@@ -164,6 +164,12 @@ class MilvusVectorStore:
                 )
                 docs.append(doc)
         return docs
+
+    def search_with_threshold(self, query_text: str, query_image=None, top_k=3, score_threshold=0.65):
+        docs = self.search(query_text, query_image, top_k)  # 先取更多结果
+        filtered = [doc for doc in docs if doc.metadata["score"] >= score_threshold]
+        # 如果过滤后不足 top_k，可以保留这些或继续检索更多
+        return filtered[:top_k]
 
 
 # ===================== 3. 文档解析（与您项目中的 chunk 方式类似） =====================
@@ -239,14 +245,14 @@ def parse_document_to_chunks(file_path: str) -> List[Dict]:
 
 # ===================== 4. 自定义检索器（兼容 LangChain） =====================
 class MultimodalRetriever(BaseRetriever):
-    def __init__(self, vector_store: MilvusVectorStore, top_k: int = 5):
+    def __init__(self, vector_store: MilvusVectorStore, top_k: int = 3):
         super().__init__()
         self.vector_store = vector_store
         self.top_k = top_k
 
     def _get_relevant_documents(self, query: str, **kwargs) -> List[Document]:
         # 如果查询中包含图片路径，可解析出来；此处假设仅文本查询
-        return self.vector_store.search(query_text=query, query_image=None, top_k=self.top_k)
+        return self.vector_store.search_with_threshold(query_text=query, query_image=None, top_k=self.top_k, score_threshold=0.5)
 
 
 # ===================== 6. 主程序示例 =====================

@@ -1,8 +1,8 @@
 import pandas as pd
 from ragas import evaluate
-from prepare_dataset import prepare_dataset
+from baseline.prepare_dataset import prepare_dataset
 import os
-os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxxxxxxx"
+os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxx"
 from ragas.metrics import faithfulness, answer_relevancy, context_recall, context_precision, answer_correctness
 from langchain_openai import ChatOpenAI
 
@@ -34,9 +34,9 @@ from langchain_openai import OpenAIEmbeddings
 """
 
 LLM_NAME = "gpt-4o-mini"
-API_KEY = "sk-xxxxxxxxxxxxxxxx"
-data_url = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data_1.json"
-save_path = "D:\Pycharm\code\Maintenance_Assistance_System\evaluate\\result.xlsx"
+API_KEY = "sk-xxxxxxxxxxxxxxxxxxx"
+data_url = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_data_langchain.json"
+save_path = "D:\Pycharm\code\Maintenance_Assistance_System\evaluate\\result_langchain.xlsx"
 
 saved_df = None
 if os.path.exists(save_path):
