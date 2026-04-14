@@ -1,0 +1,727 @@
+[
+    {
+        "image_url": "eval_images/120-1.jpg",
+        "document_id": [
+            120
+        ]
+    },
+    {
+        "image_url": "eval_images/120-2.jpg",
+        "document_id": [
+            120
+        ]
+    },
+    {
+        "image_url": "eval_images/120-3.png",
+        "document_id": [
+            120
+        ]
+    },
+    {
+        "image_url": "eval_images/121-1_122-1_123-1_124-3_125-2_126-1_127-1.png",
+        "document_id": [
+            121,
+            122,
+            123,
+            124,
+            125,
+            126,
+            127
+        ]
+    },
+    {
+        "image_url": "eval_images/121-1_122-2_123-1_124-2_125-1_126-1_127-1.jpg",
+        "document_id": [
+            121,
+            122,
+            123,
+            124,
+            125,
+            126,
+            127
+        ]
+    },
+    {
+        "image_url": "eval_images/121-1_122-3_123-3_124-3_125-1_126-1_127-1.jpeg",
+        "document_id": [
+            121,
+            122,
+            123,
+            124,
+            125,
+            126,
+            127
+        ]
+    },
+    {
+        "image_url": "eval_images/122-1.jpg",
+        "document_id": [
+            122
+        ]
+    },
+    {
+        "image_url": "eval_images/122-1_123-1_124-1.jpeg",
+        "document_id": [
+            122,
+            123,
+            124
+        ]
+    },
+    {
+        "image_url": "eval_images/122-2_123-2_124-2.jpeg",
+        "document_id": [
+            122,
+            123,
+            124
+        ]
+    },
+    {
+        "image_url": "eval_images/122-3_123-2_124-3.jpg",
+        "document_id": [
+            122,
+            123,
+            124
+        ]
+    },
+    {
+        "image_url": "eval_images/124-1.jpg",
+        "document_id": [
+            124
+        ]
+    },
+    {
+        "image_url": "eval_images/124-2.png",
+        "document_id": [
+            124
+        ]
+    },
+    {
+        "image_url": "eval_images/125-1.png",
+        "document_id": [
+            125
+        ]
+    },
+    {
+        "image_url": "eval_images/125-1.webp",
+        "document_id": [
+            125
+        ]
+    },
+    {
+        "image_url": "eval_images/125-2.jpg",
+        "document_id": [
+            125
+        ]
+    },
+    {
+        "image_url": "eval_images/125-3.jpg",
+        "document_id": [
+            125
+        ]
+    },
+    {
+        "image_url": "eval_images/128-1.jpg",
+        "document_id": [
+            128
+        ]
+    },
+    {
+        "image_url": "eval_images/132-1_133-1.jpg",
+        "document_id": [
+            132,
+            133
+        ]
+    },
+    {
+        "image_url": "eval_images/134-1.jpg",
+        "document_id": [
+            134
+        ]
+    },
+    {
+        "image_url": "eval_images/134-1.webp",
+        "document_id": [
+            134
+        ]
+    },
+    {
+        "image_url": "eval_images/134-2.jpg",
+        "document_id": [
+            134
+        ]
+    },
+    {
+        "image_url": "eval_images/134-2.webp",
+        "document_id": [
+            134
+        ]
+    },
+    {
+        "image_url": "eval_images/134-3.webp",
+        "document_id": [
+            134
+        ]
+    },
+    {
+        "image_url": "eval_images/135-1_137-1.jpg",
+        "document_id": [
+            135,
+            137
+        ]
+    },
+    {
+        "image_url": "eval_images/135-1_137-1.webp",
+        "document_id": [
+            135,
+            137
+        ]
+    },
+    {
+        "image_url": "eval_images/135-2.jpg",
+        "document_id": [
+            135
+        ]
+    },
+    {
+        "image_url": "eval_images/136-1.jpg",
+        "document_id": [
+            136
+        ]
+    },
+    {
+        "image_url": "eval_images/136-1.webp",
+        "document_id": [
+            136
+        ]
+    },
+    {
+        "image_url": "eval_images/136-2.jpg",
+        "document_id": [
+            136
+        ]
+    },
+    {
+        "image_url": "eval_images/136-3.jpg",
+        "document_id": [
+            136
+        ]
+    },
+    {
+        "image_url": "eval_images/136-4.jpg",
+        "document_id": [
+            136
+        ]
+    },
+    {
+        "image_url": "eval_images/137-2.jpg",
+        "document_id": [
+            137
+        ]
+    },
+    {
+        "image_url": "eval_images/137-3.jpg",
+        "document_id": [
+            137
+        ]
+    },
+    {
+        "image_url": "eval_images/137-4_153-1.jpg",
+        "document_id": [
+            137,
+            153
+        ]
+    },
+    {
+        "image_url": "eval_images/141-1.jpg",
+        "document_id": [
+            141
+        ]
+    },
+    {
+        "image_url": "eval_images/142-1_146_1.webp",
+        "document_id": [
+            142
+        ]
+    },
+    {
+        "image_url": "eval_images/143-1_151-1_153-1.webp",
+        "document_id": [
+            143,
+            151,
+            153
+        ]
+    },
+    {
+        "image_url": "eval_images/144-1.jpeg",
+        "document_id": [
+            144
+        ]
+    },
+    {
+        "image_url": "eval_images/144-2.png",
+        "document_id": [
+            144
+        ]
+    },
+    {
+        "image_url": "eval_images/144-3.webp",
+        "document_id": [
+            144
+        ]
+    },
+    {
+        "image_url": "eval_images/145-1.jpg",
+        "document_id": [
+            145
+        ]
+    },
+    {
+        "image_url": "eval_images/149-1.png",
+        "document_id": [
+            149
+        ]
+    },
+    {
+        "image_url": "eval_images/149-2.png",
+        "document_id": [
+            149
+        ]
+    },
+    {
+        "image_url": "eval_images/149-3.jpeg",
+        "document_id": [
+            149
+        ]
+    },
+    {
+        "image_url": "eval_images/149-4.png",
+        "document_id": [
+            149
+        ]
+    },
+    {
+        "image_url": "eval_images/149-5.png",
+        "document_id": [
+            149
+        ]
+    },
+    {
+        "image_url": "eval_images/150-1.webp",
+        "document_id": [
+            150
+        ]
+    },
+    {
+        "image_url": "eval_images/150-2.jpg",
+        "document_id": [
+            150
+        ]
+    },
+    {
+        "image_url": "eval_images/150-3.jpg",
+        "document_id": [
+            150
+        ]
+    },
+    {
+        "image_url": "eval_images/150-4.webp",
+        "document_id": [
+            150
+        ]
+    },
+    {
+        "image_url": "eval_images/158-1.jpeg",
+        "document_id": [
+            158
+        ]
+    },
+    {
+        "image_url": "eval_images/161-1.jpg",
+        "document_id": [
+            161
+        ]
+    },
+    {
+        "image_url": "eval_images/161-2.png",
+        "document_id": [
+            161
+        ]
+    },
+    {
+        "image_url": "eval_images/161-3.png",
+        "document_id": [
+            161
+        ]
+    },
+    {
+        "image_url": "eval_images/161-4.png",
+        "document_id": [
+            161
+        ]
+    },
+    {
+        "image_url": "eval_images/162-1.webp",
+        "document_id": [
+            162
+        ]
+    },
+    {
+        "image_url": "eval_images/162-2.png",
+        "document_id": [
+            162
+        ]
+    },
+    {
+        "image_url": "eval_images/162-3.png",
+        "document_id": [
+            162
+        ]
+    },
+    {
+        "image_url": "eval_images/162-4.png",
+        "document_id": [
+            162
+        ]
+    },
+    {
+        "image_url": "eval_images/162-5.webp",
+        "document_id": [
+            162
+        ]
+    },
+    {
+        "image_url": "eval_images/163-1.jpg",
+        "document_id": [
+            163
+        ]
+    },
+    {
+        "image_url": "eval_images/163-2.jpg",
+        "document_id": [
+            163
+        ]
+    },
+    {
+        "image_url": "eval_images/166-1.png",
+        "document_id": [
+            166
+        ]
+    },
+    {
+        "image_url": "eval_images/170-1.png",
+        "document_id": [
+            170
+        ]
+    },
+    {
+        "image_url": "eval_images/170-2.webp",
+        "document_id": [
+            170
+        ]
+    },
+    {
+        "image_url": "eval_images/170-3.webp",
+        "document_id": [
+            170
+        ]
+    },
+    {
+        "image_url": "eval_images/173-1.jpg",
+        "document_id": [
+            173
+        ]
+    },
+    {
+        "image_url": "eval_images/173-2.png",
+        "document_id": [
+            173
+        ]
+    },
+    {
+        "image_url": "eval_images/175-1.webp",
+        "document_id": [
+            175
+        ]
+    },
+    {
+        "image_url": "eval_images/187-1.webp",
+        "document_id": [
+            187
+        ]
+    },
+    {
+        "image_url": "eval_images/190-1.jpeg",
+        "document_id": [
+            190
+        ]
+    },
+    {
+        "image_url": "eval_images/192-1.jpg",
+        "document_id": [
+            192
+        ]
+    },
+    {
+        "image_url": "eval_images/192-2.jpg",
+        "document_id": [
+            192
+        ]
+    },
+    {
+        "image_url": "eval_images/192-3.jpg",
+        "document_id": [
+            192
+        ]
+    },
+    {
+        "image_url": "eval_images/195-1.jpg",
+        "document_id": [
+            195
+        ]
+    },
+    {
+        "image_url": "eval_images/195-2.jpg",
+        "document_id": [
+            195
+        ]
+    },
+    {
+        "image_url": "eval_images/204-1_206-1.jpg",
+        "document_id": [
+            204,
+            206
+        ]
+    },
+    {
+        "image_url": "eval_images/221-1.jpg",
+        "document_id": [
+            221
+        ]
+    },
+    {
+        "image_url": "eval_images/221-2.png",
+        "document_id": [
+            221
+        ]
+    },
+    {
+        "image_url": "eval_images/221-3.jpg",
+        "document_id": [
+            221
+        ]
+    },
+    {
+        "image_url": "eval_images/228-1.png",
+        "document_id": [
+            228
+        ]
+    },
+    {
+        "image_url": "eval_images/233-1.webp",
+        "document_id": [
+            233
+        ]
+    },
+    {
+        "image_url": "eval_images/237-1.webp",
+        "document_id": [
+            237
+        ]
+    },
+    {
+        "image_url": "eval_images/239-1.jpg",
+        "document_id": [
+            239
+        ]
+    },
+    {
+        "image_url": "eval_images/241-1.jpg",
+        "document_id": [
+            241
+        ]
+    },
+    {
+        "image_url": "eval_images/241-2.jpg",
+        "document_id": [
+            241
+        ]
+    },
+    {
+        "image_url": "eval_images/248-1.jpg",
+        "document_id": [
+            248
+        ]
+    },
+    {
+        "image_url": "eval_images/250-1.jpg",
+        "document_id": [
+            250
+        ]
+    },
+    {
+        "image_url": "eval_images/250-2.jpg",
+        "document_id": [
+            250
+        ]
+    },
+    {
+        "image_url": "eval_images/252-1.webp",
+        "document_id": [
+            252
+        ]
+    },
+    {
+        "image_url": "eval_images/256-1.webp",
+        "document_id": [
+            256
+        ]
+    },
+    {
+        "image_url": "eval_images/257-1.jpg",
+        "document_id": [
+            257
+        ]
+    },
+    {
+        "image_url": "eval_images/257-2.jpg",
+        "document_id": [
+            257
+        ]
+    },
+    {
+        "image_url": "eval_images/259-1.jpg",
+        "document_id": [
+            259
+        ]
+    },
+    {
+        "image_url": "eval_images/264-1.webp",
+        "document_id": [
+            264
+        ]
+    },
+    {
+        "image_url": "eval_images/264-2.png",
+        "document_id": [
+            264
+        ]
+    },
+    {
+        "image_url": "eval_images/264-4.jpeg",
+        "document_id": [
+            264
+        ]
+    },
+    {
+        "image_url": "eval_images/265-1.jpg",
+        "document_id": [
+            265
+        ]
+    },
+    {
+        "image_url": "eval_images/266-1.png",
+        "document_id": [
+            266
+        ]
+    },
+    {
+        "image_url": "eval_images/267-1.jpg",
+        "document_id": [
+            267
+        ]
+    },
+    {
+        "image_url": "eval_images/269-1.webp",
+        "document_id": [
+            269
+        ]
+    },
+    {
+        "image_url": "eval_images/270-1.webp",
+        "document_id": [
+            270
+        ]
+    },
+    {
+        "image_url": "eval_images/270-2.jpg",
+        "document_id": [
+            270
+        ]
+    },
+    {
+        "image_url": "eval_images/274-1.jpg",
+        "document_id": [
+            274
+        ]
+    },
+    {
+        "image_url": "eval_images/276-1.jpg",
+        "document_id": [
+            276
+        ]
+    },
+    {
+        "image_url": "eval_images/276-2.png",
+        "document_id": [
+            276
+        ]
+    },
+    {
+        "image_url": "eval_images/276-4.png",
+        "document_id": [
+            276
+        ]
+    },
+    {
+        "image_url": "eval_images/278-2.png",
+        "document_id": [
+            278
+        ]
+    },
+    {
+        "image_url": "eval_images/287-1.png",
+        "document_id": [
+            287
+        ]
+    },
+    {
+        "image_url": "eval_images/287-2.jpg",
+        "document_id": [
+            287
+        ]
+    },
+    {
+        "image_url": "eval_images/292-1.jpg",
+        "document_id": [
+            292
+        ]
+    },
+    {
+        "image_url": "eval_images/298-1_303-1.png",
+        "document_id": [
+            298,
+            303
+        ]
+    },
+    {
+        "image_url": "eval_images/298-2_303-2.webp",
+        "document_id": [
+            298,
+            303
+        ]
+    },
+    {
+        "image_url": "eval_images/298-4_303-4.png",
+        "document_id": [
+            298,
+            303
+        ]
+    },
+    {
+        "image_url": "eval_images/298-5_303-5.png",
+        "document_id": [
+            298,
+            303
+        ]
+    }
+]
