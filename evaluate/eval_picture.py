@@ -1,9 +1,11 @@
+import base64
 import json
 import os
 from typing import List, Set, Dict, Any
 from database import SessionLocal
 from models import Document
 from utils.VectorService import VectorService
+from openai import OpenAI
 
 db = SessionLocal()
 vector_service = VectorService(db)
@@ -23,6 +25,8 @@ files_langchain.json：拿来记录langchain导入文档的流程
 final_data_langchain.json：langchain的最终数据集
 images_data.json：标注图片路由和相关文档的
 images_retrieve.json：图像检索，初始分块，top-8，阈值0.4
+image_retrieve_main_chunk.json：仅增加main_chunk（略微提升）
+images_retrieve_main_chunk_vision.json：增加图像ai提取内容（初代prompt）
 images_retrieve_new.json：图像检索，图片单独分块，top-8，阈值0.4
 precision_1.json：文本检索答案正确率
 precision_2.json：无RAG，文本检索答案正确率
@@ -179,14 +183,19 @@ def retrieve_new(pic_file: str, save_url: str):
             print(f"{pic['image_url']}已检索，跳过")
             continue
         print(f"开始检索{pic['image_url']}")
-        documents = vector_service.search_similar_documents("", pic["image_url"])
+
+        vision_data = get_vision(pic['image_url'])
+        if vision_data is not None:
+            documents = vector_service.search_similar_documents(f"【图像信息】：{vision_data}", pic["image_url"])
+        else:
+            documents = vector_service.search_similar_documents(f"", pic["image_url"])
         saved_data.append({
             "image_url": pic['image_url'],
             "document_id": pic['document_id'],
             "context": documents
         })
         cnt += 1
-        if cnt % 10 == 0:
+        if cnt % 5 == 0:
             print(f"已检索{cnt}个图像")
             with open(save_url, 'w', encoding='utf-8') as f:
                 json.dump(saved_data, f, ensure_ascii=False, indent=4)
@@ -214,6 +223,58 @@ def tmp_check(save_url: str):
                 t_rank += i + 1
                 break
     print(f"true: {t}，false: {len(data) - t}，t_rank: {t_rank / t}")
+
+def image_to_base64(image: str, dir: str = None):
+    if dir is not None:
+        # print(dir, image)
+        image = os.path.join(dir, image)
+    with open(image, "rb") as f:
+        image_base64 = base64.b64encode(f.read()).decode("utf-8")
+        return image_base64
+
+
+def get_vision(pic: str):
+    base_dir = os.getenv("BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+
+    image_base64 = image_to_base64(pic, base_dir)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "请详细描述图像信息，重点包含设备信息和故障信息。\n仅返回答案，不要任何markdown渲染。"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_base64}"
+                    }
+                }
+            ],
+        }
+    ]
+    #
+    # print(111)
+    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    api_key = os.getenv("API_KEY", "EMPTY")
+    client = OpenAI(
+        base_url=f"http://{server_ip}:8000/v1",
+        api_key=api_key
+    )
+    model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+    # print(222)
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=1000
+        )
+        # print(response)
+        print(response.choices[0].message.content)
+        print("\n================================\n")
+        # return result.json()["message"]["content"], ai_reference_document_ids_str
+        return response.choices[0].message.content
+    except Exception as e:
+        print("ai提取失败！！！")
+        return None
 
 def eval(pic_file: str, save_url: str):
     if not os.path.exists(pic_file):
@@ -342,7 +403,7 @@ def pre_pictures(image_dir: str, save_path: str):
 
 if __name__ == '__main__':
 
-    # documents = vector_service.batch_vectorize_existing_documents(100)
+    # documents = vector_service.batch_vectorize_existing_documents(150)
     #
     # print(documents)
 
@@ -352,7 +413,7 @@ if __name__ == '__main__':
     #          "D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve1.json")
 
     eval("D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_data.json",
-             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_retrieve_with_prompt.json")
+             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_retrieve_main_chunk_vision_new_prompt1.json")
 
     # tmp_check("D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve.json")
 

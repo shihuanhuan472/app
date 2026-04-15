@@ -1,9 +1,16 @@
 # utils/vector_store.py
+
 import os
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
-from pymilvus.orm import utility
 
+from PIL import Image
+from qwen_token_counter import get_token_count
+import base64
+import mimetypes
+
+from pymilvus.orm import utility
+from openai import OpenAI
 import torch  # 添加导入
 from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
@@ -40,31 +47,6 @@ class VectorStoreMultimodal:
         # 虽然有硬分块参数，但是其实根本没用上（最开始怕某个字段特别长，后来感觉再长也不会好几千个字）
         self.chunk_size = int(os.getenv("CHUNK_SIZE", 500))
         self.overlap = int(os.getenv("OVERLAP", 50))
-        # 尝试使用flash_attention_2加速（如果可用）
-        # try:
-        #     if device == "cuda":
-        #         self.embedding_model = SentenceTransformer(
-        #             self.model_embedding,
-        #             model_kwargs={
-        #                 "attn_implementation": "flash_attention_2",
-        #                 "torch_dtype": torch.float16 if device == "cuda" else torch.float32
-        #             },
-        #             tokenizer_kwargs={"padding_side": "left"},
-        #             cache_folder=self.model_embedding_local
-        #         )
-        #     else:
-        #         self.embedding_model = SentenceTransformer(
-        #             self.model_embedding,
-        #             cache_folder=self.model_embedding_local,
-        #             device=device
-        #         )
-        # except Exception as e:
-        #     print(f"Flash attention not available, using default: {e}")
-        #     self.embedding_model = SentenceTransformer(
-        #         self.model_embedding,
-        #         cache_folder=self.model_embedding_local,
-        #         device=device
-        #     )
 
         self.embedding_dim = 1024
 
@@ -72,8 +54,15 @@ class VectorStoreMultimodal:
         self.connect_milvus()
 
         # 创建或加载Collection
-        self.collection_name = "documents_collection_multimodal"
+        # self.collection_name = "documents_collection_multimodal"
+        # self.collection_name = "documents_collection_new"
+        self.collection_name = "documents_collection_main_chunk"
         self.create_or_load_collection()
+
+        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
+        self.api_key = os.getenv("API_KEY", "EMPTY")
+        self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+        self.max_token = 2000
 
     def get_config(self):
         IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
@@ -223,59 +212,6 @@ class VectorStoreMultimodal:
                 raise
 
     def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1) -> List[Dict]:
-        # 使用传入参数或默认值
-        # chunk_size = chunk_size if chunk_size > 0 else self.chunk_size
-        # overlap = overlap if overlap > 0 else self.overlap
-        #
-        # # 确保参数有效
-        # if chunk_size <= overlap:
-        #     print(f"警告: chunk_size({chunk_size}) <= overlap({overlap})，设置为默认值")
-        #     chunk_size = chunk_size if chunk_size > 1 else self.chunk_size
-        #     overlap = overlap if overlap > 1 else self.overlap
-        #
-        # # 构建完整文本
-        # text = f"""
-        #     标题: {document.title}
-        #     问题描述: {document.problem_intro}
-        #     原因: {document.causes}
-        #     评估: {document.evaluation}
-        #     检查: {document.inspection}
-        #     解决方案: {document.solutions}
-        #     关键点: {document.key_points}
-        # """
-        #
-        # # 使用jieba进行精确模式分词
-        # words = list(jieba.cut(text, cut_all=False))
-        # print(f"分词后词数: {len(words)}")
-        #
-        # chunks = []
-        #
-        # images = document.image_urls.split(", ") if document.image_urls else []
-        #
-        # # 分块
-        # for i in range(0, len(words), chunk_size - overlap):
-        #     chunk_words = words[i:i + chunk_size]
-        #     chunk_text = "".join(chunk_words)  # 中文不用空格连接
-        #
-        #     # 确保块不以截断的词开头/结尾
-        #     if i > 0 and len(chunk_text) > 10:
-        #         # 移除可能被截断的第一个词
-        #         chunk_text = chunk_text.lstrip("，。！？；,.!?;")
-        #
-        #     if chunk_text.strip():
-        #         chunks.append({
-        #             "doc_id": document.id,
-        #             "title": document.title,
-        #             "content": chunk_text.strip(),
-        #             "image_paths": images,
-        #             "metadata": json.dumps({
-        #                 "contributor_id": document.contributor_id,
-        #                 "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
-        #                 "chunk_index": len(chunks),
-        #                 "word_count": len(chunk_words)
-        #             })
-        #         })
-
         chunks = []
         sections = [
             ("title", "problem_intro", "标题", "问题简介"),
@@ -314,6 +250,21 @@ class VectorStoreMultimodal:
                             })
                         }
                         chunks.append(chunk)
+
+                        # chunk1 = {
+                        #     "doc_id": document.id,
+                        #     "title": document.title,
+                        #     "content": "",
+                        #     "image_url": url,
+                        #     "metadata": json.dumps({
+                        #         "contributor_id": document.contributor_id,
+                        #         "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                        #         "chunk_index": len(chunks),
+                        #         "chunk_size": len(content)
+                        #     })
+                        # }
+                        # chunks.append(chunk1)
+
                 # 如果没有图片
                 if flag == 0:
                     chunks.append({
@@ -352,6 +303,20 @@ class VectorStoreMultimodal:
                             "chunk_size": len(content)
                         })
                     })
+                    #
+                    # chunks.append({
+                    #     "doc_id": document.id,
+                    #     "title": document.title,
+                    #     "content": "",
+                    #     "image_url": url,
+                    #     "metadata": json.dumps({
+                    #         "contributor_id": document.contributor_id,
+                    #         "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                    #         "chunk_index": len(chunks),
+                    #         "chunk_size": len(content)
+                    #     })
+                    # })
+
             # 没图片但是有文本
             if flag == 0 and len(getattr(document, section[0])) > 0:
                 chunks.append({
@@ -405,6 +370,24 @@ class VectorStoreMultimodal:
         if not chunks:
             return
 
+        main_chunk = self.get_main_chunk(document)
+        # print(111)
+        if main_chunk is not None:
+            content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
+            chunks.append({
+                "doc_id": document.id,
+                "title": document.title,
+                "content": content,
+                "image_url": "",
+                "metadata": json.dumps({
+                    "contributor_id": document.contributor_id,
+                    "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                    "chunk_index": len(chunks),
+                    "chunk_size": len(content)
+                })
+            })
+        # print(222)
+
         # 准备批量插入数据
         data = []
         chunk_contents = []
@@ -419,11 +402,11 @@ class VectorStoreMultimodal:
                 chunk["metadata"]  # metadata
             ])
             chunk_contents.append(chunk["content"])
-
+        # print(333)
         # 生成向量（文档不使用提示词）
         # embeddings = self.embed_texts(chunk_contents, is_query=False)
         embeddings = self.embed_multimodal(chunks)
-
+        # print(444)
         # 插入数据
         insert_data = [
             [item[0] for item in data],  # doc_ids
@@ -488,6 +471,39 @@ class VectorStoreMultimodal:
         # print(retrieved_docs)
         return retrieved_docs
 
+    def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
+        if not os.path.exists(image_path):
+            raise FileNotFoundError()
+        dir_name, filename = os.path.split(image_path)
+        name, ext = os.path.splitext(filename)
+        new_path = f"{name}_compressed_{max_size}{ext}"
+        new_path = os.path.join(dir_name, new_path)
+
+        if os.path.exists(new_path):
+            return new_path
+
+        image = Image.open(image_path).convert("RGB")
+        # new_size = (448, 448)
+        max_length = max(image.width, image.height)
+        rate = max_size / max_length
+        new_size = (int(image.width * rate), int(image.height * rate))
+        resized_image = image.resize(new_size)
+
+        new_image = Image.new("RGB", (max_size, max_size), pad_color)
+
+        x = (max_size - new_size[0]) // 2
+        y = (max_size - new_size[1]) // 2
+
+        new_image.paste(resized_image, (x, y))
+
+        new_image.save(new_path)
+        return new_path
+
+    def image_to_base64(self, image: str):
+        with open(image, "rb") as f:
+            image_base64 = base64.b64encode(f.read()).decode("utf-8")
+            return image_base64
+
     def delete_document(self, doc_id: int):
         """从向量库中删除文档"""
         try:
@@ -497,6 +513,98 @@ class VectorStoreMultimodal:
         self.collection.delete(f'doc_id == {doc_id}')
         self.collection.flush()
         print(f"Deleted document {doc_id} from vector store")
+
+    def generate_message(self, content, images):
+        messages = []
+        data = {}
+        prompt = """我将提供一段设备维修相关的内容，请根据后续文本和图像内容，按照给定模板，总结提炼核心内容。
+【模板】：
+标题：<简洁的标题>
+问题简介：<提取核心的问题介绍，点明设备类型，品牌，问题等核心内容>
+核心原因：<点明核心原因>
+关键特征：<故障的核心特征，重点描述感官现象，如：黑屏，气味刺鼻等>
+
+输出JSON格式如下：
+{{
+    "title": "标题",
+    "problem_intro": "问题简介",
+    "causes": "核心原因",
+    "feature": "关键特征"
+}}
+
+注意：
+1. 不得杜撰内容，请确保内容的准确性与简洁性。
+2. 若包含图像，可以从图像中分析特征。
+3. 回答长度不得超过500个token。
+4. 关键特征部分可相对详细一点。
+
+现在给定内容如下：
+[文本内容]
+{text}
+
+[图片内容由后续base64给出]
+""".format(text=content)
+        msg_content = [{"type": "text", "text": prompt}]
+        token_cnt = get_token_count(prompt)
+        if images is not None:
+            for image in images:
+                image = image.strip()
+                compress_image = self.compress_image(image, max_size=768)
+                mime_type, _ = mimetypes.guess_type(compress_image)
+                if mime_type is None:
+                    ext = os.path.splitext(compress_image)[1].lower()
+                    mime_type = {
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.webp': 'image/webp',
+                        '.bmp': 'image/bmp'
+                    }.get(ext, 'image/jpeg')
+                image_base64 = self.image_to_base64(compress_image)
+
+                if token_cnt + 578 > 6000:
+                    break
+                token_cnt += 578
+
+                msg_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+                })
+        data["role"] = "user"
+        data["content"] = msg_content
+        messages.append(data)
+        return messages
+
+    def get_main_chunk(self, document: Document):
+        content = f"【标题】：{document.title}\n【问题简介】：{document.problem_intro}\n【成因】：{document.causes}\n"
+
+        if document.image_urls_problem_intro is not None and document.image_urls_problem_intro != "":
+            images = document.image_urls_problem_intro.split(", ")
+        else:
+            images = []
+        if document.image_urls_causes is not None and document.image_urls_causes != "":
+            images.extend(document.image_urls_causes.split(", "))
+
+        try:
+            client = OpenAI(
+                base_url=f"http://{self.ai}:8000/v1",
+                api_key=self.api_key
+            )
+            messages = self.generate_message(content, images)
+
+            response = client.chat.completions.create(
+                model=self.model_chat,
+                messages=messages,
+                max_tokens=self.max_token
+            )
+            ans = response.choices[0].message.content
+            print("生成主chunk的ai回答")
+            print(ans)
+            result = json.loads(ans)
+            return result
+        except Exception as e:
+            print(e)
+            return None
 
     def embed_multimodal(self, chunks):
         """生成向量"""
@@ -510,11 +618,11 @@ class VectorStoreMultimodal:
 
     def embed_multimodal_query(self, text=None, image=None):
         """查询"""
-        print(f"{text}")
-        if image is None:
-            print("None")
-        else:
-            print(image)
+        # print(f"{text}")
+        # if image is None:
+        #     print("None")
+        # else:
+        #     print(image)
         with torch.no_grad():
             encode_result = self.model.encode(text=text, image=image)
         return encode_result.cpu().numpy().flatten().tolist()
@@ -525,7 +633,7 @@ vector_store_multimodal = VectorStoreMultimodal()
 if __name__ == "__main__":
     pass
     # connections.connect(host='localhost', port='19530')
-    # collection_name = "documents_collection_multimodal"
+    # collection_name = "documents_collection_main_chunk"
     # if utility.has_collection(collection_name):
     #     collection = Collection(collection_name)
     #     collection.drop()

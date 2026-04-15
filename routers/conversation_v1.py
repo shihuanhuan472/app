@@ -16,6 +16,7 @@ from models import Conversation
 from schemas import ResultNew, ConversationCreateNew, ConversationDeleteRequest, MessageCreateNew
 from database import get_db
 from utils.VectorService import VectorService
+from PIL import Image
 
 router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
 
@@ -174,17 +175,21 @@ def get_image_config():
         "ALLOWED_EXTENSIONS": ALLOWED_EXTENSIONS
     }
 
-def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
+
+def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
     if not os.path.exists(image_path):
         raise FileNotFoundError()
-    return image_path
+    dir_name, filename = os.path.split(image_path)
+    name, ext = os.path.splitext(filename)
+    new_path = f"{name}_compressed_{max_size}{ext}"
+    new_path = os.path.join(dir_name, new_path)
+
+    if os.path.exists(new_path):
+        return new_path
+
     image = Image.open(image_path).convert("RGB")
     # new_size = (448, 448)
     max_length = max(image.width, image.height)
-    # if short_length < max_size:
-    #     return image_path
-    # if max_length <= max_size:
-    #     return image_path
     rate = max_size / max_length
     new_size = (int(image.width * rate), int(image.height * rate))
     resized_image = image.resize(new_size)
@@ -196,13 +201,6 @@ def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
 
     new_image.paste(resized_image, (x, y))
 
-    # new_size = (512, 512)
-    # print(new_size)
-
-    dir_name, filename = os.path.split(image_path)
-    name, ext = os.path.splitext(filename)
-    new_path = f"{name}_compressed{ext}"
-    new_path = os.path.join(dir_name, new_path)
     new_image.save(new_path)
     return new_path
 

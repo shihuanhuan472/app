@@ -287,39 +287,32 @@ class HTMLParser:
             return image_base64
 
     def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
-        # 图片压缩，最终尺寸（512, 512），是等比压缩，空白部分填充黑色
-        # 问就是一次问答的token数是有限的，只有8192
         if not os.path.exists(image_path):
             raise FileNotFoundError()
+        dir_name, filename = os.path.split(image_path)
+        name, ext = os.path.splitext(filename)
+        new_path = f"{name}_compressed_{max_size}{ext}"
+        new_path = os.path.join(dir_name, new_path)
 
-        try:
-            image = Image.open(image_path).convert("RGB")
-        except Exception as e:
-            print(f"无法打开图片 {image_path}: {e}")
-            return None
-
-        try:
-            max_length = max(image.width, image.height)
-            rate = max_size / max_length
-            new_size = (int(image.width * rate), int(image.height * rate))
-            resized_image = image.resize(new_size)
-
-            new_image = Image.new("RGB", (max_size, max_size), pad_color)
-            x = (max_size - new_size[0]) // 2
-            y = (max_size - new_size[1]) // 2
-            new_image.paste(resized_image, (x, y))
-
-            dir_name, filename = os.path.split(image_path)
-            name, ext = os.path.splitext(filename)
-            new_path = f"{name}_compressed{ext}"
-            new_path = os.path.join(dir_name, new_path)
-
-            new_image.save(new_path)
-            print(f"压缩成功: {new_path}")
+        if os.path.exists(new_path):
             return new_path
-        except Exception as e:
-            print(f"压缩图片 {image_path} 失败: {e}")
-            return None
+
+        image = Image.open(image_path).convert("RGB")
+        # new_size = (448, 448)
+        max_length = max(image.width, image.height)
+        rate = max_size / max_length
+        new_size = (int(image.width * rate), int(image.height * rate))
+        resized_image = image.resize(new_size)
+
+        new_image = Image.new("RGB", (max_size, max_size), pad_color)
+
+        x = (max_size - new_size[0]) // 2
+        y = (max_size - new_size[1]) // 2
+
+        new_image.paste(resized_image, (x, y))
+
+        new_image.save(new_path)
+        return new_path
 
     def generate_message(self, text, image_urls):
         messages = []
