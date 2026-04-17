@@ -27,7 +27,9 @@ images_data.json：标注图片路由和相关文档的
 images_retrieve.json：图像检索，初始分块，top-8，阈值0.4
 image_retrieve_main_chunk.json：仅增加main_chunk（略微提升）
 images_retrieve_main_chunk_vision.json：增加图像ai提取内容（初代prompt）
+images_retrieve_main_chunk_vision_new_prompt1.json：和上面的一样，但是新的prompt
 images_retrieve_new.json：图像检索，图片单独分块，top-8，阈值0.4
+images_retrieve_rerank.json：LLM重排序结果，top_k = 20，阈值0.5，效果还可以
 precision_1.json：文本检索答案正确率
 precision_2.json：无RAG，文本检索答案正确率
 precision_langchain.json：langchain，文本检索答案正确率
@@ -195,11 +197,13 @@ def retrieve_new(pic_file: str, save_url: str):
             "context": documents
         })
         cnt += 1
-        if cnt % 5 == 0:
+        if cnt % 15 == 0:
             print(f"已检索{cnt}个图像")
             with open(save_url, 'w', encoding='utf-8') as f:
                 json.dump(saved_data, f, ensure_ascii=False, indent=4)
             # break
+        # if cnt % 50 == 0:
+        #     break
         # if cnt % 100 == 0:
         #     break
 
@@ -413,7 +417,7 @@ if __name__ == '__main__':
     #          "D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve1.json")
 
     eval("D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_data.json",
-             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_retrieve_main_chunk_vision_new_prompt1.json")
+             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_retrieve_rerank1.json")
 
     # tmp_check("D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve.json")
 

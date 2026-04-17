@@ -442,7 +442,7 @@ class VectorStoreMultimodal:
             "params": {"nprobe": 10}
         }
 
-        print(f"query_embedding完成，{query_embedding}")
+        # print(f"query_embedding完成，{query_embedding}")
 
         # 执行搜索
         results = self.collection.search(
