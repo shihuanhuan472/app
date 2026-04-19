@@ -1,8 +1,14 @@
+import os
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["HF_DATASETS_OFFLINE"] = "1"
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
+from transformers import AutoTokenizer, AutoModel
+import torch
 import base64
 import json
 import logging
 import mimetypes
-import os
 from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.orm import Session
@@ -30,6 +36,11 @@ class VectorService:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
+        self.rerank_model_name = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")
+
+        # self.tokenizer = AutoTokenizer.from_pretrained(self.rerank_model_name)
+        # self.rerank_model = AutoModel.from_pretrained(self.rerank_model_name)
+        # self.rerank_model.eval()
 
     def add_document_to_vector_store(self, document: Document):
         """将文档添加到向量数据库"""
@@ -176,6 +187,13 @@ class VectorService:
         except Exception as e:
             print(e)
             return None
+
+    # def get_relevance_by_reranker(self, query: str, chunk_result):
+    #     data = [[query, chunk_data] for chunk_data in chunk_result]
+    #     with torch.no_grad():
+    #         inputs = self.tokenizer(data, padding=True, truncation=True, return_tensors='pt', max_length=512)
+    #         scores = self.rerank_model(**inputs, return_dict=True).logits.view(-1, ).float()
+    #         print(scores)
 
 
     def search_similar_documents(self, query: str, query_images: str = None, top_k: int = -1) -> List[Dict]:

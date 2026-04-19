@@ -1,6 +1,6 @@
-# utils/vector_store.py
-
 import os
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["HF_DATASETS_OFFLINE"] = "1"
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 
@@ -54,9 +54,10 @@ class VectorStoreMultimodal:
         self.connect_milvus()
 
         # 创建或加载Collection
-        # self.collection_name = "documents_collection_multimodal"
-        # self.collection_name = "documents_collection_new"
-        self.collection_name = "documents_collection_main_chunk"
+        # self.collection_name = "documents_collection_multimodal" # 原始的collection
+        # self.collection_name = "documents_collection_new" # 图片单独分块
+        self.collection_name = "documents_collection_main_chunk" # 加上主chunk
+        # self.collection_name = "documents_collection_reranker" # 主chunk + 图像语义
         self.create_or_load_collection()
 
         self.ai = os.getenv("SERVER_IP", "192.168.246.200")
@@ -180,10 +181,10 @@ class VectorStoreMultimodal:
             FieldSchema(name="doc_id", dtype=DataType.INT64),
             FieldSchema(name="chunk_id", dtype=DataType.INT64),
             FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=100),
-            FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=2000),
-            FieldSchema(name="image_url", dtype=DataType.VARCHAR, max_length=200),
+            FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=30000),
+            FieldSchema(name="image_url", dtype=DataType.VARCHAR, max_length=1000),
             FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.embedding_dim),
-            FieldSchema(name="metadata", dtype=DataType.VARCHAR, max_length=2000),
+            FieldSchema(name="metadata", dtype=DataType.VARCHAR, max_length=30000),
         ]
 
         schema = CollectionSchema(fields, description="文档向量存储")
@@ -225,10 +226,10 @@ class VectorStoreMultimodal:
         # 按照字段分块，标题和问题简介在同一块
 
         for section in sections:
-            content = ""
+            content_origin = ""
             # 处理标题块
             if section[0] == "title":
-                content = f"标题：{document.title}，\n问题简介：{document.problem_intro}"
+                content_origin = f"标题：{document.title}，\n问题简介：{document.problem_intro}"
                 images_str = getattr(document, "image_urls_problem_intro", "")
                 images = [img.strip() for img in images_str.split(',') if img.strip()] if images_str else []
                 flag = 0
@@ -237,6 +238,11 @@ class VectorStoreMultimodal:
                     print(url)
                     if os.path.exists(url):
                         flag = 1
+                        messages = self.generate_descript_image_messages(url)
+                        answer = self.get_ai_answer(messages)
+                        content = content_origin + "\n[图像信息]\n" + answer if answer is not None else content_origin
+                        print(content)
+                        print("=====================")
                         chunk = {
                             "doc_id": document.id,
                             "title": document.title,
@@ -270,20 +276,20 @@ class VectorStoreMultimodal:
                     chunks.append({
                         "doc_id": document.id,
                         "title": document.title,
-                        "content": content,
+                        "content": content_origin,
                         "image_url": "",
                         "metadata": json.dumps({
                             "contributor_id": document.contributor_id,
                             "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                             "chunk_index": len(chunks),
-                            "chunk_size": len(content)
+                            "chunk_size": len(content_origin)
                         })
                     })
                 continue
             if getattr(document, section[0], None) == None:
-                content = f"{section[1]}："
+                content_origin = f"{section[1]}："
             else:
-                content = f"{section[1]}：{getattr(document, section[0], None)}"
+                content_origin = f"{section[1]}：{getattr(document, section[0], None)}"
             images_str = getattr(document, f"image_urls_{section[0]}", "")
             images = [img.strip() for img in images_str.split(',') if img.strip()] if images_str else []
             flag = 0
@@ -291,6 +297,11 @@ class VectorStoreMultimodal:
                 url = os.path.join(self.get_config()["DOCUMENT_IMAGE_BASE_DIR"], image)
                 if os.path.exists(url):
                     flag = 1
+                    messages = self.generate_descript_image_messages(url)
+                    answer = self.get_ai_answer(messages)
+                    content = content_origin + "\n[图像信息]\n" + answer if answer is not None else content_origin
+                    print(content)
+                    print("=======================")
                     chunks.append({
                         "doc_id": document.id,
                         "title": document.title,
@@ -322,16 +333,61 @@ class VectorStoreMultimodal:
                 chunks.append({
                     "doc_id": document.id,
                     "title": document.title,
-                    "content": content,
+                    "content": content_origin,
                     "image_url": "",
                     "metadata": json.dumps({
                         "contributor_id": document.contributor_id,
                         "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                         "chunk_index": len(chunks),
-                        "chunk_size": len(content)
+                        "chunk_size": len(content_origin)
                     })
                 })
         return chunks
+
+    def generate_descript_image_messages(self, image_url: str):
+        prompt = """请详细描述图像信息，重点包含设备信息，故障信息或维修信息。\n仅返回答案，不要任何markdown渲染。回答长度不超过300字。"""
+        messages = []
+        data = {}
+        msg_content = [{"type": "text", "text": prompt}]
+        mime_type, _ = mimetypes.guess_type(image_url)
+        if mime_type is None:
+            ext = os.path.splitext(image_url)[1].lower()
+            mime_type = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp',
+                '.bmp': 'image/bmp'
+            }.get(ext, 'image/jpeg')
+        image_base64 = self.image_to_base64(image_url)
+        msg_content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+        })
+        data["role"] = "user"
+        data["content"] = msg_content
+        messages.append(data)
+        return messages
+
+    def get_ai_answer(self, messages):
+        try:
+            client = OpenAI(
+                base_url=f"http://{self.ai}:8000/v1",
+                api_key=self.api_key
+            )
+
+            response = client.chat.completions.create(
+                model=self.model_chat,
+                messages=messages,
+                max_tokens=self.max_token
+            )
+            ans = response.choices[0].message.content
+            # print(ans)
+            return ans
+        except Exception as e:
+            print("ai回答失败！！！！")
+            print(e)
+            return None
 
     def embed_texts(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
         """
@@ -631,13 +687,13 @@ class VectorStoreMultimodal:
 vector_store_multimodal = VectorStoreMultimodal()
 
 if __name__ == "__main__":
-    pass
-    # connections.connect(host='localhost', port='19530')
-    # collection_name = "documents_collection_main_chunk"
-    # if utility.has_collection(collection_name):
-    #     collection = Collection(collection_name)
-    #     collection.drop()
-    #     print(f"集合 '{collection_name}' 已成功删除。")
+    # pass
+    connections.connect(host='localhost', port='19530')
+    collection_name = "documents_collection_reranker"
+    if utility.has_collection(collection_name):
+        collection = Collection(collection_name)
+        collection.drop()
+        print(f"集合 '{collection_name}' 已成功删除。")
 
     # pass
     # vector_store = VectorStoreMultimodal()

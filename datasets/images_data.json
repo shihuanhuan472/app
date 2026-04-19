@@ -12,12 +12,6 @@
         ]
     },
     {
-        "image_url": "eval_images/120-3.png",
-        "document_id": [
-            120
-        ]
-    },
-    {
         "image_url": "eval_images/121-1_122-1_123-1_124-3_125-2_126-1_127-1.png",
         "document_id": [
             121,
@@ -722,6 +716,223 @@
         "document_id": [
             298,
             303
+        ]
+    },
+    {
+        "image_url": "eval_images/301-1.jpg",
+        "document_id": [
+            301
+        ]
+    },
+    {
+        "image_url": "eval_images/301-1.png",
+        "document_id": [
+            301
+        ]
+    },
+    {
+        "image_url": "eval_images/301-2.png",
+        "document_id": [
+            301
+        ]
+    },
+    {
+        "image_url": "eval_images/304-1.jpg",
+        "document_id": [
+            304
+        ]
+    },
+    {
+        "image_url": "eval_images/304-2.jpg",
+        "document_id": [
+            304
+        ]
+    },
+    {
+        "image_url": "eval_images/305-1.jpg",
+        "document_id": [
+            305
+        ]
+    },
+    {
+        "image_url": "eval_images/305-2.jpg",
+        "document_id": [
+            305
+        ]
+    },
+    {
+        "image_url": "eval_images/313-1.jpg",
+        "document_id": [
+            313
+        ]
+    },
+    {
+        "image_url": "eval_images/313-2.jpg",
+        "document_id": [
+            313
+        ]
+    },
+    {
+        "image_url": "eval_images/321-1_326-1_327-1_328-1.jpeg",
+        "document_id": [
+            321,
+            326,
+            327,
+            328
+        ]
+    },
+    {
+        "image_url": "eval_images/321-2_326-2_327-2_328-2.png",
+        "document_id": [
+            321,
+            326,
+            327,
+            328
+        ]
+    },
+    {
+        "image_url": "eval_images/329-1.png",
+        "document_id": [
+            329
+        ]
+    },
+    {
+        "image_url": "eval_images/337-1.png",
+        "document_id": [
+            337
+        ]
+    },
+    {
+        "image_url": "eval_images/337-2.jpg",
+        "document_id": [
+            337
+        ]
+    },
+    {
+        "image_url": "eval_images/337-3.png",
+        "document_id": [
+            337
+        ]
+    },
+    {
+        "image_url": "eval_images/337-4.png",
+        "document_id": [
+            337
+        ]
+    },
+    {
+        "image_url": "eval_images/337-5.png",
+        "document_id": [
+            337
+        ]
+    },
+    {
+        "image_url": "eval_images/352-1_353-1.png",
+        "document_id": [
+            352,
+            353
+        ]
+    },
+    {
+        "image_url": "eval_images/354-1.jpg",
+        "document_id": [
+            354
+        ]
+    },
+    {
+        "image_url": "eval_images/366-1.jpg",
+        "document_id": [
+            366
+        ]
+    },
+    {
+        "image_url": "eval_images/371-1.jpg",
+        "document_id": [
+            371
+        ]
+    },
+    {
+        "image_url": "eval_images/371-2.jpg",
+        "document_id": [
+            371
+        ]
+    },
+    {
+        "image_url": "eval_images/373-1.png",
+        "document_id": [
+            373
+        ]
+    },
+    {
+        "image_url": "eval_images/379-1.jpg",
+        "document_id": [
+            379
+        ]
+    },
+    {
+        "image_url": "eval_images/383-1.png",
+        "document_id": [
+            383
+        ]
+    },
+    {
+        "image_url": "eval_images/383-2.webp",
+        "document_id": [
+            383
+        ]
+    },
+    {
+        "image_url": "eval_images/392-1.jpg",
+        "document_id": [
+            392
+        ]
+    },
+    {
+        "image_url": "eval_images/401-1.jpg",
+        "document_id": [
+            401
+        ]
+    },
+    {
+        "image_url": "eval_images/404-1.jpg",
+        "document_id": [
+            404
+        ]
+    },
+    {
+        "image_url": "eval_images/413-1.jpg",
+        "document_id": [
+            413
+        ]
+    },
+    {
+        "image_url": "eval_images/427-1.webp",
+        "document_id": [
+            427
+        ]
+    },
+    {
+        "image_url": "eval_images/430-1.jpg",
+        "document_id": [
+            430
+        ]
+    },
+    {
+        "image_url": "eval_images/431-1.jpg",
+        "document_id": [
+            431
+        ]
+    },
+    {
+        "image_url": "eval_images/437-1.webp",
+        "document_id": [
+            437
+        ]
+    },
+    {
+        "image_url": "eval_images/443-1.png",
+        "document_id": [
+            443
         ]
     }
 ]
