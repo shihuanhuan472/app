@@ -46,7 +46,7 @@ def prepare_dataset(data_url: str, saved_url: str):
         doc_context = [c_tmp['content'] for c_tmp in context_tmp]
         context.append(doc_context)
         cnt += 1
-        if cnt % 50 == 0:
+        if cnt % 120 == 0:
             break
 
     final_data = {
@@ -55,8 +55,8 @@ def prepare_dataset(data_url: str, saved_url: str):
         "contexts": context,
         "answer": answer
     }
-    # for tmp in final_data:
-    #     print(final_data[tmp])
+    for tmp in final_data:
+        print(final_data[tmp])
     return Dataset.from_dict(final_data)
 
 if __name__ == '__main__':

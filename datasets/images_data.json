@@ -749,18 +749,6 @@
         ]
     },
     {
-        "image_url": "eval_images/305-1.jpg",
-        "document_id": [
-            305
-        ]
-    },
-    {
-        "image_url": "eval_images/305-2.jpg",
-        "document_id": [
-            305
-        ]
-    },
-    {
         "image_url": "eval_images/313-1.jpg",
         "document_id": [
             313
@@ -870,8 +858,9 @@
         ]
     },
     {
-        "image_url": "eval_images/383-1.png",
+        "image_url": "eval_images/382-1_383-1.png",
         "document_id": [
+            382,
             383
         ]
     },
@@ -888,9 +877,11 @@
         ]
     },
     {
-        "image_url": "eval_images/401-1.jpg",
+        "image_url": "eval_images/401-1_402-1_403-1.jpg",
         "document_id": [
-            401
+            401,
+            402,
+            403
         ]
     },
     {
@@ -924,15 +915,11 @@
         ]
     },
     {
-        "image_url": "eval_images/437-1.webp",
+        "image_url": "eval_images/443-1_445-1_447-1.png",
         "document_id": [
-            437
-        ]
-    },
-    {
-        "image_url": "eval_images/443-1.png",
-        "document_id": [
-            443
+            443,
+            445,
+            447
         ]
     }
 ]

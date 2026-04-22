@@ -113,8 +113,8 @@ def get_answer(question_path: str, save_path: str):
                 json.dump(saved_data, f, ensure_ascii=False, indent=4)
             print(f"{cnt}个问题已回答")
 
-        if cnt % 50 == 0:
-            break
+        # if cnt % 100 == 0:
+        #     break
     with open(save_path, 'w', encoding='utf-8') as f:
         json.dump(saved_data, f, ensure_ascii=False, indent=4)
 
@@ -122,4 +122,4 @@ def get_answer(question_path: str, save_path: str):
 
 if __name__ == "__main__":
     get_answer("D:\Pycharm\code\Maintenance_Assistance_System\datasets\data.json",
-               "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_data_langchain.json")
+               "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\\fianl_data_langchain.json")

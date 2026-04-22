@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from openai import OpenAI
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from models import Document
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,9 @@ class VectorService:
         self.vector_store_multimodal = vector_store_multimodal
         self.top_k = int(os.getenv("TOP_K", 10))
         self.batch_size = int(os.getenv("BATCH_SIZE", 20))
-        self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
+        self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.6))
         self.message_image_base_dir = os.getenv("MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
-        self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 8))
+        self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
         self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
@@ -93,7 +94,7 @@ class VectorService:
             prompt += "\n你将看到一张图像，为相关文档中的图像。\n"
             prompt += "请判断相关文档文本和图像（第一张图像）与问题文本的相关性。\n"
         else:
-            prompt += "请判断相关文档文本域问题文本的语义相关性。\n"
+            prompt += "请判断相关文档文本与问题文本的语义相关性。\n"
         # prompt += "注意：1. 仅回答一个得分，得分为0-1之间的实数，并且得分精细一些，保留五位小数。\n2. 请重视设备类型对相关性的影响。"
         prompt += """请判断该文档是否对回答用户问题有帮助（而不是是否完全匹配）。
 
@@ -110,15 +111,17 @@ class VectorService:
 - 必须拉开差距，不允许大量0.9/1.0
 - 只有“真正直接解决问题”的才给1.0
 - 若有图像，识别图像信息
+- 若能解决用户的问题，也视为相关
 
 ====================
 
 【额外排序原则（必须遵守）】
 
 优先级排序如下：
-1. 设备类型是否一致
-2. 故障类型是否一致
-3. 设备类型优先级略高于故障类型
+1. 设备类型是否一致。
+2. 故障类型是否相关。
+3. 设备类型优先级略高于故障类型。
+4. 若未展现出故障，则判断查询和文档是否相关。
 
 【输出格式】
 仅输出一个JSON对象，不要包含任何其他解释文本。
@@ -183,6 +186,7 @@ class VectorService:
             ans = response.choices[0].message.content
             print(ans)
             result = float(json.loads(ans)['score'])
+            time.sleep(3)
             return result
         except Exception as e:
             print(e)
@@ -211,30 +215,30 @@ class VectorService:
                     image_url = os.path.join(self.message_image_base_dir, image.strip())
                     if os.path.exists(image_url):
                         result = self.vector_store_multimodal.search(query, image_url, top_k)
-                        for r in result:
-                            new_score = self.rerank_by_llm(r, query, image_url)
-                            if new_score is not None:
-                                print(f"content: {r['content']}")
-                                print(f"old_score: {r['score']}, new_score: {new_score}")
-                                r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                        # for r in result:
+                        #     new_score = self.rerank_by_llm(r, query, image_url)
+                        #     if new_score is not None:
+                        #         print(f"content: {r['content']}")
+                        #         print(f"old_score: {r['score']}, new_score: {new_score}")
+                        #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
                         results.extend(result)
                         flag = 1
             else:
                 result = self.vector_store_multimodal.search(query, None, top_k)
-                for r in result:
-                    new_score = self.rerank_by_llm(r, query, None)
-                    if new_score is not None:
-                        print(f"old_score: {r['score']}, new_score: {new_score}")
-                        r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                # for r in result:
+                #     new_score = self.rerank_by_llm(r, query, None)
+                #     if new_score is not None:
+                #         print(f"old_score: {r['score']}, new_score: {new_score}")
+                #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
                 results.extend(result)
                 flag = 1
             if flag == 0:
                 result = self.vector_store_multimodal.search(query, None, top_k)
-                for r in result:
-                    new_score = self.rerank_by_llm(r, query, None)
-                    if new_score is not None:
-                        print(f"old_score: {r['score']}, new_score: {new_score}")
-                        r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                # for r in result:
+                #     new_score = self.rerank_by_llm(r, query, None)
+                #     if new_score is not None:
+                #         print(f"old_score: {r['score']}, new_score: {new_score}")
+                #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
                 results.extend(result)
             # results = self.vector_store_multimodal.search(query, query_image, top_k)
             # print(results)
