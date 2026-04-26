@@ -23,7 +23,7 @@ def eval_precision(file_path: str, save_path: str):
 
     client = OpenAI(
         base_url="https://api.chatanywhere.tech/v1",
-        api_key="sk-xxxxxxxxxxxxxx"
+        api_key="sk-xxxxxxxxxxxxxxxxxxxxxxx"
     )
     model = "gpt-4o-mini"
     max_token = int(os.getenv("MAX_TOKEN", 1000))
@@ -61,15 +61,15 @@ def eval_precision(file_path: str, save_path: str):
             }
         )
         cnt += 1
-        if cnt % 10 == 0:
+        if cnt % 20 == 0:
             with open(save_path, 'w', encoding='utf-8') as f:
                 json.dump(saved_data, f, ensure_ascii=False, indent=4)
-        # if cnt % 100 == 0:
+        # if cnt % 50 == 0:
         #     break
 
     with open(save_path, 'w', encoding='utf-8') as f:
         json.dump(saved_data, f, ensure_ascii=False, indent=4)
 
 if __name__ == '__main__':
-    eval_precision("D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_data_langchain.json",
-                   "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\precision_langchain.json")
+    eval_precision("D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\\fianl_data_without_rerank.json",
+                   "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\\precision_without_rerank.json")

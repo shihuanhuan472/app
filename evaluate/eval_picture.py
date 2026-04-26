@@ -10,7 +10,7 @@ from database import SessionLocal
 from models import Document
 from utils.VectorService import VectorService
 from openai import OpenAI
-
+import time
 db = SessionLocal()
 vector_service = VectorService(db)
 
@@ -38,6 +38,9 @@ images_retrieve_rerank_with chunk_describe.json：chunk添加语义描述，无�
 precision_1.json：文本检索答案正确率
 precision_2.json：无RAG，文本检索答案正确率
 precision_langchain.json：langchain，文本检索答案正确率
+
+
+images_retrieve_rerank_new1.json：query描述+LLM重排
 """
 
 
@@ -191,7 +194,8 @@ def retrieve_new(pic_file: str, save_url: str):
             continue
         print(f"开始检索{pic['image_url']}")
 
-        vision_data = get_vision(pic['image_url'])
+        vision_data = None
+        # vision_data = get_vision(pic['image_url'])
         if vision_data is not None:
             documents = vector_service.search_similar_documents(f"【图像信息】：{vision_data}", pic["image_url"])
         else:
@@ -207,11 +211,11 @@ def retrieve_new(pic_file: str, save_url: str):
             with open(save_url, 'w', encoding='utf-8') as f:
                 json.dump(saved_data, f, ensure_ascii=False, indent=4)
             # break
-            # break
-        # if cnt % 50 == 0:
-        #     break
+        if cnt % 50 == 0:
+            break
         # if cnt % 100 == 0:
         #     break
+        time.sleep(5)
 
     with open(save_url, 'w', encoding='utf-8') as f:
         json.dump(saved_data, f, ensure_ascii=False, indent=4)
@@ -251,7 +255,7 @@ def get_vision(pic: str):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "请详细描述图像信息，重点包含设备信息和故障信息。\n仅返回答案，不要任何markdown渲染。"},
+                {"type": "text", "text": "请详细描述图像信息，重点包含设备信息或故障信息（若无故障信息则无需给出故障信息）。\n仅返回答案，不要任何markdown渲染。"},
                 {
                     "type": "image_url",
                     "image_url": {
@@ -283,6 +287,7 @@ def get_vision(pic: str):
         # return result.json()["message"]["content"], ai_reference_document_ids_str
         return response.choices[0].message.content
     except Exception as e:
+        print(e)
         print("ai提取失败！！！")
         return None
 
@@ -423,7 +428,7 @@ if __name__ == '__main__':
     #          "D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve1.json")
 
     eval("D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_data.json",
-             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\images_retrieve_rerank_new.json")
+             "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\images_retrieve_new_without_describe.json")
 
     # tmp_check("D:\Pycharm\code\Maintenance_Assistance_System\datasets\document_images_retrieve.json")
 
