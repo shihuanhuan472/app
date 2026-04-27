@@ -1,8 +1,9 @@
 import pandas as pd
 from ragas import evaluate
+# from baseline.prepare_dataset import prepare_dataset
 from prepare_dataset import prepare_dataset
 import os
-os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxxxxxxx"
+os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxxxxxx"
 from ragas.metrics import faithfulness, answer_relevancy, context_recall, context_precision, answer_correctness
 from langchain_openai import ChatOpenAI
 
@@ -34,9 +35,9 @@ from langchain_openai import OpenAIEmbeddings
 """
 
 LLM_NAME = "gpt-4o-mini"
-API_KEY = "sk-xxxxxxxxxxxxxxxx"
-data_url = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\fianl_data_1.json"
-save_path = "D:\Pycharm\code\Maintenance_Assistance_System\evaluate\\result.xlsx"
+API_KEY = "sk-xxxxxxxxxxxxxxxxx"
+data_url = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\\fianl_data_without_rerank.json"
+save_path = "D:\Pycharm\code\Maintenance_Assistance_System\datasets\\final_result\\result_text_without_rerank.xlsx"
 
 saved_df = None
 if os.path.exists(save_path):
@@ -61,7 +62,7 @@ client = ChatOpenAI(
 dataset = prepare_dataset(data_url, save_path)
 
 result = evaluate(dataset,
-                  metrics=[context_precision, context_recall, faithfulness, answer_relevancy, answer_correctness],
+                  metrics=[context_precision, context_recall, faithfulness],
                   llm=client, embeddings=embedding_model)
 df = result.to_pandas()
 

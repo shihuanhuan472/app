@@ -235,6 +235,7 @@ async def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
 
     return await asyncio.to_thread(_compress)
 
+
 async def generate_messages(db, id, message_now, documents_id):
     """
     生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）

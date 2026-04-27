@@ -4,7 +4,7 @@ os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 from datetime import datetime
 
-from database import SessionLocal
+from database import AsyncSessionLocal
 from datasets import Dataset
 
 from utils.HTMLParser import html_parser
@@ -26,7 +26,7 @@ questions = []
 ground_truth = []
 answers = []
 contexts = []
-db = SessionLocal()
+db = AsyncSessionLocal()
 vector_service = VectorService(db)
 
 def add_file(file_path):

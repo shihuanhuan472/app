@@ -1,11 +1,11 @@
 import json
-from database import SessionLocal
+from database import AsyncSessionLocal
 from datasets import Dataset
 import os
 import pandas as pd
 from models import Document
 
-db = SessionLocal()
+db = AsyncSessionLocal()
 
 """
 生成最后RAGAS跑的数据集
@@ -85,7 +85,7 @@ def prepare_dataset(data_url: str, saved_url: str):
                 doc_context.append(doc_context_tmp)
         context.append(doc_context)
         cnt += 1
-        if cnt % 50 == 0:
+        if cnt % 110 == 0:
             break
 
     final_data = {
