@@ -229,9 +229,12 @@ class VectorService:
             )
             return response.choices[0].message.content
         try:
+            print("-=-==-==================")
             ans = await asyncio.to_thread(_call_openai)
+            print(f"图像描述：{ans}")
             return ans
         except Exception as e:
+            print(e)
             return None
 
 
@@ -251,7 +254,7 @@ class VectorService:
                     exists = await asyncio.to_thread(os.path.exists, image_url)
                     if exists:
 
-                        image_description = await asyncio.to_thread(self.describe_image, image_url)
+                        image_description = await self.describe_image(image_url)
 
                         if image_description is not None:
                             query += f"\n【图像信息】：{image_description}"
