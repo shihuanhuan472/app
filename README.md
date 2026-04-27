@@ -1,6 +1,6 @@
 # 设备维修辅助系统
 
-基于多模态RAG的维修辅助系统，总体上实现用户登录，用户管理，文档管理和ai问答辅助功能。因问答ai部署在学校服务器，因此使用系统时，请<u>确保在校园网环境下，或挂载学校VPN</u>，否则ai连接超时，无法执行某些功能。
+基于多模态RAG的维修辅助系统，总体上实现用户登录，用户管理，文档管理和ai问答辅助功能。因问答LLM部署在学校服务器，因此使用系统时，请<u>确保在校园网环境下，或挂载学校VPN</u>，否则ai连接超时，无法执行某些功能。
 
 若想进行任何代码修改，请提前告知，或在master分支上新建dev分支，再从dev分支新建个人分支。请勿直接往master分支推送代码
 
@@ -11,23 +11,30 @@
 ```
 /Maintenance_Assistance_System/
 ├── app/                   # 应用程序
+│   ├── bge/               # 嵌入模型
+│   ├── datasets/          # 评估结果
+│   │     ├── final_result/  # 我毕设的最后评估结果，非该文件夹下的数据不完整或不准确
+│   ├── embedding-model/   # 嵌入模型，可自行选择其他路径，在VectorStoreMultimodal.py中记得修改路径
+│   ├── eval_images/       # 图像评估数据集
+│   ├── evaluate/          # 评估代码
+│   ├── routers/           # 各路由文件
+│   ├── static/            # 前端代码
+│   │     ├── css/
+│   │     ├── js/
+│   │     └── *.html
+│   ├── upload/            # 上传的文件和图片
+│   |     ├── ask/
+│   |     ├── documents/
+│   |     └── images/
+│   ├── utils/             # 各种工具，包含各种格式文档解析器，JWT令牌生成器，Milvus操作等
+│   ├── .env               # 环境配置
+│   ├── database.py        # 数据库配置
+│   ├── dependencies.py    # 相关依赖（其实就是拦截器的代码）
+│   ├── docker-compose.yml # Milvus配置文件
 │   ├── main.py            # 主程序
 │   ├── models.py          # 数据模型
-│   ├── database.py        # 数据库配置
-│   ├── .env               # 环境配置
-│   ├── docker-compose.yml # Milvus配置文件
 │   ├── requirements.txt   # 环境要求
-│   ├── static/            # 前端代码
-│   │   ├── css/
-│   │   ├── js/
-│   │   └── *.html
-│   ├── upload/            # 上传的文件和图片
-│   |   ├── ask/
-│   |   ├── documents/
-│   |   └── images/
-│   ├── bge/               # 嵌入模型
-│   ├── routers/           # 各路由文件
-│   └── utils/             # 各种工具，包含各种格式文档解析器，JWT令牌生成器，Milvus操作等
+│   └── schema.py          # 所有路由涉及到的模式
 ```
 
 
@@ -42,7 +49,7 @@
 
 核心算法：
 
-多模态RAG，对于一个文档Document，按照字段进行分块，并和图片一起向量化，存入Milvus，用户对话时，直接基于Milvus相似度检索，得到top_k块，进而得到相关文档，将相关文档内容作为提示词丢给AI
+多模态RAG，对于一个文档Document，按照字段进行分块，并和图片一起向量化，存入Milvus，用户对话时，直接基于Milvus相似度检索，得到top_k块，进而得到相关文档，将相关文档内容作为提示词丢给AI。经过尝试，对于图像在检索前增加图像描述，能大幅提高图像检索的性能。在检索到结果后，借助LLM进行相似度打分，将该分数和MIlvus的相似度得分加权得到最后得分，实现重排序，能提升召回率。
 
 对于直接导入的文档，因内容并未严格按照数据库预设的Document格式，因此导入时，将内容提取，让AI按照我的预设格式进行总结，进而将文件转为预设格式。
 
@@ -66,7 +73,7 @@ VALUES ('admin', 'e10adc3949ba59abbe56e057f20f883e', '17812355311', 'admin@whut.
 本地数据库创建后，需在database.py中修改具体配置，否则无法连接本地数据库
 
 ```python
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:your_password@localhost:your_port/your_database_name"
+SQLALCHEMY_DATABASE_URL = "mysql+asyncmy://root:your_password@localhost:your_port/your_database_name"
 ```
 
 `your_password`：本地数据库密码
@@ -185,23 +192,7 @@ server {
     listen 80;
     server_name 10.86.208.20 localhost 127.0.0.1;
     
-    client_max_body_size 50M;  # 增加到50M，支持更大文件
-
-    # 全局超时设置（放在server块顶部）
-    proxy_connect_timeout 300s;
-    proxy_send_timeout 300s;
-    proxy_read_timeout 300s;
-    fastcgi_send_timeout 300s;
-    fastcgi_read_timeout 300s;
-    client_body_timeout 300s;
-    client_header_timeout 300s;
-    send_timeout 300s;
-
-    # 缓冲区设置
-    proxy_buffer_size 128k;
-    proxy_buffers 4 256k;
-    proxy_busy_buffers_size 256k;
-    proxy_temp_file_write_size 256k;
+    client_max_body_size 10M;
     
     # 根目录指向 static 文件夹
     root /opt/maintenance-system/app/static;
@@ -211,13 +202,14 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
     }
-
+    
     # 上传文件服务（保持原样）
     location ^~/upload/ {
         alias /opt/maintenance-system/app/upload/;
         expires 30d;
     }
 
+    
     # 静态文件缓存优化
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
@@ -389,7 +381,61 @@ server {
             return 204;
         }
     }
- 
+    
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 600s;
+        
+        # CORS 头
+        add_header Access-Control-Allow-Origin "$http_origin" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PATCH, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        
+        # 处理 OPTIONS 预检请求
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "$http_origin";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain charset=UTF-8';
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+
+    location /chatbot/ {
+        proxy_pass http://192.168.246.223/chatbot/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS 头
+        add_header Access-Control-Allow-Origin "$http_origin" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PATCH, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        
+        # 处理 OPTIONS 预检请求
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "$http_origin";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain charset=UTF-8';
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+
     # WebSocket支持（如果需要）
     location /ws/ {
         proxy_pass http://127.0.0.1:8000/ws/;
@@ -484,4 +530,6 @@ nohup uvicorn main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
 
 from cxx
 
-2026.3.17
+初稿：2026.3.17
+
+最新更新：2026.4.27
