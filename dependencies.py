@@ -3,7 +3,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from database import get_db
 from sqlalchemy.orm import Session
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from models import User
 from utils.JwtUtils import jwt_utils
 
@@ -14,9 +15,9 @@ security = HTTPBearer()
 用来登录校验的依赖
 """
 
-def get_current_user(
+async def get_current_user(
         credentials: HTTPAuthorizationCredentials = Depends(security),
-        db: Session = Depends(get_db)
+        db: AsyncSession = Depends(get_db)
 ):
     """
     获取当前用户信息的依赖函数（拦截器）
@@ -42,7 +43,18 @@ def get_current_user(
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        user = db.query(User).filter(User.id == user_id).first()
+        # user = db.query(User).filter(User.id == user_id).first()
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         if user.status == 0:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -60,7 +72,7 @@ def get_current_user(
         )
 
 
-def get_current_active_user(
+async def get_current_active_user(
         current_user: dict = Depends(get_current_user)
 ):
     """
@@ -89,7 +101,7 @@ def require_roles(*allowed_roles: str):
         return {"message": "Admin access"}
     """
 
-    def role_checker(current_user: User = Depends(get_current_user)) -> dict:
+    async def role_checker(current_user: User = Depends(get_current_user)) -> dict:
         if current_user.role != 0:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -98,24 +110,3 @@ def require_roles(*allowed_roles: str):
         return current_user
 
     return role_checker
-
-
-# 可选的：不强制要求认证的依赖
-def get_optional_user(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
-) -> Optional[dict]:
-    """
-    可选的用户认证依赖
-    如果提供了 token 则验证，没提供则返回 None
-
-    适用于某些接口可以匿名访问，但登录后有额外功能的场景
-    """
-    if credentials is None:
-        return None
-
-    try:
-        token = credentials.credentials
-        payload = jwt_utils.verify_token(token, token_type="access")
-        return payload
-    except:
-        return None

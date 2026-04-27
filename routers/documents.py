@@ -1,4 +1,5 @@
 # routers/documents.py
+import asyncio
 import uuid
 from datetime import datetime
 import os
@@ -7,7 +8,7 @@ import logging
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body, File
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
@@ -20,6 +21,8 @@ from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
 from utils.WordParser import word_parser
 from utils.HTMLParser import html_parser
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import or_, select, func, delete
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
@@ -60,8 +63,8 @@ def document_convert_documentResponse(document: Document, contributor_name: str)
     )
 
 
-def documents_to_responses(
-        db: Session,
+async def documents_to_responses(
+        db: AsyncSession,
         documents: List[Document]
 ) -> List[DocumentResponse]:
     """
@@ -80,13 +83,19 @@ def documents_to_responses(
     user_map = {}
     if user_ids:
         # 只查询需要的字段
-        users = db.query(
-            User.id,
-            User.full_name,
-            User.username
-        ).filter(
-            User.id.in_(user_ids)
-        ).all()
+        # users = db.query(
+        #     User.id,
+        #     User.full_name,
+        #     User.username
+        # ).filter(
+        #     User.id.in_(user_ids)
+        # ).all()
+
+        result = await db.execute(
+            select(User.id, User.full_name, User.username).where(User.id.in_(user_ids))
+        )
+        users = result.all()
+
 
         user_map = {user.id: user for user in users}
 
@@ -110,7 +119,7 @@ def documents_to_responses(
 
     return responses
 
-def check_image_url(image_urls: str):
+async def check_image_url(image_urls: str):
     """
     如果有图片不存在，返回False，用来判断图片是不是都上传服务器了
     """
@@ -122,14 +131,14 @@ def check_image_url(image_urls: str):
             url_check = os.path.basename(url)
             url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
             # print(url_check)
-            if not os.path.exists(url_check):
+            if not await asyncio.to_thread(os.path.exists, url_check):
                 return False
         return True
     return True
 
 @router.post("/add", summary="添加文档")
 async def create_document(document: DocumentCreate,
-                          db: Session = Depends(get_db),
+                          db: AsyncSession = Depends(get_db),
                           current_user: User = Depends(get_current_active_user)):
     print("添加文档")
     config = get_image_config()
@@ -138,7 +147,7 @@ async def create_document(document: DocumentCreate,
                 "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
         for attr in attrs:
             value = getattr(document, attr)
-            if not check_image_url(value):
+            if not await check_image_url(value):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                     detail="图片未上传")
         print("图片校验完成")
@@ -181,11 +190,11 @@ async def create_document(document: DocumentCreate,
                                  is_vectorized=0,
                                  first_edit_date=datetime.now())
         db.add(document_data)
-        db.commit()
-        db.refresh(document_data)
+        await db.commit()
+        await db.refresh(document_data)
         print("数据库插入成功")
         vector_service = VectorService(db)
-        vector_service.add_document_to_vector_store(document_data)
+        await vector_service.add_document_to_vector_store(document_data)
         print("向量化完成")
         data = document_convert_documentResponse(document_data, current_user.full_name)
         return Result.success_with_data(data)
@@ -197,7 +206,7 @@ async def create_document(document: DocumentCreate,
     except Exception as e:
         # 其他异常回滚
         print(e)
-        db.rollback()
+        await db.rollback()
         return Result.error("添加文档失败")
 
 def get_image_config():
@@ -237,8 +246,11 @@ async def upload_images(images: List[UploadFile]):
 
             # 保存文件
             contents = await image.read()
-            with open(save_path, "wb") as buffer:
-                buffer.write(contents)
+            # with open(save_path, "wb") as buffer:
+            #     buffer.write(contents)
+
+            async with aiofiles.open(save_path, "wb") as buffer:
+                await buffer.write(contents)
 
             # 构建文件信息
             file_url = f"{url}/{unique_filename}"
@@ -264,9 +276,15 @@ async def delete_image(request: DeleteImageRequest = Body(...),
         filename = os.path.basename(image_url)
         config = get_image_config()
         url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"), filename.lstrip("/").lstrip("\\"))
-        if not os.path.exists(url):
+        # if not os.path.exists(url):
+        #     raise HTTPException(status_code=404, detail="未找到图片")
+
+        if not await asyncio.to_thread(os.path.exists, url):
             raise HTTPException(status_code=404, detail="未找到图片")
-        os.remove(url)
+
+        # os.remove(url)
+        await asyncio.to_thread(os.remove, url)
+
         print(f"图片{url}删除成功")
         return Result.success()
     except FileNotFoundError:
@@ -278,12 +296,15 @@ async def delete_image(request: DeleteImageRequest = Body(...),
 @router.put("/update", summary="更新文档")
 async def update_document(id: int,
                           document: DocumentCreate,
-                          db: Session = Depends(get_db),
+                          db: AsyncSession = Depends(get_db),
                           current_user: User = Depends(get_current_active_user)):
     try:
         config = get_image_config()
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
-        document_now = db.query(Document).filter(Document.id == id).first()
+        # document_now = db.query(Document).filter(Document.id == id).first()
+
+        result = await db.execute(select(Document).where(Document.id == id))
+        document_now = result.scalar_one_or_none()
 
         if not document_now:
             raise HTTPException(
@@ -305,7 +326,10 @@ async def update_document(id: int,
                 for image_url in image_urls:
                     image_name = os.path.basename(image_url)
                     url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
-                    if not os.path.exists(url_check):
+                    # if not os.path.exists(url_check):
+                    #     return Result.error(f"图片未上传，更新失败，请重新上传图片")
+
+                    if not await asyncio.to_thread(os.path.exists, url_check):
                         return Result.error(f"图片未上传，更新失败，请重新上传图片")
 
                     url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
@@ -350,29 +374,37 @@ async def update_document(id: int,
 
         # 更新文档内容的时候，向量需要重新生成
         vector_service = VectorService(db)
-        vector_service.delete_document_from_vector_store(id)
+        await vector_service.delete_document_from_vector_store(id)
 
-        db.commit()
-        db.refresh(document_now)
+        await db.commit()
+        await db.refresh(document_now)
 
-        vector_service.add_document_to_vector_store(document_now)
+        # vector_service.add_document_to_vector_store(document_now)
+        await vector_service.add_document_to_vector_store(document_now)
 
-        full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
+        # full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
+
+        full_name_result = await db.execute(select(User.full_name).where(User.id == document_now.contributor_id))
+        full_name = full_name_result.scalar_one_or_none()
 
         document_response = document_convert_documentResponse(document_now, full_name)
         return Result.success_with_data(document_response)
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         return Result.error(f"更新文档错误：{str(e)}")
 
 @router.delete("/dele/{id}", summary="删除文档")
 async def delete(id: int,
-                 db: Session = Depends(get_db),
+                 db: AsyncSession = Depends(get_db),
                  current_user: User = Depends(get_current_active_user)):
     try:
-        document = db.query(Document).filter(Document.id == id).first()
+        # document = db.query(Document).filter(Document.id == id).first()
+
+        result = await db.execute(select(Document).where(Document.id == id))
+        document = result.scalar_one_or_none()
+
         if not document:
             return Result.error(f"文档不存在")
         if document.contributor_id != current_user.id and current_user.role != 0:
@@ -391,15 +423,27 @@ async def delete(id: int,
                     filename = os.path.basename(image_url)
                     if filename.strip():
                         url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                        if os.path.exists(url):
-                            os.remove(url)
-                            print(f"删除了{url}")
+                        # if os.path.exists(url):
+                        #     os.remove(url)
+                        #     print(f"删除了{url}")
+
+                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                           url) else None
+
                         name, ext = os.path.splitext(filename)
                         name = f"{name}_compressed{ext}"
                         url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
-                        if os.path.exists(url):
-                            os.remove(url)
-                            print(f"删除了{url}")
+                        # if os.path.exists(url):
+                        #     os.remove(url)
+                        #     print(f"删除了{url}")
+
+                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                           url) else None
+
+                        name = f"{name}_compressed_512{ext}"
+                        url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
+                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                           url) else None
 
         # if document.image_urls:
         #     config = get_image_config()
@@ -416,43 +460,56 @@ async def delete(id: int,
         # 把原始文件也删掉
         if document.origin_file_dir:
             url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
-            if os.path.exists(url):
-                os.remove(url)
-                print(f"已删除源文件{document.origin_file_dir}")
+            # if os.path.exists(url):
+            #     os.remove(url)
+            #     print(f"已删除源文件{document.origin_file_dir}")
+            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists, url) else None
+            print(f"已删除源文件{document.origin_file_dir}")
 
         # 删掉向量
         vector_service = VectorService(db)
-        vector_service.delete_document_from_vector_store(id)
+        # vector_service.delete_document_from_vector_store(id)
+        await vector_service.delete_document_from_vector_store(id)
 
         print("成功删除文档")
-
-        db.delete(document)
-        db.commit()
+        await db.delete(document)
+        # await db.execute(delete(Document).where(Document.id == id))
+        await db.commit()
         return Result.success()
     except HTTPException:
         raise
     except Exception as e:
         # 其他异常回滚
         print(e)
-        db.rollback()
+        await db.rollback()
         return Result.error(f"删除文档失败：{str(e)}")
 
 @router.get("/", summary="获取所有文档")
 async def get_documents(current_user: User = Depends(get_current_active_user),
-                        db: Session = Depends(get_db)):
-    documents = db.query(Document)
-    responses = documents_to_responses(db, documents)
+                        db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document))
+    documents = result.scalars().all()
+
+    # documents = db.query(Document)
+    responses = await documents_to_responses(db, documents)
     # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
     return Result.success_with_data(responses)
 
 @router.get("/get_by_id/{id}", summary="根据id获得文档内容")
 async def get_document(id: int,
-                       db: Session = Depends(get_db),
+                       db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     try:
-        document = db.query(Document).filter(Document.id == id).first()
+        result = await db.execute(select(Document).where(Document.id == id))
+        document = result.scalar_one_or_none()
+
+        # document = db.query(Document).filter(Document.id == id).first()
         if document:
-            full_name = db.query(User.full_name).filter(User.id == document.contributor_id).scalar()
+            # full_name = db.query(User.full_name).filter(User.id == document.contributor_id).scalar()
+
+            full_name_result = await db.execute(select(User.full_name).where(User.id == document.contributor_id))
+            full_name = full_name_result.scalar_one_or_none()
+
             document_data = document_convert_documentResponse(document, full_name)
             return Result.success_with_data(document_data)
         return Result.success()
@@ -461,15 +518,22 @@ async def get_document(id: int,
 
 @router.post("/page", summary="分页查询文档内容")
 async def get_page(page: Page,
-                   db: Session = Depends(get_db),
+                   db: AsyncSession = Depends(get_db),
                    current_user: User = Depends(get_current_active_user)):
     logger.info("分页查询文档内容")
     try:
         offset = (page.page - 1) * page.size
-        total_count = db.query(Document).count()
-        documents = db.query(Document).offset(offset).limit(page.size).all()
+        # total_count = db.query(Document).count()
+
+        total_count_result = await db.execute(select(func.count()).select_from(Document))
+        total_count = total_count_result.scalar_one()
+
+        result = await db.execute(select(Document).offset(offset).limit(page.size))
+        documents = result.scalars().all()
+        # documents = db.query(Document).offset(offset).limit(page.size).all()
+
         total_pages = (total_count + page.size - 1) // page.size
-        responses = documents_to_responses(db, documents)
+        responses = await documents_to_responses(db, documents)
         # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
         data = {
             "total_count": total_count,
@@ -482,38 +546,61 @@ async def get_page(page: Page,
 
 @router.post("/query", summary="查询文档信息")
 async def query(query: DocumentQuery,
-                db: Session = Depends(get_db),
+                db: AsyncSession = Depends(get_db),
                 current_user: User = Depends(get_current_active_user)):
     try:
         # 根据文档的标题或问题简介，作者姓名或用户名查询
         offset = (query.page - 1) * query.size
 
-        total_count = db.query(Document).join(
-            User, Document.contributor_id == User.id
-        ).filter(
-            or_(
-                Document.title.like(f"%{query.data}%"),
-                User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
-                User.username.like(f"%{query.data}%"),  # 也可以查询用户名
-                Document.problem_intro.like(f"%{query.data}%")
-            )
-        ).count()
+        filter_condition = or_(
+            Document.title.like(f"%{query.data}%"),
+            User.full_name.like(f"%{query.data}%"),
+            User.username.like(f"%{query.data}%"),
+            Document.problem_intro.like(f"%{query.data}%")
+        )
+
+        total_count_result = await db.execute(
+            select(func.count()).select_from(Document).join(User, Document.contributor_id == User.id).where(
+                filter_condition)
+        )
+        total_count = total_count_result.scalar_one()
+
+        # total_count = db.query(Document).join(
+        #     User, Document.contributor_id == User.id
+        # ).filter(
+        #     or_(
+        #         Document.title.like(f"%{query.data}%"),
+        #         User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
+        #         User.username.like(f"%{query.data}%"),  # 也可以查询用户名
+        #         Document.problem_intro.like(f"%{query.data}%")
+        #     )
+        # ).count()
 
 
-        documents = db.query(Document).join(
-            User, Document.contributor_id == User.id
-        ).filter(
-            or_(
-                Document.title.like(f"%{query.data}%"),
-                User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
-                User.username.like(f"%{query.data}%"),  # 也可以查询用户名
-                Document.problem_intro.like(f"%{query.data}%")
-            )
-        ).order_by(
-            Document.first_edit_date.desc()
-        ).offset(offset).limit(query.size).all()
+        # documents = db.query(Document).join(
+        #     User, Document.contributor_id == User.id
+        # ).filter(
+        #     or_(
+        #         Document.title.like(f"%{query.data}%"),
+        #         User.full_name.like(f"%{query.data}%"),  # 从 User 表查询姓名
+        #         User.username.like(f"%{query.data}%"),  # 也可以查询用户名
+        #         Document.problem_intro.like(f"%{query.data}%")
+        #     )
+        # ).order_by(
+        #     Document.first_edit_date.desc()
+        # ).offset(offset).limit(query.size).all()
+
+        result = await db.execute(
+            select(Document).join(User, Document.contributor_id == User.id)
+            .where(filter_condition)
+            .order_by(Document.first_edit_date.desc())
+            .offset(offset)
+            .limit(query.size)
+        )
+        documents = result.scalars().all()
+
         total_pages = (total_count + query.size - 1) // query.size
-        documents_response = documents_to_responses(db, documents)
+        documents_response = await documents_to_responses(db, documents)
 
         # documents_response = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
 
@@ -529,7 +616,7 @@ async def query(query: DocumentQuery,
 
 @router.post("/upload_files", summary="上传文件")
 async def upload_files(files: List[UploadFile] = File(...),
-                       db: Session = Depends(get_db),
+                       db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     """
     该aoi仅将文档保存至后端服务器，不做任何其他处理
@@ -576,7 +663,7 @@ async def upload_files(files: List[UploadFile] = File(...),
 
 @router.post("/analyze_files", summary="解析文件")
 async def analyze_files(file_list: AnalyzeRequest,
-                        db: Session = Depends(get_db),
+                        db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
     # file_list是后端相对路径
     success_file_url = []
@@ -597,31 +684,27 @@ async def analyze_files(file_list: AnalyzeRequest,
 
             # 根据不同的文件类型调用不同的解析器
             if file_ext == ".pdf":
-                document = pdf_parser.parse(url)
+                # document = pdf_parser.parse(url)
+                document = await asyncio.to_thread(pdf_parser.parse, url)
+
             elif file_ext == ".pptx" or file_ext == ".ppt":
-                document = ppt_parser.parse(url)
+                # document = ppt_parser.parse(url)
+                document = await asyncio.to_thread(ppt_parser.parse, url)
+
             elif file_ext == ".html" or file_ext == ".mhtml":
                 # document = await asyncio.to_thread(html_parser.parse(url))
-                document = html_parser.parse(url)
-                # document.contributor_id = current_user.id
-                # document.origin_file_name = file_name
-                # document.origin_file_dir = file
-                # document.first_edit_date = datetime.now()
-                # print(document.title)
-                # db.add(document)
-                # db.commit()
-                # db.refresh(document)
-                #
-                # vector_service = VectorService(db)
-                # vector_service.add_document_to_vector_store(document)
-                #
-                # success_file_url.append(file)
-                # success_origin_filename.append(file_name)
+                # document = html_parser.parse(url)
+
+                document = await asyncio.to_thread(html_parser.parse, url)
+
             elif file_ext == ".docx":
-                document = word_parser.parse(url)
+                # document = word_parser.parse(url)
+                document = await asyncio.to_thread(word_parser.parse, url)
+
             if not document.title:
                 if os.path.exists(url):
-                    os.remove(url)
+                    # os.remove(url)
+                    await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
                 continue
             document.contributor_id = current_user.id
@@ -630,10 +713,11 @@ async def analyze_files(file_list: AnalyzeRequest,
             document.first_edit_date = datetime.now()
             print(document.title)
             db.add(document)
-            db.commit()
-            db.refresh(document)
+            await db.commit()
+            await db.refresh(document)
             vector_service = VectorService(db)
-            vector_service.add_document_to_vector_store(document)
+            # vector_service.add_document_to_vector_store(document)
+            await vector_service.add_document_to_vector_store(document)
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
@@ -641,8 +725,10 @@ async def analyze_files(file_list: AnalyzeRequest,
         except Exception as e:
             print(e)
             url = os.path.join(document_base_dir, file)
+            # if os.path.exists(url):
+            #     os.remove(url)
             if os.path.exists(url):
-                os.remove(url)
+                await asyncio.to_thread(os.remove, url)
             error_origin_filename.append(file_name)
 
     analyze_result = UploadDocumentResponse(

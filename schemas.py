@@ -113,6 +113,16 @@ class UploadDocumentResponse(BaseModel):
     success_file_url: List[str]
     error_origin_filename: List[str]
 
+class UploadDocumentRequestNew(BaseModel):
+    name: str
+    size: int
+    type: str
+    location: str
+    create: datetime
+
+class DeleteDocumentRequestNew(BaseModel):
+    ids: List[int]
+
 class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]
@@ -210,9 +220,9 @@ class Result(BaseModel, Generic[T]):
 class ResultNew(BaseModel, Generic[T]):
     """统一响应模型 (Pydantic v2 语法)"""
     code: int = 1
-    msg: Optional[str] = None
+    message: Optional[str] = None
     data: Optional[T] = None
 
     @classmethod
     def result(cls, code: int, msg: str = None, data: Optional[T] = None):
-        return cls(code=code, msg=msg, data=data)
+        return cls(code=code, message=msg, data=data)

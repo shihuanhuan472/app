@@ -6,12 +6,12 @@ os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Mainten
 import base64
 import json
 from typing import List, Set, Dict, Any
-from database import SessionLocal
+from database import AsyncSessionLocal
 from models import Document
 from utils.VectorService import VectorService
 from openai import OpenAI
 import time
-db = SessionLocal()
+db = AsyncSessionLocal()
 vector_service = VectorService(db)
 
 """

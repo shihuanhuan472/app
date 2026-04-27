@@ -1,0 +1,234 @@
+import asyncio
+import os
+import uuid
+from datetime import datetime
+
+import aiofiles
+from fastapi import APIRouter, UploadFile, Depends, File, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+from database import get_db
+from dependencies import get_current_active_user
+from models import User, Document
+from schemas import UploadDocumentRequestNew, ResultNew, AnalyzeRequest, UploadDocumentResponse, DeleteDocumentRequestNew
+from utils.PdfParser import pdf_parser
+from utils.PPTParser import ppt_parser
+from utils.VectorService import VectorService
+from utils.WordParser import word_parser
+from utils.HTMLParser import html_parser
+from sqlalchemy import or_, select, func, delete
+
+router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
+ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx"}
+
+@router.post("/{dataset_id}/documents")
+async def upload_files(files: List[UploadFile] = File(...),
+                       db: AsyncSession = Depends(get_db),
+                       current_user: User = Depends(get_current_active_user)):
+    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    document_relative_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
+    dir = os.path.join(document_base_dir, document_relative_dir)
+    final_result = []
+    success_file_url = []
+    if not os.path.exists(dir):
+        os.mkdir(dir)
+        print(f"创建了{dir}")
+
+    for file in files:
+        file_ext = os.path.splitext(file.filename)[-1].lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            for file_tmp_url in success_file_url:
+                url = os.path.join(document_base_dir, file_tmp_url)
+                if os.path.exists(url):
+                    os.remove(url)
+
+            return ResultNew.result(400, f"{file.filename}格式不支持", None)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
+
+        try:
+            contents = await file.read()
+            url = os.path.join(dir, filename)
+            async with aiofiles.open(url, "wb") as f:
+                await f.write(contents)
+
+            upload_document_tmp = UploadDocumentRequestNew(
+                name=file.filename,
+                size=file.size,
+                type=file_ext[1:],
+                location=document_relative_dir + "/" + filename,
+                create=datetime.now().timestamp()
+            )
+            success_file_url.append(document_relative_dir + "/" + filename)
+            final_result.append(upload_document_tmp)
+
+        except Exception as e:
+            for file_tmp_url in success_file_url:
+                url = os.path.join(document_base_dir, file_tmp_url)
+                if os.path.exists(url):
+                    os.remove(url)
+            return ResultNew.result(101, f"文件{file.filename}上传失败，请稍后重试", None)
+
+    return ResultNew.result(0, None, final_result)
+
+
+@router.post("/analyze", summary="解析文件")
+async def analyze_files(file_list: AnalyzeRequest,
+                        db: AsyncSession = Depends(get_db),
+                        current_user: User = Depends(get_current_active_user)):
+    # file_list是后端相对路径
+    success_file_url = []
+    success_origin_filename = []
+    error_origin_filename = []
+    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    for file, file_name in zip(file_list.file_list, file_list.file_name):
+        try:
+            file_ext = file.split(".")[-1]
+            file_ext = "." + file_ext
+            # print(file_ext)
+            if file_ext not in ALLOWED_EXTENSIONS:
+                error_origin_filename.append(file_name)
+                continue
+            url = os.path.join(document_base_dir, file)
+            # print(url)
+            document = None
+
+            # 根据不同的文件类型调用不同的解析器
+            if file_ext == ".pdf":
+                document = pdf_parser.parse(url)
+            elif file_ext == ".pptx" or file_ext == ".ppt":
+                document = ppt_parser.parse(url)
+            elif file_ext == ".html" or file_ext == ".mhtml":
+                # document = await asyncio.to_thread(html_parser.parse(url))
+                document = html_parser.parse(url)
+            elif file_ext == ".docx":
+                document = word_parser.parse(url)
+            if not document.title:
+                if os.path.exists(url):
+                    # os.remove(url)
+                    await asyncio.to_thread(os.remove, url)
+                error_origin_filename.append(file_name)
+                continue
+            document.contributor_id = current_user.id
+            document.origin_file_name = file_name
+            document.origin_file_dir = file
+            document.first_edit_date = datetime.now()
+            print(document.title)
+            db.add(document)
+            await db.commit()
+            await db.refresh(document)
+            vector_service = VectorService(db)
+            # vector_service.add_document_to_vector_store(document)
+            await vector_service.add_document_to_vector_store(document)
+
+            success_file_url.append(file)
+            success_origin_filename.append(file_name)
+
+        except Exception as e:
+            print(e)
+            url = os.path.join(document_base_dir, file)
+            if os.path.exists(url):
+                # os.remove(url)
+                await asyncio.to_thread(os.remove, url)
+            error_origin_filename.append(file_name)
+
+    analyze_result = UploadDocumentResponse(
+        success_file_url=success_file_url,
+        success_origin_filename=success_origin_filename,
+        error_origin_filename=error_origin_filename
+    )
+    print(success_file_url)
+    print(error_origin_filename)
+    return ResultNew.result(0, None, analyze_result)
+
+
+# @router.get("/{dataset_id}/documents")
+# async def get_documents(page: int = Query(1, ge=1), page_size: int = Query(30, ge=1),
+#                         order_by: str = Query("create_time"), desc: bool = Query(True), keywords: str = Query(None),
+#                         id: int = Query(None), create_time_from: int = Query(0), create_time_to = Query(0),
+#                         ):
+
+def get_image_config():
+    MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", 20 * 1024 * 1024))
+    IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
+    BASE_DIR: str = os.getenv("BASE_DIR", "/")
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+    return {
+        "MAX_IMAGE_SIZE": MAX_IMAGE_SIZE,
+        "IMAGE_DIR": IMAGE_DIR,
+        "BASE_DIR": BASE_DIR,
+        "ALLOWED_EXTENSIONS": ALLOWED_EXTENSIONS
+    }
+
+
+@router.delete("/{dataset_id}/documents")
+async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
+                          db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    try:
+        error_document_ids = []
+
+        for id in ids.ids:
+            result = await db.execute(select(Document).where(Document.id == id))
+            document = result.scalar_one_or_none()
+
+            if not document:
+                print(f"文档{id}不存在")
+                continue
+
+            if document.contributor_id != current_user.id and current_user.role != 0:
+                print(f"{current_user.id}用户无权删除文档{id}")
+                error_document_ids.append(id)
+                continue
+
+            attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                     "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+            config = get_image_config()
+            base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+
+            # 删除文档的时候，把文档里的图片都删掉
+            for attr in attrs:
+                value = getattr(document, attr)
+                if value is not None:
+                    image_urls = value.split(", ")
+                    for image_url in image_urls:
+                        filename = os.path.basename(image_url)
+                        if filename.strip():
+                            url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+
+                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                               url) else None
+
+                            name, ext = os.path.splitext(filename)
+                            name = f"{name}_compressed{ext}"
+                            url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
+                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                               url) else None
+
+                            name = f"{name}_compressed_512{ext}"
+                            url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
+                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
+                                                                                               url) else None
+            if document.origin_file_dir:
+                url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
+                await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists, url) else None
+                print(f"已删除源文件{document.origin_file_dir}")
+
+            vector_service = VectorService(db)
+            await vector_service.delete_document_from_vector_store(id)
+            print(f"成功删除文档{id}")
+            await db.delete(document)
+
+        await db.commit()
+
+        if len(error_document_ids) > 0:
+            msg = ", ".join(map(str, error_document_ids))
+            msg = "文档" + msg + "无删除权限"
+        else:
+            msg = ""
+
+        return ResultNew.result(0, msg, None)
+    except Exception as e:
+        print(e)
+        await db.rollback()
+        return ResultNew.result(102, f"删除文档失败：{str(e)}", None)

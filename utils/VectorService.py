@@ -1,22 +1,23 @@
 import os
+import asyncio
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
-from transformers import AutoTokenizer, AutoModel
-import torch
+
 import base64
 import json
 import logging
 import mimetypes
 from datetime import datetime
 from typing import List, Dict
-from sqlalchemy.orm import Session
 from openai import OpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from models import Document
 import time
 
+from sqlalchemy import select
 logger = logging.getLogger(__name__)
 
 """
@@ -24,13 +25,13 @@ logger = logging.getLogger(__name__)
 """
 
 class VectorService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         # self.vector_store = vector_store
         self.vector_store_multimodal = vector_store_multimodal
         self.top_k = int(os.getenv("TOP_K", 10))
-        self.batch_size = int(os.getenv("BATCH_SIZE", 20))
-        self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.6))
+        self.batch_size = int(os.getenv("BATCH_SIZE", 10))
+        self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
         self.message_image_base_dir = os.getenv("MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
         self.ai = os.getenv("SERVER_IP", "192.168.246.200")
@@ -43,7 +44,7 @@ class VectorService:
         # self.rerank_model = AutoModel.from_pretrained(self.rerank_model_name)
         # self.rerank_model.eval()
 
-    def add_document_to_vector_store(self, document: Document):
+    async def add_document_to_vector_store(self, document: Document):
         """将文档添加到向量数据库"""
         try:
             # 检查文档是否已向量化
@@ -53,25 +54,26 @@ class VectorService:
 
             # 添加到向量数据库
             # self.vector_store.add_document(document)
-            self.vector_store_multimodal.add_document(document)
+            await asyncio.to_thread(self.vector_store_multimodal.add_document, document)
             print("向量化完成")
             # 更新数据库状态
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
-            self.db.commit()
+            await self.db.commit()
 
             print(f"文档 {document.id} 向量化完成")
 
         except Exception as e:
             print(f"文档向量化失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             raise
 
-    def delete_document_from_vector_store(self, doc_id: int):
+    async def delete_document_from_vector_store(self, doc_id: int):
         """从向量库删除文档"""
         try:
             # self.vector_store.delete_document(doc_id)
-            self.vector_store_multimodal.delete_document(doc_id)
+            # self.vector_store_multimodal.delete_document(doc_id)
+            await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id)
             print(f"文档 {doc_id} 已从向量库删除")
         except Exception as e:
             print(f"从向量库删除文档失败: {e}")
@@ -154,40 +156,50 @@ class VectorService:
             "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
         }
 
-    def rerank_by_llm(self, result, query: str = None, query_image: str = None):
+    async def rerank_by_llm(self, result, query: str = None, query_image: str = None):
         """
         query_image和result['image_url']如果有，都是绝对路径
         """
         print(f"调用rerank_by_llm")
         prompt = self.generate_prompt(result, query, query_image)
         # print(prompt)
-        messages = []
-        data = {}
-        msg_content = [{"type": "text", "text": prompt}]
-        if query_image is not None and len(query_image) > 0:
-            msg_content.append(self.add_picture_to_message(query_image))
-        if result['image_url'] is not None and len(result['image_url']) > 0:
-            msg_content.append(self.add_picture_to_message(result['image_url']))
-        # print(msg_content)
-        data["role"] = "user"
-        data["content"] = msg_content
-        messages.append(data)
-
-        try:
-            client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
-                api_key=self.api_key
-            )
+        def _call_openai():
+            messages = []
+            data = {}
+            msg_content = [{"type": "text", "text": prompt}]
+            if query_image is not None and len(query_image) > 0:
+                msg_content.append(self.add_picture_to_message(query_image))
+            if result['image_url'] is not None and len(result['image_url']) > 0:
+                msg_content.append(self.add_picture_to_message(result['image_url']))
+            # print(msg_content)
+            data["role"] = "user"
+            data["content"] = msg_content
+            messages.append(data)
+            client = OpenAI(base_url=f"http://{self.ai}:8000/v1", api_key=self.api_key)
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 max_tokens=self.max_token
             )
-            ans = response.choices[0].message.content
+            return response.choices[0].message.content
+
+        try:
+            # client = OpenAI(
+            #     base_url=f"http://{self.ai}:8000/v1",
+            #     api_key=self.api_key
+            # )
+            # response = client.chat.completions.create(
+            #     model=self.model,
+            #     messages=messages,
+            #     max_tokens=self.max_token
+            # )
+            # ans = response.choices[0].message.content
+
+            ans = await asyncio.to_thread(_call_openai)
             print(ans)
-            result = float(json.loads(ans)['score'])
-            time.sleep(3)
-            return result
+            new_score = float(json.loads(ans)['score'])
+            # time.sleep(3)
+            return new_score
         except Exception as e:
             print(e)
             return None
@@ -199,8 +211,31 @@ class VectorService:
     #         scores = self.rerank_model(**inputs, return_dict=True).logits.view(-1, ).float()
     #         print(scores)
 
+    async def describe_image(self, image_url):
+        def _call_openai():
+            messages = []
+            data = {}
+            msg_content = [{"type": "text", "text": "请详细描述图像信息，重点包含设备信息或故障信息（若无故障信息则无需给出故障信息）。\n仅返回答案，不要任何markdown渲染。"}]
+            msg_content.append(self.add_picture_to_message(image_url))
+            # print(msg_content)
+            data["role"] = "user"
+            data["content"] = msg_content
+            messages.append(data)
+            client = OpenAI(base_url=f"http://{self.ai}:8000/v1", api_key=self.api_key)
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=self.max_token
+            )
+            return response.choices[0].message.content
+        try:
+            ans = await asyncio.to_thread(_call_openai)
+            return ans
+        except Exception as e:
+            return None
 
-    def search_similar_documents(self, query: str, query_images: str = None, top_k: int = -1) -> List[Dict]:
+
+    async def search_similar_documents(self, query: str, query_images: str = None, top_k: int = -1) -> List[Dict]:
         """搜索相似文档"""
         try:
             top_k = self.top_k if top_k < 1 else top_k
@@ -213,32 +248,44 @@ class VectorService:
                     if not image.strip():
                         continue
                     image_url = os.path.join(self.message_image_base_dir, image.strip())
-                    if os.path.exists(image_url):
-                        result = self.vector_store_multimodal.search(query, image_url, top_k)
-                        # for r in result:
-                        #     new_score = self.rerank_by_llm(r, query, image_url)
-                        #     if new_score is not None:
-                        #         print(f"content: {r['content']}")
-                        #         print(f"old_score: {r['score']}, new_score: {new_score}")
-                        #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                    exists = await asyncio.to_thread(os.path.exists, image_url)
+                    if exists:
+
+                        image_description = await asyncio.to_thread(self.describe_image, image_url)
+
+                        if image_description is not None:
+                            query += f"\n【图像信息】：{image_description}"
+                        print(query)
+                        result = await asyncio.to_thread(
+                            self.vector_store_multimodal.search, query, image_url, top_k
+                        )
+
+                        for r in result:
+                            new_score = await self.rerank_by_llm(r, query, image_url)
+                            if new_score is not None:
+                                print(f"content: {r['content']}")
+                                print(f"old_score: {r['score']}, new_score: {new_score}")
+                                r['score'] = 0.75 * r['score'] + 0.25 * new_score
+
+                        # result = self.vector_store_multimodal.search(query, image_url, top_k)
                         results.extend(result)
                         flag = 1
             else:
-                result = self.vector_store_multimodal.search(query, None, top_k)
-                # for r in result:
-                #     new_score = self.rerank_by_llm(r, query, None)
-                #     if new_score is not None:
-                #         print(f"old_score: {r['score']}, new_score: {new_score}")
-                #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                result = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
+                for r in result:
+                    new_score = await self.rerank_by_llm(r, query, None)
+                    if new_score is not None:
+                        print(f"old_score: {r['score']}, new_score: {new_score}")
+                        r['score'] = 0.75 * r['score'] + 0.25 * new_score
                 results.extend(result)
                 flag = 1
             if flag == 0:
-                result = self.vector_store_multimodal.search(query, None, top_k)
-                # for r in result:
-                #     new_score = self.rerank_by_llm(r, query, None)
-                #     if new_score is not None:
-                #         print(f"old_score: {r['score']}, new_score: {new_score}")
-                #         r['score'] = 0.75 * r['score'] + 0.25 * new_score
+                result = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
+                for r in result:
+                    new_score = await self.rerank_by_llm(r, query, None)
+                    if new_score is not None:
+                        print(f"old_score: {r['score']}, new_score: {new_score}")
+                        r['score'] = 0.75 * r['score'] + 0.25 * new_score
                 results.extend(result)
             # results = self.vector_store_multimodal.search(query, query_image, top_k)
             # print(results)
@@ -272,21 +319,35 @@ class VectorService:
             print(f"向量搜索失败: {e}")
             return []
 
-    def batch_vectorize_existing_documents(self, batch_size: int = -1):
+    async def batch_vectorize_existing_documents(self, batch_size: int = -1):
         """批量向量化现有文档"""
         try:
             batch_size = self.batch_size if batch_size < 1 else batch_size
             # 获取未向量化的文档
-            documents = self.db.query(Document) \
-                .filter(Document.is_vectorized == 0) \
-                .limit(batch_size) \
-                .all()
+            # documents = self.db.query(Document) \
+            #     .filter(Document.is_vectorized == 0) \
+            #     .limit(batch_size) \
+            #     .all()
+
+            result = await self.db.execute(
+                select(Document).where(Document.is_vectorized == 0).limit(batch_size)
+            )
+            documents = result.scalars().all()
 
             for doc in documents:
-                self.add_document_to_vector_store(doc)
+                await self.add_document_to_vector_store(doc)
 
             return len(documents)
 
         except Exception as e:
             print(f"批量向量化失败: {e}")
             return 0
+
+
+if __name__ == "__main__":
+    db = AsyncSession()
+    vector_service = VectorService(db)
+
+    result = vector_service.search_similar_documents("", "eval_images\\120-1.jpg")
+
+    print(result)

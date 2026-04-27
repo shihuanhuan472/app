@@ -653,10 +653,10 @@
                     let title = `文档 ${docId}`;
                     if (response) {
                         if (response.code !== undefined && response.code === 1) {
-                            title = response.data?.title || title;
+                            title = response.data.title || title;
                         } else if (response.title) {
                             title = response.title;
-                        } else if (response.data?.title) {
+                        } else if (response.data.title) {
                             title = response.data.title;
                         }
                     }
@@ -1777,10 +1777,12 @@
             const sendBtn = document.getElementById('sendButton');
             sendBtn.disabled = true;
 
+            // 这些变量需要在 try 块外部定义，以便在后续代码中使用
+            let uploadedImageUrls = [];
+            let tempImageUrls = [];
+
             try {
-                // 1. 上传附件
-                let uploadedImageUrls = [];
-                let tempImageUrls = [];
+                // 1. 上传附件（如果有）
                 if (this.currentAttachments.length > 0) {
                     // 生成临时预览 base64
                     const promises = this.currentAttachments.map(file => {
@@ -1794,12 +1796,23 @@
 
                     // 调用上传接口
                     const uploadResp = await messageAPI.uploadImages(this.currentAttachments);
-                    if (uploadResp.code === 1 && uploadResp.data) {
+                    console.log('uploadResp:', uploadResp);
+
+                    // 正确解析返回的图片 URL 数组
+                    if (Array.isArray(uploadResp)) {
+                        // 情况1：messageAPI.uploadImages 直接返回了 data 数组
+                        uploadedImageUrls = uploadResp.map(img => img.url);
+                    } else if (uploadResp && uploadResp.code === 1 && Array.isArray(uploadResp.data)) {
+                        // 情况2：返回标准 Result 对象（兼容）
                         uploadedImageUrls = uploadResp.data.map(img => img.url);
+                    } else if (uploadResp && uploadResp.url) {
+                        // 情况3：单张图片对象
+                        uploadedImageUrls = [uploadResp.url];
                     }
+                    console.log('uploadedImageUrls:', uploadedImageUrls);
                 }
 
-                // 2. 显示用户临时消息
+                // 2. 显示用户临时消息（使用 base64 预览）
                 this.addTemporaryUserMessage(messageText, tempImageUrls);
 
                 // 3. 显示 AI 流式消息容器
@@ -1814,7 +1827,7 @@
 
                 let fullAnswer = '';
                 let currentMessageId = null;
-                let lastReference = null; // 记录最后一个 reference 字段
+                let lastReference = null;
 
                 await messageAPI.askStream(messageData,
                     (chunk) => {
@@ -1824,18 +1837,15 @@
                         }
                         if (chunk.id) currentMessageId = chunk.id;
                         if (chunk.reference && typeof chunk.reference === 'string') {
-                            lastReference = chunk.reference; // 记录文档ID字符串
+                            lastReference = chunk.reference;
                         }
                     },
                     async () => {
                         // 流式完成
                         const tempMsgDiv = document.getElementById('streamingAIMessage');
                         if (tempMsgDiv) {
-                            tempMsgDiv.id = ''; // 移除临时id，使其变成正式消息
-
-                            // 如果存在 reference，显示文档链接
+                            tempMsgDiv.id = ''; // 移除临时id，变成正式消息
                             if (lastReference) {
-                                // 解析文档ID数组
                                 const docIds = lastReference.split(',').map(id => id.trim()).filter(id => id);
                                 if (docIds.length > 0) {
                                     await this.loadAndDisplayDocuments(tempMsgDiv, docIds);
@@ -1852,7 +1862,6 @@
                     }
                 );
 
-                // 注意：这里不再调用 this.loadHistoryList，避免流式过程中刷新
             } catch (error) {
                 console.error('发送消息失败:', error);
                 this.removeStreamingMessage();

@@ -2,21 +2,26 @@ import hashlib
 from datetime import datetime
 import logging
 from fastapi import APIRouter, HTTPException, status, Depends, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from schemas import UserLogin, Result
 from utils.JwtUtils import jwt_utils
 from models import User
+from sqlalchemy import select
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 logger = logging.getLogger(__name__)
 
 
 @router.post("/login", summary="用户登录")
-async def login(login_data: UserLogin, db: Session = Depends(get_db)):
+async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
     print("用户登录")
     # 验证用户名
-    user = db.query(User).filter(User.username == login_data.username).first()
+    # user = db.query(User).filter(User.username == login_data.username).first()
+
+    result = await db.execute(select(User).where(User.username == login_data.username))
+    user = result.scalar_one_or_none()
+
     if not user:
         return Result.error("用户名或密码错误")
 
@@ -34,8 +39,8 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
 
     try:
         user.last_login = datetime.now()
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         print(f"{user.username}用户登录成功！")
     except Exception as e:
         db.rollback()

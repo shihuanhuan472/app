@@ -11,9 +11,9 @@ from qwen_token_counter import get_token_count
 from openai import OpenAI
 from models import Document, Message
 from utils.VectorService import VectorService
-from database import SessionLocal
+from database import AsyncSessionLocal
 
-db = SessionLocal()
+db = AsyncSessionLocal()
 vector_service = VectorService(db)
 
 """

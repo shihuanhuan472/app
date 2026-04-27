@@ -1,11 +1,11 @@
 import hashlib
 from datetime import datetime
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from fastapi import HTTPException, status
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy import or_, and_
-from sqlalchemy.orm import Session
 from database import get_db
 from dependencies import require_roles
 from models import User
@@ -20,24 +20,36 @@ logger = logging.getLogger(__name__)
 
 @router.post("/add_user", summary="管理员添加用户")
 async def add_user(user: UserCreate,
-                   db: Session = Depends(get_db),
+                   db: AsyncSession = Depends(get_db),
                    current_user: User = Depends(require_roles("admin"))):
     try:
         # 检查电话唯一性
         phone = user.phone
         email = user.email
         username = user.username
-        user_phone_find = db.query(User).filter(User.phone == phone, User.status == 1).first()
+        # user_phone_find = db.query(User).filter(User.phone == phone, User.status == 1).first()
+
+        phone_result = await db.execute(select(User).where(User.phone == phone, User.status == 1))
+        user_phone_find = phone_result.scalar_one_or_none()
+
 
         if user_phone_find:
             return Result.error("手机号已被其他用户使用")
         # 检查邮箱唯一性
         if email is not None:
-            user_email_find = db.query(User).filter(User.email == email, User.status == 1).first()
+            # user_email_find = db.query(User).filter(User.email == email, User.status == 1).first()
+
+            email_result = await db.execute(select(User).where(User.email == email, User.status == 1))
+            user_email_find = email_result.scalar_one_or_none()
+
             if user_email_find:
                 return Result.error("邮箱已被其他用户使用")
         if username is not None:
-            user_username_find = db.query(User).filter(User.username == username, User.status == 1).first()
+            # user_username_find = db.query(User).filter(User.username == username, User.status == 1).first()
+
+            username_result = await db.execute(select(User).where(User.username == username, User.status == 1))
+            user_username_find = username_result.scalar_one_or_none()
+
             if user_username_find:
                 return Result.error("用户名已存在，添加失败")
 
@@ -45,7 +57,11 @@ async def add_user(user: UserCreate,
         hashed_password = hashlib.md5("123456".encode()).hexdigest()
 
         # 查询是否有软删除用户（这里是处理，某个用户返聘，直接恢复原账号）
-        user_delete = db.query(User).filter(User.username == username, User.status == 0).first()
+        # user_delete = db.query(User).filter(User.username == username, User.status == 0).first()
+
+        deleted_user_result = await db.execute(select(User).where(User.username == username, User.status == 0))
+        user_delete = deleted_user_result.scalar_one_or_none()
+
         if user_delete:
             user_delete.status = 1
             user_delete.phone = phone
@@ -56,8 +72,8 @@ async def add_user(user: UserCreate,
             user_delete.department = user.department
             user_delete.created_time = datetime.now()
             user_delete.last_login = None
-            db.commit()
-            db.refresh(user_delete)
+            await db.commit()
+            await db.refresh(user_delete)
         else:
             user_dict = user.dict(exclude={'password'})
 
@@ -67,8 +83,8 @@ async def add_user(user: UserCreate,
                             created_time=datetime.now(),
                             last_login=None)
             db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
+            await db.commit()
+            await db.refresh(new_user)
 
         return Result.success()
     except HTTPException:
@@ -77,7 +93,7 @@ async def add_user(user: UserCreate,
 
     except Exception as e:
         # 其他异常回滚
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"创建用户失败: {str(e)}"
@@ -85,13 +101,16 @@ async def add_user(user: UserCreate,
 
 @router.patch("/update_user", summary="管理员更新用户信息")
 async def update_user(new_user: UserUpdateByAdmin,
-                      db: Session = Depends(get_db),
+                      db: AsyncSession = Depends(get_db),
                       current_user: User = Depends(require_roles("admin"))):
     """
     更新用户信息，包括实现软删除
     """
     try:
-        user = db.query(User).filter(User.id == new_user.id).first()
+        # user = db.query(User).filter(User.id == new_user.id).first()
+
+        result = await db.execute(select(User).where(User.id == new_user.id))
+        user = result.scalar_one_or_none()
 
         if not user:
             return Result.error("用户不存在")
@@ -104,26 +123,46 @@ async def update_user(new_user: UserUpdateByAdmin,
 
         # 检查一下手机号唯一性
         if "phone" in new_user and new_user["phone"] != user.phone:
-            exist_phone = db.query(User).filter(User.phone == new_user["phone"],
-                                                User.id != user.id,
-                                                User.status == 1).first()
+            # exist_phone = db.query(User).filter(User.phone == new_user["phone"],
+            #                                     User.id != user.id,
+            #                                     User.status == 1).first()
+
+            phone_result = await db.execute(
+                select(User).where(
+                    User.phone == new_user["phone"],
+                    User.id != user.id,
+                    User.status == 1
+                )
+            )
+            exist_phone = phone_result.scalar_one_or_none()
+
             if exist_phone:
                 return Result.error("手机号已被其他用户使用")
 
         # 检查一下邮箱的唯一性
         if "email" in new_user and new_user["email"] and new_user["email"] != user.email:
             if new_user["email"]:
-                exist_email = db.query(User).filter(User.email == new_user["email"],
-                                                    User.id != user.id,
-                                                    User.status == 1).first()
-                return Result.error("邮箱已被其他用户使用")
+                # exist_email = db.query(User).filter(User.email == new_user["email"],
+                #                                     User.id != user.id,
+                #                                     User.status == 1).first()
+
+                email_result = await db.execute(
+                    select(User).where(
+                        User.email == new_user["email"],
+                        User.id != user.id,
+                        User.status == 1
+                    )
+                )
+                exist_email = email_result.scalar_one_or_none()
+                if exist_email:
+                    return Result.error("邮箱已被其他用户使用")
 
         for field, value in new_user.items():
             if value is not None and field != "id":
                 setattr(user, field, value)
 
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
         data = UserResponse.from_orm(user)
 
@@ -132,7 +171,7 @@ async def update_user(new_user: UserUpdateByAdmin,
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"用户更新异常: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -141,10 +180,14 @@ async def update_user(new_user: UserUpdateByAdmin,
 
 
 @router.get("/users", summary="管理员查询所有用户数据")
-async def get_users(db: Session = Depends(get_db),
+async def get_users(db: AsyncSession = Depends(get_db),
                     current_user: User = Depends(require_roles("admin"))):
     try:
-        users = db.query(User).filter(User.status == 1).all()
+        # users = db.query(User).filter(User.status == 1).all()
+
+        result = await db.execute(select(User).where(User.status == 1))
+        users = result.scalars().all()
+
         users_data = [UserResponse.from_orm(user) for user in users]
         return Result.success_with_data(users_data)
     except Exception as e:
@@ -154,22 +197,35 @@ async def get_users(db: Session = Depends(get_db),
         )
 
 @router.get("/user/{id}", summary="管理员查询某个用户信息")
-async def get_user_by_id(id, db: Session = Depends(get_db),
+async def get_user_by_id(id, db: AsyncSession = Depends(get_db),
                          current_user: User = Depends(require_roles("admin"))):
     try:
-        user = db.query(User).filter(User.status == 1, User.id == id).first()
+        result = await db.execute(select(User).where(User.status == 1, User.id == id))
+        user = result.scalar_one_or_none()
+
+        # user = db.query(User).filter(User.status == 1, User.id == id).first()
         user_data = UserResponse.from_orm(user)
         return Result.success_with_data(user_data)
     except Exception as e:
         return Result.error("用户不存在")
 
 @router.post("/users/page", summary="管理员分页查询用户信息")
-async def get_user_page(page: Page, db: Session = Depends(get_db),
+async def get_user_page(page: Page, db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(require_roles("admin"))):
     try:
         offset = (page.page - 1) * page.size
-        total_count = db.query(User).filter(User.status == 1).count()
-        users = db.query(User).filter(User.status == 1).offset(offset).limit(page.size).all()
+        # total_count = db.query(User).filter(User.status == 1).count()
+
+        total_count_result = await db.execute(select(func.count()).select_from(User).where(User.status == 1))
+        total_count = total_count_result.scalar_one()
+
+        # users = db.query(User).filter(User.status == 1).offset(offset).limit(page.size).all()
+
+        result = await db.execute(
+            select(User).where(User.status == 1).offset(offset).limit(page.size)
+        )
+        users = result.scalars().all()
+
         total_pages = (total_count + page.size - 1) // page.size
         users_data = [UserResponse.from_orm(user) for user in users]
         data = {
@@ -187,29 +243,49 @@ async def get_user_page(page: Page, db: Session = Depends(get_db),
 
 @router.post("/query", summary="查询用户信息")
 async def query(query: UserQueryByPage,
-                db: Session = Depends(get_db),
+                db: AsyncSession = Depends(get_db),
                 current_user: User = Depends(require_roles("admin"))):
     try:
         # 根据用户名，电话，姓名，部门查询
         offset = (query.page - 1) * query.size
-        total_count = db.query(User).filter(
-            and_(
-                User.status == 1,
-                or_(
-                    User.username.like(f"%{query.data}%"),
-                    User.phone.like(f"%{query.data}%"),
-                    User.full_name.like(f"%{query.data}%"),
-                    User.department.like(f"%{query.data}%"))
-            )).count()
-        users = db.query(User).filter(
-            and_(
-                User.status == 1,
-                or_(
-                    User.username.like(f"%{query.data}%"),
-                    User.phone.like(f"%{query.data}%"),
-                    User.full_name.like(f"%{query.data}%"),
-                    User.department.like(f"%{query.data}%"))
-            )).offset(offset).limit(query.size).all()
+
+        filters = and_(
+            User.status == 1,
+            or_(
+                User.username.like(f"%{query.data}%"),
+                User.phone.like(f"%{query.data}%"),
+                User.full_name.like(f"%{query.data}%"),
+                User.department.like(f"%{query.data}%")
+            )
+        )
+
+        total_count_result = await db.execute(select(func.count()).select_from(User).where(filters))
+        total_count = total_count_result.scalar_one()
+
+        # total_count = db.query(User).filter(
+        #     and_(
+        #         User.status == 1,
+        #         or_(
+        #             User.username.like(f"%{query.data}%"),
+        #             User.phone.like(f"%{query.data}%"),
+        #             User.full_name.like(f"%{query.data}%"),
+        #             User.department.like(f"%{query.data}%"))
+        #     )).count()
+
+        result = await db.execute(
+            select(User).where(filters).offset(offset).limit(query.size)
+        )
+        users = result.scalars().all()
+
+        # users = db.query(User).filter(
+        #     and_(
+        #         User.status == 1,
+        #         or_(
+        #             User.username.like(f"%{query.data}%"),
+        #             User.phone.like(f"%{query.data}%"),
+        #             User.full_name.like(f"%{query.data}%"),
+        #             User.department.like(f"%{query.data}%"))
+        #     )).offset(offset).limit(query.size).all()
         total_pages = (total_count + query.size - 1) // query.size
         users_response = [UserResponse.from_orm(user) for user in users]
 
