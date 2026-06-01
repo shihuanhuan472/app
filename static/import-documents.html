@@ -165,9 +165,8 @@
             align-items: center;
             margin: 20px 0;
         }
-        /* 图片查看模态框复用 add-document.html 中的样式 (保持原有占位) */
-        .image-modal { /* 同 add-document.html 定义，略 */ }
-        .image-modal-content { /* 略 */ }
+        .image-modal {  }
+        .image-modal-content {  }
     </style>
 </head>
 <body>
@@ -184,6 +183,10 @@
             <a href="main.html" class="nav-item active">
                 <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                 <span>知识库</span>
+            </a>
+            <a href="my-submissions.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                <span>我的提交</span>
             </a>
             <a href="ai-assist.html" class="nav-item">
                 <span class="nav-icon"><i class="fas fa-robot"></i></span>
@@ -244,8 +247,8 @@
                 <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <div class="image-upload-text">点击或拖拽文件到这里</div>
-                    <div class="image-upload-hint">支持 PDF、PPT、HTML、DOCX等格式，每个文件不超过20MB</div>
-                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf, .docx, .pptx, .ppt, .html, .mhtml">
+                    <div class="image-upload-hint">支持 PDF、PPT、HTML、DOCX、TXT、MD/Markdown、图片(PNG/JPG/JPEG/WebP/BMP)、表格(CSV/XLSX/XLS/XLSM)，每个文件不超过20MB</div>
+                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf,.docx,.pptx,.ppt,.html,.mhtml,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.bmp,.csv,.xlsx,.xls,.xlsm">
                 </div>
 
                 <div id="selectedFilesList" class="file-list" style="display: none;">
@@ -281,7 +284,7 @@
                     <div class="success-list" id="analyzeSuccessList"></div>
                     <div class="error-list" id="analyzeErrorList"></div>
                     <div class="action-bar" style="justify-content: flex-end;">
-                        <a href="main.html" class="btn btn-primary">完成，返回知识库</a>
+                        <a href="main.html" class="btn btn-primary" id="finishBtn">完成，返回知识库</a>
                     </div>
                 </div>
             </div>
@@ -290,6 +293,12 @@
 </div>
 
 <script>
+    const ALLOWED_FILE_EXTENSIONS = new Set([
+        'pdf', 'docx', 'pptx', 'ppt', 'html', 'mhtml', 'txt', 'md', 'markdown',
+        'png', 'jpg', 'jpeg', 'webp', 'bmp',
+        'csv', 'xlsx', 'xls', 'xlsm'
+    ]);
+
     // 状态变量
     let selectedFiles = [];                // 用户选择的待上传文件列表（File对象）
     let uploadedFiles = [];                // 上传成功的文件列表 { name, url, size, type }
@@ -309,7 +318,7 @@
     // 判断是否为图片类型
     function isImageFile(filename) {
         const ext = filename.split('.').pop().toLowerCase();
-        return ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext);
+        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext);
     }
 
     /**
@@ -320,7 +329,7 @@
         if (!filename) return false;
         const ext = filename.split('.').pop().toLowerCase();
         // 可预览的扩展名列表（可根据实际需求调整）
-        const previewExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'html', 'htm', 'mhtml'];
+        const previewExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'pdf', 'html', 'htm', 'mhtml', 'txt', 'md', 'markdown', 'csv'];
         return previewExts.includes(ext);
     }
 
@@ -335,6 +344,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         Utils.checkLogin();
         Utils.loadUserInfo();
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReviewMode = urlParams.get('mode') === 'review';
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -348,6 +359,11 @@
         const step2Indicator = document.getElementById('step2');
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
         const analyzeBtn = document.getElementById('analyzeBtn');
+        const finishBtn = document.getElementById('finishBtn');
+        if (isReviewMode && finishBtn) {
+            finishBtn.href = 'my-submissions.html';
+            finishBtn.textContent = '完成，返回我的提交';
+        }
 
         // 点击上传区域
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -383,6 +399,11 @@
             for (let file of files) {
                 if (file.size > MAX_SIZE) {
                     Utils.showMessage(`文件 "${file.name}" 超过20MB，已忽略`, 'warning');
+                    continue;
+                }
+                const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+                if (!ALLOWED_FILE_EXTENSIONS.has(ext)) {
+                    Utils.showMessage(`文件 "${file.name}" 格式不支持，已忽略`, 'warning');
                     continue;
                 }
                 // 避免重复添加（按名称和大小粗略判断）
@@ -610,7 +631,7 @@
             analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
 
             try {
-                const result = await documentAPI.analyzeFiles(fileList, fileNames);
+                const result = await documentAPI.analyzeFiles(fileList, fileNames, isReviewMode);
                 const successNames = result.success_origin_filename || [];
                 const errorNames = result.error_origin_filename || [];
 

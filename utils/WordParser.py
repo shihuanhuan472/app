@@ -9,6 +9,8 @@ from docx import Document as Docx
 from openai import OpenAI
 from qwen_token_counter import get_token_count
 from models import Document
+from utils.ai_endpoint import get_ai_base_url
+from utils.error_codes import BizCode
 
 """
 word解析器，使用python-docx提取docx中的文本图像和表格
@@ -25,6 +27,8 @@ class WordParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("SUMMARY_MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.last_error_code = None
+        self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
         if not os.path.exists(base_url):
             os.makedirs(base_url)
@@ -69,6 +73,30 @@ class WordParser:
                 image_urls.append(img_path)
                 file_names.append(unique_filename)
         return text, image_urls, file_names
+
+    def _set_last_error(self, code: int, message: str):
+        self.last_error_code = int(code)
+        self.last_error_detail = message
+
+    def _is_ai_service_unavailable_error(self, error: Exception) -> bool:
+        name = type(error).__name__
+        if name in {"APIConnectionError", "APITimeoutError"}:
+            return True
+        msg = str(error).lower()
+        keywords = [
+            "connection",
+            "timed out",
+            "timeout",
+            "refused",
+            "temporarily unavailable",
+            "service unavailable",
+            "name resolution",
+            "max retries exceeded",
+            "502",
+            "503",
+            "504",
+        ]
+        return any(k in msg for k in keywords)
 
     def table_to_markdown(self, table):
         """
@@ -137,6 +165,8 @@ class WordParser:
         return new_path
 
     def parse(self, file_path):
+        self.last_error_code = None
+        self.last_error_detail = None
         text, image_urls, file_names = self.get_content(file_path)
         document = self.file2Document(text, image_urls, file_names)
         return document
@@ -174,7 +204,7 @@ class WordParser:
 
 注意：
 1. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-2. 内容必须基于我提供的文本和图片，不可杜撰任何信息。
+2. 所有文字必须100%来自文档原文和图片，不可杜撰任何信息。
 3. 你给出的回答仅包含我要求的JSON格式答案。
 4. 给定图片编号从1开始，不得编写新的图片。
 5. title不可为空，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
@@ -224,7 +254,7 @@ class WordParser:
     def file2Document(self, text, image_urls, image_names):
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
@@ -274,9 +304,14 @@ class WordParser:
 
         except Exception as e:
             print(e)
+            if self._is_ai_service_unavailable_error(e):
+                self._set_last_error(BizCode.AI_SERVICE_UNAVAILABLE, "AI服务不可用，请稍后重试")
+            else:
+                self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
             for image in image_urls:
                 if os.path.exists(image):
                     os.remove(image)
+            return None
 
 word_parser = WordParser()
 

@@ -1,6 +1,7 @@
-import asyncio
+﻿import asyncio
 import os
 import uuid
+import json
 from datetime import datetime
 
 import aiofiles
@@ -9,20 +10,91 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
 from dependencies import get_current_active_user
-from models import User, Document
+from models import User, Document, Document_review
 from schemas import UploadDocumentRequestNew, ResultNew, AnalyzeRequest, UploadDocumentResponse, DeleteDocumentRequestNew
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
 from utils.VectorService import VectorService
 from utils.WordParser import word_parser
 from utils.HTMLParser import html_parser
+from utils.TXTParser import txt_parser
+from utils.MarkdownParser import markdown_parser
+from utils.ImageParser import image_parser
+from utils.CsvExcelParser import csv_excel_parser
+from utils.roles import UserRole, has_role
 from sqlalchemy import or_, select, func, delete
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
-ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx"}
+ALLOWED_EXTENSIONS = {
+    ".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx", ".txt", ".md", ".markdown",
+    ".png", ".jpg", ".jpeg", ".webp", ".bmp",
+    ".csv", ".xlsx", ".xls", ".xlsm"
+}
 
+
+def _normalize_document_for_db(document: Document) -> None:
+    text_fields = [
+        "title", "problem_intro", "causes", "evaluation",
+        "inspection", "solutions", "key_points", "origin_file_name", "origin_file_dir"
+    ]
+    image_fields = [
+        "image_urls", "image_urls_problem_intro", "image_urls_causes",
+        "image_urls_evaluation", "image_urls_inspection",
+        "image_urls_solutions", "image_urls_key_points"
+    ]
+
+    for field in text_fields:
+        value = getattr(document, field, None)
+        if isinstance(value, (list, tuple)):
+            setattr(document, field, "\n".join(str(item) for item in value if item is not None))
+        elif isinstance(value, dict):
+            setattr(document, field, json.dumps(value, ensure_ascii=False))
+        elif value is not None and not isinstance(value, str):
+            setattr(document, field, str(value))
+
+
+def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
+    return Document_review(
+        document_id=None,
+        title=document.title,
+        contributor_id=contributor_id,
+        reviewer_id=None,
+        first_edit_date=document.first_edit_date or datetime.now(),
+        reviewed_time=None,
+        status=0,
+        problem_intro=document.problem_intro,
+        image_urls=document.image_urls,
+        causes=document.causes,
+        evaluation=document.evaluation,
+        inspection=document.inspection,
+        solutions=document.solutions,
+        key_points=document.key_points,
+        origin_file_name=document.origin_file_name,
+        origin_file_dir=document.origin_file_dir,
+        image_urls_problem_intro=document.image_urls_problem_intro,
+        image_urls_causes=document.image_urls_causes,
+        image_urls_evaluation=document.image_urls_evaluation,
+        image_urls_inspection=document.image_urls_inspection,
+        image_urls_solutions=document.image_urls_solutions,
+        image_urls_key_points=document.image_urls_key_points,
+        action_type=1,
+        review_comment=None,
+    )
+
+    for field in image_fields:
+        value = getattr(document, field, None)
+        if isinstance(value, (list, tuple)):
+            text = ", ".join(str(item).strip() for item in value if item is not None and str(item).strip())
+            setattr(document, field, text or None)
+        elif isinstance(value, dict):
+            setattr(document, field, json.dumps(value, ensure_ascii=False))
+        elif value is not None and not isinstance(value, str):
+            setattr(document, field, str(value))
+
+@router.post("/upload_files")
 @router.post("/{dataset_id}/documents")
-async def upload_files(files: List[UploadFile] = File(...),
+async def upload_files(dataset_id: str = "",
+                       files: List[UploadFile] = File(...),
                        db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
@@ -70,22 +142,26 @@ async def upload_files(files: List[UploadFile] = File(...),
                     os.remove(url)
             return ResultNew.result(101, f"文件{file.filename}上传失败，请稍后重试", None)
 
-    return ResultNew.result(0, None, final_result)
+    return ResultNew.result(1, None, final_result)
 
 
+@router.post("/analyze_files", summary="解析文件")
 @router.post("/analyze", summary="解析文件")
 async def analyze_files(file_list: AnalyzeRequest,
                         db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
     # file_list是后端相对路径
+    submit_for_review = bool(file_list.submit_for_review)
+    if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
+        return ResultNew.result(403, "仅技术人员可提交审核", None)
+
     success_file_url = []
     success_origin_filename = []
     error_origin_filename = []
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
     for file, file_name in zip(file_list.file_list, file_list.file_name):
         try:
-            file_ext = file.split(".")[-1]
-            file_ext = "." + file_ext
+            file_ext = os.path.splitext(file)[1].lower()
             # print(file_ext)
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
@@ -104,7 +180,15 @@ async def analyze_files(file_list: AnalyzeRequest,
                 document = html_parser.parse(url)
             elif file_ext == ".docx":
                 document = word_parser.parse(url)
-            if not document.title:
+            elif file_ext == ".txt":
+                document = txt_parser.parse(url)
+            elif file_ext == ".md" or file_ext == ".markdown":
+                document = markdown_parser.parse(url)
+            elif file_ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+                document = image_parser.parse(url)
+            elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
+                document = csv_excel_parser.parse(url)
+            if not document or not document.title:
                 if os.path.exists(url):
                     # os.remove(url)
                     await asyncio.to_thread(os.remove, url)
@@ -114,13 +198,20 @@ async def analyze_files(file_list: AnalyzeRequest,
             document.origin_file_name = file_name
             document.origin_file_dir = file
             document.first_edit_date = datetime.now()
+            _normalize_document_for_db(document)
             print(document.title)
-            db.add(document)
-            await db.commit()
-            await db.refresh(document)
-            vector_service = VectorService(db)
-            # vector_service.add_document_to_vector_store(document)
-            await vector_service.add_document_to_vector_store(document)
+            if submit_for_review:
+                review = _build_create_review_from_document(document, current_user.id)
+                db.add(review)
+                await db.commit()
+                await db.refresh(review)
+            else:
+                db.add(document)
+                await db.commit()
+                await db.refresh(document)
+                vector_service = VectorService(db)
+                # vector_service.add_document_to_vector_store(document)
+                await vector_service.add_document_to_vector_store(document)
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
@@ -140,7 +231,7 @@ async def analyze_files(file_list: AnalyzeRequest,
     )
     print(success_file_url)
     print(error_origin_filename)
-    return ResultNew.result(0, None, analyze_result)
+    return ResultNew.result(1, None, analyze_result)
 
 
 # @router.get("/{dataset_id}/documents")
@@ -169,14 +260,19 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
         error_document_ids = []
 
         for id in ids.ids:
-            result = await db.execute(select(Document).where(Document.id == id))
+            result = await db.execute(
+                select(Document).where(
+                    Document.id == id,
+                    Document.is_deleted == 0,
+                )
+            )
             document = result.scalar_one_or_none()
 
             if not document:
                 print(f"文档{id}不存在")
                 continue
 
-            if document.contributor_id != current_user.id and current_user.role != 0:
+            if document.contributor_id != current_user.id and not has_role(current_user, UserRole.ADMIN):
                 print(f"{current_user.id}用户无权删除文档{id}")
                 error_document_ids.append(id)
                 continue
@@ -217,7 +313,22 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
             vector_service = VectorService(db)
             await vector_service.delete_document_from_vector_store(id)
             print(f"成功删除文档{id}")
-            await db.delete(document)
+
+            review_refs_result = await db.execute(
+                select(Document_review).where(Document_review.document_id == id)
+            )
+            review_refs = review_refs_result.scalars().all()
+            for review_ref in review_refs:
+                if review_ref.status == 0:
+                    review_ref.status = 3
+                    auto_msg = "源文档已被删除，系统自动撤回"
+                    if review_ref.review_comment and review_ref.review_comment.strip():
+                        review_ref.review_comment = f"{review_ref.review_comment}\n{auto_msg}"
+                    else:
+                        review_ref.review_comment = auto_msg
+                    review_ref.reviewed_time = datetime.now()
+
+            document.is_deleted = 1
 
         await db.commit()
 
@@ -227,7 +338,7 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
         else:
             msg = ""
 
-        return ResultNew.result(0, msg, None)
+        return ResultNew.result(1, msg, None)
     except Exception as e:
         print(e)
         await db.rollback()

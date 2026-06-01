@@ -8,6 +8,8 @@ from openai import OpenAI
 from qwen_token_counter import get_token_count
 
 from models import Document
+from utils.ai_endpoint import get_ai_base_url_alt
+from utils.error_codes import BizCode
 from pptx import Presentation
 import os
 
@@ -25,6 +27,8 @@ class PPTParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.last_error_code = None
+        self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
         if not os.path.exists(base_url):
             os.makedirs(base_url)
@@ -35,9 +39,35 @@ class PPTParser:
             print(f"创建目录: {base_url}")
 
     def parse(self, file_path: str):
+        self.last_error_code = None
+        self.last_error_detail = None
         text, image_urls, image_names = self.get_content(file_path)
         document = self.file2document(text, image_urls, image_names)
         return document
+
+    def _set_last_error(self, code: int, message: str):
+        self.last_error_code = int(code)
+        self.last_error_detail = message
+
+    def _is_ai_service_unavailable_error(self, error: Exception) -> bool:
+        name = type(error).__name__
+        if name in {"APIConnectionError", "APITimeoutError"}:
+            return True
+        msg = str(error).lower()
+        keywords = [
+            "connection",
+            "timed out",
+            "timeout",
+            "refused",
+            "temporarily unavailable",
+            "service unavailable",
+            "name resolution",
+            "max retries exceeded",
+            "502",
+            "503",
+            "504",
+        ]
+        return any(k in msg for k in keywords)
 
     def get_content(self, file_path):
         if not os.path.exists(file_path):
@@ -186,7 +216,7 @@ class PPTParser:
     def file2document(self, text, image_urls, image_names) -> Document:
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url_alt(),
                 api_key=self.api_key
             )
 
@@ -234,9 +264,14 @@ class PPTParser:
 
         except Exception as e:
             print(e)
+            if self._is_ai_service_unavailable_error(e):
+                self._set_last_error(BizCode.AI_SERVICE_UNAVAILABLE, "AI服务不可用，请稍后重试")
+            else:
+                self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
             for image in image_urls:
                 if os.path.exists(image):
                     os.remove(image)
+            return None
 
 ppt_parser = PPTParser()
 

@@ -42,7 +42,7 @@
             background: #a8a8a8;
         }
 
-        /* 为临时消息中的图片添加预览支持 */
+        /* 为临时消息中的图片添加预览支�?*/
         .message-image-previews .image-preview-item {
             cursor: pointer;
         }
@@ -84,7 +84,7 @@
             border: 1px solid #ddd;
             padding: 10px 12px;  /* 增加内边距，单元格更宽松 */
             text-align: left;
-            vertical-align: top; /* 内容顶部对齐，避免挤压 */
+            vertical-align: top; /* 内容顶部对齐，避免挤�?*/
         }
 
         .message-content.ai th {
@@ -96,7 +96,7 @@
             background-color: #f9f9f9;
         }
 
-        /* 可选：让表格在小屏幕上可横向滚动 */
+        /* 可选：让表格在小屏幕上可横向滚�?*/
         .message-content.ai {
             overflow-x: auto;
         }
@@ -160,7 +160,7 @@
             50% { opacity: 1; transform: scale(1.1); }
         }
 
-        /* 无历史记录样式 */
+        /* 无历史记录样�?*/
         .empty-history {
             text-align: center;
             padding: 40px 20px;
@@ -206,7 +206,7 @@
             gap: 8px;
         }
 
-        /* 文档项链接样式 */
+        /* 文档项链接样�?*/
         .document-item {
             display: flex;
             align-items: center;
@@ -251,6 +251,59 @@
             color: white;
         }
 
+        .doc-score {
+            margin-left: auto;
+            font-size: 12px;
+            color: #2563eb;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 2px 8px;
+            white-space: nowrap;
+        }
+
+        .doc-score.score-high {
+            color: #166534;
+            background: #ecfdf5;
+            border-color: #86efac;
+        }
+
+        .doc-score.score-medium {
+            color: #92400e;
+            background: #fffbeb;
+            border-color: #fcd34d;
+        }
+
+        .doc-score.score-low {
+            color: #9f1239;
+            background: #fff1f2;
+            border-color: #fda4af;
+        }
+
+        .document-item:hover .doc-score {
+            color: #1e3a8a;
+            background: #dbeafe;
+            border-color: #93c5fd;
+        }
+
+        .document-item:hover .doc-score.score-high {
+            color: #14532d;
+            background: #dcfce7;
+            border-color: #4ade80;
+        }
+
+        .document-item:hover .doc-score.score-medium {
+            color: #78350f;
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+
+        .document-item:hover .doc-score.score-low {
+            color: #881337;
+            background: #ffe4e6;
+            border-color: #fb7185;
+        }
+
         .history-list-footer {
             text-align: center;
             padding: 12px;
@@ -264,11 +317,30 @@
             display: none;
         }
 
+        .voice-status {
+            min-height: 18px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .action-button.is-active {
+            border-color: #ef4444;
+            color: #ef4444;
+            background: #fff1f2;
+        }
+
+        .action-button.is-enabled {
+            border-color: #10b981;
+            color: #10b981;
+            background: #ecfdf5;
+        }
+
     </style>
 </head>
 <body>
     <div class="system-container">
-        <!-- 侧边导航栏 -->
+        <!-- 侧边导航�?-->
         <div class="sidebar">
             <div class="logo-container">
                 <div class="logo">
@@ -282,16 +354,20 @@
                     <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                     <span>知识库</span>
                 </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
                 <a href="ai-assist.html" class="nav-item active">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
                     <span>AI辅助</span>
                 </a>
-                <!-- 管理员显示这个 -->
+                <!-- 管理员显示这�?-->
                 <a href="user-management.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>用户管理</span>
                 </a>
-                <!-- 技术人员显示这个 -->
+                <!-- 技术人员显示这�?-->
                 <a href="user-profile.html" class="nav-item" style="display: none;">
                     <span class="nav-icon"><i class="fas fa-user"></i></span>
                     <span>我的资料</span>
@@ -300,7 +376,7 @@
 
             <div class="user-info">
                 <div class="user-details">
-                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div class="user-avatar" id="userAvatar">张</div>
                     <div>
                         <div class="user-name" id="userName">李四</div>
                         <div class="user-role" id="userRole">维修工程师</div>
@@ -312,7 +388,7 @@
             </div>
         </div>
 
-        <!-- 主内容区域 -->
+        <!-- 主内容区�?-->
         <div class="main-content">
             <div class="header">
                 <div>
@@ -321,7 +397,7 @@
                 </div>
             </div>
 
-            <!-- AI对话主区域 -->
+            <!-- AI对话主区�?-->
             <div class="ai-page-container">
                 <!-- 左侧：历史对话栏 -->
                 <div class="history-sidebar">
@@ -340,7 +416,7 @@
                     <div class="history-section">
                         <div class="section-title">历史对话</div>
                         <div class="history-list" id="historyList">
-                            <!-- 历史对话项会动态加载 -->
+                            <!-- 历史对话项会动态加�?-->
                         </div>
                         <!-- 无限滚动加载提示容器 -->
                         <div class="history-list-footer" id="historyListFooter" style="text-align: center; padding: 10px; font-size: 13px; color: #999; display: none;"></div>
@@ -365,10 +441,10 @@
                                 我可以帮您解决设备故障、提供维修建议、查找相关文档。
                             </div>
                             <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
-                                <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击"新建对话"开始交流
+                                <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击“新建对话”开始交流
                             </div>
                         </div>
-                        <!-- 对话消息会动态加载 -->
+                        <!-- 对话消息会动态加�?-->
                     </div>
 
                     <!-- 输入区域 -->
@@ -384,6 +460,9 @@
                                 <button class="action-button" id="attachmentButton" title="上传附件">
                                     <i class="fas fa-paperclip"></i>
                                 </button>
+                                <button class="action-button" id="voiceInputButton" title="语音输入">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
                                 <button class="send-button" id="sendButton">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
@@ -393,8 +472,9 @@
                         <input type="file" class="file-input" id="fileInput" accept="image/*" multiple>
 
                         <div class="attachment-preview-container" id="attachmentPreviewContainer">
-                            <!-- 附件预览会动态加载 -->
+                            
                         </div>
+                        <div class="voice-status" id="voiceStatus"></div>
                     </div>
                 </div>
             </div>
@@ -403,11 +483,10 @@
 
 <script src="js/common.js"></script>
 <script src="js/api.js"></script>
-<!-- 替换原来的 <script> 部分 -->
 <script>
 
     function ensureTableSpacing(text) {
-        // 简单的启发式：如果三行以上以 | 开头，且前后没有空行，则在前后各加一个换行
+        
         console.log(text);
         const lines = text.split('\n');
         let modified = false;
@@ -433,7 +512,7 @@
 
     // Markdown解析配置
     const MarkdownParser = {
-        // 配置marked解析器
+        // 配置marked解析选项，启用GFM、表格支持、代码高亮等功能
         init() {
             marked.setOptions({
                 gfm: true,          // GitHub风格的Markdown
@@ -511,7 +590,12 @@
             this.hasMore = true;             // 是否还有更多数据
             this.searchMode = false;         // 是否处于搜索模式（搜索时禁用滚动加载）
             this.scrollListener = null;      // 滚动监听函数引用（用于移除）
-            // 初始化
+            this.supportsSpeechRecognition = false;
+            this.speechRecognition = null;
+            this.isListening = false;
+            this.speechBaseText = '';
+            this.speechFinalText = '';
+            // 初始化系统
             this.init();
         }
 
@@ -545,10 +629,10 @@
             if (this.isLoadingMore || !this.hasMore || this.searchMode) return;
 
             this.isLoadingMore = true;
-            this.showLoadingIndicator(true); // 显示“加载中…”
+            this.showLoadingIndicator(true); 
 
             try {
-                // 请求下一页（当前页+1），并设置为追加模式
+                // 请求下一页（当前页码 + 1），并设置为追加模式
                 await this.loadHistoryList(this.currentPage + 1, true);
             } catch (error) {
                 console.error('加载更多失败', error);
@@ -558,8 +642,8 @@
             }
         }
 
-        // 控制加载提示的显示
-        showLoadingIndicator(show, text = '加载中…') {
+        // 控制加载提示的显示与隐藏
+        showLoadingIndicator(show, text = '加载中...') {
             const footer = document.getElementById('historyListFooter');
             if (!footer) return;
             footer.style.display = show ? 'block' : 'none';
@@ -593,7 +677,7 @@
             this.attachHistoryItemEvents(container);
         }
 
-        // 追加对话列表（保留原有内容）
+        
         appendConversations(conversations, container) {
             if (!container || conversations.length === 0) return;
 
@@ -605,20 +689,67 @@
                 if (item) fragment.appendChild(item);
             });
 
-            // ✅ 先绑定事件，再添加到容器
+        
             this.attachHistoryItemEvents(fragment);
             container.appendChild(fragment);
         }
 
-        async loadAndDisplayDocuments(container, docIds) {
-            if (container.querySelector('.message-documents')) {
-                return;
+        normalizeReferenceDocuments(referenceInput) {
+            if (!referenceInput) return [];
+
+            if (Array.isArray(referenceInput)) {
+                return referenceInput
+                    .map(doc => ({
+                        doc_id: parseInt(doc.doc_id, 10),
+                        title: doc.title || '',
+                        score: doc.score !== undefined && doc.score !== null ? Number(doc.score) : null
+                    }))
+                    .filter(doc => Number.isInteger(doc.doc_id));
             }
 
-            // 准备文档列表，先占位
-            const docs = docIds.map(docId => ({ doc_id: docId, doc_name: `加载中...` }));
+            if (typeof referenceInput === 'string') {
+                const raw = referenceInput.trim();
+                if (!raw) return [];
 
-            // 创建文档区域 HTML（占位）
+                
+                if (raw.startsWith('[') || raw.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        return this.normalizeReferenceDocuments(parsed);
+                    } catch (e) {
+                        console.warn('解析参考文档 JSON 失败，回退旧格式解析', e);
+                    }
+                }
+
+                
+                return raw
+                    .split(',')
+                    .map(id => parseInt(id.trim(), 10))
+                    .filter(id => Number.isInteger(id))
+                    .map(id => ({ doc_id: id, title: '', score: null }));
+            }
+
+            return [];
+        }
+
+        formatReferenceScore(score) {
+            if (typeof score !== 'number' || Number.isNaN(score)) return '';
+            const normalized = Math.max(0, Math.min(1, score));
+            const level = this.getReferenceScoreLevel(normalized);
+            return `匹配度 ${(normalized * 100).toFixed(1)}%（${level.label}）`;
+        }
+
+        getReferenceScoreLevel(score) {
+            if (score >= 0.8) {
+                return { label: '高', className: 'score-high' };
+            }
+            if (score >= 0.6) {
+                return { label: '中', className: 'score-medium' };
+            }
+            return { label: '低', className: 'score-low' };
+        }
+
+        renderReferenceDocumentsHtml(docs) {
             let docsHtml = `
                 <div class="message-documents">
                     <div class="documents-title">
@@ -626,61 +757,55 @@
                     </div>
                     <div class="documents-list">
             `;
+
             docs.forEach(doc => {
+                const docId = doc.doc_id;
+                const safeTitle = doc.title && doc.title.trim() ? doc.title.trim() : `文档 ${docId}`;
+                const scoreText = this.formatReferenceScore(doc.score);
+                const scoreLevel = this.getReferenceScoreLevel(
+                    typeof doc.score === 'number' && !Number.isNaN(doc.score)
+                        ? Math.max(0, Math.min(1, doc.score))
+                        : 0
+                );
+                const scoreHtml = scoreText ? `<span class="doc-score ${scoreLevel.className}">${scoreText}</span>` : '';
+                const loadingClass = doc.title && doc.title.trim() ? '' : 'loading';
+                const linkTitle = safeTitle.replace(/"/g, '&quot;');
+
                 docsHtml += `
-                    <a href="document-detail.html?id=${doc.doc_id}" target="_blank" class="document-item loading">
+                    <a href="document-detail.html?id=${docId}" target="_blank" class="document-item ${loadingClass}" data-doc-id="${docId}" title="${linkTitle}">
                         <div class="document-item-title">
                             <i class="fas fa-external-link-alt"></i>
-                            <span class="doc-title">${doc.doc_name}</span>
+                            <span class="doc-title">${safeTitle}</span>
+                            ${scoreHtml}
                         </div>
                     </a>
                 `;
             });
             docsHtml += `</div></div>`;
+            return docsHtml;
+        }
 
-            // 将文档区域添加到消息内容中
-            const contentDiv = container.querySelector('.message-content');
-            if (contentDiv) {
-                contentDiv.insertAdjacentHTML('beforeend', docsHtml);
+        async loadAndDisplayDocuments(container, referenceInput) {
+            if (container.querySelector('.message-documents')) {
+                return;
             }
 
-            // 异步加载每个文档的真实标题
-            const docLinks = container.querySelectorAll('.document-item');
-            const promises = Array.from(docLinks).map(async (link, index) => {
-                const docId = docIds[index];
-                try {
-                    const response = await documentAPI.getDocumentById(parseInt(docId));
-                    let title = `文档 ${docId}`;
-                    if (response) {
-                        if (response.code !== undefined && response.code === 1) {
-                            title = response.data.title || title;
-                        } else if (response.title) {
-                            title = response.title;
-                        } else if (response.data.title) {
-                            title = response.data.title;
-                        }
-                    }
-                    const titleSpan = link.querySelector('.doc-title');
-                    if (titleSpan) {
-                        titleSpan.textContent = title;
-                        link.setAttribute('title', title);
-                        link.classList.remove('loading');
-                    }
-                } catch (err) {
-                    console.error(`获取文档 ${docId} 标题失败:`, err);
-                    const titleSpan = link.querySelector('.doc-title');
-                    if (titleSpan) {
-                        titleSpan.textContent = `文档 ${docId}`;
-                        link.classList.remove('loading');
-                    }
-                }
-            });
+            const docs = this.normalizeReferenceDocuments(referenceInput);
+            if (docs.length === 0) return;
 
-            await Promise.allSettled(promises);
+            const contentDiv = container.querySelector('.message-content');
+            if (!contentDiv) return;
+
+            contentDiv.insertAdjacentHTML('beforeend', this.renderReferenceDocumentsHtml(docs));
+
+            const docsNeedTitle = docs.filter(doc => !doc.title || !doc.title.trim());
+            if (docsNeedTitle.length > 0) {
+                await this.loadDocumentTitlesAsync(container, docsNeedTitle);
+            }
         }
 
         async updateConversationTime(conversationId) {
-            // 方法1：直接修改 DOM 中的对应项的时间显示
+            
             const historyItem = document.querySelector(`.history-item[data-id="${conversationId}"]`);
             if (historyItem) {
                 // 可以尝试从缓存中获取最新时间，或者简单设置为当前时间
@@ -691,7 +816,7 @@
             }
         }
 
-        // 显示 AI 临时消息容器（带思考动画）
+        
         showAIStreamingMessage() {
             const container = document.getElementById('conversationContent');
             if (!container) return;
@@ -710,22 +835,21 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // 更新流式消息内容
         updateStreamingMessage(content) {
             const msgDiv = document.getElementById('streamingAIMessage');
             if (!msgDiv) return;
 
             const textDiv = msgDiv.querySelector('.message-text');
             if (textDiv) {
-                // 使用 Markdown 渲染（可选）
+                
                 textDiv.innerHTML = MarkdownParser.render(content);
-                // 滚动到底部
+                
                 const container = document.getElementById('conversationContent');
                 if (container) container.scrollTop = container.scrollHeight;
             }
         }
 
-        // 更新参考文档区域（流式过程中）
+       
         updateReferenceDocuments(docs) {
             const msgDiv = document.getElementById('streamingAIMessage');
             if (!msgDiv) return;
@@ -748,7 +872,7 @@
             });
             docsHtml += `</div></div>`;
 
-            // 如果尚未添加文档区域，则添加；否则更新
+           
             let docContainer = msgDiv.querySelector('.message-documents');
             if (!docContainer) {
                 const contentDiv = msgDiv.querySelector('.message-content');
@@ -766,7 +890,7 @@
             if (tempMsg) tempMsg.remove();
         }
 
-        // 生成单个历史项 HTML
+        
         generateHistoryItemHTML(conv) {
             const isActive = conv.id === this.currentConversationId;
             const title = conv.title || '无标题对话';
@@ -801,14 +925,15 @@
             });
         }
 
-        // 在 init 方法中添加窗口大小变化的监听
+        
         async init() {
-            // 检查登录状态
+            // 检查登录状态并加载用户信息
             Utils.checkLogin();
             Utils.loadUserInfo();
 
             // 设置事件监听
             this.setupEventListeners();
+            this.initVoiceFeatures();
 
             // 加载历史对话列表（第一页）
             await this.loadHistoryList(1);
@@ -819,15 +944,7 @@
                 await this.loadConversation(parseInt(lastConversationId));
             }
 
-            // // 添加窗口大小变化监听
-            // window.addEventListener('resize', () => {
-            //     this.adjustPaginationForWidth();
-            // });
-            //
-            // // 初始调整一次
-            // setTimeout(() => {
-            //     this.adjustPaginationForWidth();
-            // }, 100);
+            
 
             this.setupInfiniteScroll();
         }
@@ -840,7 +957,7 @@
                 const searchInput = document.getElementById('historySearch');
                 const searchQuery = searchInput.value.trim();
 
-                // 设置搜索模式标志（搜索时禁用滚动加载）
+                // 设置搜索模式标志
                 this.searchMode = !!searchQuery;
 
                 // 如果不是追加模式，清空列表并重置加载状态
@@ -874,10 +991,10 @@
                         }
                     }
 
-                    // 确保是数组
+                    
                     conversations = Array.isArray(conversations) ? conversations : [];
                     this.totalCount = conversations.length;
-                    totalPages = 1; // 搜索模式只有一页
+                    totalPages = 1; 
                 } else {
                     // 分页模式
                     const pageData = { page: page, size: this.pageSize };
@@ -993,7 +1110,7 @@
                     this.renderConversationList(conversations, container, true);
                     this.hasMore = false;
                     if (conversations.length > 0) {
-                        this.showNoMoreIndicator(); // 显示“没有更多对话了”
+                        this.showNoMoreIndicator(); // 显示“没有更多对话了”提示，因为搜索结果就是全部了
                     } else {
                         container.innerHTML = '<div class="empty-history"><i class="fas fa-comments"></i><p>没有找到相关对话</p></div>';
                         this.showLoadingIndicator(false);
@@ -1050,7 +1167,7 @@
                 const currentUser = Utils.getCurrentUser();
                 if (!currentUser) {
                     console.warn('未获取到当前用户信息，可能未登录');
-                    // 清空本地存储的对话ID，防止继续尝试加载
+                    // 清空本地存储的对话ID，防止继续尝试加载无效对话
                     sessionStorage.removeItem('last_conversation_id');
                     this.currentConversationId = null;
                     return;
@@ -1068,13 +1185,13 @@
 
                 console.log('获取对话响应:', response);
 
-                // 根据你的控制台输出，response 已经是 data 部分
-                // 我们需要检查 response 是否包含对话数据
+                // 根据你的控制台输出，response 已经是一个完整的 Result 对象，包含 code、msg 和 data 字段
+                // 我们需要检查 code 是否为 1 来确定请求是否成功，然后从 data 字段中获取对话信息
                 let conversation = null;
 
                 if (response && typeof response === 'object') {
                     if (response.code !== undefined) {
-                        // 这是完整的 Result 对象
+                        
                         if (response.code !== 1) {
                             throw new Error(response.msg || '对话不存在');
                         }
@@ -1090,7 +1207,7 @@
                     this.currentConversationId = null;
                     sessionStorage.removeItem('last_conversation_id');
 
-                    // 使用新方法
+                    
                     this.showEmptyState();
                     return;
                 }
@@ -1116,14 +1233,14 @@
 
                     if (messagesResponse) {
                         if (messagesResponse.code !== undefined) {
-                            // 完整的 Result 对象
+                           
                             if (messagesResponse.code === 1) {
                                 messages = messagesResponse.data || [];
                             } else {
                                 console.error('获取消息失败:', messagesResponse.msg);
                             }
                         } else if (Array.isArray(messagesResponse)) {
-                            // 直接的消息数组
+                           
                             messages = messagesResponse;
                         }
                     }
@@ -1151,7 +1268,6 @@
                 this.currentConversationId = null;
                 sessionStorage.removeItem('last_conversation_id');
 
-                // 使用新方法
                 this.showEmptyState();
             }
         }
@@ -1174,7 +1290,7 @@
                 emptyDiv.innerHTML = `
                     <div class="empty-icon"><i class="fas fa-comments"></i></div>
                     <div class="empty-title">对话开始</div>
-                    <div class="empty-text">这是您的新对话，请输入您的问题开始交流</div>
+                    <div class="empty-text">这是您的新对话，请输入您的问题开始交流。</div>
                 `;
                 container.appendChild(emptyDiv);
                 return;
@@ -1189,7 +1305,7 @@
             messages.forEach((msg, index) => {
                 try {
                     if (!msg || typeof msg !== 'object') {
-                        console.error(`第 ${index} 条消息格式无效:`, msg);
+                        console.error(`第 ${index} 条消息格式无效`, msg);
                         errorCount++;
                         return;
                     }
@@ -1200,10 +1316,10 @@
                     if (messageElement && messageElement.nodeType === Node.ELEMENT_NODE) {
                         fragment.appendChild(messageElement);
                     } else {
-                        console.error(`第 ${index} 条消息创建元素失败:`, messageElement);
+                        console.error(`第 ${index} 条消息创建元素失败`, messageElement);
                         errorCount++;
 
-                        // 创建错误占位符
+                        
                         const errorElement = this.createErrorMessage(`消息 ${index + 1} 显示异常`);
                         fragment.appendChild(errorElement);
                     }
@@ -1211,7 +1327,7 @@
                     console.error(`处理第 ${index} 条消息时出错:`, error, msg);
                     errorCount++;
 
-                    // 创建错误占位符
+                
                     const errorElement = this.createErrorMessage(`消息 ${index + 1} 加载失败`);
                     fragment.appendChild(errorElement);
                 }
@@ -1223,9 +1339,9 @@
 
                 // 如果有错误，显示提示
                 if (errorCount > 0) {
-                    console.warn(`加载消息时发现 ${errorCount} 个错误`);
+                    console.warn(`加载消息时发生 ${errorCount} 个错误`);
 
-                    // 可选：显示一个错误提示
+                    // 可选：显示一个错误提示在消息列表顶部
                     if (errorCount === messages.length) {
                         // 所有消息都加载失败，恢复原始状态
                         container.innerHTML = originalHTML;
@@ -1260,7 +1376,7 @@
         // 创建消息元素 - 添加异常处理
         createMessageElement(message) {
             try {
-                // 检查消息对象是否有效
+                // 检查消息对象是否有效的 role 和 content_text 字段
                 if (!message || typeof message !== 'object') {
                     console.error('无效的消息对象:', message);
                     return this.createErrorMessage('消息数据格式错误');
@@ -1277,14 +1393,14 @@
 
                 container.className = `message-container ${isAI ? 'ai' : 'user'}`;
 
-                // 消息发送者标签
+                // 消息发送者标识
                 let html = `
                     <div class="message-sender ${isAI ? 'ai' : 'user'}">
-                        ${isAI ? 'AI助手' : '我'}
+                        ${isAI ? 'AI助手' : '用户'}
                     </div>
                 `;
 
-                // 消息内容框
+                // 消息内容容器
                 html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
 
                 // 消息文本 - 使用Markdown渲染
@@ -1295,7 +1411,7 @@
                     html += '<div class="message-text">[无内容]</div>';
                 }
 
-                // 如果有图片（用户消息） - 以小图预览形式显示
+                // 如果有图片，显示图片预览（仅限用户消息）
                 if (!isAI && message.user_uploaded_images && message.user_uploaded_images.trim()) {
                     const images = message.user_uploaded_images.split(', ').filter(img => img && img.trim());
                     if (images.length > 0) {
@@ -1333,7 +1449,7 @@
                 try {
                     messageTime = message.created_time ? Utils.formatDate(message.created_time, 'HH:mm') : '';
                 } catch (e) {
-                    console.error('格式化时间失败:', e);
+                    console.error('格式化时间失败', e);
                     messageTime = '';
                 }
 
@@ -1380,50 +1496,28 @@
         }
 
         // 新增方法：创建文档链接
-        createDocumentLinks(container, docIdsStr) {
+        createDocumentLinks(container, referenceData) {
             try {
-                const docRefs = docIdsStr.split(',').filter(ref => ref && ref.trim());
-                if (docRefs.length === 0) return;
+                const docs = this.normalizeReferenceDocuments(referenceData);
+                if (docs.length === 0) return;
 
                 // 创建文档容器
                 const documentsContainer = document.createElement('div');
                 documentsContainer.className = 'message-documents';
 
-                let documentsHTML = `
-                    <div class="documents-title">
-                        <i class="fas fa-book-open"></i> 相关参考文档
-                    </div>
-                    <div class="documents-list">
-                `;
+                documentsContainer.innerHTML = this.renderReferenceDocumentsHtml(docs);
 
-                // 先创建带ID的链接，然后异步加载标题
-                docRefs.forEach(ref => {
-                    const docId = ref.trim();
-                    documentsHTML += `
-                        <a href="document-detail.html?id=${docId}"
-                           target="_blank"
-                           class="document-item loading"
-                           data-doc-id="${docId}"
-                           title="正在加载文档信息...">
-                            <div class="document-item-title">
-                                <i class="fas fa-external-link-alt"></i>
-                                <span class="doc-title">文档 ${docId}</span>
-                            </div>
-                        </a>
-                    `;
-                });
-
-                documentsHTML += '</div>';
-                documentsContainer.innerHTML = documentsHTML;
-
-                // 将文档容器插入到消息内容中
+                // 将文档容器插入到消息内容中（时间之前）
                 const messageContent = container.querySelector('.message-content');
                 if (messageContent) {
                     messageContent.insertBefore(documentsContainer, messageContent.querySelector('.message-time'));
                 }
 
                 // 异步加载文档标题
-                this.loadDocumentTitlesAsync(documentsContainer, docRefs);
+                const docsNeedTitle = docs.filter(doc => !doc.title || !doc.title.trim());
+                if (docsNeedTitle.length > 0) {
+                    this.loadDocumentTitlesAsync(documentsContainer, docsNeedTitle);
+                }
 
             } catch (error) {
                 console.error('创建文档链接失败:', error);
@@ -1431,9 +1525,9 @@
         }
 
         // 修改 loadDocumentTitlesAsync 方法
-        async loadDocumentTitlesAsync(container, docRefs) {
+        async loadDocumentTitlesAsync(container, docs) {
             try {
-                console.log('开始加载文档标题，文档ID列表:', docRefs);
+                console.log('开始加载文档标题，文档列表:', docs);
 
                 // 获取所有文档链接元素
                 const docLinks = container.querySelectorAll('.document-item');
@@ -1443,6 +1537,11 @@
                 const promises = Array.from(docLinks).map(async (link) => {
                     const docId = link.getAttribute('data-doc-id');
                     if (!docId) return;
+                    const needLoad = docs.some(doc => Number(doc.doc_id) === Number(docId));
+                    if (!needLoad) {
+                        link.classList.remove('loading');
+                        return;
+                    }
 
                     try {
                         console.log(`正在获取文档 ${docId} 的标题...`);
@@ -1485,12 +1584,12 @@
                     }
                 });
 
-                // 使用 Promise.allSettled 而不是 Promise.all，这样即使有失败的请求也不会影响其他
+                // 使用 Promise.allSettled 而不是 Promise.all 来确保所有请求都完成，无论成功还是失败
                 await Promise.allSettled(promises);
                 console.log('所有文档标题加载完成');
 
             } catch (error) {
-                console.error('加载文档标题过程中发生错误:', error);
+                console.error('加载文档标题过程中发生错误', error);
             }
         }
 
@@ -1510,7 +1609,7 @@
             return container;
         }
 
-        // 格式化消息内容
+        // 格式化消息内容 - 支持Markdown渲染
         formatMessageContent(content, isAI = false) {
             if (!content) return '';
 
@@ -1617,7 +1716,7 @@
                         我可以帮您解决设备故障、提供维修建议、查找相关文档。
                     </div>
                     <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
-                        <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击"新建对话"开始交流
+                        <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击“新建对话”开始交流
                     </div>
                 </div>
             `;
@@ -1682,7 +1781,7 @@
 
         // 修改对话标题
         async editConversationTitle(conversationId, currentTitle) {
-            const newTitle = prompt('请输入新的对话标题:', currentTitle);
+            const newTitle = prompt('请输入新的对话标题', currentTitle);
             if (!newTitle || newTitle.trim() === '' || newTitle === currentTitle) {
                 return;
             }
@@ -1745,7 +1844,7 @@
                     if (titleElement) titleElement.textContent = '请选择或新建一个对话';
                     if (dateElement) dateElement.textContent = '';
 
-                    // 调用新方法显示空状态并隐藏输入区
+                    // 调用新方法显示空状态并隐藏输入区域
                     this.showEmptyState();
                 }
 
@@ -1759,8 +1858,11 @@
             }
         }
 
-        // 发送消息
+        // 发送消息（支持文本和图片附件）
         async sendMessage() {
+            if (this.isListening) {
+                this.stopVoiceInput();
+            }
             const input = document.getElementById('messageInput');
             const messageText = input.value.trim();
 
@@ -1782,7 +1884,7 @@
             let tempImageUrls = [];
 
             try {
-                // 1. 上传附件（如果有）
+                // 1. 上传附件（如果有附件的话）
                 if (this.currentAttachments.length > 0) {
                     // 生成临时预览 base64
                     const promises = this.currentAttachments.map(file => {
@@ -1798,21 +1900,21 @@
                     const uploadResp = await messageAPI.uploadImages(this.currentAttachments);
                     console.log('uploadResp:', uploadResp);
 
-                    // 正确解析返回的图片 URL 数组
+                    // 正确解析返回的图片URL，兼容不同的返回格式
                     if (Array.isArray(uploadResp)) {
-                        // 情况1：messageAPI.uploadImages 直接返回了 data 数组
+                        // 情况1：messageAPI.uploadImages 直接返回图片数组
                         uploadedImageUrls = uploadResp.map(img => img.url);
                     } else if (uploadResp && uploadResp.code === 1 && Array.isArray(uploadResp.data)) {
-                        // 情况2：返回标准 Result 对象（兼容）
+                        // 情况2：返回标准的Result对象，图片在data字段中
                         uploadedImageUrls = uploadResp.data.map(img => img.url);
                     } else if (uploadResp && uploadResp.url) {
-                        // 情况3：单张图片对象
+                        // 情况3：单张图片直接返回URL
                         uploadedImageUrls = [uploadResp.url];
                     }
                     console.log('uploadedImageUrls:', uploadedImageUrls);
                 }
 
-                // 2. 显示用户临时消息（使用 base64 预览）
+                // 2. 显示用户临时消息（包含文本和附件预览）
                 this.addTemporaryUserMessage(messageText, tempImageUrls);
 
                 // 3. 显示 AI 流式消息容器
@@ -1828,6 +1930,7 @@
                 let fullAnswer = '';
                 let currentMessageId = null;
                 let lastReference = null;
+                let lastReferenceDocs = [];
 
                 await messageAPI.askStream(messageData,
                     (chunk) => {
@@ -1839,13 +1942,18 @@
                         if (chunk.reference && typeof chunk.reference === 'string') {
                             lastReference = chunk.reference;
                         }
+                        if (Array.isArray(chunk.reference_docs)) {
+                            lastReferenceDocs = chunk.reference_docs;
+                        }
                     },
                     async () => {
                         // 流式完成
                         const tempMsgDiv = document.getElementById('streamingAIMessage');
                         if (tempMsgDiv) {
                             tempMsgDiv.id = ''; // 移除临时id，变成正式消息
-                            if (lastReference) {
+                            if (Array.isArray(lastReferenceDocs) && lastReferenceDocs.length > 0) {
+                                await this.loadAndDisplayDocuments(tempMsgDiv, lastReferenceDocs);
+                            } else if (lastReference) {
                                 const docIds = lastReference.split(',').map(id => id.trim()).filter(id => id);
                                 if (docIds.length > 0) {
                                     await this.loadAndDisplayDocuments(tempMsgDiv, docIds);
@@ -1863,7 +1971,7 @@
                 );
 
             } catch (error) {
-                console.error('发送消息失败:', error);
+                console.error('发送消息失败', error);
                 this.removeStreamingMessage();
                 Utils.showMessage('发送消息失败: ' + error.message, 'error');
             } finally {
@@ -1897,9 +2005,9 @@
 
             const textDiv = msgDiv.querySelector('.message-text');
             if (textDiv) {
-                // 使用 Markdown 渲染（可选，如果流式逐步渲染可能会影响性能，可先纯文本）
+                // 使用 Markdown 渲染（可选，如果流式逐步渲染可能会影响性能，可先纯文本�?
                 textDiv.innerHTML = MarkdownParser.render(content);
-                // 滚动到底部
+                // 滚动到消息底部
                 const container = document.getElementById('conversationContent');
                 container.scrollTop = container.scrollHeight;
             }
@@ -1942,7 +2050,7 @@
             messageElement.id = 'tempUserMessage';
             container.appendChild(messageElement);
 
-            // 滚动到底部
+            // 滚动到消息底部
             container.scrollTop = container.scrollHeight;
         }
 
@@ -1998,7 +2106,14 @@
                 });
             }
 
-            // 消息输入框回车发送（Ctrl+Enter换行）
+            const voiceInputButton = document.getElementById('voiceInputButton');
+            if (voiceInputButton) {
+                voiceInputButton.addEventListener('click', () => {
+                    this.toggleVoiceInput();
+                });
+            }
+
+            // 消息输入框 - 支持回车发送，Shift+Enter换行
             const messageInput = document.getElementById('messageInput');
             if (messageInput) {
                 messageInput.addEventListener('keydown', (e) => {
@@ -2019,6 +2134,104 @@
 
             // 附件上传
             this.setupAttachmentUpload();
+        }
+
+        initVoiceFeatures() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.supportsSpeechRecognition = !!SR;
+
+            if (this.supportsSpeechRecognition) {
+                this.speechRecognition = new SR();
+                this.speechRecognition.lang = 'zh-CN';
+                this.speechRecognition.interimResults = true;
+                this.speechRecognition.continuous = false;
+
+                this.speechRecognition.onstart = () => {
+                    this.isListening = true;
+                    this.updateVoiceInputButtonState();
+                    this.updateVoiceStatus('正在听你说话...');
+                };
+
+                this.speechRecognition.onresult = (event) => {
+                    const input = document.getElementById('messageInput');
+                    if (!input) return;
+
+                    let interim = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const text = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            this.speechFinalText += text;
+                        } else {
+                            interim += text;
+                        }
+                    }
+
+                    input.value = [this.speechBaseText, this.speechFinalText, interim]
+                        .filter(Boolean)
+                        .join(' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                };
+
+                this.speechRecognition.onend = () => {
+                    this.isListening = false;
+                    this.updateVoiceInputButtonState();
+                    this.updateVoiceStatus(this.speechFinalText ? '识别完成' : '语音输入已停止');
+                };
+
+                this.speechRecognition.onerror = () => {
+                    this.isListening = false;
+                    this.updateVoiceInputButtonState();
+                    this.updateVoiceStatus('语音识别失败，请重试');
+                };
+            } else {
+                this.updateVoiceStatus('当前浏览器不支持语音输入（建议 Chrome/Edge）');
+                const btn = document.getElementById('voiceInputButton');
+                if (btn) btn.disabled = true;
+            }
+
+            this.updateVoiceInputButtonState();
+        }
+
+        toggleVoiceInput() {
+            if (!this.supportsSpeechRecognition || !this.speechRecognition) {
+                Utils.showMessage('当前浏览器不支持语音输入', 'warning');
+                return;
+            }
+
+            if (this.isListening) {
+                this.stopVoiceInput();
+            } else {
+                this.startVoiceInput();
+            }
+        }
+
+        startVoiceInput() {
+            if (this.isListening || !this.speechRecognition) return;
+            const input = document.getElementById('messageInput');
+            this.speechBaseText = input ? input.value.trim() : '';
+            this.speechFinalText = '';
+            this.speechRecognition.start();
+        }
+
+        stopVoiceInput() {
+            if (!this.speechRecognition) return;
+            this.speechRecognition.stop();
+        }
+
+        updateVoiceInputButtonState() {
+            const btn = document.getElementById('voiceInputButton');
+            if (!btn) return;
+            btn.classList.toggle('is-active', this.isListening);
+            btn.title = this.isListening ? '点击停止语音输入' : '语音输入';
+            btn.innerHTML = this.isListening
+                ? '<i class="fas fa-microphone-slash"></i>'
+                : '<i class="fas fa-microphone"></i>';
+        }
+
+        updateVoiceStatus(text) {
+            const el = document.getElementById('voiceStatus');
+            if (el) el.textContent = text || '';
         }
 
         // 设置附件上传
@@ -2055,7 +2268,7 @@
                     continue;
                 }
 
-                // 检查文件大小（限制为10MB）
+                // 检查文件大小
                 if (file.size > 10 * 1024 * 1024) {
                     Utils.showMessage('图片大小不能超过10MB', 'warning');
                     continue;
@@ -2140,3 +2353,5 @@
 </script>
 </body>
 </html>
+
+

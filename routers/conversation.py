@@ -1,7 +1,7 @@
 # routers/conversation.py
 from datetime import datetime
 from sqlalchemy import desc, and_, select, func, delete
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import desc, and_
 # from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,8 @@ from models import User, Message
 from models import Conversation
 from schemas import ConversationResponse, Result, Page
 from database import get_db
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
 
 router = APIRouter(prefix="/conversation", tags=["对话"])
 
@@ -48,10 +50,7 @@ async def get_history(db: AsyncSession = Depends(get_db),
         history_response = [ConversationResponse.from_orm(history_tmp) for history_tmp in history]
         return Result.success_with_data(history_response)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
 
 @router.post("/history/page", summary="分页获取对话历史")
 async def create_page(page: Page,
@@ -91,10 +90,7 @@ async def create_page(page: Page,
         }
         return Result.success_with_data(data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
 
 @router.get("/get_by_id/{id}", summary="根据id获取对话")
 async def get_conversation(id: int,
@@ -115,10 +111,7 @@ async def get_conversation(id: int,
             conversation = ConversationResponse.from_orm(conversation)
         return Result.success_with_data(conversation)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
 
 @router.put("/update_title", summary="更新对话标题")
 async def update_title(id: int,
@@ -132,22 +125,19 @@ async def update_title(id: int,
         conversation = result.scalar_one_or_none()
 
         if not conversation:
-            return Result.error(f"对话不存在")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "对话不存在")
 
         if conversation.user_id != current_user.id:
-            return Result.error(f"您无权更新该对话标题")
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.CONVERSATION_FORBIDDEN, "您无权更新该对话标题")
         conversation.title = new_title
         await db.commit()
         await db.refresh(conversation)
         return Result.success_with_data(ConversationResponse.from_orm(conversation))
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "服务器内部错误，请稍后重试")
 
 @router.delete("/delete", summary="删除对话")
 async def delete_conversation(id: int,
@@ -161,10 +151,10 @@ async def delete_conversation(id: int,
         conversation = result.scalar_one_or_none()
         print(4)
         if not conversation:
-            return Result.error(f"对话不存在")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "对话不存在")
 
         if conversation.user_id != current_user.id:
-            return Result.error("您无权删除此对话")
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.CONVERSATION_FORBIDDEN, "您无权删除此对话")
         print(5)
         # db.query(Message).filter(Message.session_id == id).delete()
 
@@ -174,15 +164,12 @@ async def delete_conversation(id: int,
         await db.commit()
         print(f"对话{id}已删除")
         return Result.success()
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         # 其他异常回滚
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"删除文档失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"删除文档失败: {str(e)}")
 
 @router.get("/query", summary="搜索对话历史")
 async def query(data: str,
@@ -203,4 +190,4 @@ async def query(data: str,
         conversation_response = [ConversationResponse.from_orm(conversation) for conversation in conversations]
         return Result.success_with_data(conversation_response)
     except Exception as e:
-        return Result.error("查询失败")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "查询失败")

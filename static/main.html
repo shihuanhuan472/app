@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -26,6 +26,10 @@
                 <a href="main.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                     <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
                 </a>
                 <a href="ai-assist.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
@@ -69,10 +73,10 @@
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" class="search-input" id="searchInput" placeholder="可搜索标题，作者及问题描述...">
                     </div>
-                    <a href="add-document.html" class="btn btn-primary">
+                    <a href="add-document.html" class="btn btn-primary" id="addDocumentBtn">
                         <i class="fas fa-plus"></i> 添加文档
                     </a>
-                    <a href="import-documents.html" class="btn btn-secondary" style="margin-right: 8px;">
+                    <a href="import-documents.html" class="btn btn-secondary" style="margin-right: 8px;" id="importDocumentsBtn">
                         <i class="fas fa-upload"></i> 导入
                     </a>
                 </div>
@@ -123,6 +127,7 @@
             // 检查登录状态
             Utils.checkLogin();
             Utils.loadUserInfo();
+            applyRoleActionButtons();
 
             // 恢复分页设置
             restorePageSettings();
@@ -397,7 +402,7 @@
                 }
 
                 html += `
-                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}'">
+                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=knowledge'">
                         <div class="document-item-header">
                             <div class="document-item-title">${doc.title}</div>
                         </div>
@@ -583,6 +588,51 @@
         window.clearSearch = clearSearch;
         window.changeDocPage = changeDocPage;
         window.changeDocPageSize = changeDocPageSize;
+
+        function setActionButtonDisabled(el, disabled) {
+            if (!el) return;
+            if (disabled) {
+                el.dataset.href = el.getAttribute('href') || '';
+                el.removeAttribute('href');
+                el.style.opacity = '0.55';
+                el.style.cursor = 'not-allowed';
+                el.setAttribute('aria-disabled', 'true');
+                el.onclick = function (e) {
+                    e.preventDefault();
+                    Utils.showMessage('???????????????????????????', 'warning');
+                };
+            } else {
+                if (!el.getAttribute('href') && el.dataset.href) {
+                    el.setAttribute('href', el.dataset.href);
+                }
+                el.style.opacity = '';
+                el.style.cursor = '';
+                el.removeAttribute('aria-disabled');
+                el.onclick = null;
+            }
+        }
+
+        function applyRoleActionButtons() {
+            const user = Utils.getCurrentUser();
+            const addBtn = document.getElementById('addDocumentBtn');
+            const importBtn = document.getElementById('importDocumentsBtn');
+            const mySubmissionsNav = document.getElementById('mySubmissionsNav');
+            if (!user) {
+                setActionButtonDisabled(addBtn, true);
+                setActionButtonDisabled(importBtn, true);
+                if (mySubmissionsNav) mySubmissionsNav.style.display = 'none';
+                return;
+            }
+
+            const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
+            const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+            setActionButtonDisabled(addBtn, !isAdmin);
+            setActionButtonDisabled(importBtn, !isAdmin);
+            if (mySubmissionsNav) {
+                mySubmissionsNav.style.display = isTechnician ? 'flex' : 'none';
+            }
+        }
+
     </script>
 </body>
 </html>

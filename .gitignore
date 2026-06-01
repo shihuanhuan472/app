@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+upload/
+volumes/
+*.zip
+.idea/
+bge/

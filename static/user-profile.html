@@ -520,6 +520,10 @@
                     <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                     <span>知识库</span>
                 </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
                 <a href="ai-assist.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
                     <span>AI辅助</span>
@@ -800,13 +804,13 @@
             const email = user.email || '未设置';
 
             // 角色
-            const roleText = user.role === 0 ? '系统管理员' : '维修工程师';
+            const roleText = Utils.hasRole(user, Utils.ROLE.ADMIN) ? '系统管理员' : '维修工程师';
 
             // 头像首字母
             const avatarChar = name.charAt(0).toUpperCase();
 
             // 头像颜色
-            const isAdmin = user.role === 0;
+            const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
             const avatarBg = isAdmin
                 ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
                 : 'linear-gradient(135deg, #4a9eff 0%, #1971c2 100%)';
@@ -913,14 +917,14 @@
         // 更新侧边栏
         function updateSidebar(user) {
             const name = user.full_name || user.username || '用户';
-            const roleText = user.role === 0 ? '系统管理员' : '维修工程师';
+            const roleText = Utils.hasRole(user, Utils.ROLE.ADMIN) ? '系统管理员' : '维修工程师';
 
             // 侧边栏头像
             const avatarChar = name.charAt(0).toUpperCase();
             const avatarElement = document.getElementById('userAvatar');
             if (avatarElement) {
                 avatarElement.textContent = avatarChar;
-                avatarElement.style.backgroundColor = user.role === 0 ? '#dc2626' : '#4a9eff';
+                avatarElement.style.backgroundColor = Utils.hasRole(user, Utils.ROLE.ADMIN) ? '#dc2626' : '#4a9eff';
             }
 
             // 侧边栏用户名
@@ -942,7 +946,7 @@
             const myProfileLink = document.querySelector('a[href="user-profile.html"]');
             const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
 
-            const isAdmin = user.role === 0;
+            const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
 
             if (userManagementLink) {
                 userManagementLink.style.display = isAdmin ? 'flex' : 'none';

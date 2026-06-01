@@ -12,6 +12,8 @@ class UserCreate(BaseModel):
     full_name: str
     department: Optional[str] = None
     role: Optional[int] = 1
+    perm: Optional[int] = 1
+    status: Optional[int] = 1
 
 
 class UserResponse(BaseModel):
@@ -21,6 +23,7 @@ class UserResponse(BaseModel):
     email: Optional[str]
     full_name: str
     role: int
+    perm: Optional[int] = None
     department: Optional[str]
     created_time: Optional[datetime]
     last_login: Optional[datetime]
@@ -41,6 +44,7 @@ class UserUpdateByAdmin(BaseModel):
     full_name: Optional[str] = None
     department: Optional[str] = None
     role: Optional[int] = None
+    perm: Optional[int] = None
     status: Optional[int] = None
 
 class Page(BaseModel):
@@ -100,6 +104,46 @@ class DocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class DocumentReviewRequest(BaseModel):
+    # action_type: 1-create, 2-update, 3-delete
+    action_type: int
+    document_id: Optional[int] = None
+    review_comment: Optional[str] = None
+
+    title: Optional[str] = None
+    problem_intro: Optional[str] = None
+    image_urls: Optional[str] = None
+    causes: Optional[str] = None
+    evaluation: Optional[str] = None
+    inspection: Optional[str] = None
+    solutions: Optional[str] = None
+    key_points: Optional[str] = None
+    origin_file_name: Optional[str] = None
+    origin_file_dir: Optional[str] = None
+
+    image_urls_problem_intro: Optional[str] = None
+    image_urls_causes: Optional[str] = None
+    image_urls_evaluation: Optional[str] = None
+    image_urls_inspection: Optional[str] = None
+    image_urls_solutions: Optional[str] = None
+    image_urls_key_points: Optional[str] = None
+
+
+class DocumentReviewResponse(DocumentResponse):
+    document_id: Optional[int] = None
+    reviewer_id: Optional[int] = None
+    reviewer_name: Optional[str] = None
+    reviewed_time: Optional[datetime] = None
+    # status: 0-pending, 1-approved, 2-rejected, 3-withdrawn
+    status: int
+    # action_type: 1-create, 2-update, 3-delete
+    action_type: int
+    review_comment: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 class DocumentQuery(BaseModel):
     data: str
     page: Optional[int] = 1
@@ -126,6 +170,7 @@ class DeleteDocumentRequestNew(BaseModel):
 class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]
+    submit_for_review: Optional[bool] = False
 
 # 对话相关的Schema
 class ConversationCreate(BaseModel):

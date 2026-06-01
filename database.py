@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 # 数据库连接URL（修改为你的MySQL配置）
-SQLALCHEMY_DATABASE_URL = "mysql+asyncmy://root:cxx20040914@localhost:3306/repair"
+SQLALCHEMY_DATABASE_URL = "mysql+asyncmy://root:123456@localhost:3306/maintenance_system"
 
 # 创建引擎
 # engine = create_engine(SQLALCHEMY_DATABASE_URL)

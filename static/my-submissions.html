@@ -1,0 +1,439 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的提交 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
+    <style>
+        .status-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+        }
+
+        .status-0 { color: #92400e; background: #fef3c7; }
+        .status-1 { color: #065f46; background: #d1fae5; }
+        .status-2 { color: #991b1b; background: #fee2e2; }
+        .status-3 { color: #374151; background: #e5e7eb; }
+
+        .type-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+            color: #1d4ed8;
+            background: #dbeafe;
+        }
+
+        .history-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+
+        .history-modal-content {
+            width: min(860px, 92vw);
+            max-height: 80vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .history-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .history-item-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 6px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .submission-track {
+            font-size: 12px;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px 8px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <a href="user-management.html" class="nav-item" id="userManagementLink">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <a href="user-profile.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div>
+                        <div class="user-name" id="userName">当前用户</div>
+                        <div class="user-role" id="userRole">技术人员</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">我的提交</div>
+                    <div class="page-subtitle">查看并管理我发起的审核申请</div>
+                </div>
+                <div class="header-actions">
+                    <a href="add-document.html?mode=review" class="btn btn-primary" id="myAddBtn">
+                        <i class="fas fa-plus"></i> 提交审核
+                    </a>
+                    <a href="import-documents.html?mode=review" class="btn btn-secondary" id="myImportBtn">
+                        <i class="fas fa-upload"></i> 导入并提交审核
+                    </a>
+                </div>
+            </div>
+
+            <div class="document-container">
+                <div class="document-grid" id="submissionList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="history-modal" id="historyModal">
+        <div class="history-modal-content">
+            <div class="history-modal-header">
+                <div style="font-size:18px; font-weight:700; color:#0f172a;">提交历史</div>
+                <button class="btn btn-secondary btn-sm" type="button" onclick="closeHistoryModal()">
+                    <i class="fas fa-times"></i> 关闭
+                </button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        const statusMap = {0: '待审核', 1: '已通过', 2: '已驳回', 3: '已撤回'};
+        const actionMap = {1: '新增', 2: '修改', 3: '删除'};
+        const submissionHistoryMap = new Map();
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            Utils.checkLogin();
+            Utils.loadUserInfo();
+
+            if (!guardTechnicianOnly()) {
+                return;
+            }
+
+            applySubmissionActionButtons();
+            await loadMySubmissions();
+        });
+
+        function guardTechnicianOnly() {
+            const user = Utils.getCurrentUser();
+            const isTechnician = user && Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+            if (!isTechnician) {
+                window.location.replace('main.html');
+                return false;
+            }
+            return true;
+        }
+
+        function applySubmissionActionButtons() {
+            const user = Utils.getCurrentUser();
+            const addBtn = document.getElementById('myAddBtn');
+            const importBtn = document.getElementById('myImportBtn');
+            const isTechnician = user && Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+
+            [addBtn, importBtn].forEach(btn => {
+                if (!btn) return;
+                setSubmissionButtonState(btn, isTechnician);
+            });
+
+            const um = document.getElementById('userManagementLink');
+            if (um) um.style.display = 'none';
+        }
+
+        function setSubmissionButtonState(btn, enabled) {
+            if (enabled) {
+                const originalHref = btn.dataset.href || btn.getAttribute('href');
+                if (originalHref) {
+                    btn.setAttribute('href', originalHref);
+                }
+                btn.style.opacity = '';
+                btn.style.cursor = '';
+                btn.style.pointerEvents = '';
+                btn.removeAttribute('aria-disabled');
+                btn.onclick = null;
+                return;
+            }
+
+            btn.dataset.href = btn.getAttribute('href') || btn.dataset.href || '';
+            btn.removeAttribute('href');
+            btn.style.opacity = '0.55';
+            btn.style.cursor = 'not-allowed';
+            btn.style.pointerEvents = 'auto';
+            btn.setAttribute('aria-disabled', 'true');
+            btn.onclick = function(e) {
+                e.preventDefault();
+                Utils.showMessage('当前角色不可在“我的提交”发起申请。', 'warning');
+            };
+        }
+
+        async function loadMySubmissions() {
+            const list = document.getElementById('submissionList');
+            list.innerHTML = `
+                <div class="document-loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载我的提交...</p>
+                </div>
+            `;
+
+            try {
+                const items = await reviewAPI.getMyReviews();
+                const displayItems = buildDisplayItems(items || []);
+
+                if (displayItems.length === 0) {
+                    list.innerHTML = `
+                        <div class="document-empty">
+                            <i class="fas fa-clipboard-list" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
+                            <p style="color: #666;">暂无提交记录</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                displayItems.forEach(item => {
+                    const statusText = statusMap[item.status] || `状态${item.status}`;
+                    const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
+                    const reviewComment = item.review_comment || '无';
+                    const dateText = item.first_edit_date ? String(item.first_edit_date).slice(0, 10) : '未知日期';
+                    const rawContent = item.problem_intro || '';
+                    const content = rawContent.length > 100 ? `${rawContent.slice(0, 100)}...` : (rawContent || '无内容');
+                    const trackText = item._action_track?.length
+                        ? item._action_track.join(' -> ')
+                        : actionText;
+                    const historyHint = item._history_count > 0
+                        ? `<div style="margin-bottom:8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openHistoryModal('${item._group_key}')">
+                                <i class="fas fa-history"></i> 查看历史(${item._history_count + 1})
+                            </button>
+                           </div>`
+                        : '';
+
+                    html += `
+                        <div class="document-item" onclick="window.location.href='my-submission-detail.html?review_id=${item.id}&source=review'">
+                            <div class="document-item-header">
+                                <div class="document-item-title">${item.title || '未命名提交'}</div>
+                            </div>
+                            <div class="document-item-content">${content}</div>
+                            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                                <span class="type-pill">${actionText}</span>
+                                <span class="status-pill status-${item.status}">${statusText}</span>
+                            </div>
+                            <div style="font-size:13px; color:#666; margin-bottom:8px;">
+                                审核意见：${reviewComment}
+                            </div>
+                            <div class="submission-track">操作轨迹：${trackText}</div>
+                            ${historyHint}
+                            <div class="document-item-footer">
+                                <div class="document-item-author">
+                                    <i class="fas fa-user"></i>
+                                    <span>${item.contributor_name || '我'}</span>
+                                </div>
+                                <div class="document-item-date">${dateText}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                list.innerHTML = html;
+            } catch (e) {
+                list.innerHTML = `
+                    <div class="document-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                        <p style="color: #666; margin-bottom: 20px;">加载我的提交失败：${e.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function buildDisplayItems(items) {
+            // API is already sorted by first_edit_date desc; keep first item per group as latest
+            const grouped = new Map();
+
+            items.forEach(item => {
+                const key = getSubmissionGroupKey(item);
+                if (!grouped.has(key)) {
+                    grouped.set(key, []);
+                }
+                grouped.get(key).push(item);
+            });
+
+            submissionHistoryMap.clear();
+            const displayItems = [];
+            grouped.forEach((groupItems, key) => {
+                const latest = groupItems[0];
+                const historyItems = groupItems.slice(1);
+                const orderedByTime = [...groupItems].reverse();
+                const actionTrack = orderedByTime.map(record => actionMap[record.action_type] || `类型${record.action_type}`);
+                submissionHistoryMap.set(key, groupItems);
+                displayItems.push({
+                    ...latest,
+                    _group_key: key,
+                    _history_count: historyItems.length,
+                    _action_track: actionTrack
+                });
+            });
+
+            return displayItems;
+        }
+
+        function getSubmissionGroupKey(item) {
+            const documentId = Number(item.document_id);
+            if (Number.isFinite(documentId) && documentId > 0) {
+                return `doc-${documentId}`;
+            }
+
+            // Delete-approved flow clears document_id of historical reviews.
+            // Use stable fingerprint fallback so records of the same document stay grouped.
+            return `fp-${buildSubmissionFingerprint(item)}`;
+        }
+
+        function buildSubmissionFingerprint(item) {
+            const contributor = String(item.contributor_id || '');
+            const title = normalizeForGroup(item.title);
+            const originName = normalizeForGroup(item.origin_file_name);
+            const originDir = normalizeForGroup(item.origin_file_dir);
+            const intro = normalizeForGroup((item.problem_intro || '').slice(0, 120));
+            const causes = normalizeForGroup((item.causes || '').slice(0, 120));
+            return [contributor, title, originName, originDir, intro, causes].join('|');
+        }
+
+        function normalizeForGroup(value) {
+            return String(value || '')
+                .trim()
+                .replace(/\s+/g, ' ')
+                .toLowerCase();
+        }
+
+        function openHistoryModal(groupKey) {
+            const records = submissionHistoryMap.get(groupKey) || [];
+            const historyList = document.getElementById('historyList');
+            const modal = document.getElementById('historyModal');
+            if (!historyList || !modal) return;
+
+            if (records.length === 0) {
+                historyList.innerHTML = '<div style="color:#64748b;">暂无历史记录</div>';
+                modal.style.display = 'flex';
+                return;
+            }
+
+            historyList.innerHTML = records.map(item => {
+                const statusText = statusMap[item.status] || `状态${item.status}`;
+                const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
+                const dateText = item.first_edit_date ? Utils.formatDate(item.first_edit_date, 'YYYY-MM-DD HH:mm') : '未知时间';
+                return `
+                    <div class="history-item">
+                        <div style="font-weight:600; color:#0f172a;">${escapeHtml(item.title || '未命名提交')}</div>
+                        <div class="history-item-meta">
+                            <span>${actionText}</span>
+                            <span>${statusText}</span>
+                            <span>${dateText}</span>
+                            <span>ID: ${item.id}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            modal.style.display = 'flex';
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('historyModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('historyModal');
+            if (modal && e.target === modal) {
+                closeHistoryModal();
+            }
+        });
+    </script>
+</body>
+</html>

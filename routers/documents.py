@@ -1,18 +1,19 @@
-# routers/documents.py
+﻿# routers/documents.py
 import asyncio
+import json
 import uuid
 from datetime import datetime
 import os
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Body, File
+from fastapi import APIRouter, Depends, status, UploadFile, Body, File
 from sqlalchemy import or_
 # from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
-from models import Document, User
+from models import Document, Document_review, User
 from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
                      DocumentQuery, UploadDocumentResponse, AnalyzeRequest)
 from database import get_db
@@ -21,6 +22,13 @@ from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
 from utils.WordParser import word_parser
 from utils.HTMLParser import html_parser
+from utils.TXTParser import txt_parser
+from utils.MarkdownParser import markdown_parser
+from utils.ImageParser import image_parser
+from utils.CsvExcelParser import csv_excel_parser
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
+from utils.roles import UserRole, has_role
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select, func, delete
 
@@ -29,7 +37,100 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # 目前支持的文档类型
-ALLOWED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx"}
+ALLOWED_EXTENSIONS = {
+    ".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx", ".txt", ".md", ".markdown",
+    ".png", ".jpg", ".jpeg", ".webp", ".bmp",
+    ".csv", ".xlsx", ".xls", ".xlsm"
+}
+
+
+def _normalize_document_for_db(document: Document) -> None:
+    text_fields = [
+        "title", "problem_intro", "causes", "evaluation",
+        "inspection", "solutions", "key_points", "origin_file_name", "origin_file_dir"
+    ]
+    image_fields = [
+        "image_urls", "image_urls_problem_intro", "image_urls_causes",
+        "image_urls_evaluation", "image_urls_inspection",
+        "image_urls_solutions", "image_urls_key_points"
+    ]
+
+    for field in text_fields:
+        value = getattr(document, field, None)
+        if isinstance(value, (list, tuple)):
+            setattr(document, field, "\n".join(str(item) for item in value if item is not None))
+        elif isinstance(value, dict):
+            setattr(document, field, json.dumps(value, ensure_ascii=False))
+        elif value is not None and not isinstance(value, str):
+            setattr(document, field, str(value))
+
+
+def _is_empty_text(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return len(value.strip()) == 0
+    return len(str(value).strip()) == 0
+
+
+def _has_meaningful_title(document: Document) -> bool:
+    return not _is_empty_text(getattr(document, "title", None))
+
+
+def _is_ai_result_effectively_empty(document: Document) -> bool:
+    """
+    判断AI解析结果是否“基本为空”：
+    标题、问题简介、原因、评估、检查、解决方案、总结全部为空时判定为空结果。
+    """
+    core_fields = [
+        "title",
+        "problem_intro",
+        "causes",
+        "evaluation",
+        "inspection",
+        "solutions",
+        "key_points",
+    ]
+    return all(_is_empty_text(getattr(document, field, None)) for field in core_fields)
+
+
+def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
+    return Document_review(
+        document_id=None,
+        title=document.title,
+        contributor_id=contributor_id,
+        reviewer_id=None,
+        first_edit_date=document.first_edit_date or datetime.now(),
+        reviewed_time=None,
+        status=0,
+        problem_intro=document.problem_intro,
+        image_urls=document.image_urls,
+        causes=document.causes,
+        evaluation=document.evaluation,
+        inspection=document.inspection,
+        solutions=document.solutions,
+        key_points=document.key_points,
+        origin_file_name=document.origin_file_name,
+        origin_file_dir=document.origin_file_dir,
+        image_urls_problem_intro=document.image_urls_problem_intro,
+        image_urls_causes=document.image_urls_causes,
+        image_urls_evaluation=document.image_urls_evaluation,
+        image_urls_inspection=document.image_urls_inspection,
+        image_urls_solutions=document.image_urls_solutions,
+        image_urls_key_points=document.image_urls_key_points,
+        action_type=1,
+        review_comment=None,
+    )
+
+    for field in image_fields:
+        value = getattr(document, field, None)
+        if isinstance(value, (list, tuple)):
+            text = ", ".join(str(item).strip() for item in value if item is not None and str(item).strip())
+            setattr(document, field, text or None)
+        elif isinstance(value, dict):
+            setattr(document, field, json.dumps(value, ensure_ascii=False))
+        elif value is not None and not isinstance(value, str):
+            setattr(document, field, str(value))
 
 def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
     """
@@ -148,8 +249,7 @@ async def create_document(document: DocumentCreate,
         for attr in attrs:
             value = getattr(document, attr)
             if not await check_image_url(value):
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="图片未上传")
+                raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "图片未上传")
         print("图片校验完成")
         # if document.image_urls:
         #     urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
@@ -188,6 +288,7 @@ async def create_document(document: DocumentCreate,
         document_data = Document(**document.dict(),
                                  contributor_id=contributor_id,
                                  is_vectorized=0,
+                                 is_deleted=0,
                                  first_edit_date=datetime.now())
         db.add(document_data)
         await db.commit()
@@ -199,7 +300,7 @@ async def create_document(document: DocumentCreate,
         data = document_convert_documentResponse(document_data, current_user.full_name)
         return Result.success_with_data(data)
 
-    except HTTPException:
+    except AppException:
         # 重新抛出已知的HTTP异常
         raise
 
@@ -207,7 +308,7 @@ async def create_document(document: DocumentCreate,
         # 其他异常回滚
         print(e)
         await db.rollback()
-        return Result.error("添加文档失败")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "添加文档失败")
 
 def get_image_config():
     MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", 20 * 1024 * 1024))
@@ -280,17 +381,19 @@ async def delete_image(request: DeleteImageRequest = Body(...),
         #     raise HTTPException(status_code=404, detail="未找到图片")
 
         if not await asyncio.to_thread(os.path.exists, url):
-            raise HTTPException(status_code=404, detail="未找到图片")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "资源未找到")
 
         # os.remove(url)
         await asyncio.to_thread(os.remove, url)
 
         print(f"图片{url}删除成功")
         return Result.success()
+    except AppException:
+        raise
     except FileNotFoundError:
-        return Result.error(f"文件 {image_url} 不存在")
+        raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, f"文件 {image_url} 不存在")
     except Exception as e:
-        return Result.error(f"删除文件时出错: {str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"删除文件时出错: {str(e)}")
 
 
 @router.put("/update", summary="更新文档")
@@ -303,16 +406,20 @@ async def update_document(id: int,
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
         # document_now = db.query(Document).filter(Document.id == id).first()
 
-        result = await db.execute(select(Document).where(Document.id == id))
+        result = await db.execute(
+            select(Document)
+            .where(
+                Document.id == id,
+                Document.is_deleted == 0,
+            )
+            .with_for_update()
+        )
         document_now = result.scalar_one_or_none()
 
         if not document_now:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="文档不存在"
-            )
-        if current_user.id != document_now.contributor_id and current_user.role != 0:
-            raise HTTPException(status_code=403, detail="无权编辑该文档")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在")
+        if current_user.id != document_now.contributor_id and not has_role(current_user, UserRole.ADMIN):
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无权编辑该文档")
 
         image_urls_str = ""
         attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
@@ -330,7 +437,7 @@ async def update_document(id: int,
                     #     return Result.error(f"图片未上传，更新失败，请重新上传图片")
 
                     if not await asyncio.to_thread(os.path.exists, url_check):
-                        return Result.error(f"图片未上传，更新失败，请重新上传图片")
+                        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.DOC_REQUEST_INVALID, "图片未上传，更新失败，请重新上传图片")
 
                     url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
                                                  image_name.lstrip("/").lstrip("\\"))
@@ -389,11 +496,11 @@ async def update_document(id: int,
 
         document_response = document_convert_documentResponse(document_now, full_name)
         return Result.success_with_data(document_response)
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         await db.rollback()
-        return Result.error(f"更新文档错误：{str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"更新文档错误：{str(e)}")
 
 @router.delete("/dele/{id}", summary="删除文档")
 async def delete(id: int,
@@ -402,13 +509,21 @@ async def delete(id: int,
     try:
         # document = db.query(Document).filter(Document.id == id).first()
 
-        result = await db.execute(select(Document).where(Document.id == id))
+        result = await db.execute(
+            select(Document)
+            .where(
+                Document.id == id,
+                Document.is_deleted == 0,
+            )
+            .with_for_update()
+        )
         document = result.scalar_one_or_none()
 
         if not document:
-            return Result.error(f"文档不存在")
-        if document.contributor_id != current_user.id and current_user.role != 0:
-            return Result.error("无删除权限")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在")
+        # 文档表直删仅允许管理员；技术人员必须走删除审核流程
+        if not has_role(current_user, UserRole.ADMIN):
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "技术人员需提交删除审核，审核通过后才会删除文档")
         attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
                  "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
         config = get_image_config()
@@ -466,28 +581,45 @@ async def delete(id: int,
             await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists, url) else None
             print(f"已删除源文件{document.origin_file_dir}")
 
+        # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
+        review_refs_result = await db.execute(
+            select(Document_review).where(Document_review.document_id == id)
+        )
+        review_refs = review_refs_result.scalars().all()
+        for review_ref in review_refs:
+            # 待审核记录自动撤回，并补充系统备注
+            if review_ref.status == 0:
+                review_ref.status = 3
+                auto_msg = "源文档已被管理员删除，系统自动撤回"
+                if review_ref.review_comment and review_ref.review_comment.strip():
+                    review_ref.review_comment = f"{review_ref.review_comment}\n{auto_msg}"
+                else:
+                    review_ref.review_comment = auto_msg
+                review_ref.reviewed_time = datetime.now()
+
+        await db.flush()
+
         # 删掉向量
         vector_service = VectorService(db)
         # vector_service.delete_document_from_vector_store(id)
         await vector_service.delete_document_from_vector_store(id)
 
         print("成功删除文档")
-        await db.delete(document)
-        # await db.execute(delete(Document).where(Document.id == id))
+        document.is_deleted = 1
         await db.commit()
         return Result.success()
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         # 其他异常回滚
         print(e)
         await db.rollback()
-        return Result.error(f"删除文档失败：{str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"删除文档失败：{str(e)}")
 
 @router.get("/", summary="获取所有文档")
 async def get_documents(current_user: User = Depends(get_current_active_user),
                         db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document))
+    result = await db.execute(select(Document).where(Document.is_deleted == 0))
     documents = result.scalars().all()
 
     # documents = db.query(Document)
@@ -500,7 +632,12 @@ async def get_document(id: int,
                        db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     try:
-        result = await db.execute(select(Document).where(Document.id == id))
+        result = await db.execute(
+            select(Document).where(
+                Document.id == id,
+                Document.is_deleted == 0,
+            )
+        )
         document = result.scalar_one_or_none()
 
         # document = db.query(Document).filter(Document.id == id).first()
@@ -514,7 +651,7 @@ async def get_document(id: int,
             return Result.success_with_data(document_data)
         return Result.success()
     except Exception as e:
-        return Result.error(f"根据id获取文档内容失败：{str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"根据id获取文档内容失败：{str(e)}")
 
 @router.post("/page", summary="分页查询文档内容")
 async def get_page(page: Page,
@@ -525,10 +662,17 @@ async def get_page(page: Page,
         offset = (page.page - 1) * page.size
         # total_count = db.query(Document).count()
 
-        total_count_result = await db.execute(select(func.count()).select_from(Document))
+        total_count_result = await db.execute(
+            select(func.count()).select_from(Document).where(Document.is_deleted == 0)
+        )
         total_count = total_count_result.scalar_one()
 
-        result = await db.execute(select(Document).offset(offset).limit(page.size))
+        result = await db.execute(
+            select(Document)
+            .where(Document.is_deleted == 0)
+            .offset(offset)
+            .limit(page.size)
+        )
         documents = result.scalars().all()
         # documents = db.query(Document).offset(offset).limit(page.size).all()
 
@@ -542,7 +686,7 @@ async def get_page(page: Page,
         }
         return Result.success_with_data(data)
     except Exception as e:
-        return Result.error(f"分页查询文档内容失败：{str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"分页查询文档内容失败：{str(e)}")
 
 @router.post("/query", summary="查询文档信息")
 async def query(query: DocumentQuery,
@@ -560,8 +704,13 @@ async def query(query: DocumentQuery,
         )
 
         total_count_result = await db.execute(
-            select(func.count()).select_from(Document).join(User, Document.contributor_id == User.id).where(
-                filter_condition)
+            select(func.count())
+            .select_from(Document)
+            .join(User, Document.contributor_id == User.id)
+            .where(
+                Document.is_deleted == 0,
+                filter_condition,
+            )
         )
         total_count = total_count_result.scalar_one()
 
@@ -592,7 +741,10 @@ async def query(query: DocumentQuery,
 
         result = await db.execute(
             select(Document).join(User, Document.contributor_id == User.id)
-            .where(filter_condition)
+            .where(
+                Document.is_deleted == 0,
+                filter_condition,
+            )
             .order_by(Document.first_edit_date.desc())
             .offset(offset)
             .limit(query.size)
@@ -612,7 +764,7 @@ async def query(query: DocumentQuery,
 
         return Result.success_with_data(data)
     except Exception as e:
-        return Result.error(f"查询文档信息失败：{str(e)}")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询文档信息失败：{str(e)}")
 
 @router.post("/upload_files", summary="上传文件")
 async def upload_files(files: List[UploadFile] = File(...),
@@ -625,6 +777,7 @@ async def upload_files(files: List[UploadFile] = File(...),
     success_origin_filename = []
     success_file_url = []
     error_origin_filename = []
+    has_server_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
     document_relative_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
     dir = os.path.join(document_base_dir, document_relative_dir)
@@ -653,7 +806,22 @@ async def upload_files(files: List[UploadFile] = File(...),
         except Exception as e:
             print(e)
             error_origin_filename.append(file.filename)
+            has_server_error = True
             # return Result.error(f"文件{file.filename}上传失败，请稍后重试")
+
+    if len(success_file_url) == 0:
+        if has_server_error:
+            raise AppException(
+                http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                biz_code=BizCode.INTERNAL_ERROR,
+                message="服务器内部错误"
+            )
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="请求核心参数无效"
+        )
+
     upload_document_request = UploadDocumentResponse(
         success_file_url=success_file_url,
         success_origin_filename=success_origin_filename,
@@ -666,58 +834,163 @@ async def analyze_files(file_list: AnalyzeRequest,
                         db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
     # file_list是后端相对路径
+    if not file_list.file_list or not file_list.file_name:
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="请求核心参数无效"
+        )
+    if len(file_list.file_list) != len(file_list.file_name):
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="请求核心参数无效"
+        )
+    submit_for_review = bool(file_list.submit_for_review)
+    if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
+        raise AppException(
+            http_status=status.HTTP_403_FORBIDDEN,
+            biz_code=BizCode.FORBIDDEN,
+            message="仅技术人员可提交审核"
+        )
+
     success_file_url = []
     success_origin_filename = []
     error_origin_filename = []
+    has_invalid_request_error = False
+    has_not_found_error = False
+    has_server_error = False
+    parse_failed_details = []
+    has_token_limit_error = False
+    has_ai_service_unavailable_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
     for file, file_name in zip(file_list.file_list, file_list.file_name):
         try:
-            file_ext = file.split(".")[-1]
-            file_ext = "." + file_ext
+            file_ext = os.path.splitext(file)[1].lower()
             # print(file_ext)
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
+                has_invalid_request_error = True
                 continue
             url = os.path.join(document_base_dir, file)
+            if not os.path.exists(url):
+                error_origin_filename.append(file_name)
+                has_not_found_error = True
+                continue
             # print(url)
             document = None
+            parser_for_error = None
 
             # 根据不同的文件类型调用不同的解析器
             if file_ext == ".pdf":
+                parser_for_error = pdf_parser
                 # document = pdf_parser.parse(url)
                 document = await asyncio.to_thread(pdf_parser.parse, url)
 
             elif file_ext == ".pptx" or file_ext == ".ppt":
+                parser_for_error = ppt_parser
                 # document = ppt_parser.parse(url)
                 document = await asyncio.to_thread(ppt_parser.parse, url)
 
             elif file_ext == ".html" or file_ext == ".mhtml":
+                parser_for_error = html_parser
                 # document = await asyncio.to_thread(html_parser.parse(url))
                 # document = html_parser.parse(url)
 
                 document = await asyncio.to_thread(html_parser.parse, url)
 
             elif file_ext == ".docx":
+                parser_for_error = word_parser
                 # document = word_parser.parse(url)
                 document = await asyncio.to_thread(word_parser.parse, url)
+            elif file_ext == ".txt":
+                parser_for_error = txt_parser
+                document = await asyncio.to_thread(txt_parser.parse, url)
+            elif file_ext == ".md" or file_ext == ".markdown":
+                parser_for_error = markdown_parser
+                document = await asyncio.to_thread(markdown_parser.parse, url)
+            elif file_ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+                parser_for_error = image_parser
+                document = await asyncio.to_thread(image_parser.parse, url)
+            elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
+                parser_for_error = csv_excel_parser
+                document = await asyncio.to_thread(csv_excel_parser.parse, url)
 
-            if not document.title:
+            if document is None:
+                if os.path.exists(url):
+                    await asyncio.to_thread(os.remove, url)
+                error_origin_filename.append(file_name)
+                has_invalid_request_error = True
+                parser_code = getattr(parser_for_error, "last_error_code", None)
+                parser_detail = getattr(parser_for_error, "last_error_detail", None)
+                parse_failed_details.append(
+                    {
+                        "file_name": file_name,
+                        "file_path": file,
+                        "code": int(parser_code) if parser_code is not None else int(BizCode.DOC_PARSE_FAILED),
+                        "detail": parser_detail or "解析器未返回文档对象",
+                    }
+                )
+                logger.warning(
+                    "document parse returned None, file=%s, code=%s, detail=%s",
+                    file_name,
+                    parser_code,
+                    parser_detail,
+                )
+                if parser_code == int(BizCode.DOC_TOKEN_LIMIT_EXCEEDED):
+                    has_token_limit_error = True
+                if parser_code == int(BizCode.AI_SERVICE_UNAVAILABLE):
+                    has_ai_service_unavailable_error = True
+                continue
+
+            if _is_ai_result_effectively_empty(document):
+                if os.path.exists(url):
+                    await asyncio.to_thread(os.remove, url)
+                error_origin_filename.append(file_name)
+                has_invalid_request_error = True
+                parse_failed_details.append(
+                    {
+                        "file_name": file_name,
+                        "file_path": file,
+                        "code": int(BizCode.DOC_PARSE_FAILED),
+                        "detail": "AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。请补充故障现象、原因、排查和处理信息后重试。",
+                    }
+                )
+                continue
+
+            if not _has_meaningful_title(document):
                 if os.path.exists(url):
                     # os.remove(url)
                     await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
+                has_invalid_request_error = True
+                parse_failed_details.append(
+                    {
+                        "file_name": file_name,
+                        "file_path": file,
+                        "code": int(BizCode.DOC_PARSE_FAILED),
+                        "detail": "AI解析失败：未能生成有效标题。可能该文档不是故障知识，或内容不完整/不清晰。",
+                    }
+                )
                 continue
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
             document.origin_file_dir = file
             document.first_edit_date = datetime.now()
+            _normalize_document_for_db(document)
             print(document.title)
-            db.add(document)
-            await db.commit()
-            await db.refresh(document)
-            vector_service = VectorService(db)
-            # vector_service.add_document_to_vector_store(document)
-            await vector_service.add_document_to_vector_store(document)
+            if submit_for_review:
+                review = _build_create_review_from_document(document, current_user.id)
+                db.add(review)
+                await db.commit()
+                await db.refresh(review)
+            else:
+                db.add(document)
+                await db.commit()
+                await db.refresh(document)
+                vector_service = VectorService(db)
+                # vector_service.add_document_to_vector_store(document)
+                await vector_service.add_document_to_vector_store(document)
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
@@ -730,6 +1003,40 @@ async def analyze_files(file_list: AnalyzeRequest,
             if os.path.exists(url):
                 await asyncio.to_thread(os.remove, url)
             error_origin_filename.append(file_name)
+            has_server_error = True
+
+    if len(success_file_url) == 0 and len(error_origin_filename) > 0:
+        if has_server_error:
+            raise AppException(
+                http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                biz_code=BizCode.INTERNAL_ERROR,
+                message="服务器内部错误"
+            )
+        if has_not_found_error and not has_invalid_request_error:
+            raise AppException(
+                http_status=status.HTTP_404_NOT_FOUND,
+                biz_code=BizCode.DOC_RESOURCE_NOT_FOUND,
+                message="资源未找到"
+            )
+        if has_ai_service_unavailable_error:
+            raise AppException(
+                http_status=status.HTTP_502_BAD_GATEWAY,
+                biz_code=BizCode.AI_SERVICE_UNAVAILABLE,
+                message="AI服务不可用，请稍后重试"
+            )
+        if has_token_limit_error:
+            raise AppException(
+                http_status=status.HTTP_400_BAD_REQUEST,
+                biz_code=BizCode.DOC_TOKEN_LIMIT_EXCEEDED,
+                message="文件内容超出可解析长度，请缩短内容后重试",
+                detail={"files": parse_failed_details}
+            )
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_PARSE_FAILED,
+            message="文件解析失败",
+            detail={"files": parse_failed_details}
+        )
 
     analyze_result = UploadDocumentResponse(
         success_file_url=success_file_url,

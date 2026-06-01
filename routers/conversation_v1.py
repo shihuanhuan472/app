@@ -13,7 +13,7 @@ from schemas import ResultNew, ConversationCreateNew, ConversationDeleteRequest,
 from utils.VectorService import VectorService
 from PIL import Image
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status, Query
 # from sqlalchemy import desc, and_
 # from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,9 @@ from models import User, Message, Conversation
 from schemas import ConversationResponse, Result, Page
 from database import get_db, AsyncSessionLocal
 from sqlalchemy import select, func, asc, desc as desc_func, delete
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
+from utils.ai_endpoint import get_ai_base_url
 
 router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
 
@@ -61,7 +64,7 @@ async def create_session(chat_id: str,
         # conversation_response_new.message = "创建对话失败"
         print(e)
         await db.rollback()
-        return ResultNew.result(102, "创建对话失败", None)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "创建对话失败")
 
 @router.put("/{chat_id}/session/{session_id}")
 async def update_session(chat_id: str, session_id: int,
@@ -75,10 +78,10 @@ async def update_session(chat_id: str, session_id: int,
         conversation = result.scalar_one_or_none()
 
         if not conversation:
-            return ResultNew.error(102, "对话不存在", None)
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "对话不存在")
 
         if conversation.user_id != current_user.id:
-            return ResultNew.error(102, "您无权更新该对话标题", None)
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.CONVERSATION_FORBIDDEN, "您无权更新该对话标题")
         conversation.title = conversation_create.name
         await db.commit()
         await db.refresh(conversation)
@@ -86,7 +89,7 @@ async def update_session(chat_id: str, session_id: int,
     except Exception as e:
         print(e)
         await db.rollback()
-        return ResultNew.result(102, "更新对话失败", None)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "更新对话失败")
 
 @router.get("/{chat_id}/sessions")
 async def get_sessions(chat_id: str, page: int = Query(1, ge=1), page_size: int = Query(30, ge=1),
@@ -103,7 +106,7 @@ async def get_sessions(chat_id: str, page: int = Query(1, ge=1), page_size: int 
         if id is not None:
             conditions.append(Conversation.id == id)
         if order_by != "create_time" and order_by != "update_time":
-            return ResultNew.result(102, "排序方式有误")
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "排序方式有误")
 
         order_field = Conversation.created_time if order_by == "create_time" else Conversation.update_time
         order_clause = desc_func(order_field) if desc else asc(order_field)
@@ -141,7 +144,7 @@ async def get_sessions(chat_id: str, page: int = Query(1, ge=1), page_size: int 
         return ResultNew.result(0, None, data)
     except Exception as e:
         print(e)
-        return ResultNew.result(102, "查询对话失败", None)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "查询对话失败")
 
 @router.delete("/{chat_id}/sessions")
 async def delete_session(chat_id: str, ids: ConversationDeleteRequest,
@@ -178,7 +181,7 @@ async def delete_session(chat_id: str, ids: ConversationDeleteRequest,
     except Exception as e:
         await db.rollback()
         print(e)
-        return ResultNew.result(102, "删除对话失败", None)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "删除对话失败")
 
 def image_to_base64(image: str, dir: str = None):
     """
@@ -265,7 +268,7 @@ async def generate_messages(db, id, message_now, documents_id):
     tokens_max -= user_question_tokens
 
     if tokens_max < 0:
-        raise HTTPException(500, "消息长度过长")
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "消息长度过长")
 
     flag = 0
 
@@ -320,7 +323,7 @@ async def generate_messages(db, id, message_now, documents_id):
             tokens += token_tmp
             print(f"token: {tokens}")
             if tokens > tokens_max:
-                raise HTTPException(status_code=500, detail="对话内容达到上限，请重新创建对话")
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "对话内容达到上限，请重新创建对话")
     # print("messages: ", messages)
     data = {}
     messages.reverse()
@@ -375,13 +378,12 @@ async def get_new_title_by_ai(content):
     messages = [{"role": "user",
                  "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。并且只给出标题，不要有任何多余内容。\n内容：{content}"}]
 
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -404,7 +406,18 @@ async def get_reference_documents(db, question: str, image: str = None):
     vector_service = VectorService(db)
     # vector_service.batch_vectorize_existing_documents()
     documents = await vector_service.search_similar_documents(question, image)
-    document_ids = [document["doc_id"] for document in documents]
+    candidate_ids = [int(document["doc_id"]) for document in documents if document.get("doc_id") is not None]
+    if not candidate_ids:
+        return []
+
+    active_result = await db.execute(
+        select(Document.id).where(
+            Document.id.in_(candidate_ids),
+            Document.is_deleted == 0,
+        )
+    )
+    active_ids = {row.id for row in active_result.all()}
+    document_ids = [doc_id for doc_id in candidate_ids if doc_id in active_ids]
 
     return document_ids
 
@@ -418,7 +431,10 @@ async def get_prompt(db, document_ids, max_tokens):
     prompts = []
 
     result = await db.execute(
-        select(Document).where(Document.id.in_(document_ids))
+        select(Document).where(
+            Document.id.in_(document_ids),
+            Document.is_deleted == 0,
+        )
     )
     documents = result.scalars().all()
 
@@ -462,9 +478,8 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
 
 
 async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = AsyncOpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+    client = AsyncOpenAI(base_url=get_ai_base_url(), api_key=api_key)
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 2000))
 
@@ -478,13 +493,20 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
         doc_aggs = []
 
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Document.id, Document.title).where(Document.id.in_(doc_ids)))
+            result = await db.execute(
+                select(Document.id, Document.title).where(
+                    Document.id.in_(doc_ids),
+                    Document.is_deleted == 0,
+                )
+            )
             doc_map = {row.id: row.title for row in result.all()}
             for doc_id in doc_ids:
                 doc_title = doc_map.get(doc_id)
+                if doc_title is None:
+                    continue
                 doc_aggs.append({"doc_id": doc_id, "doc_name": doc_title})
             data["reference"] = {
-                "total": len(doc_ids),
+                "total": len(doc_aggs),
                 "doc_aggs": doc_aggs
             }
     else:
@@ -534,13 +556,12 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
 
 
 async def get_ai_answer(messages, db: AsyncSession, id):
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -577,7 +598,7 @@ async def chat(message: MessageCreateNew,
         conversation = conv_result.scalar_one_or_none()
 
         if not conversation:
-            return ResultNew.result(102, "请先新建对话！", None)
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "请先新建对话！")
 
         max_order_result = await db.execute(
             select(func.max(Message.message_order)).where(Message.session_id == message.session_id)
@@ -597,7 +618,7 @@ async def chat(message: MessageCreateNew,
                 if not await asyncio.to_thread(os.path.exists, url_check):
                     print(url_check)
                     # raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="图片未上传")
-                    return ResultNew.result(102, "图片未上传", None)
+                    raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "图片未上传")
             message.user_uploaded_images = (message.user_uploaded_images.replace("\\", "/")
                                             .replace(", /", ", ")
                                             .removeprefix("/")
@@ -659,9 +680,9 @@ async def chat(message: MessageCreateNew,
                 "session_id": message.session_id
             })
 
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         await db.rollback()
         print(e)
-        return ResultNew.result(102, "回答失败", None)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "回答失败")

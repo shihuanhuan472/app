@@ -20,6 +20,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 from models import Document
+from utils.ai_endpoint import get_ai_base_url
+from utils.error_codes import BizCode
 
 
 """
@@ -37,6 +39,8 @@ class HTMLParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.last_error_code = None
+        self.last_error_detail = None
         self.decorative_keywords = ['icon', 'logo', 'btn', 'background']
         self.allow_image = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -49,9 +53,35 @@ class HTMLParser:
             print(f"创建目录: {base_url}")
 
     def parse(self, file_path):
+        self.last_error_code = None
+        self.last_error_detail = None
         text, image_urls, image_names = self.get_content(file_path)
         document = self.file2document(text, image_urls, image_names)
         return document
+
+    def _set_last_error(self, code: int, message: str):
+        self.last_error_code = int(code)
+        self.last_error_detail = message
+
+    def _is_ai_service_unavailable_error(self, error: Exception) -> bool:
+        name = type(error).__name__
+        if name in {"APIConnectionError", "APITimeoutError"}:
+            return True
+        msg = str(error).lower()
+        keywords = [
+            "connection",
+            "timed out",
+            "timeout",
+            "refused",
+            "temporarily unavailable",
+            "service unavailable",
+            "name resolution",
+            "max retries exceeded",
+            "502",
+            "503",
+            "504",
+        ]
+        return any(k in msg for k in keywords)
 
     def should_download_image(self, img_tag):
         """
@@ -399,12 +429,12 @@ class HTMLParser:
         """
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
             messages = self.generate_message(text, image_urls)
-            # print(messages)
+            print(messages)
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -449,9 +479,14 @@ class HTMLParser:
 
         except Exception as e:
             print(e)
+            if self._is_ai_service_unavailable_error(e):
+                self._set_last_error(BizCode.AI_SERVICE_UNAVAILABLE, "AI服务不可用，请稍后重试")
+            else:
+                self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
             for image in image_urls:
                 if os.path.exists(image):
                     os.remove(image)
+            return None
 
 html_parser = HTMLParser()
 

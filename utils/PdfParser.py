@@ -7,10 +7,12 @@ from PIL import Image
 from qwen_token_counter import get_token_count
 
 from models import Document
+from utils.ai_endpoint import get_ai_base_url
 import pymupdf
 import os
 from openai import OpenAI
 
+from utils.error_codes import BizCode
 """
 解析pdf文件的，使用了pymupdf提取文本和图像
 """
@@ -26,6 +28,8 @@ class PdfParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.last_error_code = None
+        self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
         if not os.path.exists(base_url):
             os.makedirs(base_url)
@@ -36,11 +40,37 @@ class PdfParser:
             print(f"创建目录: {base_url}")
 
     def parse(self, pdf_url: str):
+        self.last_error_code = None
+        self.last_error_detail = None
         text = self.get_pdf_text(pdf_url)
         image_urls, image_names = self.get_pdf_images(pdf_url)
         document = self.file2document(text, image_urls, image_names)
 
         return document
+
+    def _set_last_error(self, code: int, message: str):
+        self.last_error_code = int(code)
+        self.last_error_detail = message
+
+    def _is_ai_service_unavailable_error(self, error: Exception) -> bool:
+        name = type(error).__name__
+        if name in {"APIConnectionError", "APITimeoutError"}:
+            return True
+        msg = str(error).lower()
+        keywords = [
+            "connection",
+            "timed out",
+            "timeout",
+            "refused",
+            "temporarily unavailable",
+            "service unavailable",
+            "name resolution",
+            "max retries exceeded",
+            "502",
+            "503",
+            "504",
+        ]
+        return any(k in msg for k in keywords)
 
     def get_pdf_text(self, pdf_url: str):
         if not os.path.exists(pdf_url):
@@ -201,7 +231,7 @@ class PdfParser:
     def file2document(self, text, image_urls, image_names):
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
@@ -249,9 +279,14 @@ class PdfParser:
 
         except Exception as e:
             print(e)
+            if self._is_ai_service_unavailable_error(e):
+                self._set_last_error(BizCode.AI_SERVICE_UNAVAILABLE, "AI服务不可用，请稍后重试")
+            else:
+                self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
             for image in image_urls:
                 if os.path.exists(image):
                     os.remove(image)
+            return None
 
 pdf_parser = PdfParser()
 

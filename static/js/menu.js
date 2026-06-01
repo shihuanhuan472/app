@@ -1,126 +1,175 @@
-// js/menu.js - 侧边栏菜单管理
+﻿// js/menu.js - sidebar menu manager
 class MenuManager {
     constructor() {
         this.currentUser = null;
         this.init();
     }
 
-    async init() {
-        // 等待 DOM 加载完成
+    init() {
         document.addEventListener('DOMContentLoaded', () => {
             this.loadMenu();
         });
     }
 
-    async loadMenu() {
+    loadMenu() {
         try {
-            // 获取当前用户信息
             this.currentUser = Utils.getCurrentUser();
+            if (!this.currentUser) return;
 
-            if (!this.currentUser) {
-                console.warn('未找到用户信息，无法加载菜单');
-                return;
-            }
-
-            console.log('加载菜单，当前用户:', this.currentUser);
-
-            // 根据用户角色更新菜单
             this.updateMenuByRole();
-
-            // 设置当前页面激活状态
             this.setActiveMenu();
-
         } catch (error) {
-            console.error('加载菜单失败:', error);
+            console.error('Failed to load menu:', error);
         }
     }
 
     updateMenuByRole() {
         if (!this.currentUser) return;
 
-        console.log('更新菜单，用户身份:', this.currentUser.role, this.currentUser);
-
-        // 判断是否是管理员
         const isAdmin = this.isUserAdmin();
-        console.log('是管理员吗?', isAdmin);
+        const isTechnician = this.isUserTechnician();
+        const isReviewer = this.isUserReviewer();
+        const canReview = isAdmin || isReviewer;
 
-        // 获取菜单项
+        this.ensureReviewMenuLink();
+
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
+        const mySubmissionsLink = document.querySelector('a[href="my-submissions.html"]');
+        const reviewCenterLink = document.querySelector('a[href="document-review.html"]');
+        const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
 
-        // 更新菜单显示状态
         if (userManagementLink) {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
         }
 
         if (myProfileLink) {
-            myProfileLink.style.display = 'flex'; // 所有用户都可见
+            myProfileLink.style.display = 'flex';
+        }
+
+        if (aiAssistLink) {
+            aiAssistLink.style.display = 'flex';
+        }
+
+        // "My Submissions" is only for technicians
+        if (mySubmissionsLink) {
+            mySubmissionsLink.style.display = isTechnician ? 'flex' : 'none';
+        }
+
+        // "Document Review" is only for reviewer/admin
+        if (reviewCenterLink) {
+            reviewCenterLink.style.display = canReview ? 'flex' : 'none';
         }
     }
 
     isUserAdmin() {
         const user = this.currentUser;
         if (!user) return false;
+        return Utils.hasRole(user, Utils.ROLE.ADMIN);
+    }
 
-        // 多种角色判断方式
-        if (user.role === 0) return true;                      // 数字 0
-        if (user.role === 'admin') return true;               // 字符串 admin
-        if (user.role_id === 0) return true;                  // role_id 为 0
-        if (user.role_name === '管理员') return true;         // 角色名
-        if (user.permissions && user.permissions.includes('admin')) return true;
+    isUserTechnician() {
+        const user = this.currentUser;
+        if (!user) return false;
+        return Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+    }
 
-        return false;
+    isUserReviewer() {
+        const user = this.currentUser;
+        if (!user) return false;
+        return Utils.hasRole(user, Utils.ROLE.REVIEWER);
+    }
+
+    ensureReviewMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="document-review.html"]');
+        if (exists) return;
+
+        const reviewLink = document.createElement('a');
+        reviewLink.href = 'document-review.html';
+        reviewLink.className = 'nav-item';
+        reviewLink.style.display = 'none';
+        reviewLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+            <span>文档审核</span>
+        `;
+
+        const knowledgeBaseLink = navMenu.querySelector('a[href="main.html"]');
+        if (knowledgeBaseLink) {
+            const secondItem = knowledgeBaseLink.nextElementSibling;
+            if (secondItem) {
+                navMenu.insertBefore(reviewLink, secondItem);
+            } else {
+                navMenu.appendChild(reviewLink);
+            }
+        } else {
+            navMenu.appendChild(reviewLink);
+        }
     }
 
     setActiveMenu() {
-        // 移除所有 active 类
         const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            item.classList.remove('active');
-        });
+        navItems.forEach((item) => item.classList.remove('active'));
 
-        // 获取当前页面文件名
         const currentPath = window.location.pathname;
         const fileName = currentPath.split('/').pop();
+        const query = new URLSearchParams(window.location.search);
+        const source = query.get('source');
+        const mode = query.get('mode');
 
-        console.log('当前页面:', fileName);
-
-        if (fileName.includes("user-form")) {
-            const link = document.querySelector(`a[href="user-management.html"]`);
+        if (fileName.includes('user-form')) {
+            const link = document.querySelector('a[href="user-management.html"]');
             if (link) {
                 link.classList.add('active');
-                console.log('设置激活菜单:', link.href);
                 return;
             }
         }
 
-        if (fileName.includes("add-document") || fileName.includes("document-detail")
-            || fileName.includes("edit-document") || fileName.includes("import-documents")) {
-            const link = document.querySelector(`a[href="main.html"]`);
-            if (link) {
-                link.classList.add('active');
-                console.log('设置激活菜单:', link.href);
+        if (fileName.includes('my-submission-detail')) {
+            const mySubmissionsLink = document.querySelector('a[href="my-submissions.html"]');
+            if (mySubmissionsLink) {
+                mySubmissionsLink.classList.add('active');
                 return;
             }
         }
 
-        // if (fileName.includes("ai.html")) {
-        //     const link = document.querySelector(`a[href="ai.html"]`);
-        //     if (link) {
-        //         link.classList.add('active');
-        //         console.log('设置激活菜单:', link.href);
-        //         return;
-        //     }
-        // }
+        if (
+            fileName.includes('add-document') ||
+            fileName.includes('document-detail') ||
+            fileName.includes('edit-document') ||
+            fileName.includes('import-documents')
+        ) {
+            if (source === 'review' || source === 'my-submissions' || mode === 'review') {
+                const reviewLink = document.querySelector('a[href="document-review.html"]');
+                if (reviewLink) {
+                    reviewLink.classList.add('active');
+                    return;
+                }
+            }
 
-        // 根据当前页面设置 active 类
+            if (source === 'knowledge' || source === 'main') {
+                const knowledgeLink = document.querySelector('a[href="main.html"]');
+                if (knowledgeLink) {
+                    knowledgeLink.classList.add('active');
+                    return;
+                }
+            }
+
+            const link = document.querySelector('a[href="main.html"]');
+            if (link) {
+                link.classList.add('active');
+                return;
+            }
+        }
+
         const currentLink = document.querySelector(`a[href="${fileName}"]`);
         if (currentLink) {
             currentLink.classList.add('active');
-            console.log('设置激活菜单:', currentLink.href);
         }
     }
 }
 
-// 创建全局菜单管理器实例
 window.MenuManager = new MenuManager();
+

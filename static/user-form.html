@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -265,7 +265,7 @@
                     <div class="user-avatar" id="userAvatar">李</div>
                     <div>
                         <div class="user-name" id="userName">李四</div>
-                        <div class="user-role" id="userRole">维修工程师</div>
+                        <div class="user-role" id="userRole">用户</div>
                     </div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
@@ -309,7 +309,29 @@
                                 <select id="role" required>
                                     <option value="">请选择角色</option>
                                     <option value="0">系统管理员</option>
-                                    <option value="1">维修工程师</option>
+                                    <option value="1">技术人员</option>
+                                    <option value="2">审核</option>
+                                    <option value="3">维修人员</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="required">权限</label>
+                                <select id="perm" required>
+                                    <option value="">请选择权限</option>
+                                    <option value="0">管理员权限</option>
+                                    <option value="1">读写权限</option>
+                                    <option value="2">审核权限</option>
+                                    <option value="3">只读权限</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">状态</label>
+                                <select id="status" required>
+                                    <option value="1" selected>启用</option>
+                                    <option value="0">禁用</option>
                                 </select>
                             </div>
                         </div>
@@ -356,14 +378,7 @@
                     Utils.loadUserInfo();
 
                     // 检查权限（只有管理员可以管理用户）
-                    let isAdmin = false;
-                    if (typeof user.role === 'number') {
-                        isAdmin = user.role === 0;
-                    } else if (typeof user.role === 'string') {
-                        isAdmin = user.role === 'admin' || user.role === '0';
-                    } else if (user.role_id !== undefined) {
-                        isAdmin = user.role_id === 0;
-                    }
+                    const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
 
                     if (!isAdmin) {
                         Utils.showMessage('您没有权限访问此页面', 'error');
@@ -378,6 +393,7 @@
                     if (userForm) {
                         userForm.addEventListener('submit', (e) => this.saveUser(e));
                     }
+                    this.bindRolePermEvents();
 
                     // 判断是添加还是编辑模式
                     const userId = this.getUrlParam('id');
@@ -419,9 +435,78 @@
                 return element ? element.value.trim() : '';
             },
 
+            // 角色与权限一一对应映射
+            getExpectedPermByRole(roleValue) {
+                const rolePermMap = {
+                    '0': '0', // 系统管理员 -> 管理员权限
+                    '1': '1', // 技术人员 -> 读写权限
+                    '2': '2', // 审核人员 -> 审核权限
+                    '3': '3'  // 维修人员 -> 只读权限
+                };
+                return rolePermMap[String(roleValue)] ?? null;
+            },
+
+            validateRolePermRelation(showTip = false) {
+                const role = this.getFormValue('role');
+                const perm = this.getFormValue('perm');
+
+                // 必填校验在 validateForm 里处理，这里只校验映射关系
+                if (!role || !perm) return true;
+
+                const expectedPerm = this.getExpectedPermByRole(role);
+                if (expectedPerm === null) return true;
+
+                const isMatch = perm === expectedPerm;
+                if (!isMatch) {
+                    this.highlightError('role', '角色与权限不匹配');
+                    this.highlightError('perm', '角色与权限不匹配');
+                    if (showTip) {
+                        Utils.showMessage('角色与权限不匹配，请选择对应权限', 'warning');
+                    }
+                }
+                return isMatch;
+            },
+
+            syncPermByRole(showTip = true) {
+                const role = this.getFormValue('role');
+                const permElement = document.getElementById('perm');
+                if (!role || !permElement) return;
+
+                const expectedPerm = this.getExpectedPermByRole(role);
+                if (expectedPerm === null) return;
+
+                if (permElement.value !== expectedPerm) {
+                    permElement.value = expectedPerm;
+                    this.clearError('role');
+                    this.clearError('perm');
+                    if (showTip) {
+                        Utils.showMessage('已根据角色自动同步权限', 'info');
+                    }
+                }
+            },
+
+            bindRolePermEvents() {
+                const roleElement = document.getElementById('role');
+                const permElement = document.getElementById('perm');
+
+                if (roleElement) {
+                    roleElement.addEventListener('change', () => {
+                        this.syncPermByRole(true);
+                    });
+                }
+
+                if (permElement) {
+                    permElement.addEventListener('change', () => {
+                        this.clearError('role');
+                        this.clearError('perm');
+                        this.validateRolePermRelation(true);
+                    });
+                }
+            },
+
             // 表单验证
             validateForm() {
-                const requiredFields = ['username', 'full_name', 'phone', 'email', 'department', 'role'];
+                const requiredFields = ['username', 'full_name', 'phone', 'email', 'department', 'role', 'perm', 'status'];
                 let isValid = true;
 
                 // 清除所有错误状态
@@ -466,6 +551,11 @@
                     isValid = false;
                 }
 
+                // 校验角色与权限是否一一对应
+                if (!this.validateRolePermRelation(false)) {
+                    isValid = false;
+                }
+
                 return isValid;
             },
 
@@ -507,7 +597,11 @@
                 e.preventDefault();
 
                 if (!this.validateForm()) {
-                    Utils.showMessage('请填写完整的用户信息', 'error');
+                    if (!this.validateRolePermRelation(false)) {
+                        Utils.showMessage('角色与权限不匹配，请先调整后再保存', 'error');
+                    } else {
+                        Utils.showMessage('请填写完整的用户信息', 'error');
+                    }
                     return;
                 }
 
@@ -526,8 +620,9 @@
                     const email = this.getFormValue('email');
                     const role = this.getFormValue('role');
                     const remark = this.getFormValue('remark');
-
-                    console.log('表单数据:', { username, full_name, department, phone, email, role, remark });
+                    const perm = this.getFormValue('perm');
+                    const status = this.getFormValue('status');
+                    console.log('表单数据:', { username, full_name, department, phone, email, role, perm, status, remark });
 
                     const userData = {
                         username: username,
@@ -535,7 +630,9 @@
                         department: department,
                         phone: phone,
                         email: email,
-                        role: role,  // 保持为字符串，因为后端可能期望字符串
+                        role: role, 
+                        perm: perm,
+                        status: status,
                         remark: remark
                     };
 
@@ -590,13 +687,14 @@
                             if (element) {
                                 // 特别处理角色字段
                                 if (elementId === 'role') {
-                                    if (value === 0 || value === '0') {
-                                        element.value = '0';
-                                    } else if (value === 1 || value === '1') {
-                                        element.value = '1';
-                                    } else {
-                                        element.value = '1'; // 默认值
-                                    }
+                                    const normalizedRole = String(value ?? '1');
+                                    element.value = ['0', '1', '2', '3'].includes(normalizedRole) ? normalizedRole : '1';
+                                } else if (elementId === 'perm') {
+                                    const normalizedPerm = String(value ?? '1');
+                                    element.value = ['0', '1', '2', '3'].includes(normalizedPerm) ? normalizedPerm : '1';
+                                } else if (elementId === 'status') {
+                                    const normalizedStatus = String(value ?? '1');
+                                    element.value = ['0', '1'].includes(normalizedStatus) ? normalizedStatus : '1';
                                 } else {
                                     element.value = value || '';
                                 }
@@ -612,6 +710,12 @@
                         setFormValue('email', user.email);
                         setFormValue('role', user.role);
                         setFormValue('remark', user.remark);
+                        setFormValue('perm', user.perm);
+                        setFormValue('status', user.status);
+
+                        if (!this.validateRolePermRelation(false)) {
+                            Utils.showMessage('该用户当前角色与权限不匹配，请修正后再保存', 'warning');
+                        }
                     } else {
                         Utils.showMessage('用户不存在', 'error');
                         setTimeout(() => {

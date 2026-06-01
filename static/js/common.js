@@ -1,19 +1,19 @@
-// å…¬å…±å·¥å…·å‡½æ•°
+// ¹«¹²¹¤¾ßº¯Êı
 const Utils = {
-    // æ˜¾ç¤ºæ¶ˆæ¯æç¤º
+    // ÏÔÊ¾ÏûÏ¢ÌáÊ¾
     showMessage: function(message, type = 'info') {
-        // åˆ›å»ºæ¶ˆæ¯å…ƒç´ 
+        // ´´½¨ÏûÏ¢ÔªËØ
         const messageEl = document.createElement('div');
         messageEl.className = `message message-${type}`;
         messageEl.innerHTML = `
             <div class="message-content">${message}</div>
-            <button class="message-close">Ã—</button>
+            <button class="message-close">¡Á</button>
         `;
 
-        // æ·»åŠ åˆ°é¡µé¢
+        // Ìí¼Óµ½Ò³Ãæ
         document.body.appendChild(messageEl);
 
-        // æ·»åŠ æ ·å¼ï¼ˆå¦‚æœå°šæœªæ·»åŠ ï¼‰
+        // Ìí¼ÓÑùÊ½£¨Èç¹ûÉĞÎ´Ìí¼Ó£©
         if (!document.querySelector('#message-styles')) {
             const styleEl = document.createElement('style');
             styleEl.id = 'message-styles';
@@ -89,7 +89,7 @@ const Utils = {
             document.head.appendChild(styleEl);
         }
 
-        // è‡ªåŠ¨æ¶ˆå¤±
+        // ×Ô¶¯ÏûÊ§
         setTimeout(() => {
             messageEl.style.animation = 'slideOut 0.3s ease forwards';
             setTimeout(() => {
@@ -99,7 +99,7 @@ const Utils = {
             }, 300);
         }, 3000);
 
-        // ç‚¹å‡»å…³é—­
+        // µã»÷¹Ø±Õ
         messageEl.querySelector('.message-close').addEventListener('click', () => {
             messageEl.style.animation = 'slideOut 0.3s ease forwards';
             setTimeout(() => {
@@ -111,11 +111,11 @@ const Utils = {
     },
 
     getToken() {
-        // æ”¹ä¸ºä» localStorage è·å–
+        // ¸ÄÎª´Ó localStorage »ñÈ¡
         return localStorage.getItem('token') || sessionStorage.getItem('token');
     },
 
-    // åœ¨ Utils å¯¹è±¡ä¸­æ·»åŠ æ–‡ä»¶å¤§å°æ ¼å¼åŒ–å‡½æ•°
+    // ÔÚ Utils ¶ÔÏóÖĞÌí¼ÓÎÄ¼ş´óĞ¡¸ñÊ½»¯º¯Êı
     formatFileSize: function(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -124,7 +124,7 @@ const Utils = {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
 
-    // æ ¼å¼åŒ–æ—¥æœŸ
+    // ¸ñÊ½»¯ÈÕÆÚ
     formatDate: function(date, format = 'YYYY-MM-DD') {
         const d = new Date(date);
         const year = d.getFullYear();
@@ -142,29 +142,78 @@ const Utils = {
             .replace('mm', minutes)
             .replace('ss', seconds);
     },
+    
+    ROLE: {
+        ADMIN: 0,
+        TECHNICIAN: 1,
+        REVIEWER: 2,
+        MAINTENANCE: 3
+    },
+    
+    normalizeRoleValue: function(role) {
+        if (typeof role === 'number' && !Number.isNaN(role)) return role;
+        if (typeof role === 'string') {
+            const value = role.trim().toLowerCase();
+            if (value === '0' || value === 'admin' || value === '¹ÜÀíÔ±') return this.ROLE.ADMIN;
+            if (value === '1' || value === 'technician' || value === '¼¼ÊõÈËÔ±' || value === 'Î¬ĞŞ¹¤³ÌÊ¦') return this.ROLE.TECHNICIAN;
+            if (value === '2' || value === 'reviewer' || value === 'ÉóºËÈËÔ±') return this.ROLE.REVIEWER;
+            if (value === '3' || value === 'maintenance' || value === 'Î¬ĞŞÈËÔ±') return this.ROLE.MAINTENANCE;
+            const parsed = Number(value);
+            if (!Number.isNaN(parsed)) return parsed;
+        }
+        return null;
+    },
+    
+    hasRole: function(userOrRole, ...roles) {
+        const rawRole = userOrRole && typeof userOrRole === 'object'
+            ? (userOrRole.role ?? userOrRole.role_id)
+            : userOrRole;
+        const currentRole = this.normalizeRoleValue(rawRole);
+        if (currentRole === null || currentRole === undefined) return false;
+        return roles.map(Number).includes(currentRole);
+    },
+    
+    getRoleDisplay: function(userOrRole) {
+        const rawRole = userOrRole && typeof userOrRole === 'object'
+            ? (userOrRole.role ?? userOrRole.role_id)
+            : userOrRole;
+        const roleValue = this.normalizeRoleValue(rawRole);
+        const roleMap = {
+            0: { label: 'ÏµÍ³¹ÜÀíÔ±', icon: 'A' },
+            1: { label: '¼¼ÊõÈËÔ±', icon: 'T' },
+            2: { label: 'ÉóºËÈËÔ±', icon: 'R' },
+            3: { label: 'Î¬ĞŞÈËÔ±', icon: 'M' }
+        };
+        const roleInfo = roleMap[roleValue] || { label: 'ÓÃ»§', icon: 'U' };
+        return {
+            value: roleValue,
+            label: roleInfo.label,
+            icon: roleInfo.icon
+        };
+    },
 
     checkLogin: function() {
-        // ä¼˜å…ˆä» localStorage è·å–
+        // ÓÅÏÈ´Ó localStorage »ñÈ¡
         let token = localStorage.getItem('token');
         let refreshToken = localStorage.getItem('refresh_token');
         let userStr = localStorage.getItem('user');
 
-        // å¦‚æœ localStorage æ²¡æœ‰ï¼Œå°è¯•ä» sessionStorage è·å–ï¼ˆå…¼å®¹æ—§ç‰ˆæœ¬ï¼‰
+        // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡£¨¼æÈİ¾É°æ±¾£©
         if (!token) {
             token = sessionStorage.getItem('token');
             refreshToken = sessionStorage.getItem('refresh_token');
             userStr = sessionStorage.getItem('user');
 
-            // å¦‚æœ sessionStorage æœ‰ä½† localStorage æ²¡æœ‰ï¼Œè¿ç§»åˆ° localStorage
+            // Èç¹û sessionStorage ÓĞµ« localStorage Ã»ÓĞ£¬Ç¨ÒÆµ½ localStorage
             if (token) {
                 localStorage.setItem('token', token);
                 if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
                 if (userStr) localStorage.setItem('user', userStr);
-                console.log('Token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
+                console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
             }
         }
 
-        // å¦‚æœéƒ½æ²¡æœ‰ tokenï¼Œè·³è½¬åˆ°ç™»å½•é¡µ
+        // Èç¹û¶¼Ã»ÓĞ token£¬Ìø×ªµ½µÇÂ¼Ò³
         if (!token && !refreshToken) {
             window.location.href = 'index.html';
             return null;
@@ -173,107 +222,99 @@ const Utils = {
         try {
             return userStr ? JSON.parse(userStr) : null;
         } catch (e) {
-            console.error('è§£æç”¨æˆ·ä¿¡æ¯å¤±è´¥:', e);
+            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', e);
             window.location.href = 'index.html';
             return null;
         }
     },
 
-    // åŠ è½½ç”¨æˆ·ä¿¡æ¯åˆ°ä¾§è¾¹æ  - ç®€åŒ–ç‰ˆ
+    // ¼ÓÔØÓÃ»§ĞÅÏ¢µ½²à±ßÀ¸ - ¼ò»¯°æ
     loadUserInfo: function() {
         try {
-            // ä¼˜å…ˆä» localStorage è·å–ç”¨æˆ·ä¿¡æ¯
+            // ÓÅÏÈ´Ó localStorage »ñÈ¡ÓÃ»§ĞÅÏ¢
             let userStr = localStorage.getItem('user');
 
-            // å¦‚æœ localStorage æ²¡æœ‰ï¼Œå°è¯•ä» sessionStorage è·å–
+            // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡
             if (!userStr) {
                 userStr = sessionStorage.getItem('user');
                 if (userStr) {
-                    // è¿ç§»åˆ° localStorage
+                    // Ç¨ÒÆµ½ localStorage
                     localStorage.setItem('user', userStr);
-                    console.log('ç”¨æˆ·ä¿¡æ¯å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
+                    console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
                 }
             }
 
             if (!userStr) {
-                console.warn('ç”¨æˆ·ä¿¡æ¯ä¸å­˜åœ¨');
+                console.warn('ÓÃ»§ĞÅÏ¢²»´æÔÚ');
                 return;
             }
 
             const user = JSON.parse(userStr);
-            console.log('åŠ è½½ç”¨æˆ·ä¿¡æ¯:', user);
+            console.log('¼ÓÔØÓÃ»§ĞÅÏ¢:', user);
 
             const avatar = document.getElementById('userAvatar');
             const name = document.getElementById('userName');
             const role = document.getElementById('userRole');
 
-            // è®¾ç½®å¤´åƒ
+            // ÉèÖÃÍ·Ïñ
             if (avatar) {
-                const displayName = user.full_name || user.username || 'ç”¨æˆ·';
+                const displayName = user.full_name || user.username || 'ÓÃ»§';
                 avatar.textContent = displayName.charAt(0).toUpperCase();
 
-                // æ ¹æ®èº«ä»½è®¾ç½®ä¸åŒé¢œè‰²
-                const isAdmin = user.role === 0; // æ³¨æ„ï¼š0æ˜¯ç®¡ç†å‘˜
+                // ¸ù¾İÉí·İÉèÖÃ²»Í¬ÑÕÉ«
+                const isAdmin = user.role === 0; // ×¢Òâ£º0ÊÇ¹ÜÀíÔ±
                 avatar.style.backgroundColor = isAdmin ? '#dc2626' : '#4a9eff';
             }
 
-            // è®¾ç½®ç”¨æˆ·å
+            // ÉèÖÃÓÃ»§Ãû
             if (name) {
-                name.textContent = user.full_name || user.username || 'ç”¨æˆ·';
+                name.textContent = user.full_name || user.username || 'ÓÃ»§';
             }
 
-            // è®¾ç½®è§’è‰²æ˜¾ç¤º
+            // ÉèÖÃ½ÇÉ«ÏÔÊ¾
             if (role) {
                 const roleMap = {
-                    0: 'ç³»ç»Ÿç®¡ç†å‘˜',
-                    1: 'ç»´ä¿®å·¥ç¨‹å¸ˆ'
+                    0: 'ÏµÍ³¹ÜÀíÔ±',
+                    1: '¼¼ÊõÈËÔ±',
+                    2: 'ÉóºËÈËÔ±',
+                    3: 'Î¬ĞŞÈËÔ±'
                 };
-                role.textContent = roleMap[user.role] || 'ç”¨æˆ·';
+                role.textContent = roleMap[this.normalizeRoleValue(user.role)] || 'ÓÃ»§';
             }
 
         } catch (error) {
-            console.error('åŠ è½½ç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
+            console.error('¼ÓÔØÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
         }
     },
 
     getCurrentUser: function() {
         try {
-            // ä¼˜å…ˆä» localStorage è·å–
+            // ÓÅÏÈ´Ó localStorage »ñÈ¡
             let userStr = localStorage.getItem('user');
             if (!userStr) {
                 userStr = sessionStorage.getItem('user');
             }
 
             const user = userStr ? JSON.parse(userStr) : null;
-            console.log('è·å–å½“å‰ç”¨æˆ·ä¿¡æ¯:', user);
+            console.log('»ñÈ¡µ±Ç°ÓÃ»§ĞÅÏ¢:', user);
             return user;
         } catch (error) {
-            console.error('è§£æç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
+            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
             return null;
         }
     },
 
-    // æ ¹æ®èº«ä»½æ›´æ–°èœå•
+    // ¸ù¾İÉí·İ¸üĞÂ²Ëµ¥
     updateMenuByRole: function(user) {
-        console.log('æ›´æ–°èœå•ï¼Œç”¨æˆ·èº«ä»½:', user.role, typeof user.role, user);
+        console.log('¸üĞÂ²Ëµ¥£¬ÓÃ»§Éí·İ:', user.role, typeof user.role, user);
 
-        // ä¿®æ­£è§’è‰²åˆ¤æ–­é€»è¾‘ - æ›´ä¸¥æ ¼çš„åˆ¤æ–­
+        // ĞŞÕı½ÇÉ«ÅĞ¶ÏÂß¼­ - ¸üÑÏ¸ñµÄÅĞ¶Ï
         let isAdmin = false;
 
-        // æ£€æŸ¥æ•°å­—ç±»å‹ (0: ç®¡ç†å‘˜, 1: æŠ€æœ¯äººå‘˜)
-        if (typeof user.role === 'number') {
-            isAdmin = user.role === 0;
-        }
-        // æ£€æŸ¥å­—ç¬¦ä¸²ç±»å‹
-        else if (typeof user.role === 'string') {
-            isAdmin = user.role === 'admin' || user.role === '0';
-        }
-        // æ£€æŸ¥ role_id
-        else if (user.role_id !== undefined) {
-            isAdmin = user.role_id === 0;
-        }
+        const roleValue = this.normalizeRoleValue(user.role ?? user.role_id);
+        isAdmin = roleValue === this.ROLE.ADMIN;
 
-        console.log('æ˜¯ç®¡ç†å‘˜å—?', isAdmin);
+        console.log('ÊÇ¹ÜÀíÔ±Âğ?', isAdmin);
 
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
@@ -283,23 +324,23 @@ const Utils = {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
         }
 
-        // æˆ‘çš„èµ„æ–™æ‰€æœ‰ç”¨æˆ·éƒ½å¯è§
+        // ÎÒµÄ×ÊÁÏËùÓĞÓÃ»§¶¼¿É¼û
         if (myProfileLink) {
             myProfileLink.style.display = 'flex';
         }
 
-        // ç¡®ä¿ AI è¾…åŠ©å¯¹æ‰€æœ‰ç”¨æˆ·å¯è§
+        // È·±£ AI ¸¨Öú¶ÔËùÓĞÓÃ»§¿É¼û
         if (aiAssistLink) {
             aiAssistLink.style.display = 'flex';
         }
 
-        // ç§»é™¤å¤šä½™çš„ active ç±»
+        // ÒÆ³ı¶àÓàµÄ active Àà
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             item.classList.remove('active');
         });
 
-        // æ ¹æ®å½“å‰é¡µé¢è®¾ç½® active ç±»
+        // ¸ù¾İµ±Ç°Ò³ÃæÉèÖÃ active Àà
         const currentPath = window.location.pathname.split('/').pop();
         const currentLink = document.querySelector(`a[href="${currentPath}"]`);
         if (currentLink) {
@@ -308,20 +349,20 @@ const Utils = {
     },
 
     logout: function() {
-        // æ¸…é™¤ localStorage
+        // Çå³ı localStorage
         localStorage.removeItem('token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        // æ¸…é™¤ sessionStorageï¼ˆä¸ºäº†å…¼å®¹æ—§ä»£ç ï¼‰
+        // Çå³ı sessionStorage£¨ÎªÁË¼æÈİ¾É´úÂë£©
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('last_conversation_id');
-        // è·³è½¬åˆ°ç™»å½•é¡µ
+        // Ìø×ªµ½µÇÂ¼Ò³
         window.location.href = 'index.html';
     },
 
-    // é˜²æŠ–å‡½æ•°
+    // ·À¶¶º¯Êı
     debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -334,15 +375,15 @@ const Utils = {
         };
     },
 
-        // è·å–APIåŸºç¡€URL
+        // »ñÈ¡API»ù´¡URL
     getApiBaseUrl: function() {
-        // å¯ä»¥æ ¹æ®ç¯å¢ƒé…ç½®ä¸åŒçš„URL
-        return 'http://localhost:8000';
+        // ¿ÉÒÔ¸ù¾İ»·¾³ÅäÖÃ²»Í¬µÄURL
+        return '';
     },
 
-    // è·å–è®¤è¯å¤´éƒ¨
+    // »ñÈ¡ÈÏÖ¤Í·²¿
     getAuthHeaders: function() {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = {
             'Content-Type': 'application/json',
         };
@@ -361,82 +402,82 @@ const Utils = {
                 ...options
             };
 
-            // å¦‚æœæœ‰ bodyï¼Œç¡®ä¿å®ƒæ˜¯ JSON å­—ç¬¦ä¸²
+            // Èç¹ûÓĞ body£¬È·±£ËüÊÇ JSON ×Ö·û´®
             if (defaultOptions.body && typeof defaultOptions.body !== 'string') {
                 defaultOptions.body = JSON.stringify(defaultOptions.body);
             }
 
             const response = await fetch(url, defaultOptions);
 
-            // æ£€æŸ¥æ˜¯å¦æœªæˆæƒ
+            // ¼ì²éÊÇ·ñÎ´ÊÚÈ¨
             if (response.status === 401) {
-                console.log('Tokenè¿‡æœŸï¼Œå°è¯•åˆ·æ–°...');
+                console.log('Token¹ıÆÚ£¬³¢ÊÔË¢ĞÂ...');
 
-                // å°è¯•åˆ·æ–°token
+                // ³¢ÊÔË¢ĞÂtoken
                 try {
                     const newToken = await this.refreshToken();
 
-                    // æ›´æ–°è¯·æ±‚å¤´ä¸­çš„token
+                    // ¸üĞÂÇëÇóÍ·ÖĞµÄtoken
                     defaultOptions.headers['Authorization'] = `Bearer ${newToken}`;
 
-                    // é‡æ–°å‘é€è¯·æ±‚
+                    // ÖØĞÂ·¢ËÍÇëÇó
                     const retryResponse = await fetch(url, defaultOptions);
 
                     if (!retryResponse.ok) {
                         const errorText = await retryResponse.text();
-                        throw new Error(`HTTPé”™è¯¯: ${retryResponse.status} - ${errorText}`);
+                        throw new Error(`HTTP´íÎó: ${retryResponse.status} - ${errorText}`);
                     }
 
                     const result = await retryResponse.json();
 
-                    // æ ¹æ®ä½ çš„Resultæ ¼å¼ï¼Œcodeä¸º1è¡¨ç¤ºæˆåŠŸ
+                    // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
                     if (result.code === 1) {
                         return result.data;
                     } else {
-                        throw new Error(result.msg || 'è¯·æ±‚å¤±è´¥');
+                        throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
                     }
                 } catch (refreshError) {
-                    console.error('åˆ·æ–°tokenå¤±è´¥:', refreshError);
+                    console.error('Ë¢ĞÂtokenÊ§°Ü:', refreshError);
                     sessionStorage.removeItem('token');
                     sessionStorage.removeItem('refresh_token');
                     sessionStorage.removeItem('user');
                     window.location.href = 'index.html';
-                    throw new Error('ç™»å½•å·²è¿‡æœŸï¼Œè¯·é‡æ–°ç™»å½•');
+                    throw new Error('µÇÂ¼ÒÑ¹ıÆÚ£¬ÇëÖØĞÂµÇÂ¼');
                 }
             }
 
-            // æ£€æŸ¥æ˜¯å¦æ˜¯ 404
+            // ¼ì²éÊÇ·ñÊÇ 404
             if (response.status === 404) {
-                throw new Error('è¯·æ±‚çš„æ¥å£ä¸å­˜åœ¨ï¼Œè¯·æ£€æŸ¥è·¯ç”±');
+                throw new Error('ÇëÇóµÄ½Ó¿Ú²»´æÔÚ£¬Çë¼ì²éÂ·ÓÉ');
             }
 
-            // æ£€æŸ¥å…¶ä»–é”™è¯¯çŠ¶æ€
+            // ¼ì²éÆäËû´íÎó×´Ì¬
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`HTTPé”™è¯¯: ${response.status} - ${errorText}`);
+                throw new Error(`HTTP´íÎó: ${response.status} - ${errorText}`);
             }
 
             const result = await response.json();
 
-            // æ ¹æ®ä½ çš„Resultæ ¼å¼ï¼Œcodeä¸º1è¡¨ç¤ºæˆåŠŸ
+            // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
             if (result.code === 1) {
                 return result.data;
             } else {
-                throw new Error(result.msg || 'è¯·æ±‚å¤±è´¥');
+                throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
             }
 
         } catch (error) {
-            console.error('APIè¯·æ±‚å¤±è´¥:', error);
+            console.error('APIÇëÇóÊ§°Ü:', error);
             throw error;
         }
     },
 
-    // æ·»åŠ åˆ·æ–°tokençš„è¾…åŠ©å‡½æ•°
+    // Ìí¼ÓË¢ĞÂtokenµÄ¸¨Öúº¯Êı
     refreshToken: async function() {
         try {
-            const refreshToken = sessionStorage.getItem('refresh_token');
+            const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
             if (!refreshToken) {
-                throw new Error('æ²¡æœ‰å¯ç”¨çš„åˆ·æ–°ä»¤ç‰Œ');
+                throw new Error('Ã»ÓĞ¿ÉÓÃµÄË¢ĞÂÁîÅÆ');
             }
 
             const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
@@ -450,70 +491,71 @@ const Utils = {
             });
 
             if (!response.ok) {
-                throw new Error(`åˆ·æ–°ä»¤ç‰Œå¤±è´¥: ${response.status}`);
+                throw new Error(`Ë¢ĞÂÁîÅÆÊ§°Ü: ${response.status}`);
             }
 
             const result = await response.json();
 
             if (result.code === 1) {
                 const newAccessToken = result.data.access_token;
+                localStorage.setItem('token', newAccessToken);
                 sessionStorage.setItem('token', newAccessToken);
-                console.log('Tokenåˆ·æ–°æˆåŠŸ');
+                console.log('TokenË¢ĞÂ³É¹¦');
                 return newAccessToken;
             } else {
-                throw new Error(result.msg || 'åˆ·æ–°ä»¤ç‰Œå¤±è´¥');
+                throw new Error(result.msg || 'Ë¢ĞÂÁîÅÆÊ§°Ü');
             }
         } catch (error) {
-            console.error('åˆ·æ–°ä»¤ç‰Œå¤±è´¥:', error);
+            console.error('Ë¢ĞÂÁîÅÆÊ§°Ü:', error);
             throw error;
         }
     },
-        // æ–°å¢ï¼šä» sessionStorage è¿ç§»åˆ° localStorage çš„è¾…åŠ©å‡½æ•°
+        // ĞÂÔö£º´Ó sessionStorage Ç¨ÒÆµ½ localStorage µÄ¸¨Öúº¯Êı
     migrateToLocalStorage: function() {
-        // æ£€æŸ¥å¹¶è¿ç§» token
+        // ¼ì²é²¢Ç¨ÒÆ token
         const sessionToken = sessionStorage.getItem('token');
         const localToken = localStorage.getItem('token');
 
         if (sessionToken && !localToken) {
             localStorage.setItem('token', sessionToken);
-            console.log('Token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
+            console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
         }
 
-        // æ£€æŸ¥å¹¶è¿ç§» refresh_token
+        // ¼ì²é²¢Ç¨ÒÆ refresh_token
         const sessionRefreshToken = sessionStorage.getItem('refresh_token');
         const localRefreshToken = localStorage.getItem('refresh_token');
 
         if (sessionRefreshToken && !localRefreshToken) {
             localStorage.setItem('refresh_token', sessionRefreshToken);
-            console.log('Refresh token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
+            console.log('Refresh token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
         }
 
-        // æ£€æŸ¥å¹¶è¿ç§»ç”¨æˆ·ä¿¡æ¯
+        // ¼ì²é²¢Ç¨ÒÆÓÃ»§ĞÅÏ¢
         const sessionUser = sessionStorage.getItem('user');
         const localUser = localStorage.getItem('user');
 
         if (sessionUser && !localUser) {
             localStorage.setItem('user', sessionUser);
-            console.log('ç”¨æˆ·ä¿¡æ¯å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
+            console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
         }
     },
 
-    // æ·»åŠ è·å–ç”¨æˆ·ä¿¡æ¯å‡½æ•°ï¼ˆç¤ºä¾‹ï¼‰
+    // Ìí¼Ó»ñÈ¡ÓÃ»§ĞÅÏ¢º¯Êı£¨Ê¾Àı£©
     getUserInfo: async function() {
         try {
-            // åœ¨å®é™…é¡¹ç›®ä¸­ï¼Œè°ƒç”¨è·å–ç”¨æˆ·ä¿¡æ¯çš„API
+            // ÔÚÊµ¼ÊÏîÄ¿ÖĞ£¬µ÷ÓÃ»ñÈ¡ÓÃ»§ĞÅÏ¢µÄAPI
             // const result = await this.apiRequest('/auth/profile');
             // return result.data;
 
-            // ä¸´æ—¶è¿”å›sessionStorageä¸­çš„ç”¨æˆ·ä¿¡æ¯
+            // ÁÙÊ±·µ»ØsessionStorageÖĞµÄÓÃ»§ĞÅÏ¢
             return JSON.parse(sessionStorage.getItem('user') || '{}');
         } catch (error) {
-            console.error('è·å–ç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
+            console.error('»ñÈ¡ÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
             return null;
         }
     },
 
-    // èŠ‚æµå‡½æ•°
+    // ½ÚÁ÷º¯Êı
     throttle: function(func, limit) {
         let inThrottle;
         return function() {
@@ -527,25 +569,25 @@ const Utils = {
         };
     },
 
-    // åœ¨ common.js æ–‡ä»¶çš„ Utils å¯¹è±¡ä¸­æ·»åŠ ä»¥ä¸‹å‡½æ•°
+    // ÔÚ common.js ÎÄ¼şµÄ Utils ¶ÔÏóÖĞÌí¼ÓÒÔÏÂº¯Êı
 
-    // æ ¼å¼åŒ–æ¶ˆæ¯å†…å®¹ï¼ˆå¤„ç†æ¢è¡Œç­‰ï¼‰
+    // ¸ñÊ½»¯ÏûÏ¢ÄÚÈİ£¨´¦Àí»»ĞĞµÈ£©
     formatMessageContent: function(content) {
         return content.replace(/\n/g, '<br>');
     },
 
-    // ç”ŸæˆéšæœºID
+    // Éú³ÉËæ»úID
     generateId: function() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     },
 
-    // æˆªæ–­å­—ç¬¦ä¸²
+    // ½Ø¶Ï×Ö·û´®
     truncateString: function(str, length) {
         if (str.length <= length) return str;
         return str.substring(0, length) + '...';
     },
 
-    // è·å–å½“å‰æ—¶é—´å­—ç¬¦ä¸²
+    // »ñÈ¡µ±Ç°Ê±¼ä×Ö·û´®
     getCurrentTime: function() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -553,22 +595,22 @@ const Utils = {
 
 };
 
-// é¡µé¢åŠ è½½æ—¶æ£€æŸ¥ç™»å½•çŠ¶æ€
+// Ò³Ãæ¼ÓÔØÊ±¼ì²éµÇÂ¼×´Ì¬
 document.addEventListener('DOMContentLoaded', function() {
-    // å¦‚æœä¸æ˜¯ç™»å½•é¡µï¼Œæ£€æŸ¥ç™»å½•çŠ¶æ€
+    // Èç¹û²»ÊÇµÇÂ¼Ò³£¬¼ì²éµÇÂ¼×´Ì¬
     const currentPath = window.location.pathname;
     const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
 
     if (!isLoginPage) {
-        // å…ˆè¿ç§»æ•°æ®ï¼ˆå¦‚æœæœ‰ï¼‰
+        // ÏÈÇ¨ÒÆÊı¾İ£¨Èç¹ûÓĞ£©
         Utils.migrateToLocalStorage();
 
-        // ç„¶åæ£€æŸ¥ç™»å½•
+        // È»ºó¼ì²éµÇÂ¼
         const user = Utils.checkLogin();
 
-        // ç„¶ååŠ è½½ç”¨æˆ·ä¿¡æ¯
+        // È»ºó¼ÓÔØÓÃ»§ĞÅÏ¢
         if (user) {
-            // å»¶è¿Ÿä¸€ç‚¹ç¡®ä¿DOMå®Œå…¨åŠ è½½
+            // ÑÓ³ÙÒ»µãÈ·±£DOMÍêÈ«¼ÓÔØ
             setTimeout(() => {
                 Utils.loadUserInfo();
             }, 100);
@@ -576,7 +618,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// è¡¨å•éªŒè¯
+// ±íµ¥ÑéÖ¤
 function initFormValidation() {
     const forms = document.querySelectorAll('form[data-validate]');
     forms.forEach(form => {
@@ -587,50 +629,50 @@ function initFormValidation() {
             inputs.forEach(input => {
                 if (!input.value.trim()) {
                     isValid = false;
-                    highlightError(input, 'æ­¤å­—æ®µä¸èƒ½ä¸ºç©º');
+                    highlightError(input, '´Ë×Ö¶Î²»ÄÜÎª¿Õ');
                 } else {
                     clearError(input);
                 }
 
-                // é‚®ç®±éªŒè¯
+                // ÓÊÏäÑéÖ¤
                 if (input.type === 'email' && input.value) {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!emailRegex.test(input.value)) {
                         isValid = false;
-                        highlightError(input, 'è¯·è¾“å…¥æœ‰æ•ˆçš„é‚®ç®±åœ°å€');
+                        highlightError(input, 'ÇëÊäÈëÓĞĞ§µÄÓÊÏäµØÖ·');
                     }
                 }
 
-                // å¯†ç é•¿åº¦éªŒè¯
+                // ÃÜÂë³¤¶ÈÑéÖ¤
                 if (input.type === 'password' && input.value) {
                     if (input.value.length < 6) {
                         isValid = false;
-                        highlightError(input, 'å¯†ç é•¿åº¦ä¸èƒ½å°‘äº6ä½');
+                        highlightError(input, 'ÃÜÂë³¤¶È²»ÄÜÉÙÓÚ6Î»');
                     }
                 }
             });
 
             if (!isValid) {
                 e.preventDefault();
-                Utils.showMessage('è¯·æ£€æŸ¥è¡¨å•ä¸­çš„é”™è¯¯', 'error');
+                Utils.showMessage('Çë¼ì²é±íµ¥ÖĞµÄ´íÎó', 'error');
             }
         });
     });
 }
 
-// é«˜äº®é”™è¯¯å­—æ®µ
+// ¸ßÁÁ´íÎó×Ö¶Î
 function highlightError(input, message) {
     const formGroup = input.closest('.form-group');
     if (!formGroup) return;
 
-    // ç§»é™¤ç°æœ‰çš„é”™è¯¯ä¿¡æ¯
+    // ÒÆ³ıÏÖÓĞµÄ´íÎóĞÅÏ¢
     const existingError = formGroup.querySelector('.error-message');
     if (existingError) existingError.remove();
 
-    // æ·»åŠ é”™è¯¯æ ·å¼
+    // Ìí¼Ó´íÎóÑùÊ½
     input.classList.add('error');
 
-    // æ·»åŠ é”™è¯¯ä¿¡æ¯
+    // Ìí¼Ó´íÎóĞÅÏ¢
     const errorEl = document.createElement('div');
     errorEl.className = 'error-message';
     errorEl.textContent = message;
@@ -641,7 +683,7 @@ function highlightError(input, message) {
     formGroup.appendChild(errorEl);
 }
 
-// æ¸…é™¤é”™è¯¯æç¤º
+// Çå³ı´íÎóÌáÊ¾
 function clearError(input) {
     input.classList.remove('error');
     const formGroup = input.closest('.form-group');
@@ -651,7 +693,7 @@ function clearError(input) {
     if (errorMessage) errorMessage.remove();
 }
 
-// å›¾ç‰‡ä¸Šä¼ å¤„ç†
+// Í¼Æ¬ÉÏ´«´¦Àí
 function initImageUpload(uploadAreaId, previewContainerId) {
     const uploadArea = document.getElementById(uploadAreaId);
     const previewContainer = document.getElementById(previewContainerId);
@@ -663,12 +705,12 @@ function initImageUpload(uploadAreaId, previewContainerId) {
 
     document.body.appendChild(fileInput);
 
-    // ç‚¹å‡»ä¸Šä¼ åŒºåŸŸé€‰æ‹©æ–‡ä»¶
+    // µã»÷ÉÏ´«ÇøÓòÑ¡ÔñÎÄ¼ş
     uploadArea.addEventListener('click', () => {
         fileInput.click();
     });
 
-    // æ‹–æ”¾ä¸Šä¼ 
+    // ÍÏ·ÅÉÏ´«
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadArea.style.borderColor = '#4a9eff';
@@ -689,7 +731,7 @@ function initImageUpload(uploadAreaId, previewContainerId) {
         handleImageFiles(files, previewContainer);
     });
 
-    // æ–‡ä»¶é€‰æ‹©å˜åŒ–
+    // ÎÄ¼şÑ¡Ôñ±ä»¯
     fileInput.addEventListener('change', () => {
         handleImageFiles(fileInput.files, previewContainer);
     });
@@ -699,7 +741,7 @@ function initImageUpload(uploadAreaId, previewContainerId) {
     };
 }
 
-// å¤„ç†å›¾ç‰‡æ–‡ä»¶
+// ´¦ÀíÍ¼Æ¬ÎÄ¼ş
 function handleImageFiles(files, previewContainer) {
     previewContainer.innerHTML = '';
 
@@ -711,8 +753,8 @@ function handleImageFiles(files, previewContainer) {
             const preview = document.createElement('div');
             preview.className = 'image-preview';
             preview.innerHTML = `
-                <img src="${e.target.result}" alt="é¢„è§ˆ">
-                <button type="button" class="btn-remove-image">Ã—</button>
+                <img src="${e.target.result}" alt="Ô¤ÀÀ">
+                <button type="button" class="btn-remove-image">¡Á</button>
             `;
 
             preview.querySelector('.btn-remove-image').addEventListener('click', () => {
@@ -726,210 +768,7 @@ function handleImageFiles(files, previewContainer) {
 }
 
 
-// å¯¼å‡ºåˆ°å…¨å±€
+// µ¼³öµ½È«¾Ö
 window.Utils = Utils;
 window.initImageUpload = initImageUpload;
 
-// // åœ¨æ–‡ä»¶é¡¶éƒ¨æ·»åŠ åˆ†é¡µå˜é‡
-// let currentPage = 1;
-// let pageSize = 6; // é»˜è®¤æ¯é¡µæ˜¾ç¤º4äºº
-// let totalPages = 1;
-
-// // ä¿®æ”¹ loadUsers å‡½æ•°
-// function loadUsers() {
-//     const users = MockData.getUsers();
-//     totalPages = Math.ceil(users.length / pageSize);
-//     displayUsers(users);
-//     renderPagination(users.length);
-// }
-//
-// // ä¿®æ”¹ displayUsers å‡½æ•°ï¼Œæ·»åŠ åˆ†é¡µé€»è¾‘
-// function displayUsers(users) {
-//     const container = document.getElementById('userList');
-//     const countElement = document.getElementById('userCount');
-//
-//     if (users.length === 0) {
-//         container.innerHTML = `
-//             <div style="text-align: center; padding: 60px; color: #666; width: 100%;" class="empty-state">
-//                 <i class="fas fa-users" style="font-size: 56px; margin-bottom: 20px; color: #e8e8e8;"></i>
-//                 <p>æš‚æ— ç”¨æˆ·æ•°æ®</p>
-//                 <button class="btn btn-primary" onclick="showAddUserModal()" style="margin-top: 15px;">
-//                     <i class="fas fa-user-plus"></i> æ·»åŠ ç¬¬ä¸€ä¸ªç”¨æˆ·
-//                 </button>
-//             </div>
-//         `;
-//         countElement.textContent = 'å…±0ä¸ªç”¨æˆ·';
-//         return;
-//     }
-//
-//     // åˆ†é¡µå¤„ç†
-//     const startIndex = (currentPage - 1) * pageSize;
-//     const endIndex = startIndex + pageSize;
-//     const pageUsers = users.slice(startIndex, endIndex);
-//
-//     let html = '';
-//     pageUsers.forEach(user => {
-//         const colors = ['#4a9eff', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-//         const colorIndex = user.id % colors.length;
-//         const avatarColor = user.avatarColor || colors[colorIndex];
-//
-//         html += `
-//             <div class="user-card">
-//                 <div class="user-avatar-large" style="background: ${avatarColor}">
-//                     ${user.name.charAt(0)}
-//                 </div>
-//                 <div class="user-info-details">
-//                     <div class="user-info-name">${user.name}</div>
-//                     <div class="user-info-role">
-//                         <span class="badge" style="background: ${user.role === 'admin' ? '#fee2e2' : '#e7f5ff'};
-//                             color: ${user.role === 'admin' ? '#dc2626' : '#1971c2'};
-//                             padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
-//                             ${user.role === 'admin' ? 'ğŸ‘‘ ç³»ç»Ÿç®¡ç†å‘˜' : 'ğŸ‘· æŠ€æœ¯äººå‘˜'}
-//                         </span>
-//                     </div>
-//                     <ul class="user-info-list">
-//                         <li><i class="fas fa-building"></i> éƒ¨é—¨ï¼š${user.department}</li>
-//                         <li><i class="fas fa-phone"></i> ç”µè¯ï¼š${user.phone}</li>
-//                         <li><i class="fas fa-envelope"></i> é‚®ç®±ï¼š${user.email}</li>
-//                         <li><i class="fas fa-calendar-alt"></i> å…¥èŒæ—¶é—´ï¼š${user.hireDate}</li>
-//                     </ul>
-//                     <div style="margin-top: 20px; display: flex; gap: 12px;">
-//                         <button class="btn btn-secondary btn-sm" onclick="editUser(${user.id})">
-//                             <i class="fas fa-edit"></i> ç¼–è¾‘
-//                         </button>
-//                         <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''}>
-//                             <i class="fas fa-trash"></i> åˆ é™¤
-//                         </button>
-//                     </div>
-//                 </div>
-//             </div>
-//         `;
-//     });
-//
-//     container.innerHTML = html;
-//     countElement.textContent = `å…±${users.length}ä¸ªç”¨æˆ·ï¼Œå½“å‰æ˜¾ç¤ºç¬¬ ${startIndex + 1}-${Math.min(endIndex, users.length)} ä¸ª`;
-// }
-//
-// // æ¸²æŸ“åˆ†é¡µæ§ä»¶
-// function renderPagination(totalUsers) {
-//     const pageNumbersContainer = document.getElementById('pageNumbers');
-//     const prevBtn = document.getElementById('prevBtn');
-//     const nextBtn = document.getElementById('nextBtn');
-//     const pageInfo = document.getElementById('pageInfo');
-//
-//     totalPages = Math.ceil(totalUsers / pageSize);
-//
-//     // æ›´æ–°é¡µé¢ä¿¡æ¯
-//     pageInfo.textContent = `ç¬¬ ${currentPage} é¡µï¼Œå…± ${totalPages} é¡µ`;
-//
-//     // æ›´æ–°æŒ‰é’®çŠ¶æ€
-//     prevBtn.disabled = currentPage <= 1;
-//     nextBtn.disabled = currentPage >= totalPages;
-//
-//     // ç”Ÿæˆé¡µç 
-//     let pageNumbersHtml = '';
-//
-//     // æ€»æ˜¯æ˜¾ç¤ºç¬¬ä¸€é¡µ
-//     pageNumbersHtml += `
-//         <button class="page-number ${currentPage === 1 ? 'active' : ''}" onclick="changePage(1)">
-//             1
-//         </button>
-//     `;
-//
-//     // æ˜¾ç¤ºçœç•¥å·ï¼ˆå¦‚æœå½“å‰é¡µç¦»ç¬¬ä¸€é¡µè¾ƒè¿œï¼‰
-//     if (currentPage > 3) {
-//         pageNumbersHtml += `<span class="page-dots">...</span>`;
-//     }
-//
-//     // æ˜¾ç¤ºå½“å‰é¡µé™„è¿‘çš„é¡µç 
-//     for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-//         if (i > 1 && i < totalPages) {
-//             pageNumbersHtml += `
-//                 <button class="page-number ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
-//                     ${i}
-//                 </button>
-//             `;
-//         }
-//     }
-//
-//     // æ˜¾ç¤ºçœç•¥å·ï¼ˆå¦‚æœå½“å‰é¡µç¦»æœ€åä¸€é¡µè¾ƒè¿œï¼‰
-//     if (currentPage < totalPages - 2) {
-//         pageNumbersHtml += `<span class="page-dots">...</span>`;
-//     }
-//
-//     // æ€»æ˜¯æ˜¾ç¤ºæœ€åä¸€é¡µï¼ˆå¦‚æœæœ‰è¶…è¿‡ä¸€é¡µï¼‰
-//     if (totalPages > 1) {
-//         pageNumbersHtml += `
-//             <button class="page-number ${currentPage === totalPages ? 'active' : ''}" onclick="changePage(${totalPages})">
-//                 ${totalPages}
-//             </button>
-//         `;
-//     }
-//
-//     pageNumbersContainer.innerHTML = pageNumbersHtml;
-// }
-//
-// // åˆ‡æ¢é¡µç 
-// function changePage(page) {
-//     if (page < 1 || page > totalPages) return;
-//
-//     currentPage = page;
-//     const users = MockData.getUsers();
-//     displayUsers(users);
-//     renderPagination(users.length);
-//
-//     // æ»šåŠ¨åˆ°é¡¶éƒ¨
-//     document.querySelector('.user-list').scrollIntoView({ behavior: 'smooth' });
-// }
-//
-// // æ›´æ”¹æ¯é¡µæ˜¾ç¤ºæ•°é‡
-// function changePageSize() {
-//     const select = document.getElementById('pageSizeSelect');
-//     pageSize = parseInt(select.value);
-//     currentPage = 1; // é‡ç½®åˆ°ç¬¬ä¸€é¡µ
-//     loadUsers();
-// }
-//
-// // ä¿®æ”¹æ·»åŠ ç”¨æˆ·å‡½æ•°ï¼ŒæˆåŠŸåé‡ç½®åˆ°ç¬¬ä¸€é¡µ
-// function addUser() {
-//     // ... åŸæœ‰çš„éªŒè¯å’Œæ·»åŠ é€»è¾‘ä¿æŒä¸å˜ ...
-//
-//     // åœ¨ç”¨æˆ·æ·»åŠ æˆåŠŸåï¼Œé‡ç½®åˆ†é¡µ
-//     const addedUser = MockData.addUser(newUser);
-//     Utils.showMessage(`ç”¨æˆ·"${name}"æ·»åŠ æˆåŠŸï¼`, 'success');
-//
-//     closeAddUserModal();
-//
-//     // é‡ç½®åˆ°ç¬¬ä¸€é¡µå¹¶é‡æ–°åŠ è½½
-//     currentPage = 1;
-//     loadUsers();
-// }
-//
-// // ä¿®æ”¹åˆ é™¤ç”¨æˆ·å‡½æ•°ï¼ŒæˆåŠŸåé‡æ–°è®¡ç®—åˆ†é¡µ
-// function deleteUser(userId) {
-//     if (!confirm('ç¡®å®šè¦åˆ é™¤è¿™ä¸ªç”¨æˆ·å—ï¼Ÿæ­¤æ“ä½œä¸å¯æ¢å¤ã€‚')) {
-//         return;
-//     }
-//
-//     const success = MockData.deleteUser(userId);
-//     if (success) {
-//         Utils.showMessage('ç”¨æˆ·åˆ é™¤æˆåŠŸ', 'success');
-//
-//         // é‡æ–°åŠ è½½æ•°æ®ï¼Œåˆ†é¡µä¼šè‡ªåŠ¨è°ƒæ•´
-//         loadUsers();
-//
-//         // å¦‚æœå½“å‰é¡µæ²¡æœ‰æ•°æ®äº†ï¼Œè‡ªåŠ¨å›åˆ°å‰ä¸€é¡µ
-//         const users = MockData.getUsers();
-//         const startIndex = (currentPage - 1) * pageSize;
-//         if (users.length <= startIndex && currentPage > 1) {
-//             currentPage--;
-//             loadUsers();
-//         }
-//     } else {
-//         Utils.showMessage('åˆ é™¤ç”¨æˆ·å¤±è´¥', 'error');
-//     }
-// }
-//
-// // åœ¨ window å¯¹è±¡ä¸Šå¯¼å‡ºåˆ†é¡µå‡½æ•°
-// window.changePage = changePage;
-// window.changePageSize = changePageSize;

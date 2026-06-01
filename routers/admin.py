@@ -1,72 +1,90 @@
 import hashlib
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from fastapi import HTTPException, status
 import logging
-from fastapi import APIRouter, Depends
-from sqlalchemy import or_, and_
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import get_db
 from dependencies import require_roles
 from models import User
-from schemas import Result, Page, UserResponse, UserCreate, UserUpdateByAdmin, UserQueryByPage
+from schemas import Page, Result, UserCreate, UserQueryByPage, UserResponse, UserUpdateByAdmin
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
+from utils.roles import (
+    get_expected_perm_for_role,
+    is_role_perm_consistent,
+    normalize_perm_value,
+    normalize_role_value,
+)
 
 """
-管理员相关操作，即对员工的增删改查
+管理员相关操作，即对用户的增删改查。
 """
 
 router = APIRouter(prefix="/admin", tags=["管理员"])
 logger = logging.getLogger(__name__)
 
+
+def _normalize_and_validate_role_perm(role_value, perm_value):
+    normalized_role = normalize_role_value(role_value)
+    normalized_perm = normalize_perm_value(perm_value)
+
+    if normalized_role is None or normalized_perm is None:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "角色或权限参数非法")
+
+    if not is_role_perm_consistent(normalized_role, normalized_perm):
+        expected_perm = get_expected_perm_for_role(normalized_role)
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"角色与权限不匹配：该角色仅允许权限值 {expected_perm}",
+        )
+
+    return normalized_role, normalized_perm
+
+
 @router.post("/add_user", summary="管理员添加用户")
-async def add_user(user: UserCreate,
-                   db: AsyncSession = Depends(get_db),
-                   current_user: User = Depends(require_roles("admin"))):
+async def add_user(
+    user: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     try:
-        # 检查电话唯一性
         phone = user.phone
         email = user.email
         username = user.username
-        # user_phone_find = db.query(User).filter(User.phone == phone, User.status == 1).first()
+        normalized_role, normalized_perm = _normalize_and_validate_role_perm(user.role, user.perm)
 
         phone_result = await db.execute(select(User).where(User.phone == phone, User.status == 1))
         user_phone_find = phone_result.scalar_one_or_none()
-
-
         if user_phone_find:
-            return Result.error("手机号已被其他用户使用")
-        # 检查邮箱唯一性
-        if email is not None:
-            # user_email_find = db.query(User).filter(User.email == email, User.status == 1).first()
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号已被其他用户使用")
 
+        if email is not None:
             email_result = await db.execute(select(User).where(User.email == email, User.status == 1))
             user_email_find = email_result.scalar_one_or_none()
-
             if user_email_find:
-                return Result.error("邮箱已被其他用户使用")
-        if username is not None:
-            # user_username_find = db.query(User).filter(User.username == username, User.status == 1).first()
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "邮箱已被其他用户使用")
 
+        if username is not None:
             username_result = await db.execute(select(User).where(User.username == username, User.status == 1))
             user_username_find = username_result.scalar_one_or_none()
-
             if user_username_find:
-                return Result.error("用户名已存在，添加失败")
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名已存在，添加失败")
 
-        # 默认密码为123456，进行哈希，数据库不会明文存储
         hashed_password = hashlib.md5("123456".encode()).hexdigest()
-
-        # 查询是否有软删除用户（这里是处理，某个用户返聘，直接恢复原账号）
-        # user_delete = db.query(User).filter(User.username == username, User.status == 0).first()
 
         deleted_user_result = await db.execute(select(User).where(User.username == username, User.status == 0))
         user_delete = deleted_user_result.scalar_one_or_none()
 
         if user_delete:
-            user_delete.status = 1
+            user_delete.status = user.status if user.status is not None else 1
             user_delete.phone = phone
             user_delete.email = email
-            user_delete.role = user.role
+            user_delete.role = normalized_role
+            user_delete.perm = normalized_perm
             user_delete.password = hashed_password
             user_delete.full_name = user.full_name
             user_delete.department = user.department
@@ -75,89 +93,82 @@ async def add_user(user: UserCreate,
             await db.commit()
             await db.refresh(user_delete)
         else:
-            user_dict = user.dict(exclude={'password'})
+            user_dict = user.model_dump(exclude={"password", "status"}, exclude_none=True)
+            user_dict["role"] = normalized_role
+            user_dict["perm"] = normalized_perm
 
-            new_user = User(**user_dict,
-                            password=hashed_password,
-                            status=1,
-                            created_time=datetime.now(),
-                            last_login=None)
+            new_user = User(
+                **user_dict,
+                password=hashed_password,
+                status=user.status if user.status is not None else 1,
+                created_time=datetime.now(),
+                last_login=None,
+            )
             db.add(new_user)
             await db.commit()
             await db.refresh(new_user)
 
         return Result.success()
-    except HTTPException:
-        # 重新抛出已知的HTTP异常
+    except AppException:
         raise
-
     except Exception as e:
-        # 其他异常回滚
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"创建用户失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"创建用户失败: {str(e)}")
+
 
 @router.patch("/update_user", summary="管理员更新用户信息")
-async def update_user(new_user: UserUpdateByAdmin,
-                      db: AsyncSession = Depends(get_db),
-                      current_user: User = Depends(require_roles("admin"))):
+async def update_user(
+    new_user: UserUpdateByAdmin,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     """
-    更新用户信息，包括实现软删除
+    更新用户信息，包括软删除（status=0）。
     """
     try:
-        # user = db.query(User).filter(User.id == new_user.id).first()
-
         result = await db.execute(select(User).where(User.id == new_user.id))
         user = result.scalar_one_or_none()
 
         if not user:
-            return Result.error("用户不存在")
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "用户不存在")
 
-        new_user = new_user.model_dump(exclude_unset=True)
+        new_user_dict = new_user.model_dump(exclude_unset=True)
+        if not new_user_dict:
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请提供需要更新的字段")
 
-        # 如果没有传入任何字段
-        if not new_user:
-            return Result.error("请提供需要更新的字段")
+        should_validate_role_perm = ("role" in new_user_dict) or ("perm" in new_user_dict)
+        if should_validate_role_perm:
+            target_role = new_user_dict.get("role", user.role)
+            target_perm = new_user_dict.get("perm", user.perm)
+            normalized_role, normalized_perm = _normalize_and_validate_role_perm(target_role, target_perm)
+            new_user_dict["role"] = normalized_role
+            new_user_dict["perm"] = normalized_perm
 
-        # 检查一下手机号唯一性
-        if "phone" in new_user and new_user["phone"] != user.phone:
-            # exist_phone = db.query(User).filter(User.phone == new_user["phone"],
-            #                                     User.id != user.id,
-            #                                     User.status == 1).first()
-
+        if "phone" in new_user_dict and new_user_dict["phone"] != user.phone:
             phone_result = await db.execute(
                 select(User).where(
-                    User.phone == new_user["phone"],
+                    User.phone == new_user_dict["phone"],
                     User.id != user.id,
-                    User.status == 1
+                    User.status == 1,
                 )
             )
             exist_phone = phone_result.scalar_one_or_none()
-
             if exist_phone:
-                return Result.error("手机号已被其他用户使用")
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号已被其他用户使用")
 
-        # 检查一下邮箱的唯一性
-        if "email" in new_user and new_user["email"] and new_user["email"] != user.email:
-            if new_user["email"]:
-                # exist_email = db.query(User).filter(User.email == new_user["email"],
-                #                                     User.id != user.id,
-                #                                     User.status == 1).first()
-
-                email_result = await db.execute(
-                    select(User).where(
-                        User.email == new_user["email"],
-                        User.id != user.id,
-                        User.status == 1
-                    )
+        if "email" in new_user_dict and new_user_dict["email"] and new_user_dict["email"] != user.email:
+            email_result = await db.execute(
+                select(User).where(
+                    User.email == new_user_dict["email"],
+                    User.id != user.id,
+                    User.status == 1,
                 )
-                exist_email = email_result.scalar_one_or_none()
-                if exist_email:
-                    return Result.error("邮箱已被其他用户使用")
+            )
+            exist_email = email_result.scalar_one_or_none()
+            if exist_email:
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "邮箱已被其他用户使用")
 
-        for field, value in new_user.items():
+        for field, value in new_user_dict.items():
             if value is not None and field != "id":
                 setattr(user, field, value)
 
@@ -165,65 +176,62 @@ async def update_user(new_user: UserUpdateByAdmin,
         await db.refresh(user)
 
         data = UserResponse.from_orm(user)
-
         return Result.success_with_data(data)
 
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         await db.rollback()
         logger.error(f"用户更新异常: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "服务器内部错误，请稍后重试")
 
 
 @router.get("/users", summary="管理员查询所有用户数据")
-async def get_users(db: AsyncSession = Depends(get_db),
-                    current_user: User = Depends(require_roles("admin"))):
+async def get_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     try:
-        # users = db.query(User).filter(User.status == 1).all()
-
         result = await db.execute(select(User).where(User.status == 1))
         users = result.scalars().all()
-
         users_data = [UserResponse.from_orm(user) for user in users]
         return Result.success_with_data(users_data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
+
 
 @router.get("/user/{id}", summary="管理员查询某个用户信息")
-async def get_user_by_id(id, db: AsyncSession = Depends(get_db),
-                         current_user: User = Depends(require_roles("admin"))):
+async def get_user_by_id(
+    id,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     try:
         result = await db.execute(select(User).where(User.status == 1, User.id == id))
         user = result.scalar_one_or_none()
-
-        # user = db.query(User).filter(User.status == 1, User.id == id).first()
+        if not user:
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "资源未找到")
         user_data = UserResponse.from_orm(user)
         return Result.success_with_data(user_data)
+    except AppException:
+        raise
     except Exception as e:
-        return Result.error("用户不存在")
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
+
 
 @router.post("/users/page", summary="管理员分页查询用户信息")
-async def get_user_page(page: Page, db: AsyncSession = Depends(get_db),
-                        current_user: User = Depends(require_roles("admin"))):
+async def get_user_page(
+    page: Page,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     try:
         offset = (page.page - 1) * page.size
-        # total_count = db.query(User).filter(User.status == 1).count()
 
         total_count_result = await db.execute(select(func.count()).select_from(User).where(User.status == 1))
         total_count = total_count_result.scalar_one()
 
-        # users = db.query(User).filter(User.status == 1).offset(offset).limit(page.size).all()
-
-        result = await db.execute(
-            select(User).where(User.status == 1).offset(offset).limit(page.size)
-        )
+        result = await db.execute(select(User).where(User.status == 1).offset(offset).limit(page.size))
         users = result.scalars().all()
 
         total_pages = (total_count + page.size - 1) // page.size
@@ -231,22 +239,20 @@ async def get_user_page(page: Page, db: AsyncSession = Depends(get_db),
         data = {
             "total_count": total_count,
             "total_pages": total_pages,
-            "users": users_data
+            "users": users_data,
         }
         return Result.success_with_data(data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
 
 
 @router.post("/query", summary="查询用户信息")
-async def query(query: UserQueryByPage,
-                db: AsyncSession = Depends(get_db),
-                current_user: User = Depends(require_roles("admin"))):
+async def query(
+    query: UserQueryByPage,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
     try:
-        # 根据用户名，电话，姓名，部门查询
         offset = (query.page - 1) * query.size
 
         filters = and_(
@@ -255,49 +261,25 @@ async def query(query: UserQueryByPage,
                 User.username.like(f"%{query.data}%"),
                 User.phone.like(f"%{query.data}%"),
                 User.full_name.like(f"%{query.data}%"),
-                User.department.like(f"%{query.data}%")
-            )
+                User.department.like(f"%{query.data}%"),
+            ),
         )
 
         total_count_result = await db.execute(select(func.count()).select_from(User).where(filters))
         total_count = total_count_result.scalar_one()
 
-        # total_count = db.query(User).filter(
-        #     and_(
-        #         User.status == 1,
-        #         or_(
-        #             User.username.like(f"%{query.data}%"),
-        #             User.phone.like(f"%{query.data}%"),
-        #             User.full_name.like(f"%{query.data}%"),
-        #             User.department.like(f"%{query.data}%"))
-        #     )).count()
-
-        result = await db.execute(
-            select(User).where(filters).offset(offset).limit(query.size)
-        )
+        result = await db.execute(select(User).where(filters).offset(offset).limit(query.size))
         users = result.scalars().all()
 
-        # users = db.query(User).filter(
-        #     and_(
-        #         User.status == 1,
-        #         or_(
-        #             User.username.like(f"%{query.data}%"),
-        #             User.phone.like(f"%{query.data}%"),
-        #             User.full_name.like(f"%{query.data}%"),
-        #             User.department.like(f"%{query.data}%"))
-        #     )).offset(offset).limit(query.size).all()
         total_pages = (total_count + query.size - 1) // query.size
         users_response = [UserResponse.from_orm(user) for user in users]
 
         data = {
             "total_count": total_count,
             "total_pages": total_pages,
-            "users": users_response
+            "users": users_response,
         }
 
         return Result.success_with_data(data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")

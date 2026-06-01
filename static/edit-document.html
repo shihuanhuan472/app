@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>编辑文档 - 设备维修辅助系统</title>
+    <title>编辑文档 - 维修辅助系统</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
     <script src="js/menu.js"></script>
     <style>
-        /* 保持原有样式，并添加与 add-document 一致的布局样式 */
         .loading-state {
             display: flex;
             flex-direction: column;
@@ -36,7 +36,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* 左右布局容器 */
         .field-row {
             display: flex;
             gap: 20px;
@@ -54,11 +53,10 @@
             flex-shrink: 0;
         }
 
-        /* 小型图片上传区域 */
         .image-upload-area-small {
             border: 2px dashed #d9e3f0;
             border-radius: 6px;
-            padding: 10px 10px;
+            padding: 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
@@ -88,7 +86,6 @@
             margin-top: 4px;
         }
 
-        /* 预览小图容器 */
         .image-previews-small {
             display: flex;
             gap: 8px;
@@ -134,10 +131,10 @@
             background: #dc2626;
         }
 
-        /* 已有图片预览容器（稍大，用于显示已有图片） */
         .existing-images {
             margin-bottom: 20px;
         }
+
         .existing-images h4 {
             font-size: 16px;
             font-weight: 600;
@@ -147,11 +144,11 @@
             align-items: center;
             gap: 8px;
         }
+
         .existing-images h4 i {
             color: #4a9eff;
         }
 
-        /* 响应式 */
         @media (max-width: 768px) {
             .field-row {
                 flex-direction: column;
@@ -162,7 +159,6 @@
             }
         }
 
-        /* 表单容器样式 */
         .form-container {
             background: white;
             border-radius: 8px;
@@ -242,20 +238,20 @@
             </div>
             <div class="nav-menu">
                 <a href="main.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
                 <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
                 <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
                 <a href="user-profile.html" class="nav-item" style="display: none;"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
             </div>
             <div class="user-info">
                 <div class="user-details">
-                    <div class="user-avatar" id="userAvatar">李</div>
-                    <div><div class="user-name" id="userName">李四</div><div class="user-role" id="userRole">维修工程师</div></div>
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">技术人员</div></div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
             </div>
         </div>
 
-        <!-- 主内容区域 -->
         <div class="main-content">
             <div class="header">
                 <div>
@@ -263,23 +259,20 @@
                     <div class="page-subtitle">修改维修知识文档</div>
                 </div>
                 <div class="header-actions">
-                    <a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a>
+                    <a href="main.html" class="btn btn-secondary" id="headerBackLink"><i class="fas fa-arrow-left"></i> 返回列表</a>
                 </div>
             </div>
 
-            <!-- 文档编辑表单容器 -->
             <div class="form-container" id="editFormContainer">
                 <div class="loading-state" id="loadingState">
                     <div class="loading-spinner"></div>
                     <p>正在加载文档数据...</p>
                 </div>
-                <!-- 表单内容将由 JS 动态生成 -->
             </div>
         </div>
     </div>
 
     <script>
-        // ---------- 工具函数 ----------
         function getDocumentIdFromUrl() {
             return new URLSearchParams(window.location.search).get('id');
         }
@@ -287,24 +280,36 @@
         function getFullImageUrl(relativeUrl) {
             if (!relativeUrl) return '';
             if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
-            return 'http://localhost:8000/' + relativeUrl;
+            const base = (API_CONFIG.BASE_URL || '').replace(/\/$/, '');
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return `${base}/${cleanPath}`;
         }
 
-        // 检查编辑权限
+        function isAdminUser(user) {
+            if (!user) return false;
+            return Utils.hasRole(user, Utils.ROLE.ADMIN);
+        }
+
         function checkEditPermission(doc) {
             if (!doc) return false;
             const currentUser = Utils.getCurrentUser();
             if (!currentUser) return false;
-            const isAdmin = currentUser.role === 'admin' || currentUser.role === 0;
+            const isAdmin = isAdminUser(currentUser);
             const isAuthor = currentUser.id == doc.contributor_id;
             return isAdmin || isAuthor;
         }
 
-        // ---------- 全局变量 ----------
-        let currentDocument = null;
-        let currentDocumentId = null;
+        function getReturnUrl(docId) {
+            const params = new URLSearchParams(window.location.search);
+            const source = params.get('source');
+            const mode = params.get('mode');
+            if (source === 'review' || mode === 'review') {
+                return 'my-submissions.html';
+            }
+            return 'document-detail.html?id=' + docId + '&source=knowledge';
+        }
 
-        // 按字段存储已有图片 URL (从数据库加载)
+        let isSubmitting = false;
         let existingImageUrlsByField = {
             problemIntro: [],
             causes: [],
@@ -314,7 +319,6 @@
             keyPoints: []
         };
 
-        // 按字段存储新上传的图片文件 (尚未上传到服务器)
         let newImagesByField = {
             problemIntro: [],
             causes: [],
@@ -324,10 +328,8 @@
             keyPoints: []
         };
 
-        // 待删除的图片 URL (已有图片)
         let imagesToDelete = [];
 
-        // 字段映射：前端字段名 -> 后端图片字段名
         const fieldToBackendImage = {
             problemIntro: 'image_urls_problem_intro',
             causes: 'image_urls_causes',
@@ -337,19 +339,25 @@
             keyPoints: 'image_urls_key_points'
         };
 
-        // ---------- 初始化 ----------
         document.addEventListener('DOMContentLoaded', function() {
             Utils.checkLogin();
             Utils.loadUserInfo();
+            syncHeaderBackLink();
             loadDocumentForEdit();
         });
 
-        // ---------- 加载文档数据 ----------
+        function syncHeaderBackLink() {
+            const docId = getDocumentIdFromUrl();
+            const backLink = document.getElementById('headerBackLink');
+            if (!backLink || !docId) return;
+            backLink.href = getReturnUrl(docId);
+        }
+
         async function loadDocumentForEdit() {
             const docId = getDocumentIdFromUrl();
             if (!docId) {
                 Utils.showMessage('文档ID无效', 'error');
-                setTimeout(() => window.location.href = 'main.html', 2000);
+                setTimeout(() => window.location.href = 'main.html', 1000);
                 return;
             }
 
@@ -357,32 +365,29 @@
                 const doc = await documentAPI.getDocumentById(docId);
                 if (!doc) {
                     Utils.showMessage('文档不存在', 'error');
-                    setTimeout(() => window.location.href = 'main.html', 2000);
+                    setTimeout(() => window.location.href = 'main.html', 1000);
                     return;
                 }
 
                 if (!checkEditPermission(doc)) {
-                    Utils.showMessage('您没有权限编辑此文档', 'error');
-                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId, 2000);
+                    Utils.showMessage('您没有权限编辑该文档', 'error');
+                    setTimeout(() => window.location.href = getReturnUrl(docId), 1000);
                     return;
                 }
 
-                currentDocument = doc;
                 document.getElementById('loadingState').style.display = 'none';
 
-                // 解析各字段已有图片 URL
                 const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
                 fields.forEach(field => {
                     const backendField = fieldToBackendImage[field];
                     const urlsStr = doc[backendField];
                     if (urlsStr && urlsStr.trim() && urlsStr !== 'null') {
-                        existingImageUrlsByField[field] = urlsStr.split(',').map(u => u.trim()).filter(u => u);
+                        existingImageUrlsByField[field] = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
                     } else {
                         existingImageUrlsByField[field] = [];
                     }
                 });
 
-                // 生成表单 HTML
                 renderEditForm(doc);
             } catch (error) {
                 console.error('加载文档失败:', error);
@@ -396,15 +401,23 @@
             }
         }
 
-        // 生成编辑表单
+        function getSubmitButtonLabel(isAdmin) {
+            const params = new URLSearchParams(window.location.search);
+            const source = params.get('source');
+            const mode = params.get('mode');
+            const fromReviewFlow = source === 'review' || mode === 'review';
+            if (fromReviewFlow) return '提交修改';
+            return isAdmin ? '保存修改' : '提交修改';
+        }
+
         function renderEditForm(doc) {
             const fields = [
-                { id: 'problem_intro', label: '问题描述', fieldKey: 'problemIntro', value: doc.problem_intro || '', required: false, large: true },
-                { id: 'causes', label: '原因分析', fieldKey: 'causes', value: doc.causes || '', required: false, large: true },
-                { id: 'evaluation', label: '故障评估', fieldKey: 'evaluation', value: doc.evaluation || '', required: false, large: false },
-                { id: 'inspection', label: '检查步骤', fieldKey: 'inspection', value: doc.inspection || '', required: false, large: false },
-                { id: 'solutions', label: '解决方案', fieldKey: 'solutions', value: doc.solutions || '', required: false, large: true },
-                { id: 'key_points', label: '关键要点', fieldKey: 'keyPoints', value: doc.key_points || '', required: false, large: false }
+                { id: 'problem_intro', label: '问题描述', fieldKey: 'problemIntro', value: doc.problem_intro || '', large: true },
+                { id: 'causes', label: '原因分析', fieldKey: 'causes', value: doc.causes || '', large: true },
+                { id: 'evaluation', label: '故障评估', fieldKey: 'evaluation', value: doc.evaluation || '', large: false },
+                { id: 'inspection', label: '检查步骤', fieldKey: 'inspection', value: doc.inspection || '', large: false },
+                { id: 'solutions', label: '解决方案', fieldKey: 'solutions', value: doc.solutions || '', large: true },
+                { id: 'key_points', label: '关键要点', fieldKey: 'keyPoints', value: doc.key_points || '', large: false }
             ];
 
             let formHtml = `
@@ -427,11 +440,10 @@
                                 <div class="image-upload-area-small" data-field="${f.fieldKey}">
                                     <i class="fas fa-cloud-upload-alt"></i>
                                     <span>点击上传图片</span>
-                                    <div class="upload-hint">JPG/PNG ≤20MB</div>
+                                    <div class="upload-hint">JPG/PNG <= 20MB</div>
                                     <input type="file" accept="image/*" multiple style="display: none;">
                                 </div>
                                 <div class="image-previews-small" id="preview-${f.fieldKey}"></div>
-                                <!-- 已有图片预览区（通过独立容器展示） -->
                                 <div class="existing-images" id="existing-${f.fieldKey}"></div>
                             </div>
                         </div>
@@ -442,25 +454,25 @@
             formHtml += `
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="cancelEdit('${doc.id}')"><i class="fas fa-times"></i> 取消</button>
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 保存修改</button>
+                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-paper-plane"></i> 提交修改</button>
                     </div>
                 </form>
             `;
 
             document.getElementById('editFormContainer').innerHTML = formHtml;
-
-            // 初始化各字段的图片上传功能
             initAllImageUploads();
-
-            // 显示各字段已有图片预览
             renderAllExistingPreviews();
 
-            // 清空新图片数组
             newImagesByField = { problemIntro: [], causes: [], evaluation: [], inspection: [], solutions: [], keyPoints: [] };
             imagesToDelete = [];
+
+            const submitBtn = document.getElementById('editSubmitBtn');
+            const currentUser = Utils.getCurrentUser();
+            if (submitBtn && currentUser) {
+                submitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${getSubmitButtonLabel(isAdminUser(currentUser))}`;
+            }
         }
 
-        // 初始化所有小型上传区域
         function initAllImageUploads() {
             document.querySelectorAll('.image-upload-area-small').forEach(area => {
                 const field = area.dataset.field;
@@ -491,7 +503,6 @@
             });
         }
 
-        // 处理某个字段的新图片文件
         function handleFieldFiles(field, files) {
             const maxPerField = 5;
             if (newImagesByField[field].length + files.length > maxPerField) {
@@ -499,7 +510,7 @@
                 return;
             }
 
-            for (let file of files) {
+            for (const file of files) {
                 if (!file.type.startsWith('image/')) {
                     Utils.showMessage(`文件 "${file.name}" 不是图片`, 'warning');
                     continue;
@@ -514,7 +525,6 @@
             renderFieldPreview(field, 'new');
         }
 
-        // 渲染指定字段的新图片预览
         function renderFieldPreview(field, type = 'new') {
             const container = document.getElementById(`preview-${field}`);
             if (!container) return;
@@ -539,14 +549,13 @@
             }
         }
 
-        // 渲染所有字段的已有图片预览
         function renderAllExistingPreviews() {
             const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
             fields.forEach(field => {
                 const container = document.getElementById(`existing-${field}`);
                 if (!container) return;
                 const urls = existingImageUrlsByField[field] || [];
-                if (urls.length === 0) {
+                if (!urls.length) {
                     container.innerHTML = '';
                     return;
                 }
@@ -568,17 +577,16 @@
             });
         }
 
-        // 删除图片（事件委托）
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.image-preview-small button');
             if (!btn) return;
             e.preventDefault();
 
             const field = btn.dataset.field;
-            const type = btn.dataset.type; // 'new' 或 'existing'
+            const type = btn.dataset.type;
 
             if (type === 'new') {
-                const index = parseInt(btn.dataset.index);
+                const index = parseInt(btn.dataset.index, 10);
                 if (!isNaN(index) && newImagesByField[field] && newImagesByField[field][index]) {
                     newImagesByField[field].splice(index, 1);
                     renderFieldPreview(field, 'new');
@@ -587,18 +595,15 @@
                 const url = btn.dataset.url;
                 if (!url) return;
 
-                // 从 existingImageUrlsByField 中移除
                 const idx = existingImageUrlsByField[field].indexOf(url);
                 if (idx !== -1) {
                     existingImageUrlsByField[field].splice(idx, 1);
-                    imagesToDelete.push(url); // 标记待删除
+                    imagesToDelete.push(url);
                 }
 
-                // 移除对应的 DOM 元素
                 const previewDiv = btn.closest('.image-preview-small');
                 if (previewDiv) previewDiv.remove();
 
-                // 如果该字段没有图片了，隐藏标题
                 const container = document.getElementById(`existing-${field}`);
                 if (container && container.querySelectorAll('.image-preview-small').length === 0) {
                     container.innerHTML = '';
@@ -606,18 +611,28 @@
             }
         });
 
-        // 取消编辑
         function cancelEdit(docId) {
-            window.location.href = 'document-detail.html?id=' + docId;
+            window.location.href = getReturnUrl(docId);
         }
 
-        // 更新文档
+        function resetSubmitButton(submitBtn) {
+            if (!submitBtn) return;
+            const user = Utils.getCurrentUser();
+            submitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${getSubmitButtonLabel(isAdminUser(user))}`;
+            submitBtn.disabled = false;
+            isSubmitting = false;
+        }
+
         async function updateDocument(event) {
             event.preventDefault();
+            if (isSubmitting) {
+                Utils.showMessage('正在提交，请勿重复点击', 'warning');
+                return;
+            }
+
             const docId = getDocumentIdFromUrl();
             if (!docId) return;
 
-            // 收集表单数据
             const formData = {
                 title: document.getElementById('title').value.trim(),
                 problem_intro: document.getElementById('problem_intro').value.trim(),
@@ -629,62 +644,65 @@
             };
 
             if (!formData.title) {
-                Utils.showMessage('文档标题不能为空', 'error');
+                Utils.showMessage('标题不能为空', 'error');
                 return;
             }
 
             const submitBtn = event.target.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+            const currentUser = Utils.getCurrentUser();
+            const isAdmin = isAdminUser(currentUser);
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
             submitBtn.disabled = true;
+            isSubmitting = true;
 
             try {
-                // 1. 删除标记的已有图片
-                if (imagesToDelete.length > 0) {
-                    console.log('删除图片:', imagesToDelete);
-                    await Promise.all(imagesToDelete.map(url => documentAPI.deleteImage(url).catch(e => console.warn('删除失败', url, e))));
-                }
-
-                // 2. 上传新图片（按字段）
                 const uploadedUrlsByField = {};
                 const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
-                for (let field of fields) {
+                for (const field of fields) {
                     const files = newImagesByField[field];
                     if (files.length > 0) {
                         const result = await documentAPI.uploadImages(files);
-                        uploadedUrlsByField[field] = result.map(item => item.url); // 假设返回 [{url: ...}]
+                        uploadedUrlsByField[field] = result.map(item => item.url);
                     } else {
                         uploadedUrlsByField[field] = [];
                     }
                 }
 
-                // 3. 合并最终图片 URL，构建提交数据
                 const finalData = { ...formData };
                 fields.forEach(field => {
                     const backendField = fieldToBackendImage[field];
                     const existing = existingImageUrlsByField[field] || [];
                     const uploaded = uploadedUrlsByField[field] || [];
-                    const allUrls = [...existing, ...uploaded];
-                    finalData[backendField] = allUrls.join(', ');
+                    finalData[backendField] = [...existing, ...uploaded].join(', ');
                 });
 
-                console.log('提交数据:', finalData);
-
-                const result = await documentAPI.updateDocument(docId, finalData);
-                if (result) {
-                    Utils.showMessage('文档更新成功', 'success');
-                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId, 1500);
+                if (isAdmin) {
+                    if (imagesToDelete.length > 0) {
+                        await Promise.all(imagesToDelete.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
+                    }
+                    const result = await documentAPI.updateDocument(docId, finalData);
+                    if (!result) throw new Error('更新失败');
+                    Utils.showMessage('修改已保存', 'success');
+                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=knowledge', 1200);
                 } else {
-                    throw new Error('更新失败');
+                    const reviewPayload = { ...finalData, document_id: Number(docId) };
+                    const result = await reviewAPI.submitUpdateReview(docId, reviewPayload);
+                    if (!result) throw new Error('提交审核失败');
+                    Utils.showMessage('修改申请已提交，等待审核', 'success');
+                    setTimeout(() => window.location.href = 'my-submissions.html', 1200);
                 }
+
+                // 成功后保持锁定，避免跳转前重复点击
+                return;
             } catch (error) {
-                console.error('更新文档失败:', error);
-                Utils.showMessage('更新文档失败: ' + (error.message || '未知错误'), 'error');
-                submitBtn.innerHTML = '<i class="fas fa-save"></i> 保存修改';
-                submitBtn.disabled = false;
+                console.error('Update failed:', error);
+                Utils.showMessage('操作失败: ' + (error.message || '未知错误'), 'error');
+                resetSubmitButton(submitBtn);
+                return;
             }
         }
 
-        // 导出到全局
         window.cancelEdit = cancelEdit;
         window.updateDocument = updateDocument;
     </script>

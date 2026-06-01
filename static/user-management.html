@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -507,6 +507,10 @@
                     <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                     <span>知识库</span>
                 </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
                 <a href="ai-assist.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
                     <span>AI辅助</span>
@@ -528,7 +532,7 @@
                     <div class="user-avatar" id="userAvatar">李</div>
                     <div>
                         <div class="user-name" id="userName">李四</div>
-                        <div class="user-role" id="userRole">维修工程师</div>
+                        <div class="user-role" id="userRole">用户</div>
                     </div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
@@ -618,14 +622,7 @@
                     console.log('当前用户信息:', user);
 
                     // 检查权限
-                    let isAdmin = false;
-                    if (typeof user.role === 'number') {
-                        isAdmin = user.role === 0;
-                    } else if (typeof user.role === 'string') {
-                        isAdmin = user.role === 'admin' || user.role === '0';
-                    } else if (user.role_id !== undefined) {
-                        isAdmin = user.role_id === 0;
-                    }
+                    const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
 
                     // 管理员继续执行
                     console.log('管理员用户，加载用户管理功能');
@@ -699,9 +696,26 @@
                         ? Utils.formatDate(user.created_time, 'YYYY-MM-DD')
                         : '未知';
 
-                    const roleText = user.role === 0 ? '系统管理员' : '维修工程师';
-                    const roleColor = user.role === 0 ? '#dc2626' : '#1971c2';
-                    const roleBgColor = user.role === 0 ? 'linear-gradient(135deg, #fee2e2, #fecaca)' : 'linear-gradient(135deg, #dbeafe, #bfdbfe)';
+                    const roleInfo = Utils.getRoleDisplay(user);
+                    const roleValue = roleInfo.value;
+                    const roleText = roleInfo.label;
+                    const roleIcon = roleInfo.icon;
+
+                    let roleColor = '#334155';
+                    let roleBgColor = 'linear-gradient(135deg, #e2e8f0, #cbd5e1)';
+                    if (roleValue === 0) {
+                        roleColor = '#dc2626';
+                        roleBgColor = 'linear-gradient(135deg, #fee2e2, #fecaca)';
+                    } else if (roleValue === 1) {
+                        roleColor = '#1971c2';
+                        roleBgColor = 'linear-gradient(135deg, #dbeafe, #bfdbfe)';
+                    } else if (roleValue === 2) {
+                        roleColor = '#7c3aed';
+                        roleBgColor = 'linear-gradient(135deg, #ede9fe, #ddd6fe)';
+                    } else if (roleValue === 3) {
+                        roleColor = '#0f766e';
+                        roleBgColor = 'linear-gradient(135deg, #ccfbf1, #99f6e4)';
+                    }
 
                     // 截断长文本
                     const truncateText = (text, maxLength = 20) => {
@@ -721,7 +735,7 @@
                                     </div>
                                     <div class="user-info-role">
                                         <span class="badge" style="background: ${roleBgColor}; color: ${roleColor}; border: 1px solid ${roleColor}20;">
-                                            ${user.role === 0 ? '👑' : '👷'} ${roleText}
+                                            ${roleIcon} ${roleText}
                                         </span>
                                     </div>
                                 </div>
@@ -744,7 +758,7 @@
                                         <i class="fas fa-edit"></i> 编辑
                                     </button>
                                     <button class="btn btn-danger btn-sm" onclick="UserPagination.confirmDeleteUser(${user.id})"
-                                            ${user.role === 0 ? 'disabled' : ''}>
+                                            ${Utils.hasRole(user, Utils.ROLE.ADMIN) ? 'disabled' : ''}>
                                         <i class="fas fa-trash"></i> 删除
                                     </button>
                                 </div>

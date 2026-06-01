@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提交详情 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
+    <style>
+        .detail-shell {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            padding: 24px;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .detail-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .meta-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f3f4f6;
+            color: #374151;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+        }
+
+        .status-0 { color: #92400e; background: #fef3c7; }
+        .status-1 { color: #065f46; background: #d1fae5; }
+        .status-2 { color: #991b1b; background: #fee2e2; }
+        .status-3 { color: #374151; background: #e5e7eb; }
+
+        .type-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+            color: #1d4ed8;
+            background: #dbeafe;
+        }
+
+        .detail-section {
+            margin-top: 18px;
+        }
+
+        .detail-section h3 {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .section-card {
+            background: #f9fafb;
+            border-left: 4px solid #3b82f6;
+            border-radius: 8px;
+            padding: 14px;
+            color: #374151;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .section-card.empty {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .image-item {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .file-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fff;
+        }
+
+        .action-row {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+<div class="system-container">
+    <div class="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-icon">🔧</div>
+                <span>维修辅助系统</span>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="main.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                <span>知识库</span>
+            </a>
+            <a href="my-submissions.html" class="nav-item active">
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                <span>我的提交</span>
+            </a>
+            <a href="ai-assist.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                <span>AI辅助</span>
+            </a>
+            <a href="user-management.html" class="nav-item" id="userManagementLink">
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
+                <span>用户管理</span>
+            </a>
+            <a href="user-profile.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-user"></i></span>
+                <span>我的资料</span>
+            </a>
+        </div>
+
+        <div class="user-info">
+            <div class="user-details">
+                <div class="user-avatar" id="userAvatar">我</div>
+                <div>
+                    <div class="user-name" id="userName">当前用户</div>
+                    <div class="user-role" id="userRole">技术人员</div>
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div>
+                <div class="page-title">提交详情</div>
+                <div class="page-subtitle">查看你发起的审核申请详情</div>
+            </div>
+            <div class="header-actions">
+                <a href="my-submissions.html" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回我的提交
+                </a>
+            </div>
+        </div>
+
+        <div id="detailContainer" class="detail-shell">
+            <div class="document-loading">
+                <div class="loading-spinner"></div>
+                <p>正在加载提交详情...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const statusMap = {0: '待审核', 1: '已通过', 2: '已驳回', 3: '已撤回'};
+    const actionMap = {1: '新增', 2: '修改', 3: '删除'};
+
+    function guardTechnicianOnly() {
+        const user = Utils.getCurrentUser();
+        const isTechnician = user && Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+        if (!isTechnician) {
+            window.location.replace('main.html');
+            return false;
+        }
+        return true;
+    }
+
+    function getReviewIdFromUrl() {
+        const value = new URLSearchParams(window.location.search).get('review_id');
+        return value ? Number(value) : null;
+    }
+
+    function escapeHtml(text) {
+        const value = text == null ? '' : String(text);
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function asTextBlock(text) {
+        if (!text) return '<div class="section-card empty">无</div>';
+        return `<div class="section-card">${escapeHtml(text)}</div>`;
+    }
+
+    function buildImageGrid(rawValue) {
+        if (!rawValue) return '';
+        const urls = String(rawValue).split(',').map(v => v.trim()).filter(Boolean);
+        if (urls.length === 0) return '';
+
+        return `
+            <div class="image-grid">
+                ${urls.map(url => {
+                    const fullUrl = getAssetUrl(url);
+                    return `
+                        <a class="image-item" href="${fullUrl}" target="_blank" rel="noopener noreferrer">
+                            <img src="${fullUrl}" alt="图片" loading="lazy" onerror="this.style.opacity='0.4'">
+                        </a>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    function getAssetUrl(path) {
+        if (!path) return '';
+        if (/^(https?:)?\/\//.test(path) || path.startsWith('data:')) return path;
+        const base = (API_CONFIG.BASE_URL || '').replace(/\/$/, '');
+        const cleanPath = String(path).replace(/^\/+/, '');
+        return `${base}/${cleanPath}`;
+    }
+
+    function hasApprovedDeleteForDocument(item, allReviews) {
+        const docId = Number(item.document_id);
+        if (!docId || Number.isNaN(docId)) return false;
+        return (allReviews || []).some(review =>
+            Number(review.document_id) === docId &&
+            Number(review.action_type) === 3 &&
+            Number(review.status) === 1
+        );
+    }
+
+    function renderDetail(item, allReviews) {
+        const container = document.getElementById('detailContainer');
+        const statusCode = Number(item.status);
+        const actionType = Number(item.action_type);
+        const isDeleteApprovedRecord = actionType === 3 && statusCode === 1;
+        const isDocumentDeleted = hasApprovedDeleteForDocument(item, allReviews);
+        const canOperateOnExistingDocument = item.document_id && statusCode !== 0 && !isDocumentDeleted && !isDeleteApprovedRecord;
+        const statusText = statusMap[item.status] || `状态${item.status}`;
+        const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
+        const createdAt = item.first_edit_date ? Utils.formatDate(item.first_edit_date, 'YYYY-MM-DD HH:mm') : '未知';
+        const reviewedAt = item.reviewed_time ? Utils.formatDate(item.reviewed_time, 'YYYY-MM-DD HH:mm') : '未审核';
+        const authorName = item.contributor_name || '我';
+        const reviewerName = item.reviewer_name || '未分配';
+
+        const sections = [
+            { title: '问题描述', content: item.problem_intro, images: item.image_urls_problem_intro || item.image_urls },
+            { title: '原因分析', content: item.causes, images: item.image_urls_causes },
+            { title: '故障评估', content: item.evaluation, images: item.image_urls_evaluation },
+            { title: '检查步骤', content: item.inspection, images: item.image_urls_inspection },
+            { title: '解决方案', content: item.solutions, images: item.image_urls_solutions },
+            { title: '关键要点', content: item.key_points, images: item.image_urls_key_points }
+        ];
+
+        const fileBlock = item.origin_file_name && item.origin_file_dir
+            ? `
+                <div class="detail-section">
+                    <h3>原始附件</h3>
+                    <div class="file-card">
+                        <div><i class="fas fa-paperclip"></i> ${escapeHtml(item.origin_file_name)}</div>
+                        <a href="${getAssetUrl(item.origin_file_dir)}" target="_blank" class="btn btn-primary btn-sm">
+                            <i class="fas fa-download"></i> 下载
+                        </a>
+                    </div>
+                </div>
+            `
+            : '';
+
+        container.innerHTML = `
+            <div class="detail-header">
+                <div>
+                    <div class="detail-title">${escapeHtml(item.title || '未命名提交')}</div>
+                    <div class="meta-list">
+                        <span class="type-pill">${actionText}</span>
+                        <span class="status-pill status-${item.status}">${statusText}</span>
+                        <span class="meta-pill"><i class="fas fa-user"></i>提交人：${escapeHtml(authorName)}</span>
+                        <span class="meta-pill"><i class="fas fa-user-check"></i>审核人：${escapeHtml(reviewerName)}</span>
+                        <span class="meta-pill"><i class="fas fa-calendar"></i>提交时间：${createdAt}</span>
+                        <span class="meta-pill"><i class="fas fa-clock"></i>审核时间：${reviewedAt}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>审核意见</h3>
+                ${asTextBlock(item.review_comment || '无')}
+            </div>
+
+            ${sections.map(section => `
+                <div class="detail-section">
+                    <h3>${section.title}</h3>
+                    ${asTextBlock(section.content)}
+                    ${buildImageGrid(section.images)}
+                </div>
+            `).join('')}
+
+            ${fileBlock}
+            <div class="action-row">
+                ${canOperateOnExistingDocument ? `
+                    <button type="button" class="btn btn-primary btn-sm" onclick="goEditSubmission(${item.document_id})">
+                        <i class="fas fa-edit"></i> 提交修改申请
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteRequest(${item.document_id}, '${escapeHtml(item.title || '').replace(/'/g, "\\'")}')">
+                        <i class="fas fa-trash"></i> 提交删除申请
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function goEditSubmission(docId) {
+        if (!docId) return;
+        window.location.href = `edit-document.html?id=${docId}&mode=review&source=review`;
+    }
+
+    async function submitDeleteRequest(documentId, title) {
+        const confirmed = window.confirm(`确认提交删除申请吗？\n文档：${title || '未命名文档'}\n提交后需审核通过才会删除。`);
+        if (!confirmed) return;
+        try {
+            await reviewAPI.submitDeleteReview(documentId, '技术人员发起删除申请');
+            Utils.showMessage('删除申请已提交，等待审核', 'success');
+            setTimeout(() => {
+                window.location.href = 'my-submissions.html';
+            }, 800);
+        } catch (error) {
+            Utils.showMessage('删除申请提交失败：' + (error.message || '未知错误'), 'error');
+        }
+    }
+
+    function showError(message) {
+        document.getElementById('detailContainer').innerHTML = `
+            <div class="document-error">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                <p style="color: #666; margin-bottom: 20px;">${escapeHtml(message)}</p>
+                <a href="my-submissions.html" class="btn btn-secondary">返回我的提交</a>
+            </div>
+        `;
+    }
+
+    async function loadSubmissionDetail() {
+        const reviewId = getReviewIdFromUrl();
+        if (!reviewId || Number.isNaN(reviewId)) {
+            showError('参数无效：缺少 review_id');
+            return;
+        }
+
+        try {
+            const reviews = await reviewAPI.getMyReviews();
+            const target = (reviews || []).find(item => Number(item.id) === reviewId);
+            if (!target) {
+                showError('未找到该提交记录，可能已被撤回或无权限访问');
+                return;
+            }
+            renderDetail(target, reviews || []);
+        } catch (error) {
+            showError('加载提交详情失败：' + (error.message || '未知错误'));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        Utils.checkLogin();
+        Utils.loadUserInfo();
+        if (!guardTechnicianOnly()) return;
+
+        const um = document.getElementById('userManagementLink');
+        if (um) um.style.display = 'none';
+
+        await loadSubmissionDetail();
+    });
+</script>
+</body>
+</html>

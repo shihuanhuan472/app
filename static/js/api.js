@@ -1,4 +1,4 @@
-class APIClient {
+﻿class APIClient {
     constructor() {
         this.baseUrl = API_CONFIG.BASE_URL;
         this.headers = {
@@ -7,6 +7,51 @@ class APIClient {
         };
         this.isRefreshing = false; // 新增：标记是否正在刷新token
         this.retryQueue = []; // 新增：存储待重试的请求
+    }
+
+    _formatErrorDetail(detail) {
+        if (detail === null || detail === undefined) return '';
+        if (typeof detail === 'string') return detail;
+
+        if (Array.isArray(detail)) {
+            const parts = detail
+                .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+                .filter(Boolean);
+            return parts.join('；');
+        }
+
+        if (typeof detail === 'object') {
+            // 后端 parse_failed_details 常见结构：{ files: [{ file_name, detail, ... }] }
+            if (Array.isArray(detail.files) && detail.files.length > 0) {
+                const fileReasons = detail.files.map((f) => {
+                    const fileName = f.file_name || f.file_path || '文件';
+                    const reason = f.detail || f.message || '解析失败';
+                    return `${fileName}: ${reason}`;
+                });
+                return fileReasons.join('；');
+            }
+
+            if (typeof detail.message === 'string' && detail.message.trim()) {
+                return detail.message.trim();
+            }
+
+            try {
+                return JSON.stringify(detail);
+            } catch (_) {
+                return String(detail);
+            }
+        }
+
+        return String(detail);
+    }
+
+    _extractErrorMessage(errorData) {
+        if (!errorData || typeof errorData !== 'object') return '';
+        const detailMessage = this._formatErrorDetail(errorData.detail);
+        if (detailMessage) return detailMessage;
+        if (typeof errorData.msg === 'string' && errorData.msg.trim()) return errorData.msg.trim();
+        if (typeof errorData.message === 'string' && errorData.message.trim()) return errorData.message.trim();
+        return '';
     }
 
     // 获取认证头
@@ -54,7 +99,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `刷新失败: HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `刷新失败: HTTP ${response.status}`);
             }
 
             const result = await response.json();
@@ -122,7 +167,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -136,7 +181,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             const responseData = await response.json();
@@ -179,7 +224,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -193,7 +238,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             const responseData = await response.json();
@@ -235,7 +280,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -249,7 +294,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             const responseData = await response.json();
@@ -289,7 +334,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -303,7 +348,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             return await response.json();
@@ -344,7 +389,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -358,7 +403,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             return await response.json();
@@ -404,7 +449,7 @@ class APIClient {
 
                     if (!retryResponse.ok) {
                         const errorData = await retryResponse.json().catch(() => ({}));
-                        throw new Error(errorData.detail || errorData.msg || `HTTP ${retryResponse.status}`);
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
                     }
 
                     const responseData = await retryResponse.json();
@@ -418,7 +463,7 @@ class APIClient {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
             }
 
             return await response.json();
@@ -462,7 +507,7 @@ class APIClient {
     async _handleResponse(response) {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || errorData.msg || `HTTP ${response.status}`);
+            throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
         }
         return response.json();
     }
@@ -747,13 +792,14 @@ const documentAPI = {
     },
 
     // 解析文件
-    async analyzeFiles(fileList, fileNames) {
+    async analyzeFiles(fileList, fileNames, submitForReview = false) {
         try {
             const response = await this.client.post(
                 `${API_CONFIG.ENDPOINTS.DOCUMENTS}/analyze_files`,
                 {
                     file_list: fileList,
-                    file_name: fileNames
+                    file_name: fileNames,
+                    submit_for_review: submitForReview
                 },
                 true
             );
@@ -1102,7 +1148,7 @@ const DataManager = {
                     users: []
                 };
             } else {
-                throw new Error(response.msg || result.detail || '搜索用户失败');
+                throw new Error(response.msg || this.client._formatErrorDetail(response.detail) || '搜索用户失败');
             }
         } catch (error) {
             console.error('搜索用户失败:', error);

@@ -12,32 +12,27 @@ from openai import OpenAI, AsyncOpenAI
 from datetime import datetime
 from pathlib import Path
 from qwen_token_counter import get_token_count
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
+from fastapi import APIRouter, Depends, status, UploadFile
 from sqlalchemy import func, and_
 # from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, and_, select, desc
-from typing import List
+from typing import List, Dict, Any
 from schemas import Result
 from models import Message, User, Conversation, Document
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
 from dependencies import get_current_active_user
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
+from utils.ai_endpoint import get_ai_base_url, get_ai_base_url_alt
 from utils.VectorService import VectorService
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
 
-"""
-ai对话部分其实包含对话和消息，一个对话里有很多消息
-前面的对话路由只是针对对话的增删改查
-该路由为消息路由，是用户对话的具体操作
-"""
-
 def image_to_base64(image: str, dir: str = None):
-    """
-    将图片编码的，用于跟ai对话传输的
-    """
+    """将图片读取并编码为 base64 字符串。"""
     if dir is not None:
         image = os.path.join(dir, image)
     with open(image, "rb") as f:
@@ -56,16 +51,40 @@ def get_image_config():
         "ALLOWED_EXTENSIONS": ALLOWED_EXTENSIONS
     }
 
+
+def _is_ai_service_unavailable_error(error: Exception) -> bool:
+    error_type = type(error).__name__
+    if error_type in {"APIConnectionError", "APITimeoutError"}:
+        return True
+
+    message = str(error).lower()
+    keywords = [
+        "connection error",
+        "connection",
+        "connect",
+        "timed out",
+        "timeout",
+        "refused",
+        "service unavailable",
+        "temporarily unavailable",
+        "name resolution",
+        "max retries exceeded",
+        "502",
+        "503",
+        "504",
+    ]
+    return any(keyword in message for keyword in keywords)
+
 @router.post("/upload_images", summary="上传图片")
 async def upload_images(images: List[UploadFile]):
-    # 预设：消息中的图片存储于upload/ask
+    # 聊天消息图片统一存放在 upload/images
     config = get_image_config()
     url = os.path.join(config["MESSAGE_BASE_DIR"], config["MESSAGE_IMAGE_DIR"].lstrip("/").lstrip("\\"))
 
     uploaded_images = []
     if not os.path.exists(url):
         os.makedirs(url)
-        print(f"创建路径{url}")
+        print(f"创建路径 {url}")
     for image in images:
         try:
             if image.size > config["MESSAGE_MAX_IMAGE_SIZE"]:
@@ -78,26 +97,21 @@ async def upload_images(images: List[UploadFile]):
             unique_filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
             save_path = Path(url) / unique_filename
             print("save_path: ", save_path)
-            # 保存文件
             contents = await image.read()
-            # with open(save_path, "wb") as buffer:
-            #     buffer.write(contents)
 
             async with aiofiles.open(save_path, "wb") as buffer:
                 await buffer.write(contents)
 
-            # 构建文件信息
             relative_url = Path(config["MESSAGE_IMAGE_DIR"]) / unique_filename
             uploaded_images.append({
                 "url": relative_url,
-                # "relative_url": relative_url,
                 "filename": unique_filename,
                 "original_name": image.filename
             })
-            print("上传图片！！！！")
+            print("上传图片成功")
             print(uploaded_images[0])
         except Exception as e:
-            # 记录错误但继续处理其他文件
+            # 单个文件失败不影响其他文件继续上传
             print(f"文件 {image.filename} 上传失败: {str(e)}")
 
     return Result.success_with_data(uploaded_images)
@@ -136,19 +150,18 @@ async def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
 
     return await asyncio.to_thread(_compress)
 
-async def stream_ai_response(id, messages: list, session_id: int, doc_ids, doc_ids_str):
+async def stream_ai_response(id, messages: list, session_id: int, reference_docs, reference_ids_str: str):
     print("stream ai answer")
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = AsyncOpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+    client = AsyncOpenAI(base_url=get_ai_base_url(), api_key=api_key)
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 2000))
 
-    # response_data = {}
     data = {}
     data["id"] = id
     data["session_id"] = session_id
-    data["reference"] = None if doc_ids is None or len(doc_ids) == 0 else doc_ids_str
+    data["reference"] = None if not reference_ids_str else reference_ids_str
+    data["reference_docs"] = reference_docs or []
 
     try:
         response = await client.chat.completions.create(
@@ -165,10 +178,6 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, doc_i
                 data["answer"] = full_content
                 data["code"] = 1
                 yield f"data: {json.dumps(data)}\n\n"
-        # print(f"full_content: {full_content}")
-        # 流结束，保存 AI 消息
-        # ai_msg = db.query(Message).filter(Message.id == id).first()
-
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
             ai_msg = result.scalar_one_or_none()
@@ -179,7 +188,6 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, doc_i
         final_data = {"code": 1, "data": "true"}
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
-        # error_msg = f"AI服务错误: {str(e)}"
         print(e)
         error_data = {
             "code": 0,
@@ -193,17 +201,12 @@ async def ask(message: MessageCreate,
               current_user: User = Depends(get_current_active_user)):
     try:
         config = get_image_config()
-        # 检查对话存在
-        # conversation = db.query(Conversation).filter(Conversation.id == message.session_id).first()
 
         conv_result = await db.execute(select(Conversation).where(Conversation.id == message.session_id))
         conversation = conv_result.scalar_one_or_none()
 
         if not conversation:
-            return Result.error("请先新建对话！")
-        # max_order = (db.query(func.max(Message.message_order))
-        #              .filter(Message.session_id == message.session_id)
-        #              .scalar()) or 0
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "请先新建对话")
 
         max_order_result = await db.execute(
             select(func.max(Message.message_order)).where(Message.session_id == message.session_id)
@@ -211,7 +214,7 @@ async def ask(message: MessageCreate,
         max_order = max_order_result.scalar() or 0
         print(message.user_uploaded_images)
 
-        # 检查图片已上传服务器
+        # 检查消息里引用的图片是否都已存在
         if message.user_uploaded_images is not None:
             message.user_uploaded_images = message.user_uploaded_images.replace("\\", "/")
             urls = [url.strip() for url in message.user_uploaded_images.split(", ") if url.strip()]
@@ -220,23 +223,15 @@ async def ask(message: MessageCreate,
             for url in urls:
                 url_check = os.path.basename(url)
                 url_check = os.path.join(base_url, url_check.lstrip("/").lstrip("\\"))
-                # print(url_check)
-                # if not os.path.exists(url_check):
-                #     print(url_check)
-                #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                #                         detail="图片未上传")
-
                 if not await asyncio.to_thread(os.path.exists, url_check):
                     print(url_check)
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="图片未上传")
+                    raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "图片未上传")
 
             message.user_uploaded_images = (message.user_uploaded_images.replace("\\", "/")
                                             .replace(", /", ", ")
                                             .removeprefix("/")
                                             .removesuffix(", "))
 
-        # 创建用户的消息
-        # print(111)
         print(message.user_uploaded_images)
         db_message = Message(
             session_id=message.session_id,
@@ -251,12 +246,12 @@ async def ask(message: MessageCreate,
         await db.commit()
         await db.refresh(db_message)
 
-        # ai_reference_document_ids = get_reference_documents(db, db_message.content_text,
-        #                                                     db_message.user_uploaded_images)
-        ai_reference_document_ids = await get_reference_documents(db, db_message.content_text,
-                                                                  db_message.user_uploaded_images)
-
+        ai_reference_documents = await get_reference_documents(
+            db, db_message.content_text, db_message.user_uploaded_images
+        )
+        ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
+        ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
         messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_document_ids)
 
@@ -266,14 +261,12 @@ async def ask(message: MessageCreate,
             new_title = await get_new_title_by_ai(message.content_text)
             conversation.title = new_title
 
-        # await db.commit()
-
         ai_msg = Message(
             session_id=message.session_id,
             role=0,
             message_order=max_order + 1,
             content_text="",
-            ai_reference_doc_ids=ai_reference_document_ids_str,
+            ai_reference_doc_ids=ai_reference_document_payload,
             created_time=datetime.now()
         )
         db.add(ai_msg)
@@ -283,7 +276,7 @@ async def ask(message: MessageCreate,
         if message.stream:
             return StreamingResponse(
                 stream_ai_response(ai_msg.id, messages, message.session_id,
-                                   ai_reference_document_ids, ai_reference_document_ids_str),
+                                   ai_reference_documents, ai_reference_document_ids_str),
                 media_type="text/event-stream"
             )
         else:
@@ -292,37 +285,23 @@ async def ask(message: MessageCreate,
             return Result.success_with_data(ai_response)
 
 
-        # # 得到ai的回答
-        # # answer = get_answer(max_order + 1, message.session_id, db_message, db)
-        # # 如果是该对话的首个消息，就为这个对话总结一个标题
-        #
-        # db.commit()
-        # db.refresh(db_message)
-        #
-        # user_response = MessageResponse.from_orm(db_message)
-        #
-        # return Result.success_with_data([user_response, ai_response])
-    except HTTPException:
+    except AppException:
         raise
     except Exception as e:
         await db.rollback()
         print(e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误，请稍后重试"
-        )
+        if _is_ai_service_unavailable_error(e):
+            raise AppException(
+                status.HTTP_502_BAD_GATEWAY,
+                BizCode.AI_SERVICE_UNAVAILABLE,
+                "AI服务不可用，请稍后重试"
+            )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "服务器内部错误，请稍后重试")
 
 async def generate_messages(db, id, message_now, documents_id):
-    """
-    生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
-    """
+    """构建发给大模型的上下文消息列表（含最近历史、图片与提示词）。"""
     print("generate_messages")
     message_order = max(message_now.message_order - 6, 0)
-    # messages_db = (db.query(Message).
-    #                filter(Message.session_id == id).
-    #                filter(Message.message_order > message_order).
-    #                order_by(Message.created_time.desc()).
-    #                all())
 
     result = await db.execute(
         select(Message)
@@ -337,8 +316,6 @@ async def generate_messages(db, id, message_now, documents_id):
     print("get_config")
     tokens = 0
 
-    # user_question_tokens = get_token_count(message_now.content_text)
-
     user_question_tokens = await asyncio.to_thread(get_token_count, message_now.content_text)
 
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
@@ -347,7 +324,7 @@ async def generate_messages(db, id, message_now, documents_id):
     tokens_max -= user_question_tokens
 
     if tokens_max < 0:
-        raise HTTPException(500, "消息长度过长")
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "消息长度过长")
 
     flag = 0
 
@@ -360,16 +337,9 @@ async def generate_messages(db, id, message_now, documents_id):
             data = {}
             token_tmp = 0
             role = "user" if message.role == 1 else "assistant"
-            # print("role: ", role)
-            # msg_text = message.content_text
-            # if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
-            #     images = message.user_uploaded_images.split(", ")
-            #     data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
             msg_text = []
             msg_text.append({"type": "text", "text": message.content_text})
 
-            # tokens += get_token_count(message.content_text)
-            # token_tmp += get_token_count(message.content_text)
             token_tmp += await asyncio.to_thread(get_token_count, message.content_text)
 
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
@@ -377,8 +347,6 @@ async def generate_messages(db, id, message_now, documents_id):
                 for image in images:
 
                     image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
-
-                    # image_base64 = image_to_base64(image, config["MESSAGE_BASE_DIR"])
 
                     mime_type, _ = mimetypes.guess_type(image_compressed)
                     if mime_type is None:
@@ -395,11 +363,7 @@ async def generate_messages(db, id, message_now, documents_id):
                         "type": "image_url",
                         "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
                     })
-                    # tokens += 258
                     token_tmp += 258
-
-
-                    # msg_text.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
             data["role"] = role
             data["content"] = msg_text
 
@@ -409,8 +373,7 @@ async def generate_messages(db, id, message_now, documents_id):
             tokens += token_tmp
             print(f"token: {tokens}")
             if tokens > tokens_max:
-                raise HTTPException(status_code=500, detail="对话内容达到上限，请重新创建对话")
-    # print("messages: ", messages)
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "对话内容达到上限，请重新创建对话")
     data = {}
     messages.reverse()
     print(f"tokens: {tokens}")
@@ -418,15 +381,13 @@ async def generate_messages(db, id, message_now, documents_id):
     tokens_tmp = tokens_max - tokens
     prompt = await get_prompt(db, documents_id, tokens_tmp)
 
-
-    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
+    constrain_tip = "\n回答只依据知识文档的内容，不添加多余的信息；若无知识文档，则提示知识库无相关内容。"
+    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"}]
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
-        # images = message.user_uploaded_images.split(", ")
         for image in images:
             image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image), max_size=768)
-            # image_base64 = image_to_base64(image_compressed)
             print(image_compressed)
             mime_type, _ = mimetypes.guess_type(image_compressed)
             if mime_type is None:
@@ -443,43 +404,28 @@ async def generate_messages(db, id, message_now, documents_id):
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
             })
-
-
-            # msg_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
-
-        # print(images)
-        # data["images"] = [image_to_base64(image, config["MESSAGE_BASE_DIR"]) for image in images]
     data["role"] = "user"
-    # data["content"] = prompt + "\n问题：" + message_now.content_text
     data["content"] = msg_content
 
     messages.append(data)
     print(len(messages))
 
-    # print("messages: ", messages)
     return messages
 
 async def get_new_title_by_ai(content):
-    """
-    让ai给我总结一个标题
-    """
-    # ai_url: str = os.getenv("AI_API")
-    # model = os.getenv("MODEL")
-    # message = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。内容：{content}"}]
+    """使用大模型为新会话生成简短标题。"""
 
-    messages = [{"role": "user", "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求对话标题正式，简洁。并且只给出标题，不要有任何多余内容。\n内容：{content}"}]
+    messages = [{
+        "role": "user",
+        "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求正式简洁，并且只给出标题，不要有任何多余内容。\n内容：{content}"
+    }]
 
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
-    # client = OpenAI(
-    #     base_url=f"http://{server_ip}:8000/v1",
-    #     api_key=api_key
-    # )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        client = OpenAI(base_url=get_ai_base_url_alt(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -487,61 +433,77 @@ async def get_new_title_by_ai(content):
         )
         return response.choices[0].message.content
 
-    # response = client.chat.completions.create(
-    #     model=model,
-    #     messages=messages,
-    #     max_tokens=max_token
-    # )
-
-    # new_title = response.choices[0].message.content
-
     new_title = await asyncio.to_thread(_call_openai)
-
-    # data = {"model": model, "messages": message, "stream": False}
-    # new_title = requests.post(ai_url, json=data).json()["message"]["content"]
     print("new_title: ", new_title)
-    # print("message: ", message)
     if len(new_title) > 15 or len(new_title) == 0:
         new_title = "新对话"
 
     return new_title
 
 async def get_reference_documents(db, question: str, image: str = None):
-    """
-    检索出相关文档，并返回文档id
-    """
+    """向量检索相关文档，并返回可展示的文档匹配信息。"""
     vector_service = VectorService(db)
-    # await vector_service.batch_vectorize_existing_documents()
     documents = await vector_service.search_similar_documents(question, image)
+    normalized_docs = []
+    for doc in documents:
+        doc_id = doc.get("doc_id")
+        if doc_id is None:
+            continue
+        score = float(doc.get("score", 0.0))
+        normalized_docs.append({
+            "doc_id": int(doc_id),
+            "title": doc.get("title", ""),
+            "score": round(score, 6)
+        })
 
-    document_ids = [document["doc_id"] for document in documents]
+    if not normalized_docs:
+        return []
 
-    return document_ids
-    # return ", ".join(document_ids) if len(document_ids) > 0 else None
+    candidate_ids = [doc["doc_id"] for doc in normalized_docs]
+    active_docs_result = await db.execute(
+        select(Document.id, Document.title).where(
+            Document.id.in_(candidate_ids),
+            Document.is_deleted == 0,
+        )
+    )
+    active_map = {row.id: row.title for row in active_docs_result.all()}
+
+    filtered_docs = []
+    for doc in normalized_docs:
+        doc_id = int(doc["doc_id"])
+        if doc_id not in active_map:
+            continue
+        filtered_docs.append({
+            "doc_id": doc_id,
+            "title": active_map.get(doc_id) or doc.get("title", ""),
+            "score": doc.get("score", 0.0),
+        })
+    return filtered_docs
+
+
+def get_ai_reference_document_ids(reference_docs: List[Dict[str, Any]]) -> List[int]:
+    """从参考文档中提取文档 id 列表（用于拼接提示词）。"""
+    return [int(doc["doc_id"]) for doc in reference_docs if doc.get("doc_id") is not None]
 
 async def get_prompt(db, document_ids, max_tokens):
-    """
-    生成提示词（包括根据相关文档id，提取文档内容作为提示词）
-    """
+    """根据检索文档组装提示词，并受 token 上限约束。"""
     if not document_ids:
         return ""
     tokens = 0
     prompts = []
 
     result = await db.execute(
-        select(Document).where(Document.id.in_(document_ids))
+        select(Document).where(
+            Document.id.in_(document_ids),
+            Document.is_deleted == 0,
+        )
     )
     documents = result.scalars().all()
 
     for i, document in enumerate(documents):
-        # document = db.query(Document).filter(Document.id == document_id).scalar()
-
-        # result = await db.execute(select(Document).where(Document.id == document_id))
-        # document = result.scalar_one_or_none()
-
         if not document:
             continue
-        doc_prompt = f"""【文档{i + 1}：】{document.title}
+        doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
 评估建议：{document.evaluation}
@@ -549,7 +511,6 @@ async def get_prompt(db, document_ids, max_tokens):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
-        # token_tmp = get_token_count(doc_prompt)
         token_tmp = await asyncio.to_thread(get_token_count, doc_prompt)
 
         if tokens + token_tmp >= max_tokens:
@@ -557,7 +518,7 @@ async def get_prompt(db, document_ids, max_tokens):
         tokens += token_tmp
         prompts.append(doc_prompt)
 
-    # 添加指令
+    # 增加统一指令
     if prompts:
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(prompts)
@@ -567,70 +528,37 @@ async def get_prompt(db, document_ids, max_tokens):
     return ""
 
 def get_ai_reference_document_ids_str(ai_reference_document_ids):
-    """
-    把相关文档id列表转为字符串
-    为了存进mysql数据库
-    """
+    """将文档 id 列表转为逗号分隔字符串，便于存储。"""
     if len(ai_reference_document_ids) == 0:
         return ""
     result = ", ".join(map(str, ai_reference_document_ids))
     return result
 
-# def get_ai_answer(db, session_id, message_now):
-#     """
-#     获取ai回答.
-#     流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
-#           -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
-#     """
-#     ai_reference_document_ids = get_reference_documents(db, message_now.content_text, message_now.user_uploaded_images)
-#     ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
-#     # prompt = get_prompt(db, ai_reference_document_ids)
-#     messages = generate_messages(db, session_id, message_now, ai_reference_document_ids)
-#     # print(messages)
-#     # ai_url: str = os.getenv("AI_API")
-#     # model = os.getenv("MODEL")
-#     # data = {"model": model, "messages": messages, "stream": False}
-#     # result = requests.post(ai_url, json=data)
-#     server_ip = os.getenv("SERVER_IP", "192.168.246.200")
-#     api_key = os.getenv("API_KEY", "EMPTY")
-#     client = OpenAI(
-#         base_url=f"http://{server_ip}:8000/v1",
-#         api_key=api_key
-#     )
-#     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-#     max_token = int(os.getenv("MAX_TOKEN", 3000))
-#     response = client.chat.completions.create(
-#         model=model,
-#         messages=messages,
-#         max_tokens=max_token
-#     )
-#
-#     final_ans = (response.choices[0].message.content
-#                  .replace("\n---\n", "---")
-#                  .replace("\n\n", "\n"))
-#
-#     # print(response)
-#     # return result.json()["message"]["content"], ai_reference_document_ids_str
-#     return final_ans, ai_reference_document_ids_str
 
+def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> str:
+    """将参考文档匹配信息序列化为 JSON 字符串，便于持久化。"""
+    if not reference_docs:
+        return ""
+    payload = []
+    for doc in reference_docs:
+        if doc.get("doc_id") is None:
+            continue
+        payload.append({
+            "doc_id": int(doc["doc_id"]),
+            "title": doc.get("title", ""),
+            "score": float(doc.get("score", 0.0))
+        })
+    if not payload:
+        return ""
+    return json.dumps(payload, ensure_ascii=False)
 
 async def get_ai_answer(db, messages, id):
-    """
-    获取ai回答.
-    流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
-          -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
-    """
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
+    """调用大模型得到回答，并回写到 AI 消息记录。"""
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
-    # client = OpenAI(
-    #     base_url=f"http://{server_ip}:8000/v1",
-    #     api_key=api_key
-    # )
-
     def _call_openai():
-        client = OpenAI(base_url=f"http://{server_ip}:8000/v1", api_key=api_key)
+        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -638,21 +566,8 @@ async def get_ai_answer(db, messages, id):
         )
         return response.choices[0].message.content
 
-
-    # response = client.chat.completions.create(
-    #     model=model,
-    #     messages=messages,
-    #     max_tokens=max_token
-    # )
-
     final_ans = await asyncio.to_thread(_call_openai)
     final_ans = final_ans.replace("\n---\n", "---").replace("\n\n", "\n")
-
-    # final_ans = (response.choices[0].message.content
-    #              .replace("\n---\n", "---")
-    #              .replace("\n\n", "\n"))
-
-    # ai_msg = db.query(Message).filter(Message.id == id).first()
 
     result = await db.execute(select(Message).where(Message.id == id))
     ai_msg = result.scalar_one_or_none()
@@ -664,75 +579,6 @@ async def get_ai_answer(db, messages, id):
 
     return ai_msg
 
-
-"""
-
-import base64
-from openai import OpenAI
-
-SERVER_IP = "192.168.246.200"
-
-client = OpenAI(
-    base_url=f"http://{SERVER_IP}:8000/v1",
-    api_key="EMPTY"
-)
-
-img_path = "D:/桌面/temp/test/Cat03.jpg"
-
-# 读取本地图片并转base64
-with open(img_path, "rb") as f:
-    image_base64 = base64.b64encode(f.read()).decode("utf-8")
-
-response = client.chat.completions.create(
-    model="/models/Qwen3-VL-4B-Instruct",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "请描述这张图片"},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{image_base64}"
-                    }
-                }
-            ],
-        }
-    ],
-    max_tokens=7000
-)
-
-print(response.choices[0].message.content)
-
-"""
-
-# def get_answer(message_order: int,
-#                session_id: int,
-#                message_now: Message,
-#                db):
-#     try:
-#         content_text, ai_reference_document_ids = get_ai_answer(db, session_id, message_now)
-#
-#         # 生成ai回答的消息
-#         message = Message(
-#             session_id=session_id,
-#             role=0,
-#             message_order=message_order,
-#             content_text=content_text,
-#             ai_reference_doc_ids=ai_reference_document_ids,
-#             created_time=datetime.now()
-#         )
-#
-#         return message
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="服务器内部错误，请稍后重试，或尝试新建对话"
-#         )
-
 @router.get("/get_by_conversation", summary="获得某个对话的消息")
 async def get_by_conversation(id: int,
                               db: AsyncSession = Depends(get_db),
@@ -743,15 +589,8 @@ async def get_by_conversation(id: int,
                 and_(Conversation.id == id, Conversation.user_id == current_user.id))
         )
         conversation = conv_result.scalar_one_or_none()
-        # conversation = (db.query(Conversation)
-        #                 .filter(and_(Conversation.id == id, Conversation.user_id == current_user.id))
-        #                 .first())
         if not conversation:
-            return Result.error("无该对话或无权限访问该对话")
-        # messages = (db.query(Message)
-        #             .filter(Message.session_id == id)
-        #             .order_by(Message.created_time)
-        #             .all())
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "无该对话或无权限访问该对话")
 
         msg_result = await db.execute(
             select(Message).where(Message.session_id == id).order_by(Message.created_time)
@@ -761,16 +600,8 @@ async def get_by_conversation(id: int,
         message_response = [MessageResponse.from_orm(message) for message in messages]
         return Result.success_with_data(message_response)
     except Exception as e:
-        return Result.error("获取对话消息失败")
+        if isinstance(e, AppException):
+            raise
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "获取对话消息失败")
 
 
-# @router.get("/test_get_reference/{question}")
-# async def get_reference(question: str,
-#                         db: AsyncSession = Depends(get_db),
-#                         current_user: User = Depends(get_current_active_user)):
-#     """
-#     一个拿来后端测试的api，前端并未调用，不用管
-#     """
-#     documents = get_reference_documents(db, question)
-#     print(documents)
-#     return Result.success_with_data(documents)

@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
@@ -15,6 +17,7 @@ import torch  # 添加导入
 from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 from models import Document
+from utils.ai_endpoint import get_ai_base_url
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
 
@@ -372,7 +375,7 @@ class VectorStoreMultimodal:
     def get_ai_answer(self, messages):
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
@@ -643,7 +646,7 @@ class VectorStoreMultimodal:
 
         try:
             client = OpenAI(
-                base_url=f"http://{self.ai}:8000/v1",
+                base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
             messages = self.generate_message(content, images)

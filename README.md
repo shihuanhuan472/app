@@ -190,12 +190,12 @@ vim /etc/nginx/conf.d/maintenance.conf
 
 server {
     listen 80;
-    server_name 10.86.208.20 localhost 127.0.0.1;
+    server_name 172.28.114.47 localhost 127.0.0.1;
     
     client_max_body_size 10M;
     
     # 根目录指向 static 文件夹
-    root /opt/maintenance-system/app/static;
+    root /data/Maintenance_Assistance_System/static;
     index index.html;
     
     # 前端路由支持（单页应用）
@@ -205,7 +205,7 @@ server {
     
     # 上传文件服务（保持原样）
     location ^~/upload/ {
-        alias /opt/maintenance-system/app/upload/;
+        alias /data/Maintenance_Assistance_System/upload/;
         expires 30d;
     }
 

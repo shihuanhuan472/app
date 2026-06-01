@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models import User
 from utils.JwtUtils import jwt_utils
+from utils.roles import UserRole, normalize_role_value, is_role_perm_consistent
 
 # 定义 HTTP Bearer 认证方案
 security = HTTPBearer()
@@ -102,7 +103,24 @@ def require_roles(*allowed_roles: str):
     """
 
     async def role_checker(current_user: User = Depends(get_current_user)) -> dict:
-        if current_user.role != 0:
+        allowed_values = set()
+        for role in allowed_roles:
+            role_value = normalize_role_value(role)
+            if role_value is not None:
+                allowed_values.add(role_value)
+
+        # Backward compatibility: if caller passes nothing, default to admin only
+        if not allowed_values:
+            allowed_values = {int(UserRole.ADMIN)}
+
+        if not is_role_perm_consistent(current_user.role, getattr(current_user, "perm", None)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Role and permission do not match"
+            )
+
+        current_role = normalize_role_value(current_user.role)
+        if current_role not in allowed_values:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions"

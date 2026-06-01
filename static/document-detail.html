@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文档详情 - 设备维修辅助系统</title>
+    <title>文档详情 - 维修辅助系统</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="js/config.js"></script>
@@ -11,7 +11,6 @@
     <script src="js/api.js"></script>
     <script src="js/menu.js"></script>
     <style>
-        /* 原有样式保持不变，添加小图片网格样式 */
         .document-detail-container {
             padding: 20px !important;
             background-color: #f8f9fa !important;
@@ -85,7 +84,6 @@
         .section-content p:last-child { margin-bottom: 0 !important; }
         .text-muted { color: #9ca3af !important; font-style: italic !important; }
 
-        /* 图片网格样式 - 小图 */
         .image-grid-small {
             display: grid !important;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
@@ -101,9 +99,7 @@
             transition: transform 0.2s !important;
             aspect-ratio: 1 / 1 !important;
         }
-        .image-item-small:hover {
-            transform: scale(1.02) !important;
-        }
+        .image-item-small:hover { transform: scale(1.02) !important; }
         .image-item-small img {
             width: 100% !important;
             height: 100% !important;
@@ -112,7 +108,10 @@
         }
         .image-overlay-small {
             position: absolute !important;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.3) !important;
             display: flex !important;
             align-items: center !important;
@@ -120,9 +119,7 @@
             opacity: 0 !important;
             transition: opacity 0.2s !important;
         }
-        .image-item-small:hover .image-overlay-small {
-            opacity: 1 !important;
-        }
+        .image-item-small:hover .image-overlay-small { opacity: 1 !important; }
 
         .document-actions {
             margin-top: 40px !important;
@@ -135,19 +132,70 @@
         .action-left, .action-right { display: flex; gap: 15px; }
 
         .loading-spinner {
-            width: 60px; height: 60px; border: 4px solid #e8e8e8; border-top: 4px solid #4a9eff;
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e8e8e8;
+            border-top: 4px solid #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .document-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; }
-        .document-error { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; background: white; border-radius: 8px; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .document-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+        .document-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 8px;
+        }
 
-        .delete-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
-        .delete-modal-content { background:white; border-radius:8px; padding:30px; max-width:400px; width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
-        .delete-modal-header { margin-bottom:20px; }
-        .delete-modal-title { font-size:20px; font-weight:600; color:#1a3a5f; display:flex; align-items:center; gap:10px; }
-        .delete-modal-body { margin-bottom:25px; color:#666; }
-        .delete-modal-actions { display:flex; gap:15px; justify-content:flex-end; }
+        .delete-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .delete-modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .delete-modal-header { margin-bottom: 20px; }
+        .delete-modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a3a5f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .delete-modal-body { margin-bottom: 25px; color: #666; }
+        .delete-modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
 
         .original-file-content {
             background: #f9fafb;
@@ -160,31 +208,14 @@
             justify-content: space-between;
             margin-top: 15px;
         }
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .file-icon {
-            font-size: 28px;
-            color: #4a9eff;
-        }
-        .file-name {
-            font-weight: 500;
-            word-break: break-all;
-        }
-        .file-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 13px;
-        }
+        .file-info { display: flex; align-items: center; gap: 12px; }
+        .file-icon { font-size: 28px; color: #4a9eff; }
+        .file-name { font-weight: 500; word-break: break-all; }
+        .file-actions { display: flex; gap: 10px; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
     </style>
 </head>
 <body>
-    <!-- 确认删除模态框 -->
     <div class="delete-modal" id="deleteModal">
         <div class="delete-modal-content">
             <div class="delete-modal-header">
@@ -213,20 +244,20 @@
             </div>
             <div class="nav-menu">
                 <a href="main.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
                 <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
                 <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
                 <a href="user-profile.html" class="nav-item" style="display: none;"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
             </div>
             <div class="user-info">
                 <div class="user-details">
-                    <div class="user-avatar" id="userAvatar">李</div>
-                    <div><div class="user-name" id="userName">李四</div><div class="user-role" id="userRole">维修工程师</div></div>
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">技术人员</div></div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
             </div>
         </div>
 
-        <!-- 主内容区域 -->
         <div class="main-content">
             <div class="header">
                 <div>
@@ -255,84 +286,128 @@
             return new URLSearchParams(window.location.search).get('id');
         }
 
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function showError(message) {
             document.getElementById('documentDetail').innerHTML = `
                 <div class="document-error">
                     <i class="fas fa-exclamation-triangle" style="font-size:48px; color:#ef4444; margin-bottom:20px;"></i>
-                    <p style="color:#666; margin-bottom:20px;">${message}</p>
+                    <p style="color:#666; margin-bottom:20px;">${escapeHtml(message)}</p>
                     <div><a href="main.html" class="btn btn-secondary">返回列表</a></div>
                 </div>
             `;
         }
 
-        function getFullImageUrl(relativeUrl) {
+        function getFullAssetUrl(relativeUrl) {
             if (!relativeUrl) return '';
             if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
-            return 'http://localhost:8000/' + relativeUrl;
+            const base = (API_CONFIG.BASE_URL || '').replace(/\/$/, '');
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return `${base}/${cleanPath}`;
         }
 
-        // 打开删除确认模态框
+        function isAdminUser(user) {
+            return !!user && Utils.hasRole(user, Utils.ROLE.ADMIN);
+        }
+
         function openDeleteModal(docId, docTitle) {
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                Utils.showMessage('请在“我的提交”中发起删除审核', 'warning');
+                return;
+            }
             currentDocumentId = docId;
-            document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${docTitle || '未命名文档'}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
+            document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
             document.getElementById('deleteModal').style.display = 'flex';
         }
-        function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; currentDocumentId = null; }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            currentDocumentId = null;
+        }
+
         async function confirmDelete() {
             if (!currentDocumentId) return;
             try {
                 const result = await documentAPI.deleteDocument(currentDocumentId);
-                if (result) { Utils.showMessage('文档删除成功', 'success'); closeDeleteModal(); setTimeout(() => window.location.href='main.html', 1000); }
-                else Utils.showMessage('文档删除失败', 'error');
-            } catch (error) { Utils.showMessage('删除失败: ' + error.message, 'error'); }
+                if (result) {
+                    Utils.showMessage('文档删除成功', 'success');
+                    closeDeleteModal();
+                    setTimeout(() => window.location.href = 'main.html', 1000);
+                } else {
+                    Utils.showMessage('文档删除失败', 'error');
+                }
+            } catch (error) {
+                Utils.showMessage('删除失败: ' + (error.message || '未知错误'), 'error');
+            }
         }
 
-        function goToEditPage(docId) { window.location.href = `edit-document.html?id=${docId}`; }
+        function goToEditPage(docId) {
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                Utils.showMessage('请在“我的提交”中发起修改审核', 'warning');
+                window.location.href = 'my-submissions.html';
+                return;
+            }
+            const source = new URLSearchParams(window.location.search).get('source') || 'knowledge';
+            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}`;
+        }
 
-        // 加载文档详情
         async function loadDocumentDetail() {
             const docId = getDocumentIdFromUrl();
             currentDocumentId = docId;
-            if (!docId) { showError('文档ID无效'); return; }
+            if (!docId) {
+                showError('文档ID无效');
+                return;
+            }
 
             try {
                 const doc = await documentAPI.getDocumentById(docId);
-                if (!doc) { showError('文档不存在或已被删除'); return; }
+                if (!doc) {
+                    showError('文档不存在或已被删除');
+                    return;
+                }
 
                 currentDocument = doc;
-                document.title = `${doc.title || '文档详情'} - 设备维修辅助系统`;
+                document.title = `${doc.title || '文档详情'} - 维修辅助系统`;
                 document.getElementById('docTitleSubtitle').textContent = doc.title || '文档详情';
 
                 const currentUser = Utils.getCurrentUser();
                 const currentUserId = currentUser ? currentUser.id : null;
-                const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 0);
-                const isAuthor = currentUserId && currentUserId == doc.contributor_id;
+                const isAdmin = isAdminUser(currentUser);
+                const isAuthor = currentUserId && String(currentUserId) === String(doc.contributor_id);
                 const showEditDeleteButtons = isAdmin || isAuthor;
 
                 let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
-                if (currentUserId && currentUserId == doc.contributor_id) authorName = '我';
+                if (isAuthor) authorName = '我';
 
-                // 定义字段映射
                 const sections = [
-                    { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro' },
-                    { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes' },
-                    { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation' },
-                    { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection' },
-                    { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions' },
-                    { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points' }
+                    { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro', icon: 'question-circle' },
+                    { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes', icon: 'search' },
+                    { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation', icon: 'clipboard-list' },
+                    { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection', icon: 'clipboard-check' },
+                    { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions', icon: 'tools' },
+                    { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points', icon: 'star' }
                 ];
 
                 let sectionsHtml = '';
-                sections.forEach(s => {
+                sections.forEach(section => {
                     let imagesHtml = '';
-                    const imgUrlsStr = doc[s.imgField];
-                    if (imgUrlsStr && imgUrlsStr.trim() && imgUrlsStr !== 'null') {
-                        const urls = imgUrlsStr.split(',').map(u => u.trim()).filter(u => u);
+                    const imgUrlsStr = doc[section.imgField];
+                    if (imgUrlsStr && String(imgUrlsStr).trim() && imgUrlsStr !== 'null') {
+                        const urls = String(imgUrlsStr).split(',').map(u => u.trim()).filter(Boolean);
                         if (urls.length > 0) {
                             imagesHtml = `
                                 <div class="image-grid-small">
                                     ${urls.map(url => {
-                                        const fullUrl = getFullImageUrl(url);
+                                        const fullUrl = getFullAssetUrl(url);
                                         return `
                                             <div class="image-item-small" onclick="window.open('${fullUrl}', '_blank')">
                                                 <img src="${fullUrl}" alt="图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/120x120?text=加载失败'">
@@ -345,10 +420,11 @@
                         }
                     }
 
+                    const contentHtml = section.content ? escapeHtml(section.content).replace(/\n/g, '<br>') : '<p class="text-muted">无</p>';
                     sectionsHtml += `
                         <div class="document-section">
-                            <div class="section-header"><i class="fas fa-${s.title === '问题描述' ? 'question-circle' : s.title === '原因分析' ? 'search' : s.title === '故障评估' ? 'clipboard-list' : s.title === '检查步骤' ? 'clipboard-check' : s.title === '解决方案' ? 'tools' : 'star'}"></i><h3>${s.title}</h3></div>
-                            <div class="section-content">${(s.content || '<p class="text-muted">无</p>').replace(/\n/g, '<br>')}</div>
+                            <div class="section-header"><i class="fas fa-${section.icon}"></i><h3>${section.title}</h3></div>
+                            <div class="section-content">${contentHtml}</div>
                             ${imagesHtml}
                         </div>
                     `;
@@ -356,11 +432,10 @@
 
                 let originalFileHtml = '';
                 if (doc.origin_file_name && doc.origin_file_dir) {
-                    const fileUrl = getFullImageUrl(doc.origin_file_dir);
-                    const fileExt = doc.origin_file_name.split('.').pop().toLowerCase();
+                    const fileUrl = getFullAssetUrl(doc.origin_file_dir);
+                    const fileExt = String(doc.origin_file_name).split('.').pop().toLowerCase();
                     const isPreviewable = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
 
-                    // 图标映射
                     const iconMap = {
                         pdf: 'fa-file-pdf',
                         doc: 'fa-file-word',
@@ -372,20 +447,18 @@
                         txt: 'fa-file-alt'
                     };
                     const iconClass = iconMap[fileExt] || 'fa-file';
-
-                    // 转义文件名中的单引号，避免 JS 字符串中断
-                    const safeFileName = doc.origin_file_name.replace(/'/g, "\\'");
+                    const safeFileName = String(doc.origin_file_name).replace(/'/g, "\\'");
 
                     originalFileHtml = `
                         <div class="document-section original-file-section">
                             <div class="section-header">
                                 <i class="fas fa-paperclip"></i>
-                                <h3>原始文件</h3>
+                                <h3>原始附件</h3>
                             </div>
                             <div class="original-file-content">
                                 <div class="file-info">
                                     <i class="fas ${iconClass} file-icon"></i>
-                                    <span class="file-name">${doc.origin_file_name}</span>
+                                    <span class="file-name">${escapeHtml(doc.origin_file_name)}</span>
                                 </div>
                                 <div class="file-actions">
                                     ${isPreviewable ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>` : ''}
@@ -397,23 +470,31 @@
                     `;
                 }
 
-                // 操作按钮
                 let actionButtons = `<div class="action-left"><a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a></div>`;
                 if (showEditDeleteButtons) {
-                    actionButtons += `
-                        <div class="action-right">
-                            <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 编辑</button>
-                            <button class="btn btn-danger" onclick="openDeleteModal(${doc.id}, '${(doc.title || '').replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> 删除</button>
-                        </div>
-                    `;
+                    if (isAdmin) {
+                        actionButtons += `
+                            <div class="action-right">
+                                <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 编辑</button>
+                                <button class="btn btn-danger" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title || '').replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> 删除</button>
+                            </div>
+                        `;
+                    } else {
+                        actionButtons += `
+                            <div class="action-right">
+                                <button class="btn btn-primary" disabled title="请在我的提交中发起修改审核"><i class="fas fa-edit"></i> 编辑</button>
+                                <button class="btn btn-danger" disabled title="请在我的提交中发起删除审核"><i class="fas fa-trash"></i> 删除</button>
+                            </div>
+                        `;
+                    }
                 }
 
                 const html = `
                     <div class="document-detail-content">
                         <div class="document-header">
-                            <h1 class="document-title">${doc.title || '无标题'}</h1>
+                            <h1 class="document-title">${escapeHtml(doc.title || '无标题')}</h1>
                             <div class="document-meta">
-                                <div class="meta-item"><i class="fas fa-user"></i><span>作者：${authorName}</span></div>
+                                <div class="meta-item"><i class="fas fa-user"></i><span>作者：${escapeHtml(authorName)}</span></div>
                                 <div class="meta-item"><i class="fas fa-calendar-alt"></i><span>创建时间：${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span></div>
                                 <div class="meta-item"><i class="fas fa-hashtag"></i><span>文档ID：${doc.id}</span></div>
                             </div>
@@ -433,10 +514,9 @@
 
         async function downloadFile(url, filename) {
             try {
-                // 使用 credentials: 'omit' 避免发送 cookies
                 const response = await fetch(url, {
                     mode: 'cors',
-                    credentials: 'omit'   // 关键：改为 omit
+                    credentials: 'omit'
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -450,7 +530,7 @@
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(blobUrl);
             } catch (error) {
-                console.warn('fetch 下载失败，尝试直接打开', error);
+                console.warn('下载失败，尝试直接打开', error);
                 window.open(url, '_blank');
             }
         }
@@ -460,9 +540,12 @@
             await loadDocumentDetail();
         });
 
-        // 模态框事件
-        document.getElementById('deleteModal')?.addEventListener('click', function(e) { if (e.target === this) closeDeleteModal(); });
-        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDeleteModal(); });
+        document.getElementById('deleteModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeDeleteModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeDeleteModal();
+        });
     </script>
 </body>
 </html>

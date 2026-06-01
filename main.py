@@ -34,24 +34,74 @@ from cxx
 
 """
 import os
-from urllib.request import Request
+import uuid
+import logging
+from dotenv import load_dotenv
+load_dotenv()
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage
+from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review
 # from routers import auth, conversation_v1
 from routers import documents
 from models import Base
 from database import engine
 from starlette.types import Scope
+from sqlalchemy import text
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
 
-# 创建数据库表
-# Base.metadata.create_all(bind=engine)
+logger = logging.getLogger(__name__)
+
+# 创建数据库表（使用异步引擎）
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def ensure_document_soft_delete_column():
+    async with engine.begin() as conn:
+        has_column_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'documents'
+                  AND COLUMN_NAME = 'is_deleted'
+                """
+            )
+        )
+        has_column = int(has_column_result.scalar_one() or 0) > 0
+        if not has_column:
+            await conn.execute(
+                text(
+                    "ALTER TABLE documents ADD COLUMN is_deleted TINYINT NOT NULL DEFAULT 0"
+                )
+            )
+
+        has_index_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'documents'
+                  AND INDEX_NAME = 'idx_documents_is_deleted'
+                """
+            )
+        )
+        has_index = int(has_index_result.scalar_one() or 0) > 0
+        if not has_index:
+            await conn.execute(
+                text("CREATE INDEX idx_documents_is_deleted ON documents (is_deleted)")
+            )
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 class CORSStaticFiles(StaticFiles):
@@ -69,6 +119,20 @@ app = FastAPI(
     description="基于FastAPI的维修知识管理和对话系统",
     version="1.0.0"
 )
+
+
+@app.middleware("http")
+async def trace_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Trace-Id") or uuid.uuid4().hex
+    request.state.trace_id = trace_id
+    response = await call_next(request)
+    response.headers["X-Trace-Id"] = trace_id
+    return response
+
+@app.on_event("startup")
+async def on_startup():
+    await init_db()
+    await ensure_document_soft_delete_column()
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(
@@ -97,6 +161,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(review.router)
 app.include_router(conversation.router)
 app.include_router(message.router)
 app.include_router(conversation_v1.router)
@@ -113,13 +178,56 @@ async def root():
 
 
 # 全局异常处理
+def _error_payload(code: int, message: str, trace_id: str, detail=None):
+    return {
+        "code": int(code),
+        "msg": message,
+        "message": message,
+        "detail": detail,
+        "trace_id": trace_id,
+        "data": None
+    }
+
+
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    trace_id = getattr(request.state, "trace_id", uuid.uuid4().hex)
+    return JSONResponse(
+        status_code=exc.http_status,
+        content=_error_payload(exc.biz_code, exc.message, trace_id, exc.detail),
+        headers={"X-Trace-Id": trace_id}
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    trace_id = getattr(request.state, "trace_id", uuid.uuid4().hex)
+    biz_code = HTTP_TO_BIZ_CODE.get(exc.status_code, BizCode.INTERNAL_ERROR)
+    message = str(exc.detail) if exc.detail else "请求失败"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=_error_payload(biz_code, message, trace_id, exc.detail),
+        headers={"X-Trace-Id": trace_id}
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    trace_id = getattr(request.state, "trace_id", uuid.uuid4().hex)
+    detail = exc.errors()
+    return JSONResponse(
+        status_code=400,
+        content=_error_payload(BizCode.BAD_REQUEST, "请求核心参数无效", trace_id, detail),
+        headers={"X-Trace-Id": trace_id}
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理器"""
+    trace_id = getattr(request.state, "trace_id", uuid.uuid4().hex)
+    logger.exception("Unhandled exception, trace_id=%s", trace_id)
     return JSONResponse(
         status_code=500,
-        content={
-            "code": 500,
-            "message": f"服务器内部错误: {str(exc)}"
-        }
+        content=_error_payload(BizCode.INTERNAL_ERROR, "服务器内部错误", trace_id, str(exc)),
+        headers={"X-Trace-Id": trace_id}
     )

@@ -9,6 +9,7 @@
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
     <script src="js/menu.js"></script>
     <style>
         /* 添加文档页面的自定义样式 */
@@ -413,9 +414,13 @@
             </div>
 
             <div class="nav-menu">
-                <a href="main.html" class="nav-item active">
+                <a href="main.html" class="nav-item active" id="knowledgeBaseNav">
                     <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
                     <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
                 </a>
                 <a href="ai-assist.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
@@ -451,11 +456,11 @@
         <div class="main-content">
             <div class="header">
                 <div>
-                    <div class="page-title">添加维修文档</div>
-                    <div class="page-subtitle">创建新的技术文档与故障案例</div>
+                    <div class="page-title" id="pageTitle">添加维修文档</div>
+                    <div class="page-subtitle" id="pageSubtitle">创建新的技术文档与故障案例</div>
                 </div>
                 <div class="header-actions">
-                    <a href="main.html" class="btn btn-secondary">
+                    <a href="main.html" class="btn btn-secondary" id="backToListLink">
                         <i class="fas fa-arrow-left"></i> 返回文档列表
                     </a>
                 </div>
@@ -635,7 +640,7 @@
 
                     <!-- 表单操作 -->
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="window.location.href='main.html'">
+                        <button type="button" class="btn btn-secondary" id="cancelBtn" onclick="window.location.href='main.html'">
                             <i class="fas fa-times"></i> 取消
                         </button>
                         <button type="button" class="btn btn-primary" onclick="submitDocument()" id="submitBtn">
@@ -663,6 +668,8 @@
             console.error('文档API未加载，请确保api.js已正确引入');
             document.write('<div style="color: red; padding: 20px;">系统错误：API模块未加载</div>');
         }
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReviewMode = urlParams.get('mode') === 'review';
 
         // 全局变量
         let selectedImages = []; // 存储已选择的图片文件
@@ -678,10 +685,42 @@
             keyPoints: []
         };
 
+        function applyModeUI() {
+            const pageTitle = document.getElementById('pageTitle');
+            const pageSubtitle = document.getElementById('pageSubtitle');
+            const backToListLink = document.getElementById('backToListLink');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            const knowledgeBaseNav = document.getElementById('knowledgeBaseNav');
+            const mySubmissionsNav = document.getElementById('mySubmissionsNav');
+
+            if (isReviewMode) {
+                if (pageTitle) pageTitle.textContent = '提交审核文档';
+                if (pageSubtitle) pageSubtitle.textContent = '填写文档信息后提交审核，状态将变为待审核';
+                if (backToListLink) {
+                    backToListLink.setAttribute('href', 'my-submissions.html');
+                    backToListLink.innerHTML = '<i class="fas fa-arrow-left"></i> 返回我的提交';
+                }
+                if (cancelBtn) {
+                    cancelBtn.setAttribute('onclick', "window.location.href='my-submissions.html'");
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> 确认提交审核';
+                }
+                if (knowledgeBaseNav) {
+                    knowledgeBaseNav.classList.remove('active');
+                }
+                if (mySubmissionsNav) {
+                    mySubmissionsNav.classList.add('active');
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // 检查登录状态
             Utils.checkLogin();
             Utils.loadUserInfo();
+            applyModeUI();
 
             // 初始化图片上传功能
             // initImageUpload();
@@ -1287,12 +1326,22 @@
 
                 console.log('提交的文档数据:', documentData);
 
-                // 3. 调用API添加文档
-                const result = await documentAPI.addDocument(documentData);
-                console.log('添加文档结果:', result);
-                Utils.showMessage('文档添加成功！', 'success');
+                // 3. 调用API：普通模式直接入知识库；审核模式提交审核表
+                let result = null;
+                if (isReviewMode) {
+                    if (typeof reviewAPI === 'undefined') {
+                        throw new Error('审核接口未加载，请检查 review.js');
+                    }
+                    result = await reviewAPI.submitCreateReview(documentData);
+                    console.log('提交审核结果:', result);
+                    Utils.showMessage('提交审核成功，当前状态：待审核', 'success');
+                } else {
+                    result = await documentAPI.addDocument(documentData);
+                    console.log('添加文档结果:', result);
+                    Utils.showMessage('文档添加成功！', 'success');
+                }
                 setTimeout(() => {
-                    window.location.href = 'main.html';
+                    window.location.href = isReviewMode ? 'my-submissions.html' : 'main.html';
                 }, 1500);
             } catch (error) {
                 console.error('提交文档失败:', error);
@@ -1304,7 +1353,9 @@
 
         function resetSubmitButton() {
             const submitBtn = document.getElementById('submitBtn');
-            submitBtn.innerHTML = '<i class="fas fa-check"></i> 提交文档';
+            submitBtn.innerHTML = isReviewMode
+                ? '<i class="fas fa-check"></i> 确认提交审核'
+                : '<i class="fas fa-check"></i> 提交文档';
             submitBtn.disabled = false;
         }
 
