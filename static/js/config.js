@@ -1,9 +1,9 @@
-// js/config.js
+﻿// js/config.js
 const API_CONFIG = {
     // 后端 API 基础地址
     BASE_URL: '',
 
-    // �?API 端点
+    // 各 API 端点
     ENDPOINTS: {
         // 文档相关
         DOCUMENTS: '/document',
@@ -16,7 +16,7 @@ const API_CONFIG = {
         // 用户相关
         LOGIN: '/auth/login',
         USER: '/user',  // 用户相关接口基础路径
-        USERS: '/user', // 别名，保持兼�?
+        USERS: '/user', // 别名，保持兼容
         USER_PROFILE: '/user/profile',  // 获取用户资料
     },
 

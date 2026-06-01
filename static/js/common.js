@@ -1,774 +1,454 @@
-// ¹«¹²¹¤¾ßº¯Êı
-const Utils = {
-    // ÏÔÊ¾ÏûÏ¢ÌáÊ¾
-    showMessage: function(message, type = 'info') {
-        // ´´½¨ÏûÏ¢ÔªËØ
-        const messageEl = document.createElement('div');
-        messageEl.className = `message message-${type}`;
-        messageEl.innerHTML = `
-            <div class="message-content">${message}</div>
-            <button class="message-close">¡Á</button>
-        `;
-
-        // Ìí¼Óµ½Ò³Ãæ
-        document.body.appendChild(messageEl);
-
-        // Ìí¼ÓÑùÊ½£¨Èç¹ûÉĞÎ´Ìí¼Ó£©
-        if (!document.querySelector('#message-styles')) {
-            const styleEl = document.createElement('style');
-            styleEl.id = 'message-styles';
-            styleEl.textContent = `
-                .message {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    padding: 15px 20px;
-                    border-radius: 6px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    z-index: 1000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    min-width: 300px;
-                    max-width: 500px;
-                    animation: slideIn 0.3s ease;
-                    color: white;
-                }
-                
-                .message-info {
-                    background: #4a9eff;
-                }
-                
-                .message-success {
-                    background: #10b981;
-                }
-                
-                .message-warning {
-                    background: #f59e0b;
-                }
-                
-                .message-error {
-                    background: #ef4444;
-                }
-                
-                .message-content {
-                    flex: 1;
-                }
-                
-                .message-close {
-                    background: none;
-                    border: none;
-                    color: white;
-                    font-size: 20px;
-                    cursor: pointer;
-                    margin-left: 15px;
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                
-                @keyframes slideOut {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(styleEl);
-        }
-
-        // ×Ô¶¯ÏûÊ§
-        setTimeout(() => {
-            messageEl.style.animation = 'slideOut 0.3s ease forwards';
-            setTimeout(() => {
-                if (messageEl.parentNode) {
-                    messageEl.parentNode.removeChild(messageEl);
-                }
-            }, 300);
-        }, 3000);
-
-        // µã»÷¹Ø±Õ
-        messageEl.querySelector('.message-close').addEventListener('click', () => {
-            messageEl.style.animation = 'slideOut 0.3s ease forwards';
-            setTimeout(() => {
-                if (messageEl.parentNode) {
-                    messageEl.parentNode.removeChild(messageEl);
-                }
-            }, 300);
-        });
-    },
-
-    getToken() {
-        // ¸ÄÎª´Ó localStorage »ñÈ¡
-        return localStorage.getItem('token') || sessionStorage.getItem('token');
-    },
-
-    // ÔÚ Utils ¶ÔÏóÖĞÌí¼ÓÎÄ¼ş´óĞ¡¸ñÊ½»¯º¯Êı
-    formatFileSize: function(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    },
-
-    // ¸ñÊ½»¯ÈÕÆÚ
-    formatDate: function(date, format = 'YYYY-MM-DD') {
-        const d = new Date(date);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        const seconds = String(d.getSeconds()).padStart(2, '0');
-
-        return format
-            .replace('YYYY', year)
-            .replace('MM', month)
-            .replace('DD', day)
-            .replace('HH', hours)
-            .replace('mm', minutes)
-            .replace('ss', seconds);
-    },
-    
-    ROLE: {
-        ADMIN: 0,
-        TECHNICIAN: 1,
-        REVIEWER: 2,
-        MAINTENANCE: 3
-    },
-    
-    normalizeRoleValue: function(role) {
-        if (typeof role === 'number' && !Number.isNaN(role)) return role;
-        if (typeof role === 'string') {
-            const value = role.trim().toLowerCase();
-            if (value === '0' || value === 'admin' || value === '¹ÜÀíÔ±') return this.ROLE.ADMIN;
-            if (value === '1' || value === 'technician' || value === '¼¼ÊõÈËÔ±' || value === 'Î¬ĞŞ¹¤³ÌÊ¦') return this.ROLE.TECHNICIAN;
-            if (value === '2' || value === 'reviewer' || value === 'ÉóºËÈËÔ±') return this.ROLE.REVIEWER;
-            if (value === '3' || value === 'maintenance' || value === 'Î¬ĞŞÈËÔ±') return this.ROLE.MAINTENANCE;
-            const parsed = Number(value);
-            if (!Number.isNaN(parsed)) return parsed;
-        }
-        return null;
-    },
-    
-    hasRole: function(userOrRole, ...roles) {
-        const rawRole = userOrRole && typeof userOrRole === 'object'
-            ? (userOrRole.role ?? userOrRole.role_id)
-            : userOrRole;
-        const currentRole = this.normalizeRoleValue(rawRole);
-        if (currentRole === null || currentRole === undefined) return false;
-        return roles.map(Number).includes(currentRole);
-    },
-    
-    getRoleDisplay: function(userOrRole) {
-        const rawRole = userOrRole && typeof userOrRole === 'object'
-            ? (userOrRole.role ?? userOrRole.role_id)
-            : userOrRole;
-        const roleValue = this.normalizeRoleValue(rawRole);
-        const roleMap = {
-            0: { label: 'ÏµÍ³¹ÜÀíÔ±', icon: 'A' },
-            1: { label: '¼¼ÊõÈËÔ±', icon: 'T' },
-            2: { label: 'ÉóºËÈËÔ±', icon: 'R' },
-            3: { label: 'Î¬ĞŞÈËÔ±', icon: 'M' }
-        };
-        const roleInfo = roleMap[roleValue] || { label: 'ÓÃ»§', icon: 'U' };
-        return {
-            value: roleValue,
-            label: roleInfo.label,
-            icon: roleInfo.icon
-        };
-    },
-
-    checkLogin: function() {
-        // ÓÅÏÈ´Ó localStorage »ñÈ¡
-        let token = localStorage.getItem('token');
-        let refreshToken = localStorage.getItem('refresh_token');
-        let userStr = localStorage.getItem('user');
-
-        // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡£¨¼æÈİ¾É°æ±¾£©
-        if (!token) {
-            token = sessionStorage.getItem('token');
-            refreshToken = sessionStorage.getItem('refresh_token');
-            userStr = sessionStorage.getItem('user');
-
-            // Èç¹û sessionStorage ÓĞµ« localStorage Ã»ÓĞ£¬Ç¨ÒÆµ½ localStorage
-            if (token) {
-                localStorage.setItem('token', token);
-                if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
-                if (userStr) localStorage.setItem('user', userStr);
-                console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
-            }
-        }
-
-        // Èç¹û¶¼Ã»ÓĞ token£¬Ìø×ªµ½µÇÂ¼Ò³
-        if (!token && !refreshToken) {
-            window.location.href = 'index.html';
-            return null;
-        }
-
-        try {
-            return userStr ? JSON.parse(userStr) : null;
-        } catch (e) {
-            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', e);
-            window.location.href = 'index.html';
-            return null;
-        }
-    },
-
-    // ¼ÓÔØÓÃ»§ĞÅÏ¢µ½²à±ßÀ¸ - ¼ò»¯°æ
-    loadUserInfo: function() {
-        try {
-            // ÓÅÏÈ´Ó localStorage »ñÈ¡ÓÃ»§ĞÅÏ¢
-            let userStr = localStorage.getItem('user');
-
-            // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡
-            if (!userStr) {
-                userStr = sessionStorage.getItem('user');
-                if (userStr) {
-                    // Ç¨ÒÆµ½ localStorage
-                    localStorage.setItem('user', userStr);
-                    console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
-                }
-            }
-
-            if (!userStr) {
-                console.warn('ÓÃ»§ĞÅÏ¢²»´æÔÚ');
-                return;
-            }
-
-            const user = JSON.parse(userStr);
-            console.log('¼ÓÔØÓÃ»§ĞÅÏ¢:', user);
-
-            const avatar = document.getElementById('userAvatar');
-            const name = document.getElementById('userName');
-            const role = document.getElementById('userRole');
-
-            // ÉèÖÃÍ·Ïñ
-            if (avatar) {
-                const displayName = user.full_name || user.username || 'ÓÃ»§';
-                avatar.textContent = displayName.charAt(0).toUpperCase();
-
-                // ¸ù¾İÉí·İÉèÖÃ²»Í¬ÑÕÉ«
-                const isAdmin = user.role === 0; // ×¢Òâ£º0ÊÇ¹ÜÀíÔ±
-                avatar.style.backgroundColor = isAdmin ? '#dc2626' : '#4a9eff';
-            }
-
-            // ÉèÖÃÓÃ»§Ãû
-            if (name) {
-                name.textContent = user.full_name || user.username || 'ÓÃ»§';
-            }
-
-            // ÉèÖÃ½ÇÉ«ÏÔÊ¾
-            if (role) {
-                const roleMap = {
-                    0: 'ÏµÍ³¹ÜÀíÔ±',
-                    1: '¼¼ÊõÈËÔ±',
-                    2: 'ÉóºËÈËÔ±',
-                    3: 'Î¬ĞŞÈËÔ±'
-                };
-                role.textContent = roleMap[this.normalizeRoleValue(user.role)] || 'ÓÃ»§';
-            }
-
-        } catch (error) {
-            console.error('¼ÓÔØÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
-        }
-    },
-
-    getCurrentUser: function() {
-        try {
-            // ÓÅÏÈ´Ó localStorage »ñÈ¡
-            let userStr = localStorage.getItem('user');
-            if (!userStr) {
-                userStr = sessionStorage.getItem('user');
-            }
-
-            const user = userStr ? JSON.parse(userStr) : null;
-            console.log('»ñÈ¡µ±Ç°ÓÃ»§ĞÅÏ¢:', user);
-            return user;
-        } catch (error) {
-            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
-            return null;
-        }
-    },
-
-    // ¸ù¾İÉí·İ¸üĞÂ²Ëµ¥
-    updateMenuByRole: function(user) {
-        console.log('¸üĞÂ²Ëµ¥£¬ÓÃ»§Éí·İ:', user.role, typeof user.role, user);
-
-        // ĞŞÕı½ÇÉ«ÅĞ¶ÏÂß¼­ - ¸üÑÏ¸ñµÄÅĞ¶Ï
-        let isAdmin = false;
-
-        const roleValue = this.normalizeRoleValue(user.role ?? user.role_id);
-        isAdmin = roleValue === this.ROLE.ADMIN;
-
-        console.log('ÊÇ¹ÜÀíÔ±Âğ?', isAdmin);
-
-        const userManagementLink = document.querySelector('a[href="user-management.html"]');
-        const myProfileLink = document.querySelector('a[href="user-profile.html"]');
-        const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
-
-        if (userManagementLink) {
-            userManagementLink.style.display = isAdmin ? 'flex' : 'none';
-        }
-
-        // ÎÒµÄ×ÊÁÏËùÓĞÓÃ»§¶¼¿É¼û
-        if (myProfileLink) {
-            myProfileLink.style.display = 'flex';
-        }
-
-        // È·±£ AI ¸¨Öú¶ÔËùÓĞÓÃ»§¿É¼û
-        if (aiAssistLink) {
-            aiAssistLink.style.display = 'flex';
-        }
-
-        // ÒÆ³ı¶àÓàµÄ active Àà
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            item.classList.remove('active');
-        });
-
-        // ¸ù¾İµ±Ç°Ò³ÃæÉèÖÃ active Àà
-        const currentPath = window.location.pathname.split('/').pop();
-        const currentLink = document.querySelector(`a[href="${currentPath}"]`);
-        if (currentLink) {
-            currentLink.classList.add('active');
-        }
-    },
-
-    logout: function() {
-        // Çå³ı localStorage
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        // Çå³ı sessionStorage£¨ÎªÁË¼æÈİ¾É´úÂë£©
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('refresh_token');
-        sessionStorage.removeItem('user');
-        sessionStorage.removeItem('last_conversation_id');
-        // Ìø×ªµ½µÇÂ¼Ò³
-        window.location.href = 'index.html';
-    },
-
-    // ·À¶¶º¯Êı
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    },
-
-        // »ñÈ¡API»ù´¡URL
-    getApiBaseUrl: function() {
-        // ¿ÉÒÔ¸ù¾İ»·¾³ÅäÖÃ²»Í¬µÄURL
-        return '';
-    },
-
-    // »ñÈ¡ÈÏÖ¤Í·²¿
-    getAuthHeaders: function() {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = {
-            'Content-Type': 'application/json',
-        };
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        return headers;
-    },
-
-    apiRequest: async function(url, options = {}) {
-        try {
-            const defaultOptions = {
-                headers: this.getAuthHeaders(),
-                ...options
-            };
-
-            // Èç¹ûÓĞ body£¬È·±£ËüÊÇ JSON ×Ö·û´®
-            if (defaultOptions.body && typeof defaultOptions.body !== 'string') {
-                defaultOptions.body = JSON.stringify(defaultOptions.body);
-            }
-
-            const response = await fetch(url, defaultOptions);
-
-            // ¼ì²éÊÇ·ñÎ´ÊÚÈ¨
-            if (response.status === 401) {
-                console.log('Token¹ıÆÚ£¬³¢ÊÔË¢ĞÂ...');
-
-                // ³¢ÊÔË¢ĞÂtoken
-                try {
-                    const newToken = await this.refreshToken();
-
-                    // ¸üĞÂÇëÇóÍ·ÖĞµÄtoken
-                    defaultOptions.headers['Authorization'] = `Bearer ${newToken}`;
-
-                    // ÖØĞÂ·¢ËÍÇëÇó
-                    const retryResponse = await fetch(url, defaultOptions);
-
-                    if (!retryResponse.ok) {
-                        const errorText = await retryResponse.text();
-                        throw new Error(`HTTP´íÎó: ${retryResponse.status} - ${errorText}`);
-                    }
-
-                    const result = await retryResponse.json();
-
-                    // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
-                    if (result.code === 1) {
-                        return result.data;
-                    } else {
-                        throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
-                    }
-                } catch (refreshError) {
-                    console.error('Ë¢ĞÂtokenÊ§°Ü:', refreshError);
-                    sessionStorage.removeItem('token');
-                    sessionStorage.removeItem('refresh_token');
-                    sessionStorage.removeItem('user');
-                    window.location.href = 'index.html';
-                    throw new Error('µÇÂ¼ÒÑ¹ıÆÚ£¬ÇëÖØĞÂµÇÂ¼');
-                }
-            }
-
-            // ¼ì²éÊÇ·ñÊÇ 404
-            if (response.status === 404) {
-                throw new Error('ÇëÇóµÄ½Ó¿Ú²»´æÔÚ£¬Çë¼ì²éÂ·ÓÉ');
-            }
-
-            // ¼ì²éÆäËû´íÎó×´Ì¬
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP´íÎó: ${response.status} - ${errorText}`);
-            }
-
-            const result = await response.json();
-
-            // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
-            if (result.code === 1) {
-                return result.data;
-            } else {
-                throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
-            }
-
-        } catch (error) {
-            console.error('APIÇëÇóÊ§°Ü:', error);
-            throw error;
-        }
-    },
-
-    // Ìí¼ÓË¢ĞÂtokenµÄ¸¨Öúº¯Êı
-    refreshToken: async function() {
-        try {
-            const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
-            if (!refreshToken) {
-                throw new Error('Ã»ÓĞ¿ÉÓÃµÄË¢ĞÂÁîÅÆ');
-            }
-
-            const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    refresh_token: refreshToken
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Ë¢ĞÂÁîÅÆÊ§°Ü: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.code === 1) {
-                const newAccessToken = result.data.access_token;
-                localStorage.setItem('token', newAccessToken);
-                sessionStorage.setItem('token', newAccessToken);
-                console.log('TokenË¢ĞÂ³É¹¦');
-                return newAccessToken;
-            } else {
-                throw new Error(result.msg || 'Ë¢ĞÂÁîÅÆÊ§°Ü');
-            }
-        } catch (error) {
-            console.error('Ë¢ĞÂÁîÅÆÊ§°Ü:', error);
-            throw error;
-        }
-    },
-        // ĞÂÔö£º´Ó sessionStorage Ç¨ÒÆµ½ localStorage µÄ¸¨Öúº¯Êı
-    migrateToLocalStorage: function() {
-        // ¼ì²é²¢Ç¨ÒÆ token
-        const sessionToken = sessionStorage.getItem('token');
-        const localToken = localStorage.getItem('token');
-
-        if (sessionToken && !localToken) {
-            localStorage.setItem('token', sessionToken);
-            console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
-        }
-
-        // ¼ì²é²¢Ç¨ÒÆ refresh_token
-        const sessionRefreshToken = sessionStorage.getItem('refresh_token');
-        const localRefreshToken = localStorage.getItem('refresh_token');
-
-        if (sessionRefreshToken && !localRefreshToken) {
-            localStorage.setItem('refresh_token', sessionRefreshToken);
-            console.log('Refresh token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
-        }
-
-        // ¼ì²é²¢Ç¨ÒÆÓÃ»§ĞÅÏ¢
-        const sessionUser = sessionStorage.getItem('user');
-        const localUser = localStorage.getItem('user');
-
-        if (sessionUser && !localUser) {
-            localStorage.setItem('user', sessionUser);
-            console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
-        }
-    },
-
-    // Ìí¼Ó»ñÈ¡ÓÃ»§ĞÅÏ¢º¯Êı£¨Ê¾Àı£©
-    getUserInfo: async function() {
-        try {
-            // ÔÚÊµ¼ÊÏîÄ¿ÖĞ£¬µ÷ÓÃ»ñÈ¡ÓÃ»§ĞÅÏ¢µÄAPI
-            // const result = await this.apiRequest('/auth/profile');
-            // return result.data;
-
-            // ÁÙÊ±·µ»ØsessionStorageÖĞµÄÓÃ»§ĞÅÏ¢
-            return JSON.parse(sessionStorage.getItem('user') || '{}');
-        } catch (error) {
-            console.error('»ñÈ¡ÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
-            return null;
-        }
-    },
-
-    // ½ÚÁ÷º¯Êı
-    throttle: function(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
-    },
-
-    // ÔÚ common.js ÎÄ¼şµÄ Utils ¶ÔÏóÖĞÌí¼ÓÒÔÏÂº¯Êı
-
-    // ¸ñÊ½»¯ÏûÏ¢ÄÚÈİ£¨´¦Àí»»ĞĞµÈ£©
-    formatMessageContent: function(content) {
-        return content.replace(/\n/g, '<br>');
-    },
-
-    // Éú³ÉËæ»úID
-    generateId: function() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    },
-
-    // ½Ø¶Ï×Ö·û´®
-    truncateString: function(str, length) {
-        if (str.length <= length) return str;
-        return str.substring(0, length) + '...';
-    },
-
-    // »ñÈ¡µ±Ç°Ê±¼ä×Ö·û´®
-    getCurrentTime: function() {
-        const now = new Date();
-        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+ï»¿const Utils = {
+  ROLE: {
+    ADMIN: 0,
+    TECHNICIAN: 1,
+    REVIEWER: 2,
+    MAINTENANCE: 3
+  },
+
+  showMessage(message, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `message message-${type}`;
+    el.innerHTML = `
+      <div class="message-content">${message}</div>
+      <button class="message-close" type="button" aria-label="å…³é—­">Ã—</button>
+    `;
+
+    document.body.appendChild(el);
+
+    const remove = () => {
+      el.style.animation = 'slideOut 0.25s ease forwards';
+      setTimeout(() => el.remove(), 250);
+    };
+
+    const closeBtn = el.querySelector('.message-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', remove);
     }
 
+    setTimeout(remove, 3000);
+  },
+
+  getToken() {
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
+  },
+
+  formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 Bytes';
+    const units = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
+  },
+
+  formatDate(date, format = 'YYYY-MM-DD') {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+
+    return format
+      .replace('YYYY', year)
+      .replace('MM', month)
+      .replace('DD', day)
+      .replace('HH', hours)
+      .replace('mm', minutes)
+      .replace('ss', seconds);
+  },
+
+  normalizeRoleValue(role) {
+    if (typeof role === 'number' && !Number.isNaN(role)) return role;
+    if (typeof role !== 'string') return null;
+
+    const value = role.trim().toLowerCase();
+    if (value === '0' || value === 'admin' || value === 'ç³»ç»Ÿç®¡ç†å‘˜') return this.ROLE.ADMIN;
+    if (value === '1' || value === 'technician' || value === 'æŠ€æœ¯å‘˜' || value === 'ç»´ä¿®å·¥ç¨‹å¸ˆ') return this.ROLE.TECHNICIAN;
+    if (value === '2' || value === 'reviewer' || value === 'å®¡æ ¸å‘˜') return this.ROLE.REVIEWER;
+    if (value === '3' || value === 'maintenance' || value === 'è¿ç»´å‘˜') return this.ROLE.MAINTENANCE;
+
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  },
+
+  hasRole(userOrRole, ...roles) {
+    const rawRole = userOrRole && typeof userOrRole === 'object'
+      ? (userOrRole.role ?? userOrRole.role_id)
+      : userOrRole;
+    const currentRole = this.normalizeRoleValue(rawRole);
+    if (currentRole === null || currentRole === undefined) return false;
+    return roles.map(Number).includes(currentRole);
+  },
+
+  getRoleDisplay(userOrRole) {
+    const rawRole = userOrRole && typeof userOrRole === 'object'
+      ? (userOrRole.role ?? userOrRole.role_id)
+      : userOrRole;
+    const role = this.normalizeRoleValue(rawRole);
+
+    const roleMap = {
+      0: { label: 'ç³»ç»Ÿç®¡ç†å‘˜', icon: 'A' },
+      1: { label: 'æŠ€æœ¯å‘˜', icon: 'T' },
+      2: { label: 'å®¡æ ¸å‘˜', icon: 'R' },
+      3: { label: 'è¿ç»´å‘˜', icon: 'M' }
+    };
+
+    const info = roleMap[role] || { label: 'ç”¨æˆ·', icon: 'U' };
+    return { value: role, label: info.label, icon: info.icon };
+  },
+
+  migrateToLocalStorage() {
+    const token = sessionStorage.getItem('token');
+    const refreshToken = sessionStorage.getItem('refresh_token');
+    const user = sessionStorage.getItem('user');
+
+    if (token && !localStorage.getItem('token')) localStorage.setItem('token', token);
+    if (refreshToken && !localStorage.getItem('refresh_token')) localStorage.setItem('refresh_token', refreshToken);
+    if (user && !localStorage.getItem('user')) localStorage.setItem('user', user);
+  },
+
+  checkLogin() {
+    this.migrateToLocalStorage();
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+
+    if (!token && !refreshToken) {
+      window.location.href = 'index.html';
+      return null;
+    }
+
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (err) {
+      console.error('è§£æç”¨æˆ·ä¿¡æ¯å¤±è´¥:', err);
+      window.location.href = 'index.html';
+      return null;
+    }
+  },
+
+  getCurrentUser() {
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (err) {
+      console.error('è·å–ç”¨æˆ·ä¿¡æ¯å¤±è´¥:', err);
+      return null;
+    }
+  },
+
+  loadUserInfo() {
+    const user = this.getCurrentUser();
+    if (!user) return;
+
+    const avatar = document.getElementById('userAvatar');
+    const name = document.getElementById('userName');
+    const role = document.getElementById('userRole');
+
+    const displayName = user.full_name || user.username || 'ç”¨æˆ·';
+    const roleInfo = this.getRoleDisplay(user);
+
+    if (avatar) {
+      avatar.textContent = displayName.charAt(0).toUpperCase();
+      avatar.style.backgroundColor = roleInfo.value === this.ROLE.ADMIN ? '#dc2626' : '#4a9eff';
+    }
+    if (name) name.textContent = displayName;
+    if (role) role.textContent = roleInfo.label;
+  },
+
+  updateMenuByRole(user) {
+    if (!user) return;
+    const isAdmin = this.hasRole(user, this.ROLE.ADMIN);
+
+    const userManagementLink = document.querySelector('a[href="user-management.html"]');
+    const myProfileLink = document.querySelector('a[href="user-profile.html"]');
+    const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
+
+    if (userManagementLink) userManagementLink.style.display = isAdmin ? 'flex' : 'none';
+    if (myProfileLink) myProfileLink.style.display = 'flex';
+    if (aiAssistLink) aiAssistLink.style.display = 'flex';
+
+    document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active'));
+    const currentPath = window.location.pathname.split('/').pop();
+    const currentLink = document.querySelector(`a[href="${currentPath}"]`);
+    if (currentLink) currentLink.classList.add('active');
+  },
+
+  logout() {
+    ['token', 'refresh_token', 'user', 'last_conversation_id'].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    window.location.href = 'index.html';
+  },
+
+  debounce(func, wait) {
+    let timeout;
+    return function wrapped(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  },
+
+  throttle(func, limit) {
+    let inThrottle = false;
+    return function wrapped(...args) {
+      if (inThrottle) return;
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
+    };
+  },
+
+  getApiBaseUrl() {
+    return '';
+  },
+
+  getAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = this.getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  },
+
+  async refreshToken() {
+    const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (!refreshToken) throw new Error('æ²¡æœ‰å¯ç”¨çš„åˆ·æ–°ä»¤ç‰Œ');
+
+    const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+
+    if (!response.ok) throw new Error(`åˆ·æ–°ä»¤ç‰Œå¤±è´¥: ${response.status}`);
+
+    const result = await response.json();
+    if (result.code !== 1 || !result.data?.access_token) {
+      throw new Error(result.msg || 'åˆ·æ–°ä»¤ç‰Œå¤±è´¥');
+    }
+
+    const newToken = result.data.access_token;
+    localStorage.setItem('token', newToken);
+    sessionStorage.setItem('token', newToken);
+    return newToken;
+  },
+
+  async apiRequest(url, options = {}) {
+    const requestOptions = {
+      headers: this.getAuthHeaders(),
+      ...options
+    };
+
+    if (requestOptions.body && typeof requestOptions.body !== 'string') {
+      requestOptions.body = JSON.stringify(requestOptions.body);
+    }
+
+    let response = await fetch(url, requestOptions);
+
+    if (response.status === 401) {
+      try {
+        const newToken = await this.refreshToken();
+        requestOptions.headers = { ...requestOptions.headers, Authorization: `Bearer ${newToken}` };
+        response = await fetch(url, requestOptions);
+      } catch (err) {
+        this.logout();
+        throw new Error('ç™»å½•å·²è¿‡æœŸï¼Œè¯·é‡æ–°ç™»å½•');
+      }
+    }
+
+    if (response.status === 404) {
+      throw new Error('æ¥å£ä¸å­˜åœ¨ï¼Œè¯·æ£€æŸ¥è¯·æ±‚åœ°å€');
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTPé”™è¯¯: ${response.status} - ${text}`);
+    }
+
+    const result = await response.json();
+    if (result.code === 1) return result.data;
+    throw new Error(result.msg || 'è¯·æ±‚å¤±è´¥');
+  },
+
+  async getUserInfo() {
+    return this.getCurrentUser();
+  },
+
+  formatMessageContent(content) {
+    return String(content || '').replace(/\n/g, '<br>');
+  },
+
+  generateId() {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  },
+
+  truncateString(str, length) {
+    const value = String(str || '');
+    if (value.length <= length) return value;
+    return `${value.slice(0, length)}...`;
+  },
+
+  getCurrentTime() {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
 };
 
-// Ò³Ãæ¼ÓÔØÊ±¼ì²éµÇÂ¼×´Ì¬
-document.addEventListener('DOMContentLoaded', function() {
-    // Èç¹û²»ÊÇµÇÂ¼Ò³£¬¼ì²éµÇÂ¼×´Ì¬
-    const currentPath = window.location.pathname;
-    const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
+function initFormValidation() {
+  const forms = document.querySelectorAll('form[data-validate]');
+  forms.forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      let isValid = true;
+      const inputs = form.querySelectorAll('[required]');
 
-    if (!isLoginPage) {
-        // ÏÈÇ¨ÒÆÊı¾İ£¨Èç¹ûÓĞ£©
-        Utils.migrateToLocalStorage();
+      inputs.forEach((input) => {
+        const value = (input.value || '').trim();
 
-        // È»ºó¼ì²éµÇÂ¼
-        const user = Utils.checkLogin();
-
-        // È»ºó¼ÓÔØÓÃ»§ĞÅÏ¢
-        if (user) {
-            // ÑÓ³ÙÒ»µãÈ·±£DOMÍêÈ«¼ÓÔØ
-            setTimeout(() => {
-                Utils.loadUserInfo();
-            }, 100);
+        if (!value) {
+          isValid = false;
+          highlightError(input, 'è¯¥å­—æ®µä¸èƒ½ä¸ºç©º');
+          return;
         }
+
+        if (input.type === 'email') {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value)) {
+            isValid = false;
+            highlightError(input, 'è¯·è¾“å…¥æœ‰æ•ˆçš„é‚®ç®±åœ°å€');
+            return;
+          }
+        }
+
+        if (input.type === 'password' && value.length < 6) {
+          isValid = false;
+          highlightError(input, 'å¯†ç é•¿åº¦ä¸èƒ½å°‘äº6ä½');
+          return;
+        }
+
+        clearError(input);
+      });
+
+      if (!isValid) {
+        e.preventDefault();
+        Utils.showMessage('è¯·å…ˆä¿®æ­£è¡¨å•ä¸­çš„é”™è¯¯', 'error');
+      }
+    });
+  });
+}
+
+function highlightError(input, message) {
+  const formGroup = input.closest('.form-group');
+  if (!formGroup) return;
+
+  const existingError = formGroup.querySelector('.error-message');
+  if (existingError) existingError.remove();
+
+  input.classList.add('error');
+
+  const errorEl = document.createElement('div');
+  errorEl.className = 'error-message';
+  errorEl.textContent = message;
+  errorEl.style.color = '#ef4444';
+  errorEl.style.fontSize = '12px';
+  errorEl.style.marginTop = '4px';
+
+  formGroup.appendChild(errorEl);
+}
+
+function clearError(input) {
+  input.classList.remove('error');
+  const formGroup = input.closest('.form-group');
+  if (!formGroup) return;
+
+  const errorMessage = formGroup.querySelector('.error-message');
+  if (errorMessage) errorMessage.remove();
+}
+
+function handleImageFiles(files, previewContainer) {
+  previewContainer.innerHTML = '';
+
+  Array.from(files || []).forEach((file) => {
+    if (!file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const preview = document.createElement('div');
+      preview.className = 'image-preview';
+      preview.innerHTML = `
+        <img src="${e.target.result}" alt="é¢„è§ˆ">
+        <button type="button" class="btn-remove-image">Ã—</button>
+      `;
+
+      const removeBtn = preview.querySelector('.btn-remove-image');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', () => preview.remove());
+      }
+
+      previewContainer.appendChild(preview);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function initImageUpload(uploadAreaId, previewContainerId) {
+  const uploadArea = document.getElementById(uploadAreaId);
+  const previewContainer = document.getElementById(previewContainerId);
+  if (!uploadArea || !previewContainer) return null;
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#4a9eff';
+    uploadArea.style.backgroundColor = '#f8f9fa';
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = '#d9e3f0';
+    uploadArea.style.backgroundColor = 'transparent';
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#d9e3f0';
+    uploadArea.style.backgroundColor = 'transparent';
+    handleImageFiles(e.dataTransfer.files, previewContainer);
+  });
+
+  fileInput.addEventListener('change', () => handleImageFiles(fileInput.files, previewContainer));
+
+  return {
+    getSelectedFiles: () => fileInput.files
+  };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const currentPath = window.location.pathname;
+  const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
+
+  if (!isLoginPage) {
+    const user = Utils.checkLogin();
+    if (user) {
+      setTimeout(() => {
+        Utils.loadUserInfo();
+      }, 100);
     }
+  }
+
+  initFormValidation();
 });
 
-// ±íµ¥ÑéÖ¤
-function initFormValidation() {
-    const forms = document.querySelectorAll('form[data-validate]');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            let isValid = true;
-            const inputs = this.querySelectorAll('[required]');
-
-            inputs.forEach(input => {
-                if (!input.value.trim()) {
-                    isValid = false;
-                    highlightError(input, '´Ë×Ö¶Î²»ÄÜÎª¿Õ');
-                } else {
-                    clearError(input);
-                }
-
-                // ÓÊÏäÑéÖ¤
-                if (input.type === 'email' && input.value) {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(input.value)) {
-                        isValid = false;
-                        highlightError(input, 'ÇëÊäÈëÓĞĞ§µÄÓÊÏäµØÖ·');
-                    }
-                }
-
-                // ÃÜÂë³¤¶ÈÑéÖ¤
-                if (input.type === 'password' && input.value) {
-                    if (input.value.length < 6) {
-                        isValid = false;
-                        highlightError(input, 'ÃÜÂë³¤¶È²»ÄÜÉÙÓÚ6Î»');
-                    }
-                }
-            });
-
-            if (!isValid) {
-                e.preventDefault();
-                Utils.showMessage('Çë¼ì²é±íµ¥ÖĞµÄ´íÎó', 'error');
-            }
-        });
-    });
-}
-
-// ¸ßÁÁ´íÎó×Ö¶Î
-function highlightError(input, message) {
-    const formGroup = input.closest('.form-group');
-    if (!formGroup) return;
-
-    // ÒÆ³ıÏÖÓĞµÄ´íÎóĞÅÏ¢
-    const existingError = formGroup.querySelector('.error-message');
-    if (existingError) existingError.remove();
-
-    // Ìí¼Ó´íÎóÑùÊ½
-    input.classList.add('error');
-
-    // Ìí¼Ó´íÎóĞÅÏ¢
-    const errorEl = document.createElement('div');
-    errorEl.className = 'error-message';
-    errorEl.textContent = message;
-    errorEl.style.color = '#ef4444';
-    errorEl.style.fontSize = '12px';
-    errorEl.style.marginTop = '4px';
-
-    formGroup.appendChild(errorEl);
-}
-
-// Çå³ı´íÎóÌáÊ¾
-function clearError(input) {
-    input.classList.remove('error');
-    const formGroup = input.closest('.form-group');
-    if (!formGroup) return;
-
-    const errorMessage = formGroup.querySelector('.error-message');
-    if (errorMessage) errorMessage.remove();
-}
-
-// Í¼Æ¬ÉÏ´«´¦Àí
-function initImageUpload(uploadAreaId, previewContainerId) {
-    const uploadArea = document.getElementById(uploadAreaId);
-    const previewContainer = document.getElementById(previewContainerId);
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.multiple = true;
-    fileInput.accept = 'image/*';
-    fileInput.style.display = 'none';
-
-    document.body.appendChild(fileInput);
-
-    // µã»÷ÉÏ´«ÇøÓòÑ¡ÔñÎÄ¼ş
-    uploadArea.addEventListener('click', () => {
-        fileInput.click();
-    });
-
-    // ÍÏ·ÅÉÏ´«
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.style.borderColor = '#4a9eff';
-        uploadArea.style.backgroundColor = '#f8f9fa';
-    });
-
-    uploadArea.addEventListener('dragleave', () => {
-        uploadArea.style.borderColor = '#d9e3f0';
-        uploadArea.style.backgroundColor = 'transparent';
-    });
-
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadArea.style.borderColor = '#d9e3f0';
-        uploadArea.style.backgroundColor = 'transparent';
-
-        const files = e.dataTransfer.files;
-        handleImageFiles(files, previewContainer);
-    });
-
-    // ÎÄ¼şÑ¡Ôñ±ä»¯
-    fileInput.addEventListener('change', () => {
-        handleImageFiles(fileInput.files, previewContainer);
-    });
-
-    return {
-        getSelectedFiles: () => fileInput.files
-    };
-}
-
-// ´¦ÀíÍ¼Æ¬ÎÄ¼ş
-function handleImageFiles(files, previewContainer) {
-    previewContainer.innerHTML = '';
-
-    for (let file of files) {
-        if (!file.type.startsWith('image/')) continue;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.createElement('div');
-            preview.className = 'image-preview';
-            preview.innerHTML = `
-                <img src="${e.target.result}" alt="Ô¤ÀÀ">
-                <button type="button" class="btn-remove-image">¡Á</button>
-            `;
-
-            preview.querySelector('.btn-remove-image').addEventListener('click', () => {
-                preview.remove();
-            });
-
-            previewContainer.appendChild(preview);
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-
-// µ¼³öµ½È«¾Ö
 window.Utils = Utils;
 window.initImageUpload = initImageUpload;
-
