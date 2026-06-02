@@ -1,7 +1,7 @@
 ﻿// js/config.js
 const API_CONFIG = {
     // 后端 API 基础地址
-    BASE_URL: '',
+    BASE_URL: 'http://localhost:8000',
 
     // 各 API 端点
     ENDPOINTS: {
