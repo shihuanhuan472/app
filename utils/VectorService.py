@@ -12,7 +12,7 @@ from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Document
+from models import Document, DocumentBreakdown, DocumentKnowledge
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 
@@ -25,6 +25,13 @@ os.environ["HF_HOME"] = os.getenv(
 )
 
 logger = logging.getLogger(__name__)
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """统一库类型，防止向量删除和回查文档时跨库误操作。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
 
 
 class VectorService:
@@ -59,10 +66,10 @@ class VectorService:
             print(f"文档向量化失败: {e}")
             raise
 
-    async def delete_document_from_vector_store(self, doc_id: int):
+    async def delete_document_from_vector_store(self, doc_id: int, library_type: str = "breakdown"):
         """从向量库删除文档。"""
         try:
-            await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id)
+            await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id, _normalize_library_type(library_type))
             print(f"文档 {doc_id} 已从向量库删除")
         except Exception as e:
             print(f"从向量库删除文档失败: {e}")
@@ -246,7 +253,7 @@ class VectorService:
 
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
 
-            grouped: Dict[int, Dict[str, Any]] = {}
+            grouped: Dict[str, Dict[str, Any]] = {}
             for item in all_results:
                 score = float(item.get("score", 0.0))
                 if score < self.similarity_low_limit:
@@ -256,9 +263,12 @@ class VectorService:
                     continue
 
                 doc_id = int(doc_id)
-                if doc_id not in grouped:
-                    grouped[doc_id] = {
+                library_type = _normalize_library_type(item.get("library_type", "breakdown"))
+                group_key = f"{library_type}:{doc_id}"
+                if group_key not in grouped:
+                    grouped[group_key] = {
                         "doc_id": doc_id,
+                        "library_type": library_type,
                         "title": item.get("title", ""),
                         "content": item.get("content", ""),
                         "image_url": item.get("image_url", ""),
@@ -266,7 +276,7 @@ class VectorService:
                         "chunks": [item],
                     }
                 else:
-                    grouped[doc_id]["chunks"].append(item)
+                    grouped[group_key]["chunks"].append(item)
 
             docs = []
             for doc in grouped.values():
@@ -291,15 +301,16 @@ class VectorService:
         """批量向量化现有文档。"""
         try:
             batch_size = self.batch_size if batch_size < 1 else batch_size
-            result = await self.db.execute(
-                select(Document).where(Document.is_vectorized == 0).limit(batch_size)
-            )
-            documents = result.scalars().all()
-
-            for doc in documents:
-                await self.add_document_to_vector_store(doc)
-
-            return len(documents)
+            total = 0
+            for document_model in DOCUMENT_LIBRARY_MODELS.values():
+                result = await self.db.execute(
+                    select(document_model).where(document_model.is_vectorized == 0).limit(batch_size)
+                )
+                documents = result.scalars().all()
+                for doc in documents:
+                    await self.add_document_to_vector_store(doc)
+                total += len(documents)
+            return total
         except Exception as e:
             print(f"批量向量化失败: {e}")
             return 0

@@ -26,6 +26,8 @@ from visual_bge.visual_bge.modeling import Visualized_BGE
 """
 
 class VectorStoreMultimodal:
+    KNOWLEDGE_DOC_ID_OFFSET = 1000000000
+
     def __init__(self):
         # 检测可用设备
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -67,6 +69,22 @@ class VectorStoreMultimodal:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = 2000
+
+    def _normalize_library_type(self, library_type: str) -> str:
+        """统一库类型，保证向量库 metadata 中只出现 breakdown/knowledge 两种值。"""
+        return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+    def _get_document_library_type(self, document: Document) -> str:
+        """从 ORM 对象取库类型，默认兼容旧文档为故障库。"""
+        return self._normalize_library_type(getattr(document, "library_type", "breakdown"))
+
+    def _encode_doc_id(self, doc_id: int, library_type: str) -> int:
+        """给知识库文档 id 加偏移，避免两张表自增 id 在 Milvus 中冲突。"""
+        return int(doc_id) + self.KNOWLEDGE_DOC_ID_OFFSET if self._normalize_library_type(library_type) == "knowledge" else int(doc_id)
+
+    def _decode_doc_id(self, encoded_doc_id: int, library_type: str) -> int:
+        """把 Milvus 内部 id 还原为数据库表中的真实 id。"""
+        return int(encoded_doc_id) - self.KNOWLEDGE_DOC_ID_OFFSET if self._normalize_library_type(library_type) == "knowledge" else int(encoded_doc_id)
 
     def get_config(self):
         IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
@@ -217,6 +235,8 @@ class VectorStoreMultimodal:
 
     def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1) -> List[Dict]:
         chunks = []
+        library_type = self._get_document_library_type(document)
+        vector_doc_id = self._encode_doc_id(document.id, library_type)
         sections = [
             ("title", "problem_intro", "标题", "问题简介"),
             ("causes", "原因"),
@@ -247,12 +267,14 @@ class VectorStoreMultimodal:
                         print(content)
                         print("=====================")
                         chunk = {
-                            "doc_id": document.id,
+                            "doc_id": vector_doc_id,
                             "title": document.title,
                             "content": content,
                             "image_url": url,
                             "metadata": json.dumps({
                                 "contributor_id": document.contributor_id,
+                                "source_doc_id": document.id,
+                                "library_type": library_type,
                                 "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                                 "chunk_index": len(chunks),
                                 "chunk_size": len(content)
@@ -277,12 +299,14 @@ class VectorStoreMultimodal:
                 # 如果没有图片
                 if flag == 0:
                     chunks.append({
-                        "doc_id": document.id,
+                        "doc_id": vector_doc_id,
                         "title": document.title,
                         "content": content_origin,
                         "image_url": "",
                         "metadata": json.dumps({
                             "contributor_id": document.contributor_id,
+                            "source_doc_id": document.id,
+                            "library_type": library_type,
                             "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                             "chunk_index": len(chunks),
                             "chunk_size": len(content_origin)
@@ -306,12 +330,14 @@ class VectorStoreMultimodal:
                     print(content)
                     print("=======================")
                     chunks.append({
-                        "doc_id": document.id,
+                        "doc_id": vector_doc_id,
                         "title": document.title,
                         "content": content,
                         "image_url": url,
                         "metadata": json.dumps({
                             "contributor_id": document.contributor_id,
+                            "source_doc_id": document.id,
+                            "library_type": library_type,
                             "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                             "chunk_index": len(chunks),
                             "chunk_size": len(content)
@@ -334,12 +360,14 @@ class VectorStoreMultimodal:
             # 没图片但是有文本
             if flag == 0 and len(getattr(document, section[0])) > 0:
                 chunks.append({
-                    "doc_id": document.id,
+                    "doc_id": vector_doc_id,
                     "title": document.title,
                     "content": content_origin,
                     "image_url": "",
                     "metadata": json.dumps({
                         "contributor_id": document.contributor_id,
+                        "source_doc_id": document.id,
+                        "library_type": library_type,
                         "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                         "chunk_index": len(chunks),
                         "chunk_size": len(content_origin)
@@ -418,6 +446,8 @@ class VectorStoreMultimodal:
 
     def add_document(self, document: Document):
         """添加文档到向量数据库"""
+        library_type = self._get_document_library_type(document)
+        vector_doc_id = self._encode_doc_id(document.id, library_type)
 
         try:
             self.load_collection()
@@ -434,12 +464,14 @@ class VectorStoreMultimodal:
         if main_chunk is not None:
             content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
             chunks.append({
-                "doc_id": document.id,
+                "doc_id": vector_doc_id,
                 "title": document.title,
                 "content": content,
                 "image_url": "",
                 "metadata": json.dumps({
                     "contributor_id": document.contributor_id,
+                    "source_doc_id": document.id,
+                    "library_type": library_type,
                     "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                     "chunk_index": len(chunks),
                     "chunk_size": len(content)
@@ -516,12 +548,15 @@ class VectorStoreMultimodal:
         retrieved_docs = []
         for hits in results:
             for hit in hits:
+                metadata = json.loads(hit.entity.get("metadata"))
+                library_type = self._normalize_library_type(metadata.get("library_type", "breakdown"))
                 retrieved_docs.append({
-                    "doc_id": hit.entity.get("doc_id"),
+                    "doc_id": metadata.get("source_doc_id", self._decode_doc_id(hit.entity.get("doc_id"), library_type)),
+                    "library_type": library_type,
                     "title": hit.entity.get("title"),
                     "content": hit.entity.get("content"),
                     "image_url": hit.entity.get("image_url"),
-                    "metadata": json.loads(hit.entity.get("metadata")),
+                    "metadata": metadata,
                     "score": hit.score
                 })
 
@@ -563,13 +598,14 @@ class VectorStoreMultimodal:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
             return image_base64
 
-    def delete_document(self, doc_id: int):
+    def delete_document(self, doc_id: int, library_type: str = "breakdown"):
         """从向量库中删除文档"""
         try:
             self.load_collection()
         except:
             pass  # 如果加载失败，继续执行，可能在插入时会有问题
-        self.collection.delete(f'doc_id == {doc_id}')
+        vector_doc_id = self._encode_doc_id(doc_id, library_type)
+        self.collection.delete(f'doc_id == {vector_doc_id}')
         self.collection.flush()
         print(f"Deleted document {doc_id} from vector store")
 

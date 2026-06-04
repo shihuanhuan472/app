@@ -8,7 +8,7 @@ from qwen_token_counter import get_token_count
 # from sqlalchemy import desc, and_, asc, func
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
-from models import User, Message, Document
+from models import User, Message, Document, DocumentBreakdown, DocumentKnowledge
 from schemas import ResultNew, ConversationCreateNew, ConversationDeleteRequest, MessageCreateNew
 from utils.VectorService import VectorService
 from PIL import Image
@@ -27,6 +27,18 @@ from utils.error_codes import BizCode
 from utils.ai_endpoint import get_ai_base_url
 
 router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """统一向量检索返回的库类型，确保旧对话接口也能回查正确表。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    """根据库类型选择旧对话接口读取的文档表。"""
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
 
 @router.post("/{chat_id}/session", summary="创建聊天助手对话")
 async def create_session(chat_id: str,
@@ -406,18 +418,27 @@ async def get_reference_documents(db, question: str, image: str = None):
     vector_service = VectorService(db)
     # vector_service.batch_vectorize_existing_documents()
     documents = await vector_service.search_similar_documents(question, image)
-    candidate_ids = [int(document["doc_id"]) for document in documents if document.get("doc_id") is not None]
-    if not candidate_ids:
+    normalized_docs = [
+        {"doc_id": int(document["doc_id"]), "library_type": _normalize_library_type(document.get("library_type", "breakdown"))}
+        for document in documents
+        if document.get("doc_id") is not None
+    ]
+    if not normalized_docs:
         return []
 
-    active_result = await db.execute(
-        select(Document.id).where(
-            Document.id.in_(candidate_ids),
-            Document.is_deleted == 0,
+    active_refs = set()
+    for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
+        candidate_ids = [doc["doc_id"] for doc in normalized_docs if doc["library_type"] == library_type]
+        if not candidate_ids:
+            continue
+        active_result = await db.execute(
+            select(document_model.id).where(
+                document_model.id.in_(candidate_ids),
+                document_model.is_deleted == 0,
+            )
         )
-    )
-    active_ids = {row.id for row in active_result.all()}
-    document_ids = [doc_id for doc_id in candidate_ids if doc_id in active_ids]
+        active_refs.update({f"{library_type}:{row.id}" for row in active_result.all()})
+    document_ids = [f"{doc['library_type']}:{doc['doc_id']}" for doc in normalized_docs if f"{doc['library_type']}:{doc['doc_id']}" in active_refs]
 
     return document_ids
 
@@ -430,13 +451,23 @@ async def get_prompt(db, document_ids, max_tokens):
     tokens = 0
     prompts = []
 
-    result = await db.execute(
-        select(Document).where(
-            Document.id.in_(document_ids),
-            Document.is_deleted == 0,
+    document_refs = []
+    for value in document_ids:
+        library_type, _, raw_doc_id = str(value).partition(":")
+        document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type)))
+
+    documents = []
+    for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
+        ids = [doc_id for ref_library_type, doc_id in document_refs if ref_library_type == library_type]
+        if not ids:
+            continue
+        result = await db.execute(
+            select(document_model).where(
+                document_model.id.in_(ids),
+                document_model.is_deleted == 0,
+            )
         )
-    )
-    documents = result.scalars().all()
+        documents.extend(result.scalars().all())
 
     for i, document in enumerate(documents):
         # document = db.query(Document).filter(Document.id == document_id).scalar()
@@ -491,20 +522,29 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
 
     if doc_ids and len(doc_ids) > 0:
         doc_aggs = []
+        doc_refs = []
+        for value in doc_ids:
+            library_type, _, raw_doc_id = str(value).partition(":")
+            doc_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type), str(value)))
 
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(Document.id, Document.title).where(
-                    Document.id.in_(doc_ids),
-                    Document.is_deleted == 0,
+            doc_map = {}
+            for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
+                ids = [doc_id for ref_library_type, doc_id, _ in doc_refs if ref_library_type == library_type]
+                if not ids:
+                    continue
+                result = await db.execute(
+                    select(document_model.id, document_model.title).where(
+                        document_model.id.in_(ids),
+                        document_model.is_deleted == 0,
+                    )
                 )
-            )
-            doc_map = {row.id: row.title for row in result.all()}
-            for doc_id in doc_ids:
-                doc_title = doc_map.get(doc_id)
+                doc_map.update({(library_type, row.id): row.title for row in result.all()})
+            for library_type, doc_id, raw_ref in doc_refs:
+                doc_title = doc_map.get((library_type, doc_id))
                 if doc_title is None:
                     continue
-                doc_aggs.append({"doc_id": doc_id, "doc_name": doc_title})
+                doc_aggs.append({"doc_id": raw_ref, "doc_name": doc_title, "library_type": library_type})
             data["reference"] = {
                 "total": len(doc_aggs),
                 "doc_aggs": doc_aggs

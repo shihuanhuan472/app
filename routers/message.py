@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, and_, select, desc
 from typing import List, Dict, Any
 from schemas import Result
-from models import Message, User, Conversation, Document
+from models import Message, User, Conversation, Document, DocumentBreakdown, DocumentKnowledge
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
 from dependencies import get_current_active_user
@@ -30,6 +30,18 @@ from utils.VectorService import VectorService
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """统一向量检索返回的库类型，确保回查正确的文档表。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    """根据库类型选择消息提示词要读取的文档表。"""
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
 
 def image_to_base64(image: str, dir: str = None):
     """将图片读取并编码为 base64 字符串。"""
@@ -450,8 +462,10 @@ async def get_reference_documents(db, question: str, image: str = None):
         if doc_id is None:
             continue
         score = float(doc.get("score", 0.0))
+        library_type = _normalize_library_type(doc.get("library_type", "breakdown"))
         normalized_docs.append({
             "doc_id": int(doc_id),
+            "library_type": library_type,
             "title": doc.get("title", ""),
             "score": round(score, 6)
         })
@@ -459,31 +473,37 @@ async def get_reference_documents(db, question: str, image: str = None):
     if not normalized_docs:
         return []
 
-    candidate_ids = [doc["doc_id"] for doc in normalized_docs]
-    active_docs_result = await db.execute(
-        select(Document.id, Document.title).where(
-            Document.id.in_(candidate_ids),
-            Document.is_deleted == 0,
+    active_map = {}
+    for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
+        candidate_ids = [doc["doc_id"] for doc in normalized_docs if doc["library_type"] == library_type]
+        if not candidate_ids:
+            continue
+        active_docs_result = await db.execute(
+            select(document_model.id, document_model.title).where(
+                document_model.id.in_(candidate_ids),
+                document_model.is_deleted == 0,
+            )
         )
-    )
-    active_map = {row.id: row.title for row in active_docs_result.all()}
+        active_map.update({(library_type, row.id): row.title for row in active_docs_result.all()})
 
     filtered_docs = []
     for doc in normalized_docs:
         doc_id = int(doc["doc_id"])
-        if doc_id not in active_map:
+        library_type = _normalize_library_type(doc.get("library_type", "breakdown"))
+        if (library_type, doc_id) not in active_map:
             continue
         filtered_docs.append({
             "doc_id": doc_id,
-            "title": active_map.get(doc_id) or doc.get("title", ""),
+            "library_type": library_type,
+            "title": active_map.get((library_type, doc_id)) or doc.get("title", ""),
             "score": doc.get("score", 0.0),
         })
     return filtered_docs
 
 
-def get_ai_reference_document_ids(reference_docs: List[Dict[str, Any]]) -> List[int]:
+def get_ai_reference_document_ids(reference_docs: List[Dict[str, Any]]) -> List[str]:
     """从参考文档中提取文档 id 列表（用于拼接提示词）。"""
-    return [int(doc["doc_id"]) for doc in reference_docs if doc.get("doc_id") is not None]
+    return [f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc['doc_id'])}" for doc in reference_docs if doc.get("doc_id") is not None]
 
 async def get_prompt(db, document_ids, max_tokens):
     """根据检索文档组装提示词，并受 token 上限约束。"""
@@ -492,13 +512,23 @@ async def get_prompt(db, document_ids, max_tokens):
     tokens = 0
     prompts = []
 
-    result = await db.execute(
-        select(Document).where(
-            Document.id.in_(document_ids),
-            Document.is_deleted == 0,
+    document_refs = []
+    for value in document_ids:
+        library_type, _, raw_doc_id = str(value).partition(":")
+        document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type)))
+
+    documents = []
+    for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
+        ids = [doc_id for ref_library_type, doc_id in document_refs if ref_library_type == library_type]
+        if not ids:
+            continue
+        result = await db.execute(
+            select(document_model).where(
+                document_model.id.in_(ids),
+                document_model.is_deleted == 0,
+            )
         )
-    )
-    documents = result.scalars().all()
+        documents.extend(result.scalars().all())
 
     for i, document in enumerate(documents):
         if not document:

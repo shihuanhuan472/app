@@ -13,7 +13,7 @@ from sqlalchemy import or_
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
-from models import Document, Document_review, User
+from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, User
 from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
                      DocumentQuery, UploadDocumentResponse, AnalyzeRequest)
 from database import get_db
@@ -35,6 +35,48 @@ from sqlalchemy import or_, select, func, delete
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """把前端传入的库类型收敛为两个固定值，避免出现拼写不同导致写错表。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    """根据库类型选择对应 ORM 模型，使同一套接口可以读写故障库或知识库。"""
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _normalize_tags(tag):
+    """把标签统一为去空白的字符串数组，便于用 MySQL JSON 字段保存。"""
+    if not tag:
+        return []
+    return [str(item).strip() for item in tag if str(item).strip()]
+
+
+def _tag_filter(model, tags):
+    """按标签做包含任一标签的过滤，用于设备语义标签的交叉检索。"""
+    normalized_tags = _normalize_tags(tags)
+    if not normalized_tags:
+        return None
+    return or_(*[func.JSON_CONTAINS(model.tag, json.dumps(tag, ensure_ascii=False)) == 1 for tag in normalized_tags])
+
+
+DOCUMENT_COPY_FIELDS = [
+    "title", "contributor_id", "first_edit_date", "problem_intro", "image_urls", "image_urls_problem_intro",
+    "causes", "image_urls_causes", "evaluation", "image_urls_evaluation", "inspection", "image_urls_inspection",
+    "solutions", "image_urls_solutions", "key_points", "image_urls_key_points", "origin_file_name", "origin_file_dir",
+]
+
+
+def _copy_document_to_library(document: Document, library_type: str, tag=None):
+    """把解析器产出的文档对象转换成目标库表对象，避免知识库导入时仍写入故障库表。"""
+    document_model = _get_document_model(library_type)
+    copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
+    copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
+    return document_model(**copied_data)
 
 # 目前支持的文档类型
 ALLOWED_EXTENSIONS = {
@@ -97,6 +139,7 @@ def _is_ai_result_effectively_empty(document: Document) -> bool:
 def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
     return Document_review(
         document_id=None,
+        document_library_type=getattr(document, "library_type", "breakdown"),
         title=document.title,
         contributor_id=contributor_id,
         reviewer_id=None,
@@ -112,6 +155,7 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
         key_points=document.key_points,
         origin_file_name=document.origin_file_name,
         origin_file_dir=document.origin_file_dir,
+        tag=_normalize_tags(getattr(document, "tag", [])),
         image_urls_problem_intro=document.image_urls_problem_intro,
         image_urls_causes=document.image_urls_causes,
         image_urls_evaluation=document.image_urls_evaluation,
@@ -140,6 +184,8 @@ def document_convert_documentResponse(document: Document, contributor_name: str)
     """
     return DocumentResponse(
         id=document.id,
+        library_type=getattr(document, "library_type", "breakdown"),
+        tag=_normalize_tags(getattr(document, "tag", [])),
         title=document.title,
         contributor_id=document.contributor_id,
         contributor_name=contributor_name,
@@ -285,11 +331,13 @@ async def create_document(document: DocumentCreate,
                 value = value.replace("\\", "/").replace(", /", ", ").removeprefix("/").removesuffix(", ")
             setattr(document, attr, value)
 
-        document_data = Document(**document.dict(),
-                                 contributor_id=contributor_id,
-                                 is_vectorized=0,
-                                 is_deleted=0,
-                                 first_edit_date=datetime.now())
+        document_model = _get_document_model(document.library_type)
+        document_data = document_model(**document.dict(exclude={"library_type", "tag"}),
+                                       tag=_normalize_tags(document.tag),
+                                       contributor_id=contributor_id,
+                                       is_vectorized=0,
+                                       is_deleted=0,
+                                       first_edit_date=datetime.now())
         db.add(document_data)
         await db.commit()
         await db.refresh(document_data)
@@ -399,6 +447,7 @@ async def delete_image(request: DeleteImageRequest = Body(...),
 @router.put("/update", summary="更新文档")
 async def update_document(id: int,
                           document: DocumentCreate,
+                          library_type: str = "breakdown",
                           db: AsyncSession = Depends(get_db),
                           current_user: User = Depends(get_current_active_user)):
     try:
@@ -406,11 +455,12 @@ async def update_document(id: int,
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
         # document_now = db.query(Document).filter(Document.id == id).first()
 
+        document_model = _get_document_model(library_type or document.library_type)
         result = await db.execute(
-            select(Document)
+            select(document_model)
             .where(
-                Document.id == id,
-                Document.is_deleted == 0,
+                document_model.id == id,
+                document_model.is_deleted == 0,
             )
             .with_for_update()
         )
@@ -465,11 +515,13 @@ async def update_document(id: int,
         #
         #         image_urls_str += url_check_str + ", "
 
-        document_data = document.dict(exclude_unset=True)
+        document_data = document.dict(exclude_unset=True, exclude={"library_type"})
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
                 continue
+            if key == "tag":
+                value = _normalize_tags(value)
             setattr(document_now, key, value)
 
         if len(image_urls_str) > 0:
@@ -481,7 +533,7 @@ async def update_document(id: int,
 
         # 更新文档内容的时候，向量需要重新生成
         vector_service = VectorService(db)
-        await vector_service.delete_document_from_vector_store(id)
+        await vector_service.delete_document_from_vector_store(id, getattr(document_now, "library_type", "breakdown"))
 
         await db.commit()
         await db.refresh(document_now)
@@ -504,16 +556,18 @@ async def update_document(id: int,
 
 @router.delete("/dele/{id}", summary="删除文档")
 async def delete(id: int,
+                 library_type: str = "breakdown",
                  db: AsyncSession = Depends(get_db),
                  current_user: User = Depends(get_current_active_user)):
     try:
         # document = db.query(Document).filter(Document.id == id).first()
 
+        document_model = _get_document_model(library_type)
         result = await db.execute(
-            select(Document)
+            select(document_model)
             .where(
-                Document.id == id,
-                Document.is_deleted == 0,
+                document_model.id == id,
+                document_model.is_deleted == 0,
             )
             .with_for_update()
         )
@@ -583,7 +637,10 @@ async def delete(id: int,
 
         # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
         review_refs_result = await db.execute(
-            select(Document_review).where(Document_review.document_id == id)
+            select(Document_review).where(
+                Document_review.document_id == id,
+                Document_review.document_library_type == getattr(document, "library_type", "breakdown"),
+            )
         )
         review_refs = review_refs_result.scalars().all()
         for review_ref in review_refs:
@@ -602,7 +659,7 @@ async def delete(id: int,
         # 删掉向量
         vector_service = VectorService(db)
         # vector_service.delete_document_from_vector_store(id)
-        await vector_service.delete_document_from_vector_store(id)
+        await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))
 
         print("成功删除文档")
         document.is_deleted = 1
@@ -618,8 +675,10 @@ async def delete(id: int,
 
 @router.get("/", summary="获取所有文档")
 async def get_documents(current_user: User = Depends(get_current_active_user),
-                        db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document).where(Document.is_deleted == 0))
+                        db: AsyncSession = Depends(get_db),
+                        library_type: str = "breakdown"):
+    document_model = _get_document_model(library_type)
+    result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
     documents = result.scalars().all()
 
     # documents = db.query(Document)
@@ -629,13 +688,15 @@ async def get_documents(current_user: User = Depends(get_current_active_user),
 
 @router.get("/get_by_id/{id}", summary="根据id获得文档内容")
 async def get_document(id: int,
+                       library_type: str = "breakdown",
                        db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     try:
+        document_model = _get_document_model(library_type)
         result = await db.execute(
-            select(Document).where(
-                Document.id == id,
-                Document.is_deleted == 0,
+            select(document_model).where(
+                document_model.id == id,
+                document_model.is_deleted == 0,
             )
         )
         document = result.scalar_one_or_none()
@@ -660,16 +721,22 @@ async def get_page(page: Page,
     logger.info("分页查询文档内容")
     try:
         offset = (page.page - 1) * page.size
+        document_model = _get_document_model(page.library_type)
+        tag_condition = _tag_filter(document_model, page.tag)
         # total_count = db.query(Document).count()
 
+        where_conditions = [document_model.is_deleted == 0]
+        if tag_condition is not None:
+            where_conditions.append(tag_condition)
+
         total_count_result = await db.execute(
-            select(func.count()).select_from(Document).where(Document.is_deleted == 0)
+            select(func.count()).select_from(document_model).where(*where_conditions)
         )
         total_count = total_count_result.scalar_one()
 
         result = await db.execute(
-            select(Document)
-            .where(Document.is_deleted == 0)
+            select(document_model)
+            .where(*where_conditions)
             .offset(offset)
             .limit(page.size)
         )
@@ -695,22 +762,24 @@ async def query(query: DocumentQuery,
     try:
         # 根据文档的标题或问题简介，作者姓名或用户名查询
         offset = (query.page - 1) * query.size
+        document_model = _get_document_model(query.library_type)
+        tag_condition = _tag_filter(document_model, query.tag)
 
         filter_condition = or_(
-            Document.title.like(f"%{query.data}%"),
+            document_model.title.like(f"%{query.data}%"),
             User.full_name.like(f"%{query.data}%"),
             User.username.like(f"%{query.data}%"),
-            Document.problem_intro.like(f"%{query.data}%")
+            document_model.problem_intro.like(f"%{query.data}%")
         )
+        where_conditions = [document_model.is_deleted == 0, filter_condition]
+        if tag_condition is not None:
+            where_conditions.append(tag_condition)
 
         total_count_result = await db.execute(
             select(func.count())
-            .select_from(Document)
-            .join(User, Document.contributor_id == User.id)
-            .where(
-                Document.is_deleted == 0,
-                filter_condition,
-            )
+            .select_from(document_model)
+            .join(User, document_model.contributor_id == User.id)
+            .where(*where_conditions)
         )
         total_count = total_count_result.scalar_one()
 
@@ -740,12 +809,9 @@ async def query(query: DocumentQuery,
         # ).offset(offset).limit(query.size).all()
 
         result = await db.execute(
-            select(Document).join(User, Document.contributor_id == User.id)
-            .where(
-                Document.is_deleted == 0,
-                filter_condition,
-            )
-            .order_by(Document.first_edit_date.desc())
+            select(document_model).join(User, document_model.contributor_id == User.id)
+            .where(*where_conditions)
+            .order_by(document_model.first_edit_date.desc())
             .offset(offset)
             .limit(query.size)
         )
@@ -977,6 +1043,8 @@ async def analyze_files(file_list: AnalyzeRequest,
             document.origin_file_name = file_name
             document.origin_file_dir = file
             document.first_edit_date = datetime.now()
+            document.tag = _normalize_tags(file_list.tag)
+            document.library_type = _normalize_library_type(file_list.library_type)
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
@@ -985,6 +1053,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.commit()
                 await db.refresh(review)
             else:
+                document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
                 db.add(document)
                 await db.commit()
                 await db.refresh(document)

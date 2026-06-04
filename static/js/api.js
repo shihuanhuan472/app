@@ -792,14 +792,16 @@ const documentAPI = {
     },
 
     // 解析文件
-    async analyzeFiles(fileList, fileNames, submitForReview = false) {
+    async analyzeFiles(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
         try {
             const response = await this.client.post(
                 `${API_CONFIG.ENDPOINTS.DOCUMENTS}/analyze_files`,
                 {
                     file_list: fileList,
                     file_name: fileNames,
-                    submit_for_review: submitForReview
+                    submit_for_review: submitForReview,
+                    library_type: libraryType,
+                    tag: tag
                 },
                 true
             );
