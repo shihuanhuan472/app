@@ -273,6 +273,17 @@
 
             <!-- 步骤2：文件解析 -->
             <div id="step2-content" style="display: none;">
+                <div class="action-bar" style="justify-content: flex-start; gap: 16px; align-items: flex-end;">
+                    <label>文档库
+                        <select id="libraryType" class="form-control">
+                            <option value="breakdown">故障库</option>
+                            <option value="knowledge">知识库</option>
+                        </select>
+                    </label>
+                    <label>标签
+                        <input type="text" id="documentTags" class="form-control" placeholder="机械, 电气">
+                    </label>
+                </div>
                 <h4>已上传的文件（可勾选需要解析的）</h4>
                 <div class="file-list" id="uploadedFilesList"></div>
                 <div class="action-bar">
@@ -338,6 +349,12 @@
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function parseDocumentTags() {
+        const rawTags = document.getElementById('documentTags').value.trim();
+        if (!rawTags) return [];
+        return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
     }
 
     // 初始化
@@ -631,7 +648,7 @@
             analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
 
             try {
-                const result = await documentAPI.analyzeFiles(fileList, fileNames, isReviewMode);
+                const result = await documentAPI.analyzeFiles(fileList, fileNames, isReviewMode, document.getElementById('libraryType').value, parseDocumentTags());
                 const successNames = result.success_origin_filename || [];
                 const errorNames = result.error_origin_filename || [];
 

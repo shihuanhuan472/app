@@ -480,6 +480,19 @@
                             <input type="text" id="title" class="form-control" placeholder="请输入文档标题，例如：XXX停转维修" maxlength="50">
                             <div class="character-count" id="titleCount">0/50</div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="libraryType">文档库</label>
+                                <select id="libraryType" class="form-control">
+                                    <option value="breakdown">故障库</option>
+                                    <option value="knowledge">知识库</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="documentTags">标签</label>
+                                <input type="text" id="documentTags" class="form-control" placeholder="多个标签用逗号分隔，例如：机械, 电气">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 问题描述 -->
@@ -1281,6 +1294,12 @@
         }
 
         // 提交文档
+        function parseDocumentTags() {
+            const rawTags = document.getElementById('documentTags').value.trim();
+            if (!rawTags) return [];
+            return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+        }
+
         async function submitDocument() {
             if (isSubmitting) return;
             if (!validateForm()) {
@@ -1307,6 +1326,9 @@
 
                 // 2. 准备文档数据，每个字段对应后端要求的字段名
                 const documentData = {
+                    library_type: document.getElementById('libraryType').value,
+                    document_library_type: document.getElementById('libraryType').value,
+                    tag: parseDocumentTags(),
                     title: document.getElementById('title').value.trim(),
                     problem_intro: document.getElementById('problemIntro').value.trim(),
                     causes: document.getElementById('causes').value.trim(),

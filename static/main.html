@@ -271,6 +271,7 @@
                             content: doc.problem_intro || '',
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
+                            libraryType: doc.library_type || 'breakdown',
                             fullData: doc
                         };
                     });
@@ -346,6 +347,7 @@
                             content: doc.problem_intro || '',
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
+                            libraryType: doc.library_type || 'breakdown',
                             fullData: doc
                         };
                     });
@@ -365,6 +367,16 @@
             } finally {
                 hideLoading();
             }
+        }
+
+        // 将后端库类型转换为页面显示文案，避免列表只显示标题时无法区分故障库和知识库。
+        function getLibraryLabel(libraryType) {
+            return libraryType === 'knowledge' ? '知识库' : '故障库';
+        }
+
+        // 将后端库类型转换为样式类名，保证不同库类型可以用不同徽标颜色区分。
+        function getLibraryBadgeClass(libraryType) {
+            return libraryType === 'knowledge' ? 'knowledge' : 'breakdown';
         }
 
         // 显示文档列表（现在同时用于普通列表和搜索结果）
@@ -401,10 +413,20 @@
                     content = content.substring(0, 100) + '...';
                 }
 
+                // 优先使用列表转换出来的库类型，兼容旧数据没有 library_type 时默认按故障库处理。
+                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+                // 提前生成徽标文案，让卡片标题旁直接显示“故障库/知识库”。
+                const libraryLabel = getLibraryLabel(libraryType);
+                // 提前生成徽标样式类，让故障库和知识库显示不同颜色。
+                const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+
                 html += `
-                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=knowledge'">
+                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=${libraryType}'">
                         <div class="document-item-header">
-                            <div class="document-item-title">${doc.title}</div>
+                            <div class="document-item-title-row">
+                                <div class="document-item-title">${doc.title}</div>
+                                <span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span>
+                            </div>
                         </div>
 
                         <div class="document-item-content">

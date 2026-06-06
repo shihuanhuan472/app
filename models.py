@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -21,9 +21,8 @@ class User(Base):
     last_login = Column(DateTime)
 
 
-class Document(Base):
-    __tablename__ = "documents"
-
+class DocumentFieldsMixin:
+    """复用文档字段，保证故障库和知识库的表结构保持一致。"""
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"))
@@ -46,15 +45,34 @@ class Document(Base):
     vector_update_time = Column(DateTime, nullable=True)
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
+    tag = Column(JSON, default=list)
+
+
+class DocumentBreakdown(DocumentFieldsMixin, Base):
+    __tablename__ = "document_breakdown"
+
+    library_type = "breakdown"
 
     contributor = relationship("User")
+
+
+class DocumentKnowledge(DocumentFieldsMixin, Base):
+    __tablename__ = "document_knowledge"
+
+    library_type = "knowledge"
+
+    contributor = relationship("User")
+
+
+Document = DocumentBreakdown
 
 
 class Document_review(Base):
     __tablename__ = "document_reviews"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True, index=True)
+    document_id = Column(Integer, nullable=True, index=True)
+    document_library_type = Column(String(32), default="breakdown", nullable=False)
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"), index=True)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -76,13 +94,13 @@ class Document_review(Base):
     image_urls_key_points = Column(Text)
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
+    tag = Column(JSON, default=list)
     action_type = Column(Integer, nullable=False)  # 1-create, 2-update, 3-delete
     review_comment = Column(Text)
 
     # Explicit foreign keys are required because both contributor_id and reviewer_id reference users.id
     contributor = relationship("User", foreign_keys=[contributor_id])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
-    document = relationship("Document", foreign_keys=[document_id])
 
 
 class Conversation(Base):

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Document, Document_review, User
+from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, User
 from schemas import DocumentReviewRequest, DocumentReviewResponse, Result
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
@@ -17,6 +17,25 @@ from utils.roles import UserRole, has_role
 from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/review", tags=["document-review"])
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """把审核请求里的目标库类型固定为故障库或知识库，避免审核通过时写错表。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    """按审核记录里的库类型选择实际文档表模型。"""
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _normalize_tags(tag):
+    """把标签保存为干净的字符串数组，方便 JSON 字段检索。"""
+    if not tag:
+        return []
+    return [str(item).strip() for item in tag if str(item).strip()]
 
 IMAGE_FIELDS = [
     "image_urls",
@@ -39,6 +58,7 @@ REVIEW_COPY_FIELDS = [
     "key_points",
     "origin_file_name",
     "origin_file_dir",
+    "tag",
     "image_urls_problem_intro",
     "image_urls_causes",
     "image_urls_evaluation",
@@ -116,6 +136,8 @@ def _review_to_response(
     return DocumentReviewResponse(
         id=review.id,
         document_id=review.document_id,
+        library_type=review.document_library_type,
+        tag=_normalize_tags(review.tag),
         title=review.title,
         contributor_id=review.contributor_id,
         contributor_name=contributor_name,
@@ -204,13 +226,15 @@ async def create_review(
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "action_type 无效")
 
     target_document = None
+    document_library_type = _normalize_library_type(request.document_library_type)
+    document_model = _get_document_model(document_library_type)
     if request.action_type in (2, 3):
         if not request.document_id:
             raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "document_id 不能为空")
         doc_result = await db.execute(
-            select(Document).where(
-                Document.id == request.document_id,
-                Document.is_deleted == 0,
+            select(document_model).where(
+                document_model.id == request.document_id,
+                document_model.is_deleted == 0,
             )
         )
         target_document = doc_result.scalar_one_or_none()
@@ -227,11 +251,13 @@ async def create_review(
 
     await _validate_review_images(request)
 
-    review_kwargs = {"contributor_id": current_user.id, "first_edit_date": datetime.now(), "status": 0}
+    review_kwargs = {"contributor_id": current_user.id, "first_edit_date": datetime.now(), "status": 0, "document_library_type": document_library_type}
     for field in REVIEW_COPY_FIELDS:
         value = getattr(request, field, None)
         if value is None and target_document is not None:
             value = getattr(target_document, field, None)
+        if field == "tag":
+            value = _normalize_tags(value)
         review_kwargs[field] = _normalize_path_value(value) if isinstance(value, str) else value
 
     # Upsert pending review for update/delete requests to avoid duplicate pending records
@@ -242,6 +268,7 @@ async def create_review(
                 Document_review.status == 0,
                 Document_review.action_type == request.action_type,
                 Document_review.document_id == request.document_id,
+                Document_review.document_library_type == document_library_type,
                 Document_review.contributor_id == current_user.id,
             )
             .with_for_update()
@@ -370,10 +397,11 @@ async def approve_review(
 
     review_comment = _extract_review_comment(payload)
     vector_service = VectorService(db)
+    document_model = _get_document_model(review.document_library_type)
 
     try:
         if review.action_type == 1:
-            new_document = Document(
+            new_document = document_model(
                 title=review.title,
                 contributor_id=review.contributor_id,
                 first_edit_date=review.first_edit_date or datetime.now(),
@@ -392,6 +420,7 @@ async def approve_review(
                 image_urls_inspection=review.image_urls_inspection,
                 image_urls_solutions=review.image_urls_solutions,
                 image_urls_key_points=review.image_urls_key_points,
+                tag=_normalize_tags(review.tag),
                 is_vectorized=0,
             )
             db.add(new_document)
@@ -403,10 +432,10 @@ async def approve_review(
             if not review.document_id:
                 raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "缺少待更新文档ID")
             doc_result = await db.execute(
-                select(Document)
+                select(document_model)
                 .where(
-                    Document.id == review.document_id,
-                    Document.is_deleted == 0,
+                    document_model.id == review.document_id,
+                    document_model.is_deleted == 0,
                 )
                 .with_for_update()
             )
@@ -417,9 +446,9 @@ async def approve_review(
             for field in REVIEW_COPY_FIELDS:
                 if field == "title" and not review.title:
                     continue
-                setattr(document, field, getattr(review, field))
+                setattr(document, field, _normalize_tags(getattr(review, field)) if field == "tag" else getattr(review, field))
             document.is_vectorized = 0
-            await vector_service.delete_document_from_vector_store(document.id)
+            await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
             await vector_service.add_document_to_vector_store(document)
 
         elif review.action_type == 3:
@@ -427,10 +456,10 @@ async def approve_review(
                 raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "缺少待删除文档ID")
             target_document_id = review.document_id
             doc_result = await db.execute(
-                select(Document)
+                select(document_model)
                 .where(
-                    Document.id == target_document_id,
-                    Document.is_deleted == 0,
+                    document_model.id == target_document_id,
+                    document_model.is_deleted == 0,
                 )
                 .with_for_update()
             )
@@ -438,7 +467,7 @@ async def approve_review(
             if not document:
                 raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "待删除文档不存在")
 
-            await vector_service.delete_document_from_vector_store(document.id)
+            await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
             document.is_deleted = 1
         else:
             raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "action_type 无效")

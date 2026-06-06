@@ -65,43 +65,125 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
-async def ensure_document_soft_delete_column():
+async def ensure_document_tables_for_library_split():
     async with engine.begin() as conn:
-        has_column_result = await conn.execute(
+        for table_name in ("document_breakdown", "document_knowledge"):
+            tag_column_result = await conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = :table_name
+                      AND COLUMN_NAME = 'tag'
+                    """
+                ),
+                {"table_name": table_name},
+            )
+            if int(tag_column_result.scalar_one() or 0) == 0:
+                await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN tag JSON NULL"))
+
+            index_result = await conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = :table_name
+                      AND INDEX_NAME = :index_name
+                    """
+                ),
+                {"table_name": table_name, "index_name": f"idx_{table_name}_is_deleted"},
+            )
+            if int(index_result.scalar_one() or 0) == 0:
+                await conn.execute(text(f"CREATE INDEX idx_{table_name}_is_deleted ON {table_name} (is_deleted)"))
+
+
+async def ensure_review_library_columns():
+    async with engine.begin() as conn:
+        fk_result = await conn.execute(
+            text(
+                """
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'document_reviews'
+                  AND COLUMN_NAME = 'document_id'
+                  AND REFERENCED_TABLE_NAME = 'documents'
+                """
+            )
+        )
+        for row in fk_result.all():
+            await conn.execute(text(f"ALTER TABLE document_reviews DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
+
+        library_column_result = await conn.execute(
             text(
                 """
                 SELECT COUNT(*) AS cnt
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'documents'
-                  AND COLUMN_NAME = 'is_deleted'
+                  AND TABLE_NAME = 'document_reviews'
+                  AND COLUMN_NAME = 'document_library_type'
                 """
             )
         )
-        has_column = int(has_column_result.scalar_one() or 0) > 0
-        if not has_column:
-            await conn.execute(
-                text(
-                    "ALTER TABLE documents ADD COLUMN is_deleted TINYINT NOT NULL DEFAULT 0"
-                )
-            )
+        if int(library_column_result.scalar_one() or 0) == 0:
+            await conn.execute(text("ALTER TABLE document_reviews ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
 
-        has_index_result = await conn.execute(
+        tag_column_result = await conn.execute(
             text(
                 """
                 SELECT COUNT(*) AS cnt
-                FROM INFORMATION_SCHEMA.STATISTICS
+                FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'documents'
-                  AND INDEX_NAME = 'idx_documents_is_deleted'
+                  AND TABLE_NAME = 'document_reviews'
+                  AND COLUMN_NAME = 'tag'
                 """
             )
         )
-        has_index = int(has_index_result.scalar_one() or 0) > 0
-        if not has_index:
-            await conn.execute(
-                text("CREATE INDEX idx_documents_is_deleted ON documents (is_deleted)")
+        if int(tag_column_result.scalar_one() or 0) == 0:
+            await conn.execute(text("ALTER TABLE document_reviews ADD COLUMN tag JSON NULL AFTER origin_file_dir"))
+
+
+async def migrate_legacy_documents_to_breakdown():
+    async with engine.begin() as conn:
+        legacy_table_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'documents'
+                """
             )
+        )
+        if int(legacy_table_result.scalar_one() or 0) == 0:
+            return
+
+        breakdown_count_result = await conn.execute(text("SELECT COUNT(*) FROM document_breakdown"))
+        if int(breakdown_count_result.scalar_one() or 0) > 0:
+            return
+
+        await conn.execute(
+            text(
+                """
+                INSERT INTO document_breakdown (
+                    id, title, contributor_id, first_edit_date, problem_intro, image_urls,
+                    image_urls_problem_intro, causes, image_urls_causes, evaluation,
+                    image_urls_evaluation, inspection, image_urls_inspection, solutions,
+                    image_urls_solutions, key_points, image_urls_key_points, is_vectorized,
+                    is_deleted, vector_update_time, origin_file_name, origin_file_dir, tag
+                )
+                SELECT
+                    id, title, contributor_id, first_edit_date, problem_intro, image_urls,
+                    image_urls_problem_intro, causes, image_urls_causes, evaluation,
+                    image_urls_evaluation, inspection, image_urls_inspection, solutions,
+                    image_urls_solutions, key_points, image_urls_key_points, 0,
+                    is_deleted, vector_update_time, origin_file_name, origin_file_dir, JSON_ARRAY()
+                FROM documents
+                """
+            )
+        )
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 class CORSStaticFiles(StaticFiles):
@@ -132,7 +214,9 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
-    await ensure_document_soft_delete_column()
+    await ensure_document_tables_for_library_split()
+    await ensure_review_library_columns()
+    await migrate_legacy_documents_to_breakdown()
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(

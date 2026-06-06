@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
 from dependencies import get_current_active_user
-from models import User, Document, Document_review
+from models import User, Document, DocumentBreakdown, DocumentKnowledge, Document_review
 from schemas import UploadDocumentRequestNew, ResultNew, AnalyzeRequest, UploadDocumentResponse, DeleteDocumentRequestNew
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
@@ -25,6 +25,39 @@ from utils.roles import UserRole, has_role
 from sqlalchemy import or_, select, func, delete
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    """把 dataset_id 或请求体里的库类型统一成固定值，避免批量接口写错文档表。"""
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    """根据库类型选择批量接口要操作的 ORM 模型。"""
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _normalize_tags(tag):
+    """把标签统一成字符串数组，方便存入 JSON 字段。"""
+    if not tag:
+        return []
+    return [str(item).strip() for item in tag if str(item).strip()]
+
+
+DOCUMENT_COPY_FIELDS = [
+    "title", "contributor_id", "first_edit_date", "problem_intro", "image_urls", "image_urls_problem_intro",
+    "causes", "image_urls_causes", "evaluation", "image_urls_evaluation", "inspection", "image_urls_inspection",
+    "solutions", "image_urls_solutions", "key_points", "image_urls_key_points", "origin_file_name", "origin_file_dir",
+]
+
+
+def _copy_document_to_library(document: Document, library_type: str, tag=None):
+    """把解析器返回的默认文档对象复制到目标库表，支持知识库批量导入。"""
+    document_model = _get_document_model(library_type)
+    copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
+    copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
+    return document_model(**copied_data)
 ALLOWED_EXTENSIONS = {
     ".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx", ".txt", ".md", ".markdown",
     ".png", ".jpg", ".jpeg", ".webp", ".bmp",
@@ -56,6 +89,7 @@ def _normalize_document_for_db(document: Document) -> None:
 def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
     return Document_review(
         document_id=None,
+        document_library_type=getattr(document, "library_type", "breakdown"),
         title=document.title,
         contributor_id=contributor_id,
         reviewer_id=None,
@@ -71,6 +105,7 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
         key_points=document.key_points,
         origin_file_name=document.origin_file_name,
         origin_file_dir=document.origin_file_dir,
+        tag=_normalize_tags(getattr(document, "tag", [])),
         image_urls_problem_intro=document.image_urls_problem_intro,
         image_urls_causes=document.image_urls_causes,
         image_urls_evaluation=document.image_urls_evaluation,
@@ -198,6 +233,8 @@ async def analyze_files(file_list: AnalyzeRequest,
             document.origin_file_name = file_name
             document.origin_file_dir = file
             document.first_edit_date = datetime.now()
+            document.tag = _normalize_tags(file_list.tag)
+            document.library_type = _normalize_library_type(file_list.library_type)
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
@@ -206,6 +243,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.commit()
                 await db.refresh(review)
             else:
+                document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
                 db.add(document)
                 await db.commit()
                 await db.refresh(document)
@@ -258,12 +296,13 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                           db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     try:
         error_document_ids = []
+        document_model = _get_document_model(dataset_id)
 
         for id in ids.ids:
             result = await db.execute(
-                select(Document).where(
-                    Document.id == id,
-                    Document.is_deleted == 0,
+                select(document_model).where(
+                    document_model.id == id,
+                    document_model.is_deleted == 0,
                 )
             )
             document = result.scalar_one_or_none()
@@ -311,11 +350,14 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                 print(f"已删除源文件{document.origin_file_dir}")
 
             vector_service = VectorService(db)
-            await vector_service.delete_document_from_vector_store(id)
+            await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))
             print(f"成功删除文档{id}")
 
             review_refs_result = await db.execute(
-                select(Document_review).where(Document_review.document_id == id)
+                select(Document_review).where(
+                    Document_review.document_id == id,
+                    Document_review.document_library_type == getattr(document, "library_type", "breakdown"),
+                )
             )
             review_refs = review_refs_result.scalars().all()
             for review_ref in review_refs:

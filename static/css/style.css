@@ -2818,6 +2818,13 @@ body {
     margin-bottom: 12px;
 }
 
+/* 列表标题行需要同时放标题和库类型徽标，方便用户直接区分故障库/知识库。 */
+.document-item-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
 .document-item-title {
     font-size: 16px;
     font-weight: 600;
@@ -2828,6 +2835,28 @@ body {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* 库类型徽标使用固定尺寸样式，避免标题长短变化时徽标被压缩变形。 */
+.document-library-badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* 故障库使用偏告警的颜色，和故障案例的业务含义保持一致。 */
+.document-library-badge.breakdown {
+    color: #b45309;
+    background: #fff7ed;
+}
+
+/* 知识库使用偏知识沉淀的绿色，和故障库徽标形成视觉区分。 */
+.document-library-badge.knowledge {
+    color: #047857;
+    background: #ecfdf5;
 }
 
 .document-item-content {

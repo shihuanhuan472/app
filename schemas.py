@@ -50,6 +50,8 @@ class UserUpdateByAdmin(BaseModel):
 class Page(BaseModel):
     page: Optional[int] = 1
     size: Optional[int] = 6
+    library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
 
 class UserLogin(BaseModel):
     username: str
@@ -62,6 +64,8 @@ class UserChangePassword(BaseModel):
 
 # 文档相关的Schema
 class DocumentCreate(BaseModel):
+    library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
     title: str
     problem_intro: Optional[str] = None
     image_urls: Optional[str] = None
@@ -80,6 +84,8 @@ class DocumentCreate(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: int
+    library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
     title: str
     contributor_id: Optional[int]
     contributor_name: Optional[str]
@@ -109,6 +115,8 @@ class DocumentReviewRequest(BaseModel):
     # action_type: 1-create, 2-update, 3-delete
     action_type: int
     document_id: Optional[int] = None
+    document_library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
     review_comment: Optional[str] = None
 
     title: Optional[str] = None
@@ -146,6 +154,8 @@ class DocumentReviewResponse(DocumentResponse):
 
 class DocumentQuery(BaseModel):
     data: str
+    library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
     page: Optional[int] = 1
     size: Optional[int] = 6
 
@@ -171,6 +181,8 @@ class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]
     submit_for_review: Optional[bool] = False
+    library_type: Optional[str] = "breakdown"
+    tag: Optional[List[str]] = None
 
 # 对话相关的Schema
 class ConversationCreate(BaseModel):
