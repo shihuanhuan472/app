@@ -41,8 +41,8 @@ class PPTParser:
     def parse(self, file_path: str):
         self.last_error_code = None
         self.last_error_detail = None
-        text, image_urls, image_names = self.get_content(file_path)
-        document = self.file2document(text, image_urls, image_names)
+        text, image_urls, image_names, section_image_indexes = self.get_content(file_path)
+        document = self.file2document(text, image_urls, image_names, section_image_indexes)
         return document
 
     def _set_last_error(self, code: int, message: str):
@@ -69,38 +69,101 @@ class PPTParser:
         ]
         return any(k in msg for k in keywords)
 
+    def _detect_section(self, text: str):
+        normalized = "".join((text or "").split())
+        section_keywords = [
+            ("problem_intro", ["问题描述", "问题简介"]),
+            ("causes", ["原因分析", "原因"]),
+            ("evaluation", ["故障评估", "评估"]),
+            ("inspection", ["检查步骤", "检查"]),
+            ("solutions", ["解决方案", "问题解决", "解决"]),
+            ("key_points", ["关键要点", "总结"]),
+        ]
+        for section, keywords in section_keywords:
+            if any(keyword in normalized for keyword in keywords):
+                return section
+        return None
+
+    def _empty_section_image_indexes(self):
+        return {
+            "problem_intro": [],
+            "causes": [],
+            "evaluation": [],
+            "inspection": [],
+            "solutions": [],
+            "key_points": [],
+        }
+
     def get_content(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
         prs = Presentation(file_path)
-        text = ""
         image_urls = []
         image_names = []
+        layout_items = []
         base_url = os.path.join(self.document_base_dir, self.image_dir)
-        for slide in prs.slides:
+
+        for slide_index, slide in enumerate(prs.slides):
             for shape in slide.shapes:
                 try:
+                    left = int(getattr(shape, "left", 0) or 0)
+                    top = int(getattr(shape, "top", 0) or 0)
                     if shape.has_text_frame:
-                        for paragraph in shape.text_frame.paragraphs:
-                            text += "\n" + paragraph.text
+                        shape_text = "\n".join(
+                            paragraph.text.strip()
+                            for paragraph in shape.text_frame.paragraphs
+                            if paragraph.text.strip()
+                        )
+                        if shape_text:
+                            layout_items.append({
+                                "type": "text",
+                                "slide": slide_index,
+                                "top": top,
+                                "left": left,
+                                "content": shape_text,
+                            })
                     if hasattr(shape, "shape_type") and shape.shape_type == 13:
                         image = shape.image
-                        image_bytes = image.blob
                         ext = image.ext or "png"
-
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{ext}"
-
                         image_path = os.path.join(base_url, unique_filename)
                         with open(image_path, "wb") as img_file:
-                            img_file.write(image_bytes)
-                        print(f"已保存: {unique_filename}")
+                            img_file.write(image.blob)
+                        print(f"已保存 {unique_filename}")
                         image_urls.append(image_path)
                         image_names.append(unique_filename)
-                except Exception as e:
+                        layout_items.append({
+                            "type": "image",
+                            "slide": slide_index,
+                            "top": top,
+                            "left": left,
+                            "image_index": len(image_urls),
+                        })
+                except Exception:
                     continue
-        return text, image_urls, image_names
 
+        layout_items.sort(key=lambda item: (item["slide"], item["top"], item["left"]))
+        current_section = None
+        section_image_indexes = self._empty_section_image_indexes()
+        text_parts = []
+        current_slide = None
+        for item in layout_items:
+            if item["slide"] != current_slide:
+                current_slide = item["slide"]
+                text_parts.append(f"\n【第{current_slide + 1}页】")
+            if item["type"] == "text":
+                detected_section = self._detect_section(item["content"])
+                if detected_section:
+                    current_section = detected_section
+                text_parts.append(item["content"])
+            else:
+                image_index = item["image_index"]
+                text_parts.append(f"【图片{image_index}】")
+                if current_section:
+                    section_image_indexes[current_section].append(image_index)
+
+        return "\n".join(text_parts), image_urls, image_names, section_image_indexes
     def image_to_base64(self, image: str):
         with open(image, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
@@ -167,19 +230,21 @@ class PPTParser:
 }}
 
 注意：
-1. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-2. 内容必须基于我提供的文本和图片，图片编号从1开始，不可杜撰任何信息。
-3. 你给出的回答仅包含我要求的JSON格式答案。
-4. 给定图片中可能包含无关图片，请勿放进回答中。
-5. 每张图片最多出现在一个字段中。
-6. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-7. 各字段内容请勿大量重复，无关图片不要放入回答。
+1.所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释，并且最大限度利用文本。
+2. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
+3. 内容必须基于我提供的文本和图片，图片编号从1开始，不可杜撰任何信息。
+4. 你给出的回答仅包含我要求的JSON格式答案。
+5. 给定图片中可能包含无关图片，请勿放进回答中。
+6. 每张图片最多出现在一个字段中。
+7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
+8. 各字段内容请勿大量重复，无关图片不要放入回答。
 
 现在请分析下面的内容：
 [文本内容]
 {text}
 
 [图片内容由base64给出]""".format(text=text)
+        prompt += "\n注意：图片归属必须优先依据其在原文中的位置。图片位于哪个小节下，就归入对应 image_urls 字段，不得仅凭图片内容语义移动到其他字段。"
         msg_content = [{"type": "text", "text": prompt}]
         # encoding = tiktoken.get_encoding("cl100k_base")
         token_cnt = get_token_count(prompt)
@@ -213,7 +278,23 @@ class PPTParser:
         # print("len = {}".format(l))
         return messages
 
-    def file2document(self, text, image_urls, image_names) -> Document:
+    def _image_indexes_to_urls(self, image_indexes, image_names):
+        urls = []
+        for image_index in image_indexes:
+            if image_index <= 0 or image_index > len(image_names):
+                continue
+            urls.append(self.image_dir + "/" + image_names[image_index - 1])
+        return ", ".join(urls) if urls else None
+
+    def _apply_section_image_urls(self, result, section_image_indexes, image_names):
+        if not section_image_indexes or not any(section_image_indexes.values()):
+            return result, set()
+        used_indexes = set()
+        for section, image_indexes in section_image_indexes.items():
+            result[f"image_urls_{section}"] = self._image_indexes_to_urls(image_indexes, image_names)
+            used_indexes.update(image_indexes)
+        return result, used_indexes
+    def file2document(self, text, image_urls, image_names, section_image_indexes=None) -> Document:
         try:
             client = OpenAI(
                 base_url=get_ai_base_url_alt(),
@@ -251,7 +332,7 @@ class PPTParser:
 
             if len(image_urls) > 0:
                 for i in range(len(image_urls)):
-                    if flag[i] == 0:
+                    if i + 1 not in used_image_indexes:
                         os.remove(image_urls[i])
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)

@@ -6,6 +6,10 @@ import uuid
 from datetime import datetime
 from PIL import Image
 from docx import Document as Docx
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from openai import OpenAI
 from qwen_token_counter import get_token_count
 from models import Document
@@ -43,37 +47,106 @@ class WordParser:
             raise FileNotFoundError()
 
         doc = Docx(file_path)
-        text = ""
-        # 文本
-        for para in doc.paragraphs:
-            text = text + str(para.text).strip()
-
-        # 表格
-        for i, table in enumerate(doc.tables):
-            text += f"\n表格{i + 1}\n"
-            text += self.table_to_markdown(table) + "\n"
-
-        # 图像
+        text_parts = []
         image_urls = []
         file_names = []
+        section_image_indexes = self._empty_section_image_indexes()
+        current_section = None
+        table_index = 0
+
+        for block in self._iter_block_items(doc):
+            if isinstance(block, Paragraph):
+                block_text = block.text.strip()
+                if block_text:
+                    detected_section = self._detect_section(block_text)
+                    if detected_section:
+                        current_section = detected_section
+                    text_parts.append(block_text)
+                image_indexes = self._save_images_from_element(doc, block._element, image_urls, file_names)
+            else:
+                table_index += 1
+                table_text = f"\n表格{table_index}\n{self.table_to_markdown(block)}"
+                detected_section = self._detect_section(table_text)
+                if detected_section:
+                    current_section = detected_section
+                text_parts.append(table_text)
+                image_indexes = self._save_images_from_element(doc, block._element, image_urls, file_names)
+
+            for image_index in image_indexes:
+                text_parts.append(f"【图片{image_index}】")
+                if current_section:
+                    section_image_indexes[current_section].append(image_index)
+
+        return "\n".join(text_parts), image_urls, file_names, section_image_indexes
+
+    def _iter_block_items(self, doc):
+        for child in doc.element.body.iterchildren():
+            if isinstance(child, CT_P):
+                yield Paragraph(child, doc)
+            elif isinstance(child, CT_Tbl):
+                yield Table(child, doc)
+
+    def _extract_image_rel_ids(self, element):
+        rel_ids = []
+        for xpath in (".//a:blip/@r:embed", ".//a:blip/@r:link"):
+            try:
+                rel_ids.extend(element.xpath(xpath))
+            except Exception:
+                continue
+        return rel_ids
+
+    def _save_image_part(self, image_part):
+        img_ext = image_part.content_type.split('/')[-1]
+        if img_ext == "jpeg":
+            img_ext = "jpg"
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{img_ext}"
         base_url = os.path.join(self.document_base_dir, self.image_dir)
-        for rel in doc.part.rels.values():
-            if "image" in rel.target_ref:
-                img_data = rel.target_part.blob
-                img_ext = rel.target_part.content_type.split('/')[-1]  # 获取图片格式，如 png, jpeg
+        img_path = os.path.join(base_url, unique_filename)
+        with open(img_path, 'wb') as f:
+            f.write(image_part.blob)
+        print(f"图片已保存: {img_path}")
+        return img_path, unique_filename
 
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{img_ext}"
+    def _save_images_from_element(self, doc, element, image_urls, file_names):
+        image_indexes = []
+        for rel_id in self._extract_image_rel_ids(element):
+            if rel_id not in doc.part.rels:
+                continue
+            rel = doc.part.rels[rel_id]
+            if "image" not in rel.target_ref:
+                continue
+            img_path, unique_filename = self._save_image_part(rel.target_part)
+            image_urls.append(img_path)
+            file_names.append(unique_filename)
+            image_indexes.append(len(image_urls))
+        return image_indexes
 
-                # img_filename = f"image_{img_count}.{img_ext}"
-                img_path = os.path.join(base_url, unique_filename)
-                with open(img_path, 'wb') as f:
-                    f.write(img_data)
-                print(f"图片已保存: {img_path}")
-                image_urls.append(img_path)
-                file_names.append(unique_filename)
-        return text, image_urls, file_names
+    def _detect_section(self, text: str):
+        normalized = "".join((text or "").split())
+        section_keywords = [
+            ("problem_intro", ["问题描述", "问题简介"]),
+            ("causes", ["原因分析", "原因"]),
+            ("evaluation", ["故障评估", "评估"]),
+            ("inspection", ["检查步骤", "检查"]),
+            ("solutions", ["解决方案", "问题解决", "解决"]),
+            ("key_points", ["关键要点", "总结"]),
+        ]
+        for section, keywords in section_keywords:
+            if any(keyword in normalized for keyword in keywords):
+                return section
+        return None
 
+    def _empty_section_image_indexes(self):
+        return {
+            "problem_intro": [],
+            "causes": [],
+            "evaluation": [],
+            "inspection": [],
+            "solutions": [],
+            "key_points": [],
+        }
     def _set_last_error(self, code: int, message: str):
         self.last_error_code = int(code)
         self.last_error_detail = message
@@ -167,8 +240,8 @@ class WordParser:
     def parse(self, file_path):
         self.last_error_code = None
         self.last_error_detail = None
-        text, image_urls, file_names = self.get_content(file_path)
-        document = self.file2Document(text, image_urls, file_names)
+        text, image_urls, file_names, section_image_indexes = self.get_content(file_path)
+        document = self.file2Document(text, image_urls, file_names, section_image_indexes)
         return document
 
     def generate_message(self, text: str = None, image_urls: str = None):
@@ -203,14 +276,15 @@ class WordParser:
 }}
 
 注意：
-1. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-2. 所有文字必须100%来自文档原文和图片，不可杜撰任何信息。
-3. 你给出的回答仅包含我要求的JSON格式答案。
-4. 给定图片编号从1开始，不得编写新的图片。
-5. title不可为空，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
-6. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-7. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
-8. 各字段内容请勿大量重复。
+1.所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释，并且最大限度利用文本。
+2. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
+3. 所有文字必须100%来自文档原文和图片，不可杜撰任何信息。
+4. 你给出的回答仅包含我要求的JSON格式答案。
+5. 给定图片编号从1开始，不得编写新的图片。
+6. title不可为空，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
+7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
+8. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
+9. 各字段内容请勿大量重复。
 
 现在请分析下面的内容：
 [文本内容]
@@ -218,6 +292,7 @@ class WordParser:
 
 [图片内容由后续base64给出]
 """.format(text=text)
+        prompt += "\n注意：图片归属必须优先依据其在原文中的位置。图片位于哪个小节下，就归入对应 image_urls 字段，不得仅凭图片内容语义移动到其他字段。"
         # prompt = f""
         msg_content = [{"type": "text", "text": prompt}]
         # encoding = tiktoken.get_encoding("cl100k_base")
@@ -251,7 +326,26 @@ class WordParser:
         print(f"tokens: {token_cnt}")
         return messages
 
-    def file2Document(self, text, image_urls, image_names):
+    def _image_indexes_to_urls(self, image_indexes, image_names):
+        urls = []
+        for image_index in image_indexes:
+            if image_index <= 0 or image_index > len(image_names):
+                continue
+            urls.append(self.image_dir + "/" + image_names[image_index - 1])
+        return ", ".join(urls) if urls else None
+
+    def _apply_section_image_urls(self, result, section_image_indexes, image_names):
+        if not section_image_indexes or not any(section_image_indexes.values()):
+            return result, set()
+
+        used_indexes = set()
+        for section, image_indexes in section_image_indexes.items():
+            field = f"image_urls_{section}"
+            result[field] = self._image_indexes_to_urls(image_indexes, image_names)
+            used_indexes.update(image_indexes)
+        return result, used_indexes
+
+    def file2Document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
             client = OpenAI(
                 base_url=get_ai_base_url(),
@@ -270,28 +364,31 @@ class WordParser:
             print(ans)
             result = json.loads(ans)
 
-            flag = [0] * len(image_names)
+            result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 
-            for key in result.keys():
-                if "image" in key:
-                    image_url_content = ""
-                    for image_index in result[key]:
-                        if image_index > len(image_urls) or flag[image_index - 1] == 1:
-                            continue
-                        url = image_names[image_index - 1]
-                        flag[image_index - 1] = 1
-                        url = self.image_dir + "/" + url
-                        image_url_content += url + ", "
-                    image_url_content = image_url_content.rstrip(", ")
-                    if len(result[key]) == 0:
-                        image_url_content = None
-                    result[key] = image_url_content
+            if not used_image_indexes:
+                flag = [0] * len(image_names)
+                for key in result.keys():
+                    if "image" in key:
+                        image_url_content = ""
+                        for image_index in result[key]:
+                            if image_index > len(image_urls) or flag[image_index - 1] == 1:
+                                continue
+                            url = image_names[image_index - 1]
+                            flag[image_index - 1] = 1
+                            url = self.image_dir + "/" + url
+                            image_url_content += url + ", "
+                        image_url_content = image_url_content.rstrip(", ")
+                        if len(result[key]) == 0:
+                            image_url_content = None
+                        result[key] = image_url_content
+                used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
             document = Document(**result,
                                 is_vectorized=0)
 
             if len(image_urls) > 0:
                 for i in range(len(image_urls)):
-                    if flag[i] == 0:
+                    if i + 1 not in used_image_indexes:
                         os.remove(image_urls[i])
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)

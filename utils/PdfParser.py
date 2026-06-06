@@ -42,9 +42,8 @@ class PdfParser:
     def parse(self, pdf_url: str):
         self.last_error_code = None
         self.last_error_detail = None
-        text = self.get_pdf_text(pdf_url)
-        image_urls, image_names = self.get_pdf_images(pdf_url)
-        document = self.file2document(text, image_urls, image_names)
+        text, image_urls, image_names, section_image_indexes = self.get_pdf_layout_content(pdf_url)
+        document = self.file2document(text, image_urls, image_names, section_image_indexes)
 
         return document
 
@@ -81,6 +80,116 @@ class PdfParser:
             text += page.get_text().strip()
         # print(text)
         return text
+
+    def _build_image_file(self, doc, xref: int):
+        pix = pymupdf.Pixmap(doc, xref)
+        if pix.n - pix.alpha > 3:
+            pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_filename = f"{timestamp}_{uuid.uuid4().hex}.png"
+        base_url = os.path.join(self.document_base_dir, self.image_dir)
+        image_path = os.path.join(base_url, unique_filename)
+        pix.save(image_path)
+        pix = None
+        return image_path, unique_filename
+
+    def _extract_text_from_block(self, block):
+        lines = []
+        for line in block.get("lines", []):
+            spans = [span.get("text", "") for span in line.get("spans", [])]
+            line_text = "".join(spans).strip()
+            if line_text:
+                lines.append(line_text)
+        return "\n".join(lines).strip()
+
+    def _detect_section(self, text: str):
+        normalized = "".join((text or "").split())
+        section_keywords = [
+            ("problem_intro", ["问题描述", "问题简介"]),
+            ("causes", ["原因分析", "原因"]),
+            ("evaluation", ["故障评估", "评估"]),
+            ("inspection", ["检查步骤", "检查"]),
+            ("solutions", ["解决方案", "问题解决", "解决"]),
+            ("key_points", ["关键要点", "总结"]),
+        ]
+        for section, keywords in section_keywords:
+            if any(keyword in normalized for keyword in keywords):
+                return section
+        return None
+
+    def _empty_section_image_indexes(self):
+        return {
+            "problem_intro": [],
+            "causes": [],
+            "evaluation": [],
+            "inspection": [],
+            "solutions": [],
+            "key_points": [],
+        }
+
+    def get_pdf_layout_content(self, pdf_url: str):
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        doc = pymupdf.open(pdf_url)
+        image_urls = []
+        file_names = []
+        layout_items = []
+
+        for page_index in range(len(doc)):
+            page = doc[page_index]
+            text_dict = page.get_text("dict")
+            for block in text_dict.get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                block_text = self._extract_text_from_block(block)
+                if not block_text:
+                    continue
+                x0, y0, x1, y1 = block.get("bbox", (0, 0, 0, 0))
+                layout_items.append({
+                    "type": "text",
+                    "page": page_index,
+                    "bbox": (x0, y0, x1, y1),
+                    "content": block_text,
+                })
+
+            for img in page.get_images(full=True):
+                xref = img[0]
+                rects = page.get_image_rects(xref)
+                if not rects:
+                    continue
+                for rect in rects:
+                    image_path, image_name = self._build_image_file(doc, xref)
+                    image_urls.append(image_path)
+                    file_names.append(image_name)
+                    image_index = len(image_urls)
+                    layout_items.append({
+                        "type": "image",
+                        "page": page_index,
+                        "bbox": (rect.x0, rect.y0, rect.x1, rect.y1),
+                        "image_index": image_index,
+                    })
+
+        layout_items.sort(key=lambda item: (item["page"], item["bbox"][1], item["bbox"][0]))
+
+        current_section = None
+        section_image_indexes = self._empty_section_image_indexes()
+        text_parts = []
+        for item in layout_items:
+            if item["type"] == "text":
+                content = item["content"]
+                detected_section = self._detect_section(content)
+                if detected_section:
+                    current_section = detected_section
+                text_parts.append(content)
+            else:
+                image_index = item["image_index"]
+                text_parts.append(f"【图片{image_index}】")
+                if current_section:
+                    section_image_indexes[current_section].append(image_index)
+
+        return "\n".join(text_parts), image_urls, file_names, section_image_indexes
 
     def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
         if not os.path.exists(image_path):
@@ -182,14 +291,15 @@ class PdfParser:
 }}
 
 注意：
-1. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-2. 内容必须基于我提供的文本和图片，不可杜撰任何信息。
-3. 你给出的回答仅包含我要求的JSON格式答案。
-4. 给定图片编号从1开始，不得编写新的图片。
-5. title不可为空，同一张图片尽量不要出现太多次，即一张图片不要出现在2个以上字段中。
-6. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-7. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
-8. 各字段内容请勿大量重复。
+1.所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释，并且最大限度利用文本。
+2. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
+3. 内容必须基于我提供的文本和图片，不可杜撰任何信息。
+4. 你给出的回答仅包含我要求的JSON格式答案。
+5. 给定图片编号从1开始，不得编写新的图片。
+6. title不可为空，同一张图片尽量不要出现太多次，即一张图片不要出现在2个以上字段中。
+7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
+8. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
+9. 各字段内容请勿大量重复。
 
 现在请分析下面的内容：
 [文本内容]
@@ -197,6 +307,7 @@ class PdfParser:
 
 [图片内容由后续base64给出]
 """.format(text=text)
+        prompt += "\n注意：图片归属必须优先依据其在原文中的位置。图片位于哪个小节下，就归入对应 image_urls 字段，不得仅凭图片内容语义移动到其他字段。"
         msg_content = [{"type": "text", "text": prompt}]
         # encoding = tiktoken.get_encoding("cl100k_base")
         token_cnt = get_token_count(prompt)
@@ -228,7 +339,26 @@ class PdfParser:
         messages.append(data)
         return messages
 
-    def file2document(self, text, image_urls, image_names):
+    def _image_indexes_to_urls(self, image_indexes, image_names):
+        urls = []
+        for image_index in image_indexes:
+            if image_index <= 0 or image_index > len(image_names):
+                continue
+            urls.append(self.image_dir + "/" + image_names[image_index - 1])
+        return ", ".join(urls) if urls else None
+
+    def _apply_section_image_urls(self, result, section_image_indexes, image_names):
+        if not section_image_indexes or not any(section_image_indexes.values()):
+            return result, set()
+
+        used_indexes = set()
+        for section, image_indexes in section_image_indexes.items():
+            field = f"image_urls_{section}"
+            result[field] = self._image_indexes_to_urls(image_indexes, image_names)
+            used_indexes.update(image_indexes)
+        return result, used_indexes
+
+    def file2document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
             client = OpenAI(
                 base_url=get_ai_base_url(),
@@ -246,27 +376,30 @@ class PdfParser:
             print(ans)
             result = json.loads(ans)
 
-            flag = [0] * len(image_names)
+            result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 
-            for key in result.keys():
-                if "image" in key:
-                    image_url_content = ""
-                    for image_index in result[key]:
-                        if image_index > len(image_urls) or flag[image_index - 1] == 1:
-                            continue
-                        url = image_names[image_index - 1]
-                        flag[image_index - 1] = 1
-                        url = self.image_dir + "/" + url
-                        image_url_content += url + ", "
-                    image_url_content = image_url_content.rstrip(", ")
-                    if len(result[key]) == 0:
-                        image_url_content = None
-                    result[key] = image_url_content
+            if not used_image_indexes:
+                flag = [0] * len(image_names)
+                for key in result.keys():
+                    if "image" in key:
+                        image_url_content = ""
+                        for image_index in result[key]:
+                            if image_index > len(image_urls) or flag[image_index - 1] == 1:
+                                continue
+                            url = image_names[image_index - 1]
+                            flag[image_index - 1] = 1
+                            url = self.image_dir + "/" + url
+                            image_url_content += url + ", "
+                        image_url_content = image_url_content.rstrip(", ")
+                        if len(result[key]) == 0:
+                            image_url_content = None
+                        result[key] = image_url_content
+                used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
             document = Document(**result,
                                 is_vectorized=0)
             if len(image_urls) > 0:
                 for i in range(len(image_urls)):
-                    if flag[i] == 0:
+                    if i + 1 not in used_image_indexes:
                         os.remove(image_urls[i])
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)

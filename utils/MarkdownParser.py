@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import json
 import mimetypes
 import os
@@ -52,8 +52,8 @@ class MarkdownParser:
     def parse(self, file_path: str):
         self.last_error_code = None
         self.last_error_detail = None
-        text, image_urls, image_names = self.get_content(file_path)
-        document = self.file2document(text, image_urls, image_names)
+        text, image_urls, image_names, section_image_indexes = self.get_content(file_path)
+        document = self.file2document(text, image_urls, image_names, section_image_indexes)
         return document
 
     def _set_last_error(self, code: int, message: str):
@@ -80,26 +80,75 @@ class MarkdownParser:
         ]
         return any(k in msg for k in keywords)
 
+    def _detect_section(self, text: str):
+        normalized = "".join((text or "").split())
+        section_keywords = [
+            ("problem_intro", ["问题描述", "问题简介"]),
+            ("causes", ["原因分析", "原因"]),
+            ("evaluation", ["故障评估", "评估"]),
+            ("inspection", ["检查步骤", "检查"]),
+            ("solutions", ["解决方案", "问题解决", "解决"]),
+            ("key_points", ["关键要点", "总结"]),
+        ]
+        for section, keywords in section_keywords:
+            if any(keyword in normalized for keyword in keywords):
+                return section
+        return None
+
+    def _empty_section_image_indexes(self):
+        return {
+            "problem_intro": [],
+            "causes": [],
+            "evaluation": [],
+            "inspection": [],
+            "solutions": [],
+            "key_points": [],
+        }
+
     def get_content(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
 
         text = self.read_markdown(file_path)
-        image_refs = self.extract_image_refs(text)
         image_urls = []
         image_names = []
         markdown_dir = os.path.dirname(os.path.abspath(file_path))
         output_dir = os.path.join(self.document_base_dir, self.image_dir)
+        section_image_indexes = self._empty_section_image_indexes()
+        current_section = None
+        text_parts = []
+        last_pos = 0
 
-        for image_ref in image_refs:
-            image_path = self.save_image_ref(image_ref, markdown_dir, output_dir)
-            if image_path is None:
-                continue
-            image_urls.append(image_path)
-            image_names.append(os.path.basename(image_path))
+        pattern = re.compile(r"!\[[^\]]*]\(([^)]+)\)|<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*>", re.IGNORECASE)
+        for match in pattern.finditer(text):
+            segment = text[last_pos:match.start()]
+            if segment:
+                detected_section = self._detect_section(segment)
+                if detected_section:
+                    current_section = detected_section
+                text_parts.append(segment)
 
-        return text, image_urls, image_names
+            raw_src = match.group(1) or match.group(2)
+            image_ref = self.clean_markdown_image_src(raw_src) if match.group(1) else raw_src.strip()
+            image_path = self.save_image_ref(image_ref, markdown_dir, output_dir) if image_ref else None
+            if image_path is not None:
+                image_urls.append(image_path)
+                image_names.append(os.path.basename(image_path))
+                image_index = len(image_urls)
+                text_parts.append(f"\n【图片{image_index}】\n")
+                if current_section:
+                    section_image_indexes[current_section].append(image_index)
 
+            last_pos = match.end()
+
+        tail = text[last_pos:]
+        if tail:
+            detected_section = self._detect_section(tail)
+            if detected_section:
+                current_section = detected_section
+            text_parts.append(tail)
+
+        return "".join(text_parts), image_urls, image_names, section_image_indexes
     def read_markdown(self, file_path):
         for encoding in ("utf-8-sig", "utf-8", "gbk"):
             try:
@@ -391,19 +440,21 @@ class MarkdownParser:
 }}
 
 注意：
-1. 内容中不包含的信息可以为空，但只要文本中存在相关信息就必须填写，不要返回全空。
-2. 内容必须基于我提供的文本和图片，图片编号从1开始，不可杜撰任何信息。
-3. 你给出的回答仅包含我要求的JSON格式答案（不要markdown代码块）。
-4. 给定图片中可能包含无关图片，请勿放进回答中。
-5. 每张图片最多出现在一个字段中。
-6. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-7. 各字段内容请勿大量重复，无关图片不要放入回答。
+1.所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释，并且最大限度利用文本。
+2. 内容中不包含的信息可以为空，但只要文本中存在相关信息就必须填写，不要返回全空。
+3. 内容必须基于我提供的文本和图片，图片编号从1开始，不可杜撰任何信息。
+4. 你给出的回答仅包含我要求的JSON格式答案（不要markdown代码块）。
+5. 给定图片中可能包含无关图片，请勿放进回答中。
+6. 每张图片最多出现在一个字段中。
+7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
+8. 各字段内容请勿大量重复，无关图片不要放入回答。
 
 现在请分析下面的内容：
 [文本内容]
 {text}
 
 [图片内容由base64给出]""".format(text=text or "")
+        prompt += "\n注意：图片归属必须优先依据其在原文中的位置。图片位于哪个小节下，就归入对应 image_urls 字段，不得仅凭图片内容语义移动到其他字段。"
 
         msg_content = [{"type": "text", "text": prompt}]
         token_cnt = get_token_count(prompt)
@@ -438,7 +489,24 @@ class MarkdownParser:
         messages.append(data)
         return messages
 
-    def file2document(self, text, image_urls, image_names):
+    def _image_indexes_to_urls(self, image_indexes, image_names):
+        urls = []
+        for image_index in image_indexes:
+            if image_index <= 0 or image_index > len(image_names):
+                continue
+            urls.append(self.image_dir + "/" + image_names[image_index - 1])
+        return ", ".join(urls) if urls else None
+
+    def _apply_section_image_urls(self, result, section_image_indexes, image_names):
+        if not section_image_indexes or not any(section_image_indexes.values()):
+            return result, set()
+        used_indexes = set()
+        for section, image_indexes in section_image_indexes.items():
+            result[f"image_urls_{section}"] = self._image_indexes_to_urls(image_indexes, image_names)
+            used_indexes.update(image_indexes)
+        return result, used_indexes
+
+    def file2document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
             client = OpenAI(
                 base_url=get_ai_base_url(),
@@ -480,39 +548,42 @@ class MarkdownParser:
             if not result.get("title"):
                 result["title"] = self._build_fallback_title(text)
 
-            flag = [0] * len(image_names)
+            result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 
-            for key in result.keys():
-                if "image" in key:
-                    image_url_content = ""
-                    if not isinstance(result[key], list):
-                        result[key] = []
+            if not used_image_indexes:
+                flag = [0] * len(image_names)
+                for key in result.keys():
+                    if "image" in key:
+                        image_url_content = ""
+                        if not isinstance(result[key], list):
+                            result[key] = []
 
-                    for image_index in result[key]:
-                        try:
-                            image_index = int(image_index)
-                        except Exception:
-                            continue
+                        for image_index in result[key]:
+                            try:
+                                image_index = int(image_index)
+                            except Exception:
+                                continue
 
-                        if image_index <= 0 or image_index > len(image_names):
-                            continue
-                        if flag[image_index - 1] == 1:
-                            continue
+                            if image_index <= 0 or image_index > len(image_names):
+                                continue
+                            if flag[image_index - 1] == 1:
+                                continue
 
-                        url = image_names[image_index - 1]
-                        flag[image_index - 1] = 1
-                        url = self.image_dir + "/" + url
-                        image_url_content += url + ", "
+                            url = image_names[image_index - 1]
+                            flag[image_index - 1] = 1
+                            url = self.image_dir + "/" + url
+                            image_url_content += url + ", "
 
-                    image_url_content = image_url_content.rstrip(", ")
-                    if len(result[key]) == 0 or image_url_content == "":
-                        image_url_content = None
-                    result[key] = image_url_content
+                        image_url_content = image_url_content.rstrip(", ")
+                        if len(result[key]) == 0 or image_url_content == "":
+                            image_url_content = None
+                        result[key] = image_url_content
+                used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
 
             document = Document(**result, is_vectorized=0)
 
             for i in range(len(image_urls)):
-                if flag[i] == 0:
+                if i + 1 not in used_image_indexes:
                     if os.path.exists(image_urls[i]):
                         os.remove(image_urls[i])
                     dir_name, filename = os.path.split(image_urls[i])
