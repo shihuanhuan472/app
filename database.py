@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 # 数据库连接URL（修改为你的MySQL配置）
-SQLALCHEMY_DATABASE_URL = "mysql+asyncmy://root:123456@localhost:3306/maintenance_system"
+SQLALCHEMY_DATABASE_URL = "mysql+asyncmy://tomlzk:lvzhikang2004@localhost:3306/maintenance_system"  # 使用本机 MySQL 账号连接本地 maintenance_system 数据库，供 FastAPI 启动和业务路由读写数据。
 
 # 创建引擎
 # engine = create_engine(SQLALCHEMY_DATABASE_URL)
