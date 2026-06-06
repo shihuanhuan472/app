@@ -524,7 +524,9 @@ const documentAPI = {
 
             const requestData = {
                 page: page,
-                size: size
+                size: size,
+                // 列表页需要同时展示故障库和知识库，所以明确让后端跨库查询。
+                library_type: 'all'
             };
 
             const response = await this.client.post(
@@ -716,7 +718,9 @@ const documentAPI = {
             const requestData = {
                 data: query,
                 page: page,
-                size: size
+                size: size,
+                // 搜索页也需要同时搜索故障库和知识库，否则知识库新增文档搜不到。
+                library_type: 'all'
             };
 
             console.log('搜索文档请求数据:', requestData);

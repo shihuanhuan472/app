@@ -49,6 +49,16 @@ def _get_document_model(library_type: str):
     return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
 
 
+def _is_all_library_type(library_type: str) -> bool:
+    """判断是否需要同时查询故障库和知识库，列表页使用 all 才能展示两个库的数据。"""
+    return str(library_type or "").strip().lower() == "all"
+
+
+def _sort_documents_by_edit_time(documents):
+    """按编辑时间倒序合并两张表的数据，避免知识库和故障库混排时顺序不稳定。"""
+    return sorted(documents, key=lambda document: getattr(document, "first_edit_date", None) or datetime.min, reverse=True)
+
+
 def _normalize_tags(tag):
     """把标签统一为去空白的字符串数组，便于用 MySQL JSON 字段保存。"""
     if not tag:
@@ -721,6 +731,50 @@ async def get_page(page: Page,
     logger.info("分页查询文档内容")
     try:
         offset = (page.page - 1) * page.size
+        if _is_all_library_type(page.library_type):
+            # 同时查询两个库时，每张表先取到当前页末尾需要的数据量，再统一排序分页，避免知识库数据被默认故障库过滤掉。
+            max_needed = offset + page.size
+            # total_count 需要累加两张表，前端分页才能显示完整记录数。
+            total_count = 0
+            # documents 保存两张表候选数据，后面统一按编辑时间倒序排列。
+            documents = []
+            for document_model in DOCUMENT_LIBRARY_MODELS.values():
+                # 每张表都要使用自己的 JSON tag 字段构造过滤条件。
+                tag_condition = _tag_filter(document_model, page.tag)
+                # 默认只展示未删除文档，和原来单库查询行为保持一致。
+                where_conditions = [document_model.is_deleted == 0]
+                if tag_condition is not None:
+                    # 如果前端选择了标签，就在两个库里都按标签过滤。
+                    where_conditions.append(tag_condition)
+
+                count_result = await db.execute(
+                    select(func.count()).select_from(document_model).where(*where_conditions)
+                )
+                # 累加每个库的数量，得到列表总数量。
+                total_count += count_result.scalar_one()
+
+                result = await db.execute(
+                    select(document_model)
+                    .where(*where_conditions)
+                    .order_by(document_model.first_edit_date.desc())
+                    .limit(max_needed)
+                )
+                # 合并两个库的候选文档，稍后再做跨库排序和分页。
+                documents.extend(result.scalars().all())
+
+            # 跨库排序后再切片，保证第一页能同时出现最新的故障库和知识库文档。
+            documents = _sort_documents_by_edit_time(documents)[offset:offset + page.size]
+            # 两张表总数除以每页数量，得到跨库分页总页数。
+            total_pages = (total_count + page.size - 1) // page.size
+            # 复用原来的响应转换逻辑，保留每条文档自身的 library_type。
+            responses = await documents_to_responses(db, documents)
+            data = {
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "documents": responses
+            }
+            return Result.success_with_data(data)
+
         document_model = _get_document_model(page.library_type)
         tag_condition = _tag_filter(document_model, page.tag)
         # total_count = db.query(Document).count()
@@ -762,6 +816,60 @@ async def query(query: DocumentQuery,
     try:
         # 根据文档的标题或问题简介，作者姓名或用户名查询
         offset = (query.page - 1) * query.size
+        if _is_all_library_type(query.library_type):
+            # 搜索页和普通列表一样需要跨库查询，否则知识库文档新增后搜索也找不到。
+            max_needed = offset + query.size
+            # total_count 记录两个库里符合关键词的总数量。
+            total_count = 0
+            # documents 保存两个库的搜索候选结果，后面统一排序分页。
+            documents = []
+            for document_model in DOCUMENT_LIBRARY_MODELS.values():
+                # 每张表都要用对应 ORM 模型生成标签过滤条件。
+                tag_condition = _tag_filter(document_model, query.tag)
+                # 关键词搜索条件保持原逻辑：标题、作者姓名、用户名、问题描述都可以匹配。
+                filter_condition = or_(
+                    document_model.title.like(f"%{query.data}%"),
+                    User.full_name.like(f"%{query.data}%"),
+                    User.username.like(f"%{query.data}%"),
+                    document_model.problem_intro.like(f"%{query.data}%")
+                )
+                # 默认排除已删除文档，并叠加关键词过滤。
+                where_conditions = [document_model.is_deleted == 0, filter_condition]
+                if tag_condition is not None:
+                    # 如果前端传入标签，搜索时也要限制对应标签。
+                    where_conditions.append(tag_condition)
+
+                count_result = await db.execute(
+                    select(func.count())
+                    .select_from(document_model)
+                    .join(User, document_model.contributor_id == User.id)
+                    .where(*where_conditions)
+                )
+                # 累加两个库的搜索命中数量，保证分页总数准确。
+                total_count += count_result.scalar_one()
+
+                result = await db.execute(
+                    select(document_model).join(User, document_model.contributor_id == User.id)
+                    .where(*where_conditions)
+                    .order_by(document_model.first_edit_date.desc())
+                    .limit(max_needed)
+                )
+                # 合并两个库的搜索候选结果，统一排序后再分页。
+                documents.extend(result.scalars().all())
+
+            # 按编辑时间跨库排序，并只返回当前页需要的数据。
+            documents = _sort_documents_by_edit_time(documents)[offset:offset + query.size]
+            # 根据跨库总数计算页数，让前端分页按钮正确。
+            total_pages = (total_count + query.size - 1) // query.size
+            # 转成统一响应结构，同时保留 library_type 用于前端徽标和详情跳转。
+            documents_response = await documents_to_responses(db, documents)
+            data = {
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "documents": documents_response
+            }
+            return Result.success_with_data(data)
+
         document_model = _get_document_model(query.library_type)
         tag_condition = _tag_filter(document_model, query.tag)
 
