@@ -336,7 +336,9 @@
         async function confirmDelete() {
             if (!currentDocumentId) return;
             try {
-                const result = await documentAPI.deleteDocument(currentDocumentId);
+                // 删除时传递当前库类型，避免两张表存在相同 id 时删错库。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const result = await documentAPI.deleteDocument(currentDocumentId, source);
                 if (result) {
                     Utils.showMessage('文档删除成功', 'success');
                     closeDeleteModal();
@@ -356,7 +358,8 @@
                 window.location.href = 'my-submissions.html';
                 return;
             }
-            const source = new URLSearchParams(window.location.search).get('source') || 'knowledge';
+            // 编辑页要继续沿用详情页的库类型，避免保存知识库文档时默认落到故障库。
+            const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
             window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}`;
         }
 
@@ -369,7 +372,9 @@
             }
 
             try {
-                const doc = await documentAPI.getDocumentById(docId);
+                // 详情页根据列表传来的 source 查询对应表，避免知识库/故障库同 id 时读取错误。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const doc = await documentAPI.getDocumentById(docId, source);
                 if (!doc) {
                     showError('文档不存在或已被删除');
                     return;

@@ -306,7 +306,8 @@
             if (source === 'review' || mode === 'review') {
                 return 'my-submissions.html';
             }
-            return 'document-detail.html?id=' + docId + '&source=knowledge';
+            // 返回详情时保留原来的库类型，让用户回到同一个故障库/知识库文档。
+            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown');
         }
 
         let isSubmitting = false;
@@ -362,7 +363,9 @@
             }
 
             try {
-                const doc = await documentAPI.getDocumentById(docId);
+                // 编辑页读取文档时沿用 URL 中的库类型，避免知识库文档按默认故障库查询失败。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const doc = await documentAPI.getDocumentById(docId, source);
                 if (!doc) {
                     Utils.showMessage('文档不存在', 'error');
                     setTimeout(() => window.location.href = 'main.html', 1000);
@@ -681,10 +684,13 @@
                     if (imagesToDelete.length > 0) {
                         await Promise.all(imagesToDelete.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
                     }
-                    const result = await documentAPI.updateDocument(docId, finalData);
+                    // 管理员保存时传递当前库类型，避免后端 update 接口使用默认故障库。
+                    const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                    const result = await documentAPI.updateDocument(docId, finalData, source);
                     if (!result) throw new Error('更新失败');
                     Utils.showMessage('修改已保存', 'success');
-                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=knowledge', 1200);
+                    // 保存成功后仍回到原库类型的详情页，保持页面链路一致。
+                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source), 1200);
                 } else {
                     const reviewPayload = { ...finalData, document_id: Number(docId) };
                     const result = await reviewAPI.submitUpdateReview(docId, reviewPayload);

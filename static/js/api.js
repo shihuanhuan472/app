@@ -580,10 +580,12 @@ const documentAPI = {
     },
 
     // 根据ID获取文档
-    async getDocumentById(id) {
+    async getDocumentById(id, libraryType = 'breakdown') {
         try {
+            // 两张文档表可能出现相同 id，详情查询必须带库类型才能查到正确表。
+            const query = libraryType ? `?library_type=${encodeURIComponent(libraryType)}` : '';
             const response = await this.client.get(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/get_by_id/${id}`,
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/get_by_id/${id}${query}`,
                 true
             );
 
@@ -639,10 +641,12 @@ const documentAPI = {
     },
 
     // 更新文档
-    async updateDocument(id, documentData) {
+    async updateDocument(id, documentData, libraryType = 'breakdown') {
         try {
+            // 更新接口原本默认故障库，传入库类型后知识库文档保存时不会误写到故障库。
+            const query = libraryType ? `&library_type=${encodeURIComponent(libraryType)}` : '';
             const response = await this.client.put(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/update?id=${id}`,
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/update?id=${id}${query}`,
                 documentData,
                 true
             );
@@ -659,10 +663,12 @@ const documentAPI = {
     },
 
     // 删除文档
-    async deleteDocument(id) {
+    async deleteDocument(id, libraryType = 'breakdown') {
         try {
+            // 删除接口同样需要库类型，避免同 id 文档跨库误删。
+            const query = libraryType ? `?library_type=${encodeURIComponent(libraryType)}` : '';
             const response = await this.client.delete(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/dele/${id}`,
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/dele/${id}${query}`,
                 null,
                 true
             );
