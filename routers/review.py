@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Document, Document_review, User
+from models import Document, Document_review, SourceDocument, User
 from schemas import DocumentReviewRequest, DocumentReviewResponse, Result
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
@@ -447,6 +447,18 @@ async def approve_review(
         review.reviewer_id = current_user.id
         review.reviewed_time = datetime.now()
         review.review_comment = review_comment if review_comment is not None else review.review_comment
+        source_result = await db.execute(
+            select(SourceDocument).where(
+                SourceDocument.review_id == review.id,
+                SourceDocument.is_deleted == 0,
+            )
+        )
+        source_document = source_result.scalar_one_or_none()
+        if source_document:
+            source_document.status = "vectorized" if review.action_type == 1 else "uploaded"
+            source_document.document_id = review.document_id if review.action_type == 1 else source_document.document_id
+            source_document.review_id = None
+            source_document.parse_error = None
         await db.commit()
         await db.refresh(review)
     except AppException:
@@ -485,6 +497,17 @@ async def reject_review(
     review.reviewed_time = datetime.now()
     review_comment = _extract_review_comment(payload)
     review.review_comment = review_comment if review_comment is not None else review.review_comment
+    source_result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.review_id == review.id,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    source_document = source_result.scalar_one_or_none()
+    if source_document:
+        source_document.status = "uploaded"
+        source_document.review_id = None
+        source_document.parse_error = review.review_comment
     await db.commit()
     await db.refresh(review)
 
@@ -512,6 +535,17 @@ async def withdraw_review(
 
     review.status = 3
     review.reviewed_time = datetime.now()
+    source_result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.review_id == review.id,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    source_document = source_result.scalar_one_or_none()
+    if source_document:
+        source_document.status = "uploaded"
+        source_document.review_id = None
+        source_document.parse_error = None
     await db.commit()
     await db.refresh(review)
 

@@ -1,4 +1,4 @@
-﻿class ReviewAPIClient {
+class ReviewAPIClient {
     constructor() {
         this.baseUrl = API_CONFIG.BASE_URL;
         this.headers = {
@@ -240,5 +240,3 @@ const reviewAPI = {
         return this.client.post(`/review/withdraw/${reviewId}`, {});
     }
 };
-
-

@@ -1,13 +1,13 @@
-ï»¿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>è®¾å¤‡ç»´ä¿®è¾…åŠ©ç³»ç»Ÿ - ç™»å½•</title>
+    <title>Éè±¸Î¬ĞŞ¸¨ÖúÏµÍ³ - µÇÂ¼</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* é¡µé¢ç‰¹å®šæ ·å¼ */
+        /* Ò³ÃæÌØ¶¨ÑùÊ½ */
         .login-header {
             text-align: center;
             margin-bottom: 30px;
@@ -62,47 +62,47 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h1><i class="fas fa-tools"></i> è®¾å¤‡ç»´ä¿®è¾…åŠ©ç³»ç»Ÿ</h1>
-                <p>æ™ºèƒ½ç»´ä¿®è§£å†³æ–¹æ¡ˆå¹³å°</p>
+                <h1><i class="fas fa-tools"></i> Éè±¸Î¬ĞŞ¸¨ÖúÏµÍ³</h1>
+                <p>ÖÇÄÜÎ¬ĞŞ½â¾ö·½°¸Æ½Ì¨</p>
             </div>
 
             <form id="loginForm">
                 <div class="form-group">
-                    <label class="form-label">ç”¨æˆ·å</label>
-                    <input type="text" class="form-control" id="username" placeholder="è¯·è¾“å…¥ç”¨æˆ·å" required>
+                    <label class="form-label">ÓÃ»§Ãû</label>
+                    <input type="text" class="form-control" id="username" placeholder="ÇëÊäÈëÓÃ»§Ãû" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">å¯†ç </label>
-                    <input type="password" class="form-control" id="password" placeholder="è¯·è¾“å…¥å¯†ç ï¼ˆåˆå§‹å¯†ç ï¼š123456ï¼‰" required>
+                    <label class="form-label">ÃÜÂë</label>
+                    <input type="password" class="form-control" id="password" placeholder="ÇëÊäÈëÃÜÂë£¨³õÊ¼ÃÜÂë£º123456£©" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">èº«ä»½</label>
+                    <label class="form-label">Éí·İ</label>
                     <select class="form-control" id="role" required>
-                        <option value="">è¯·é€‰æ‹©èº«ä»½</option>
-                        <option value="admin">ç³»ç»Ÿç®¡ç†å‘˜</option>
-                        <option value="technician_rw">æŠ€æœ¯äººå‘˜</option>
-                        <option value="reviewer">å®¡æ ¸äººå‘˜</option>
-                        <option value="maintenance_staff">ç»´ä¿®äººå‘˜</option>
+                        <option value="">ÇëÑ¡ÔñÉí·İ</option>
+                        <option value="admin">ÏµÍ³¹ÜÀíÔ±</option>
+                        <option value="technician_rw">¼¼ÊõÈËÔ±</option>
+                        <option value="reviewer">ÉóºËÈËÔ±</option>
+                        <option value="maintenance_staff">Î¬ĞŞÈËÔ±</option>
                     </select>
                 </div>
 
                 <div class="loading-spinner" id="loadingSpinner">
-                    <i class="fas fa-spinner fa-spin"></i> ç™»å½•ä¸­...
+                    <i class="fas fa-spinner fa-spin"></i> µÇÂ¼ÖĞ...
                 </div>
 
                 <div class="error-message" id="loginError"></div>
 
                 <div class="form-actions">
                     <button type="submit" class="login-btn" id="submitBtn">
-                        <i class="fas fa-sign-in-alt"></i> ç™»å½•ç³»ç»Ÿ
+                        <i class="fas fa-sign-in-alt"></i> µÇÂ¼ÏµÍ³
                     </button>
                 </div>
             </form>
 
             <div class="login-footer">
-                <p>&copy; 2026 è®¾å¤‡ç»´ä¿®è¾…åŠ©ç³»ç»Ÿ v1.0</p>
+                <p>? 2026 Éè±¸Î¬ĞŞ¸¨ÖúÏµÍ³ v1.0</p>
             </div>
         </div>
     </div>
@@ -114,7 +114,7 @@
             const loadingSpinner = document.getElementById('loadingSpinner');
             const errorMessage = document.getElementById('loginError');
 
-            // æ£€æŸ¥æ˜¯å¦æœ‰å·²ä¿å­˜çš„tokenï¼Œæœ‰åˆ™è·³è½¬åˆ°ä¸»é¡µé¢
+            // ¼ì²éÊÇ·ñÓĞÒÑ±£´æµÄtoken£¬ÓĞÔòÌø×ªµ½Ö÷Ò³Ãæ
             checkExistingLogin();
 
             form.addEventListener('submit', async function(e) {
@@ -124,31 +124,31 @@
                 const password = document.getElementById('password').value.trim();
                 const role = document.getElementById('role').value;
 
-                // éªŒè¯è¾“å…¥
+                // ÑéÖ¤ÊäÈë
                 if (!username) {
-                    showError('è¯·è¾“å…¥ç”¨æˆ·å');
+                    showError('ÇëÊäÈëÓÃ»§Ãû');
                     return;
                 }
 
                 if (!password) {
-                    showError('è¯·è¾“å…¥å¯†ç ï¼ˆåˆå§‹å¯†ç ï¼š123456ï¼‰');
+                    showError('ÇëÊäÈëÃÜÂë£¨³õÊ¼ÃÜÂë£º123456£©');
                     return;
                 }
 
                 if (!role) {
-                    showError('è¯·é€‰æ‹©èº«ä»½');
+                    showError('ÇëÑ¡ÔñÉí·İ');
                     return;
                 }
 
                 try {
-                    // æ˜¾ç¤ºåŠ è½½çŠ¶æ€
+                    // ÏÔÊ¾¼ÓÔØ×´Ì¬
                     submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ç™»å½•ä¸­...';
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> µÇÂ¼ÖĞ...';
                     loadingSpinner.style.display = 'block';
                     hideError();
 
-                    // è°ƒç”¨åç«¯ç™»å½•API - å‘é€ä¸‰ä¸ªå‚æ•°
-                    const response = await fetch('http://127.0.0.1:8000/auth/login', {
+                    // µ÷ÓÃºó¶ËµÇÂ¼API - ·¢ËÍÈı¸ö²ÎÊı
+                    const response = await fetch('/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -156,38 +156,38 @@
                         body: JSON.stringify({
                             username: username,
                             password: password,
-                            role: role  // èº«ä»½å‚æ•°
+                            role: role  // Éí·İ²ÎÊı
                         })
                     });
 
-                    // è·å–å“åº”æ•°æ®
+                    // »ñÈ¡ÏìÓ¦Êı¾İ
                     let result;
                     try {
                         const responseText = await response.text();
                         result = JSON.parse(responseText);
                     } catch (jsonError) {
-                        console.error('å“åº”è§£æå¤±è´¥:', jsonError);
-                        throw new Error('æœåŠ¡å™¨å“åº”æ ¼å¼é”™è¯¯');
+                        console.error('ÏìÓ¦½âÎöÊ§°Ü:', jsonError);
+                        throw new Error('·şÎñÆ÷ÏìÓ¦¸ñÊ½´íÎó');
                     }
 
-                    console.log('ç™»å½•å“åº”:', result);
+                    console.log('µÇÂ¼ÏìÓ¦:', result);
 
                     if (result.code === 1) {
-                        // ç™»å½•æˆåŠŸ - åç«¯è¿”å›äº†JWTä»¤ç‰Œå¯¹è±¡
+                        // µÇÂ¼³É¹¦ - ºó¶Ë·µ»ØÁËJWTÁîÅÆ¶ÔÏó
                         const tokenData = result.data;
 
-                        // å­˜å‚¨tokensåˆ°sessionStorage
+                        // ´æ´¢tokensµ½sessionStorage
                         if (tokenData.access_token) {
                             sessionStorage.setItem('token', tokenData.access_token);
-                            console.log('Access Token å·²ä¿å­˜');
+                            console.log('Access Token ÒÑ±£´æ');
                         }
 
                         if (tokenData.refresh_token) {
                             sessionStorage.setItem('refresh_token', tokenData.refresh_token);
-                            console.log('Refresh Token å·²ä¿å­˜');
+                            console.log('Refresh Token ÒÑ±£´æ');
                         }
 
-                        // å­˜å‚¨ç”¨æˆ·ä¿¡æ¯åˆ°sessionStorage
+                        // ´æ´¢ÓÃ»§ĞÅÏ¢µ½sessionStorage
                         if (tokenData.user) {
                             const userInfo = {
                                 id: tokenData.user.id,
@@ -197,13 +197,13 @@
                                 last_login: tokenData.user.last_login
                             };
                             sessionStorage.setItem('user', JSON.stringify(userInfo));
-                            console.log('ç”¨æˆ·ä¿¡æ¯å·²å­˜å‚¨:', userInfo);
+                            console.log('ÓÃ»§ĞÅÏ¢ÒÑ´æ´¢:', userInfo);
                         }
 
-                        // æ˜¾ç¤ºæˆåŠŸæ¶ˆæ¯
-                        Utils.showMessage('ç™»å½•æˆåŠŸï¼', 'success');
+                        // ÏÔÊ¾³É¹¦ÏûÏ¢
+                        Utils.showMessage('µÇÂ¼³É¹¦£¡', 'success');
 
-                        // è·³è½¬åˆ°ä¸»é¡µé¢
+                        // Ìø×ªµ½Ö÷Ò³Ãæ
                         setTimeout(() => {
                             window.location.href = 'main.html';
                         }, 1000);
@@ -213,19 +213,19 @@
                         Utils.showMessage(failedMessage, 'error');
                     }
                 } catch (error) {
-                    console.error('ç™»å½•è¯·æ±‚å¤±è´¥:', error);
-                    const fallbackMessage = `ç™»å½•å¤±è´¥ï¼š${error.message || 'ç½‘ç»œè¯·æ±‚å¤±è´¥ï¼Œè¯·æ£€æŸ¥åç«¯æœåŠ¡æ˜¯å¦å¯åŠ¨'}`;
+                    console.error('µÇÂ¼ÇëÇóÊ§°Ü:', error);
+                    const fallbackMessage = `µÇÂ¼Ê§°Ü£º${error.message || 'ÍøÂçÇëÇóÊ§°Ü£¬Çë¼ì²éºó¶Ë·şÎñÊÇ·ñÆô¶¯'}`;
                     showError(fallbackMessage);
                     Utils.showMessage(fallbackMessage, 'error');
                 } finally {
-                    // æ¢å¤æŒ‰é’®çŠ¶æ€
+                    // »Ö¸´°´Å¥×´Ì¬
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> ç™»å½•ç³»ç»Ÿ';
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> µÇÂ¼ÏµÍ³';
                     loadingSpinner.style.display = 'none';
                 }
             });
 
-            // å›è½¦é”®æäº¤
+            // »Ø³µ¼üÌá½»
             document.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     const focused = document.activeElement;
@@ -236,13 +236,13 @@
             });
         });
 
-        // æ£€æŸ¥å·²æœ‰ç™»å½•çŠ¶æ€
+        // ¼ì²éÒÑÓĞµÇÂ¼×´Ì¬
         function checkExistingLogin() {
             const token = sessionStorage.getItem('token');
             const user = sessionStorage.getItem('user');
 
             if (token && user) {
-                console.log('æ£€æµ‹åˆ°å·²ç™»å½•ï¼Œè‡ªåŠ¨è·³è½¬åˆ°ä¸»é¡µé¢');
+                console.log('¼ì²âµ½ÒÑµÇÂ¼£¬×Ô¶¯Ìø×ªµ½Ö÷Ò³Ãæ');
                 setTimeout(() => {
                     window.location.href = 'main.html';
                 }, 500);
@@ -253,13 +253,13 @@
             const code = Number(result?.code);
             const rawMsg = extractBackendMessage(result);
 
-            if (code === 40110) return 'ç™»å½•å¤±è´¥ï¼šç”¨æˆ·åæˆ–å¯†ç é”™è¯¯';
-            if (code === 40311) return 'ç™»å½•å¤±è´¥ï¼šè´¦å·å·²è¢«ç¦ç”¨ï¼Œè¯·è”ç³»ç®¡ç†å‘˜';
-            if (code === 40111) return 'ç™»å½•å¤±è´¥ï¼šè¯·é€‰æ‹©æ­£ç¡®çš„ç™»å½•èº«ä»½';
-            if (code === 40310) return 'ç™»å½•å¤±è´¥ï¼šè´¦å·è§’è‰²ä¸æ‰€é€‰èº«ä»½ä¸åŒ¹é…';
+            if (code === 40110) return 'µÇÂ¼Ê§°Ü£ºÓÃ»§Ãû»òÃÜÂë´íÎó';
+            if (code === 40311) return 'µÇÂ¼Ê§°Ü£ºÕËºÅÒÑ±»½ûÓÃ£¬ÇëÁªÏµ¹ÜÀíÔ±';
+            if (code === 40111) return 'µÇÂ¼Ê§°Ü£ºÇëÑ¡ÔñÕıÈ·µÄµÇÂ¼Éí·İ';
+            if (code === 40310) return 'µÇÂ¼Ê§°Ü£ºÕËºÅ½ÇÉ«ÓëËùÑ¡Éí·İ²»Æ¥Åä';
 
-            if (rawMsg) return `ç™»å½•å¤±è´¥ï¼š${rawMsg}`;
-            return 'ç™»å½•å¤±è´¥ï¼šè¯·ç¨åé‡è¯•';
+            if (rawMsg) return `µÇÂ¼Ê§°Ü£º${rawMsg}`;
+            return 'µÇÂ¼Ê§°Ü£ºÇëÉÔºóÖØÊÔ';
         }
 
         function extractBackendMessage(result) {
@@ -272,19 +272,19 @@
             ).trim();
         }
 
-        // æ˜¾ç¤ºé”™è¯¯ä¿¡æ¯
+        // ÏÔÊ¾´íÎóĞÅÏ¢
         function showError(message) {
             const errorElement = document.getElementById('loginError');
             if (errorElement) {
                 errorElement.textContent = message;
                 errorElement.classList.add('show');
             } else {
-                // å¦‚æœé”™è¯¯å…ƒç´ ä¸å­˜åœ¨ï¼Œä½¿ç”¨ç®€å•çš„alert
+                // Èç¹û´íÎóÔªËØ²»´æÔÚ£¬Ê¹ÓÃ¼òµ¥µÄalert
                 alert(message);
             }
         }
 
-        // éšè—é”™è¯¯ä¿¡æ¯
+        // Òş²Ø´íÎóĞÅÏ¢
         function hideError() {
             const errorElement = document.getElementById('loginError');
             if (errorElement) {
@@ -292,7 +292,7 @@
             }
         }
 
-        // ç®€å•çš„æ¶ˆæ¯æ˜¾ç¤ºå·¥å…·ï¼ˆå¦‚æœcommon.jsæ²¡åŠ è½½çš„è¯ï¼‰
+        // ¼òµ¥µÄÏûÏ¢ÏÔÊ¾¹¤¾ß£¨Èç¹ûcommon.jsÃ»¼ÓÔØµÄ»°£©
         window.Utils = window.Utils || {
             showMessage: function(message, type = 'info') {
                 const colorMap = {
@@ -321,5 +321,4 @@
     </script>
 </body>
 </html>
-
 

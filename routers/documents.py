@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime
 import os
+import shutil
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from sqlalchemy import or_
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
-from models import Document, Document_review, User
+from models import Document, Document_review, SourceDocument, User
 from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
                      DocumentQuery, UploadDocumentResponse, AnalyzeRequest)
 from database import get_db
@@ -26,6 +27,14 @@ from utils.TXTParser import txt_parser
 from utils.MarkdownParser import markdown_parser
 from utils.ImageParser import image_parser
 from utils.CsvExcelParser import csv_excel_parser
+from utils.file_classifier import (
+    ALLOWED_DOCUMENT_EXTENSIONS,
+    build_document_storage_path,
+    get_document_category,
+    get_file_extension,
+    is_upload_content_valid,
+)
+from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.roles import UserRole, has_role
@@ -37,11 +46,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # 目前支持的文档类型
-ALLOWED_EXTENSIONS = {
-    ".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx", ".txt", ".md", ".markdown",
-    ".png", ".jpg", ".jpeg", ".webp", ".bmp",
-    ".csv", ".xlsx", ".xls", ".xlsm"
-}
+ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -131,6 +136,49 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
             setattr(document, field, str(value))
+
+
+async def _get_source_document_by_path(db: AsyncSession, stored_file_path: str):
+    result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.stored_file_path == stored_file_path,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _source_filename_exists(db: AsyncSession, origin_file_name: str) -> bool:
+    result = await db.execute(
+        select(SourceDocument.id)
+        .where(
+            SourceDocument.origin_file_name == origin_file_name,
+            SourceDocument.is_deleted == 0,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str):
+    source = await _get_source_document_by_path(db, stored_file_path)
+    if source:
+        source.status = "parse_failed"
+        source.parse_error = error_message
+        source.review_id = None
+        source.document_id = None
+        await db.commit()
+
+
+async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
+    source_path = os.path.join(document_base_dir, source_relative_path)
+    target_path, target_relative_path, _ = build_document_storage_path(
+        document_base_dir,
+        os.getenv("DOCUMENT_DIR", "upload/documents"),
+        origin_file_name or source_relative_path,
+    )
+    await asyncio.to_thread(shutil.copy2, source_path, target_path)
+    return target_relative_path
 
 def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
     """
@@ -384,7 +432,7 @@ async def delete_image(request: DeleteImageRequest = Body(...),
             raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "资源未找到")
 
         # os.remove(url)
-        await asyncio.to_thread(os.remove, url)
+        await asyncio.to_thread(delete_file_if_exists, url)
 
         print(f"图片{url}删除成功")
         return Result.success()
@@ -542,23 +590,7 @@ async def delete(id: int,
                         #     os.remove(url)
                         #     print(f"删除了{url}")
 
-                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                           url) else None
-
-                        name, ext = os.path.splitext(filename)
-                        name = f"{name}_compressed{ext}"
-                        url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
-                        # if os.path.exists(url):
-                        #     os.remove(url)
-                        #     print(f"删除了{url}")
-
-                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                           url) else None
-
-                        name = f"{name}_compressed_512{ext}"
-                        url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
-                        await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                           url) else None
+                        await asyncio.to_thread(delete_image_with_variants, url)
 
         # if document.image_urls:
         #     config = get_image_config()
@@ -578,8 +610,20 @@ async def delete(id: int,
             # if os.path.exists(url):
             #     os.remove(url)
             #     print(f"已删除源文件{document.origin_file_dir}")
-            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists, url) else None
+            await asyncio.to_thread(delete_file_if_exists, url)
             print(f"已删除源文件{document.origin_file_dir}")
+
+        source_result = await db.execute(
+            select(SourceDocument).where(
+                SourceDocument.document_id == id,
+                SourceDocument.is_deleted == 0,
+            )
+        )
+        source_documents = source_result.scalars().all()
+        for source_document in source_documents:
+            source_document.status = "uploaded"
+            source_document.document_id = None
+            source_document.parse_error = None
 
         # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
         review_refs_result = await db.execute(
@@ -778,38 +822,76 @@ async def upload_files(files: List[UploadFile] = File(...),
     success_file_url = []
     error_origin_filename = []
     has_server_error = False
+    has_duplicate_file_error = False
+    duplicate_origin_filename = []
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
-    document_relative_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
-    dir = os.path.join(document_base_dir, document_relative_dir)
-
-    if not os.path.exists(dir):
-        os.mkdir(dir)
-        print(f"创建了{dir}")
+    source_relative_dir = os.getenv("SOURCE_DOCUMENT_DIR", "upload/source_documents")
+    upload_file_names = [file.filename for file in files]
+    duplicate_file_names = sorted({name for name in upload_file_names if upload_file_names.count(name) > 1})
+    if duplicate_file_names:
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message=f"源文件名称重复：{', '.join(duplicate_file_names)}"
+        )
 
     for file in files:
-        file_ext = os.path.splitext(file.filename)[-1].lower()
+        file_ext = get_file_extension(file.filename)
         if file_ext not in ALLOWED_EXTENSIONS:
             error_origin_filename.append(file.filename)
             continue
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
-
         try:
+            if await _source_filename_exists(db, file.filename):
+                error_origin_filename.append(file.filename)
+                duplicate_origin_filename.append(file.filename)
+                has_duplicate_file_error = True
+                continue
+
             contents = await file.read()
-            url = os.path.join(dir, filename)
+            if not is_upload_content_valid(file_ext, contents):
+                error_origin_filename.append(file.filename)
+                has_server_error = False
+                continue
+
+            url, relative_path, category = build_document_storage_path(
+                document_base_dir,
+                source_relative_dir,
+                file.filename,
+            )
             async with aiofiles.open(url, "wb") as f:
                 await f.write(contents)
 
             success_origin_filename.append(file.filename)
-            success_file_url.append(document_relative_dir + "/" + filename)
+            success_file_url.append(relative_path)
+            source_document = SourceDocument(
+                origin_file_name=file.filename,
+                stored_file_path=relative_path,
+                file_ext=file_ext,
+                file_category=get_document_category(file_ext),
+                file_size=len(contents),
+                uploader_id=current_user.id,
+                upload_time=datetime.now(),
+                status="uploaded",
+                is_deleted=0,
+            )
+            db.add(source_document)
+            await db.commit()
+            logger.info("uploaded document file classified, filename=%s, category=%s", file.filename, category)
         except Exception as e:
             print(e)
+            await db.rollback()
             error_origin_filename.append(file.filename)
             has_server_error = True
             # return Result.error(f"文件{file.filename}上传失败，请稍后重试")
 
     if len(success_file_url) == 0:
+        if has_duplicate_file_error:
+            raise AppException(
+                http_status=status.HTTP_400_BAD_REQUEST,
+                biz_code=BizCode.DOC_REQUEST_INVALID,
+                message=f"源文件已存在，请勿重复上传：{', '.join(duplicate_origin_filename)}"
+            )
         if has_server_error:
             raise AppException(
                 http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -860,7 +942,7 @@ async def analyze_files(file_list: AnalyzeRequest,
     has_invalid_request_error = False
     has_not_found_error = False
     has_server_error = False
-    parse_failed_details = []
+    parse_error_details = []
     has_token_limit_error = False
     has_ai_service_unavailable_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
@@ -871,11 +953,13 @@ async def analyze_files(file_list: AnalyzeRequest,
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
+                await _mark_source_parse_failed(db, file, "文件格式不支持")
                 continue
             url = os.path.join(document_base_dir, file)
             if not os.path.exists(url):
                 error_origin_filename.append(file_name)
                 has_not_found_error = True
+                await _mark_source_parse_failed(db, file, "源文件不存在")
                 continue
             # print(url)
             document = None
@@ -917,13 +1001,11 @@ async def analyze_files(file_list: AnalyzeRequest,
                 document = await asyncio.to_thread(csv_excel_parser.parse, url)
 
             if document is None:
-                if os.path.exists(url):
-                    await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
                 parser_code = getattr(parser_for_error, "last_error_code", None)
                 parser_detail = getattr(parser_for_error, "last_error_detail", None)
-                parse_failed_details.append(
+                parse_error_details.append(
                     {
                         "file_name": file_name,
                         "file_path": file,
@@ -937,6 +1019,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     parser_code,
                     parser_detail,
                 )
+                await _mark_source_parse_failed(db, file, parser_detail or "解析器未返回文档对象")
                 if parser_code == int(BizCode.DOC_TOKEN_LIMIT_EXCEEDED):
                     has_token_limit_error = True
                 if parser_code == int(BizCode.AI_SERVICE_UNAVAILABLE):
@@ -944,11 +1027,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                 continue
 
             if _is_ai_result_effectively_empty(document):
-                if os.path.exists(url):
-                    await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
-                parse_failed_details.append(
+                parse_error_details.append(
                     {
                         "file_name": file_name,
                         "file_path": file,
@@ -956,15 +1037,17 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "detail": "AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。请补充故障现象、原因、排查和处理信息后重试。",
                     }
                 )
+                await _mark_source_parse_failed(
+                    db,
+                    file,
+                    "AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。",
+                )
                 continue
 
             if not _has_meaningful_title(document):
-                if os.path.exists(url):
-                    # os.remove(url)
-                    await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
-                parse_failed_details.append(
+                parse_error_details.append(
                     {
                         "file_name": file_name,
                         "file_path": file,
@@ -972,10 +1055,12 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "detail": "AI解析失败：未能生成有效标题。可能该文档不是故障知识，或内容不完整/不清晰。",
                     }
                 )
+                await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。")
                 continue
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
-            document.origin_file_dir = file
+            knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
+            document.origin_file_dir = knowledge_file_path
             document.first_edit_date = datetime.now()
             _normalize_document_for_db(document)
             print(document.title)
@@ -984,6 +1069,12 @@ async def analyze_files(file_list: AnalyzeRequest,
                 db.add(review)
                 await db.commit()
                 await db.refresh(review)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "review_pending"
+                    source.review_id = review.id
+                    source.parse_error = None
+                    await db.commit()
             else:
                 db.add(document)
                 await db.commit()
@@ -991,17 +1082,20 @@ async def analyze_files(file_list: AnalyzeRequest,
                 vector_service = VectorService(db)
                 # vector_service.add_document_to_vector_store(document)
                 await vector_service.add_document_to_vector_store(document)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "vectorized"
+                    source.document_id = document.id
+                    source.parse_error = None
+                    await db.commit()
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
 
         except Exception as e:
             print(e)
-            url = os.path.join(document_base_dir, file)
-            # if os.path.exists(url):
-            #     os.remove(url)
-            if os.path.exists(url):
-                await asyncio.to_thread(os.remove, url)
+            await db.rollback()
+            await _mark_source_parse_failed(db, file, str(e))
             error_origin_filename.append(file_name)
             has_server_error = True
 
@@ -1029,13 +1123,13 @@ async def analyze_files(file_list: AnalyzeRequest,
                 http_status=status.HTTP_400_BAD_REQUEST,
                 biz_code=BizCode.DOC_TOKEN_LIMIT_EXCEEDED,
                 message="文件内容超出可解析长度，请缩短内容后重试",
-                detail={"files": parse_failed_details}
+                detail={"files": parse_error_details}
             )
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_PARSE_FAILED,
             message="文件解析失败",
-            detail={"files": parse_failed_details}
+            detail={"files": parse_error_details}
         )
 
     analyze_result = UploadDocumentResponse(
