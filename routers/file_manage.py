@@ -2,6 +2,7 @@
 import os
 import uuid
 import json
+import shutil
 from datetime import datetime
 
 import aiofiles
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
 from dependencies import get_current_active_user
-from models import User, Document, DocumentBreakdown, DocumentKnowledge, Document_review
+from models import User, Document, DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument
 from schemas import UploadDocumentRequestNew, ResultNew, AnalyzeRequest, UploadDocumentResponse, DeleteDocumentRequestNew
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
@@ -21,6 +22,14 @@ from utils.TXTParser import txt_parser
 from utils.MarkdownParser import markdown_parser
 from utils.ImageParser import image_parser
 from utils.CsvExcelParser import csv_excel_parser
+from utils.file_classifier import (
+    ALLOWED_DOCUMENT_EXTENSIONS,
+    build_document_storage_path,
+    get_document_category,
+    get_file_extension,
+    is_upload_content_valid,
+)
+from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
 from sqlalchemy import or_, select, func, delete
 
@@ -58,11 +67,7 @@ def _copy_document_to_library(document: Document, library_type: str, tag=None):
     copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
     copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
     return document_model(**copied_data)
-ALLOWED_EXTENSIONS = {
-    ".pdf", ".pptx", ".ppt", ".html", ".mhtml", ".docx", ".txt", ".md", ".markdown",
-    ".png", ".jpg", ".jpeg", ".webp", ".bmp",
-    ".csv", ".xlsx", ".xls", ".xlsm"
-}
+ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -80,6 +85,16 @@ def _normalize_document_for_db(document: Document) -> None:
         value = getattr(document, field, None)
         if isinstance(value, (list, tuple)):
             setattr(document, field, "\n".join(str(item) for item in value if item is not None))
+        elif isinstance(value, dict):
+            setattr(document, field, json.dumps(value, ensure_ascii=False))
+        elif value is not None and not isinstance(value, str):
+            setattr(document, field, str(value))
+
+    for field in image_fields:
+        value = getattr(document, field, None)
+        if isinstance(value, (list, tuple)):
+            text = ", ".join(str(item).strip() for item in value if item is not None and str(item).strip())
+            setattr(document, field, text or None)
         elif isinstance(value, dict):
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
@@ -116,15 +131,57 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
         review_comment=None,
     )
 
-    for field in image_fields:
-        value = getattr(document, field, None)
-        if isinstance(value, (list, tuple)):
-            text = ", ".join(str(item).strip() for item in value if item is not None and str(item).strip())
-            setattr(document, field, text or None)
-        elif isinstance(value, dict):
-            setattr(document, field, json.dumps(value, ensure_ascii=False))
-        elif value is not None and not isinstance(value, str):
-            setattr(document, field, str(value))
+
+async def _get_source_document_by_path(db: AsyncSession, stored_file_path: str):
+    result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.stored_file_path == stored_file_path,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _source_filename_exists(db: AsyncSession, origin_file_name: str) -> bool:
+    result = await db.execute(
+        select(SourceDocument.id)
+        .where(
+            SourceDocument.origin_file_name == origin_file_name,
+            SourceDocument.is_deleted == 0,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+def _source_document_filter_for_document(document_id: int, library_type: str):
+    return (
+        SourceDocument.document_id == document_id,
+        SourceDocument.document_library_type == _normalize_library_type(library_type),
+        SourceDocument.is_deleted == 0,
+    )
+
+
+async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str):
+    source = await _get_source_document_by_path(db, stored_file_path)
+    if source:
+        source.status = "parse_failed"
+        source.parse_error = error_message
+        source.review_id = None
+        source.document_id = None
+        source.document_library_type = "breakdown"
+        await db.commit()
+
+
+async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
+    source_path = os.path.join(document_base_dir, source_relative_path)
+    target_path, target_relative_path, _ = build_document_storage_path(
+        document_base_dir,
+        os.getenv("DOCUMENT_DIR", "upload/documents"),
+        origin_file_name or source_relative_path,
+    )
+    await asyncio.to_thread(shutil.copy2, source_path, target_path)
+    return target_relative_path
 
 @router.post("/upload_files")
 @router.post("/{dataset_id}/documents")
@@ -133,16 +190,17 @@ async def upload_files(dataset_id: str = "",
                        db: AsyncSession = Depends(get_db),
                        current_user: User = Depends(get_current_active_user)):
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
-    document_relative_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
-    dir = os.path.join(document_base_dir, document_relative_dir)
+    source_relative_dir = os.getenv("SOURCE_DOCUMENT_DIR", "upload/source_documents")
     final_result = []
     success_file_url = []
-    if not os.path.exists(dir):
-        os.mkdir(dir)
-        print(f"创建了{dir}")
+    pending_source_documents = []
+    upload_file_names = [file.filename for file in files]
+    duplicate_file_names = sorted({name for name in upload_file_names if upload_file_names.count(name) > 1})
+    if duplicate_file_names:
+        return ResultNew.result(400, f"源文件名称重复：{', '.join(duplicate_file_names)}", None)
 
     for file in files:
-        file_ext = os.path.splitext(file.filename)[-1].lower()
+        file_ext = get_file_extension(file.filename)
         if file_ext not in ALLOWED_EXTENSIONS:
             for file_tmp_url in success_file_url:
                 url = os.path.join(document_base_dir, file_tmp_url)
@@ -151,24 +209,51 @@ async def upload_files(dataset_id: str = "",
 
             return ResultNew.result(400, f"{file.filename}格式不支持", None)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
-
         try:
+            if await _source_filename_exists(db, file.filename):
+                for file_tmp_url in success_file_url:
+                    url = os.path.join(document_base_dir, file_tmp_url)
+                    if os.path.exists(url):
+                        os.remove(url)
+                return ResultNew.result(400, f"{file.filename}已存在，请勿重复上传", None)
+
             contents = await file.read()
-            url = os.path.join(dir, filename)
+            if not is_upload_content_valid(file_ext, contents):
+                for file_tmp_url in success_file_url:
+                    url = os.path.join(document_base_dir, file_tmp_url)
+                    if os.path.exists(url):
+                        os.remove(url)
+
+                return ResultNew.result(400, f"{file.filename}文件内容与格式不匹配", None)
+
+            url, relative_path, _ = build_document_storage_path(
+                document_base_dir,
+                source_relative_dir,
+                file.filename,
+            )
             async with aiofiles.open(url, "wb") as f:
                 await f.write(contents)
 
             upload_document_tmp = UploadDocumentRequestNew(
                 name=file.filename,
-                size=file.size,
+                size=file.size or len(contents),
                 type=file_ext[1:],
-                location=document_relative_dir + "/" + filename,
+                location=relative_path,
                 create=datetime.now().timestamp()
             )
-            success_file_url.append(document_relative_dir + "/" + filename)
+            success_file_url.append(relative_path)
             final_result.append(upload_document_tmp)
+            pending_source_documents.append(SourceDocument(
+                origin_file_name=file.filename,
+                stored_file_path=relative_path,
+                file_ext=file_ext,
+                file_category=get_document_category(file_ext),
+                file_size=len(contents),
+                uploader_id=current_user.id,
+                upload_time=datetime.now(),
+                status="uploaded",
+                is_deleted=0,
+            ))
 
         except Exception as e:
             for file_tmp_url in success_file_url:
@@ -176,6 +261,10 @@ async def upload_files(dataset_id: str = "",
                 if os.path.exists(url):
                     os.remove(url)
             return ResultNew.result(101, f"文件{file.filename}上传失败，请稍后重试", None)
+
+    for source_document in pending_source_documents:
+        db.add(source_document)
+    await db.commit()
 
     return ResultNew.result(1, None, final_result)
 
@@ -189,6 +278,8 @@ async def analyze_files(file_list: AnalyzeRequest,
     submit_for_review = bool(file_list.submit_for_review)
     if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
         return ResultNew.result(403, "仅技术人员可提交审核", None)
+    if not submit_for_review and not has_role(current_user, UserRole.ADMIN):
+        return ResultNew.result(403, "技术人员需提交解析审核，审核通过后才会写入文档库", None)
 
     success_file_url = []
     success_origin_filename = []
@@ -200,6 +291,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             # print(file_ext)
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
+                await _mark_source_parse_failed(db, file, "文件格式不支持")
                 continue
             url = os.path.join(document_base_dir, file)
             # print(url)
@@ -224,14 +316,13 @@ async def analyze_files(file_list: AnalyzeRequest,
             elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
                 document = csv_excel_parser.parse(url)
             if not document or not document.title:
-                if os.path.exists(url):
-                    # os.remove(url)
-                    await asyncio.to_thread(os.remove, url)
                 error_origin_filename.append(file_name)
+                await _mark_source_parse_failed(db, file, "文件解析失败")
                 continue
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
-            document.origin_file_dir = file
+            knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
+            document.origin_file_dir = knowledge_file_path
             document.first_edit_date = datetime.now()
             document.tag = _normalize_tags(file_list.tag)
             document.library_type = _normalize_library_type(file_list.library_type)
@@ -242,24 +333,35 @@ async def analyze_files(file_list: AnalyzeRequest,
                 db.add(review)
                 await db.commit()
                 await db.refresh(review)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "review_pending"
+                    source.review_id = review.id
+                    source.document_library_type = document.library_type
+                    source.parse_error = None
+                    await db.commit()
             else:
                 document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
                 db.add(document)
-                await db.commit()
+                await db.flush()
                 await db.refresh(document)
                 vector_service = VectorService(db)
-                # vector_service.add_document_to_vector_store(document)
-                await vector_service.add_document_to_vector_store(document)
+                await vector_service.add_document_to_vector_store(document, commit=False)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "vectorized"
+                    source.document_id = document.id
+                    source.document_library_type = getattr(document, "library_type", "breakdown")
+                    source.parse_error = None
+                await db.commit()
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
 
         except Exception as e:
             print(e)
-            url = os.path.join(document_base_dir, file)
-            if os.path.exists(url):
-                # os.remove(url)
-                await asyncio.to_thread(os.remove, url)
+            await db.rollback()
+            await _mark_source_parse_failed(db, file, str(e))
             error_origin_filename.append(file_name)
 
     analyze_result = UploadDocumentResponse(
@@ -311,7 +413,7 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                 print(f"文档{id}不存在")
                 continue
 
-            if document.contributor_id != current_user.id and not has_role(current_user, UserRole.ADMIN):
+            if not has_role(current_user, UserRole.ADMIN):
                 print(f"{current_user.id}用户无权删除文档{id}")
                 error_document_ids.append(id)
                 continue
@@ -331,23 +433,23 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                         if filename.strip():
                             url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
 
-                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                               url) else None
-
-                            name, ext = os.path.splitext(filename)
-                            name = f"{name}_compressed{ext}"
-                            url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
-                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                               url) else None
-
-                            name = f"{name}_compressed_512{ext}"
-                            url = os.path.join(base_url, name.lstrip("/").lstrip("\\"))
-                            await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists,
-                                                                                               url) else None
+                            await asyncio.to_thread(delete_image_with_variants, url)
             if document.origin_file_dir:
                 url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
-                await asyncio.to_thread(os.remove, url) if await asyncio.to_thread(os.path.exists, url) else None
+                await asyncio.to_thread(delete_file_if_exists, url)
                 print(f"已删除源文件{document.origin_file_dir}")
+
+            source_result = await db.execute(
+                select(SourceDocument).where(
+                    *_source_document_filter_for_document(id, getattr(document, "library_type", "breakdown")),
+                )
+            )
+            source_documents = source_result.scalars().all()
+            for source_document in source_documents:
+                source_document.status = "uploaded"
+                source_document.document_id = None
+                source_document.document_library_type = "breakdown"
+                source_document.parse_error = None
 
             vector_service = VectorService(db)
             await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))

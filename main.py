@@ -43,11 +43,11 @@ os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Mainten
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, FileResponse
+from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review
+from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents
 # from routers import auth, conversation_v1
 from routers import documents
 from models import Base
@@ -246,6 +246,7 @@ app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
 app.include_router(review.router)
+app.include_router(source_documents.router)
 app.include_router(conversation.router)
 app.include_router(message.router)
 app.include_router(conversation_v1.router)
@@ -253,12 +254,7 @@ app.include_router(file_manage.router)
 
 @app.get("/", summary="根路径")
 async def root():
-    """API 根路径"""
-    return {
-        "message": "JWT 认证 API",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
+    return RedirectResponse(url="/static/index.html")
 
 
 # 全局异常处理

@@ -174,6 +174,26 @@ class UploadDocumentRequestNew(BaseModel):
     location: str
     create: datetime
 
+
+class SourceDocumentResponse(BaseModel):
+    id: int
+    origin_file_name: str
+    stored_file_path: str
+    file_ext: Optional[str] = None
+    file_category: Optional[str] = None
+    file_size: Optional[int] = 0
+    uploader_id: Optional[int] = None
+    uploader_name: Optional[str] = None
+    upload_time: Optional[datetime] = None
+    status: str
+    parse_error: Optional[str] = None
+    document_id: Optional[int] = None
+    review_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
 class DeleteDocumentRequestNew(BaseModel):
     ids: List[int]
 

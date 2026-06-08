@@ -21,7 +21,7 @@
         }
 
         if (typeof detail === 'object') {
-            // 后端 parse_failed_details 常见结构：{ files: [{ file_name, detail, ... }] }
+            // 后端解析错误详情常见结构：{ files: [{ file_name, detail, ... }] }
             if (Array.isArray(detail.files) && detail.files.length > 0) {
                 const fileReasons = detail.files.map((f) => {
                     const fileName = f.file_name || f.file_path || '文件';
@@ -822,6 +822,46 @@ const documentAPI = {
             }
         } catch (error) {
             console.error('解析文件失败:', error);
+            throw error;
+        }
+    }
+};
+
+// 源文档相关 API
+const sourceDocumentAPI = {
+    client: new APIClient(),
+
+    async getSourceDocumentsPage(page = 1, size = 12, filters = {}) {
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                size: size
+            });
+
+            if (filters.keyword) params.append('keyword', filters.keyword);
+            if (filters.category) params.append('category', filters.category);
+            if (filters.status) params.append('source_status', filters.status);
+
+            const response = await this.client.get(`/source-documents/page?${params.toString()}`, true);
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '获取源文档失败');
+        } catch (error) {
+            console.error('获取源文档失败:', error);
+            throw error;
+        }
+    },
+
+    async deleteSourceDocument(id) {
+        try {
+            const response = await this.client.delete(`/source-documents/${id}`, null, true);
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '删除源文档失败');
+        } catch (error) {
+            console.error('删除源文档失败:', error);
             throw error;
         }
     }

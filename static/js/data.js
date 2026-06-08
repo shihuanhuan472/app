@@ -1,4 +1,4 @@
-﻿// 模拟数据
+// 模拟数据
 const MockData = {
     // 用户数据
     users: [
@@ -70,81 +70,81 @@ const MockData = {
         }
     ],
 
-    // 文档示例数据（已替换为可读中文占位内容）
+    // 修改文档数据，移除category字段
     documents: [
         {
             id: 1,
-            title: '设备主轴异响故障处理指南',
+            title: 'CNC加工中心主轴异响故障处理',
             author: '张三',
             date: '2023-10-25',
-            content: '本文介绍设备主轴异响的排查流程，包括轴承状态检查、润滑系统核验与动平衡校准。'
+            content: '本文详细介绍了CNC加工中心主轴在高速旋转时产生异响的常见原因、诊断方法和解决方案，包括轴承检查、润滑系统维护、主轴动平衡校准等关键技术点。',
         },
         {
             id: 2,
-            title: '工业机器人定位精度校准手册',
+            title: '工业机器人定位精度校准指南',
             author: '李四',
             date: '2023-10-20',
-            content: '提供机器人定位偏差诊断步骤，涵盖零点标定、误差补偿和关键参数调整。'
+            content: '针对工业机器人在长时间运行后出现的定位偏差问题，提供详细的校准步骤和工具使用方法，涵盖零点标定、误差补偿、参数调整等内容。',
         },
         {
             id: 3,
-            title: '激光切割设备功率波动排查',
+            title: '激光切割机功率不稳定排查流程',
             author: '王五',
             date: '2023-10-18',
-            content: '梳理功率不稳定的常见原因，包含电源检测、冷却回路检查和光学组件状态确认。'
+            content: '激光切割机功率波动的原因分析及排查流程，包含电源系统检查、冷却系统维护、激光管状态评估等关键步骤，确保设备稳定运行。',
         },
         {
             id: 4,
             title: '设备预防性维护标准作业程序',
             author: '赵六',
             date: '2023-10-15',
-            content: '定义日检、周检、月检与易损件更换周期，提升设备稳定性与可用率。'
+            content: '制定设备预防性维护的标准作业程序，包括日常检查、定期保养、部件更换周期等内容，有效延长设备使用寿命。',
         },
         {
             id: 5,
-            title: 'PLC 控制系统常见故障诊断',
+            title: 'PLC控制系统常见故障诊断',
             author: '孙七',
             date: '2023-10-12',
-            content: '汇总 PLC 输入输出异常、程序逻辑错误与通信中断的定位和修复方法。'
+            content: 'PLC控制系统常见故障的诊断方法和处理技巧，涵盖输入输出模块检查、程序调试、通信故障排查等内容。',
         },
         {
             id: 6,
-            title: '伺服电机过载保护参数设置说明',
+            title: '伺服电机过载保护设置指南',
             author: '张三',
             date: '2023-10-08',
-            content: '说明过载阈值、温度保护与报警复位策略，帮助减少异常停机。'
+            content: '伺服电机过载保护的参数设置和调试方法，包括电流限制、温度监控、故障复位等关键技术要点。',
         },
         {
             id: 7,
-            title: '液压系统泄漏问题处理方案',
+            title: '注塑机液压系统泄漏处理方案',
             author: '李四',
             date: '2023-09-28',
-            content: '针对密封老化、管路松动与接头损伤等问题，提供检测与更换建议。'
+            content: '分析注塑机液压系统常见泄漏点，提供密封件更换、管道连接检查和维护保养的具体实施方案。',
         },
         {
             id: 8,
-            title: '空压系统节能优化案例',
+            title: '空压机系统节能改造案例',
             author: '王五',
             date: '2023-09-20',
-            content: '通过压力分区与负载联动优化，实现压缩空气系统能耗下降。'
+            content: '通过对空压机系统进行节能改造，实现能耗降低30%的实际案例分析和具体实施方案。',
         },
         {
             id: 9,
-            title: '焊接机器人轨迹跟踪应用说明',
+            title: '焊接机器人焊缝跟踪技术应用',
             author: '赵六',
             date: '2023-09-15',
-            content: '介绍视觉引导与传感反馈在焊缝跟踪中的应用，提高焊接一致性。'
+            content: '介绍焊接机器人的焊缝跟踪技术，包括激光传感、视觉识别等先进技术在自动化焊接中的应用。',
         },
         {
             id: 10,
-            title: '自动化产线通信故障排查流程',
+            title: '自动化生产线通信故障排查',
             author: '孙七',
             date: '2023-09-10',
-            content: '针对总线中断、地址冲突与网关异常给出标准化排查步骤。'
+            content: '针对自动化生产线中常见的通信故障，提供系统的排查流程和解决方案，确保生产连续性。',
         }
     ],
 
-    // 搜索文档
+    // 修改搜索函数，移除category搜索
     searchDocuments: function(query) {
         if (!query) return this.documents;
 
@@ -155,7 +155,6 @@ const MockData = {
             doc.author.toLowerCase().includes(lowerQuery)
         );
     },
-
     // 获取所有文档
     getDocuments: function() {
         return this.documents;
@@ -218,6 +217,7 @@ const DataManager = {
     // 获取所有用户（带缓存）
     async getUsers(forceRefresh = false) {
         try {
+            // 检查缓存
             if (!forceRefresh &&
                 this.usersCache &&
                 this.lastFetchTime &&
@@ -226,9 +226,10 @@ const DataManager = {
                 return this.usersCache;
             }
 
-            console.log('从 API 获取用户数据');
+            console.log('从API获取用户数据');
             const users = await adminAPI.getAllUsers();
 
+            // 更新缓存
             this.usersCache = users;
             this.lastFetchTime = Date.now();
 
@@ -236,8 +237,9 @@ const DataManager = {
         } catch (error) {
             console.error('获取用户数据失败:', error);
 
+            // 如果API失败，尝试使用缓存数据
             if (this.usersCache) {
-                console.log('API 失败，使用缓存数据');
+                console.log('API失败，使用缓存数据');
                 return this.usersCache;
             }
 
@@ -250,6 +252,12 @@ const DataManager = {
         try {
             console.log(`获取第 ${page} 页用户数据`);
             const result = await adminAPI.getUsersPage(page, size);
+
+            // 更新缓存（如果有）
+            if (result.users && result.users.length > 0) {
+                // 这里可以根据需要更新缓存逻辑
+            }
+
             return result;
         } catch (error) {
             console.error('分页获取用户失败:', error);
@@ -262,6 +270,7 @@ const DataManager = {
         try {
             console.log(`获取用户 ${id} 详情`);
 
+            // 先检查缓存
             if (this.usersCache) {
                 const cachedUser = this.usersCache.find(user => user.id == id);
                 if (cachedUser) {
@@ -270,6 +279,7 @@ const DataManager = {
                 }
             }
 
+            // 从API获取
             const user = await adminAPI.getUserById(id);
             return user;
         } catch (error) {
@@ -282,8 +292,13 @@ const DataManager = {
     async addUser(userData) {
         try {
             console.log('添加新用户:', userData);
+
+            // 调用API
             const result = await adminAPI.addUser(userData);
+
+            // 清除缓存，下次需要重新获取
             this.clearCache();
+
             return result;
         } catch (error) {
             console.error('添加用户失败:', error);
@@ -295,8 +310,13 @@ const DataManager = {
     async updateUser(userData) {
         try {
             console.log('更新用户:', userData);
+
+            // 调用API
             const result = await adminAPI.updateUser(userData);
+
+            // 清除缓存
             this.clearCache();
+
             return result;
         } catch (error) {
             console.error('更新用户失败:', error);
@@ -308,8 +328,13 @@ const DataManager = {
     async deleteUser(userId) {
         try {
             console.log('删除用户:', userId);
+
+            // 调用API
             const result = await adminAPI.deleteUser(userId);
+
+            // 清除缓存
             this.clearCache();
+
             return result;
         } catch (error) {
             console.error('删除用户失败:', error);

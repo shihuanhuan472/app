@@ -106,15 +106,19 @@ body {
 /* 侧边导航栏 */
 .sidebar {
     width: 240px;
+    height: 100vh;
     flex-shrink: 0;
     background: linear-gradient(180deg, #1a3a5f 0%, #0d2842 100%);
     color: white;
     padding: 20px 0;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
     z-index: 10;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
 }
 
 .logo-container {
@@ -212,6 +216,7 @@ body {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
+    margin-left: 240px;
     padding: 20px;
 }
 
@@ -571,8 +576,14 @@ body {
     }
 
     .sidebar {
+        position: relative;
         width: 100%;
         height: auto;
+        overflow-y: visible;
+    }
+
+    .main-content {
+        margin-left: 0;
     }
 
     .nav-menu {

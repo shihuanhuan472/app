@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, User
+from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument, User
 from schemas import DocumentReviewRequest, DocumentReviewResponse, Result
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
 from utils.VectorService import VectorService
 
@@ -36,6 +37,56 @@ def _normalize_tags(tag):
     if not tag:
         return []
     return [str(item).strip() for item in tag if str(item).strip()]
+
+
+async def _cleanup_document_files(document: Document):
+    config_base_dir = os.getenv("BASE_DIR", "/")
+    image_dir = os.getenv("IMAGE_DIR", "/upload/images")
+    base_url = os.path.join(config_base_dir, image_dir.lstrip("/").lstrip("\\"))
+    image_attrs = [
+        "image_urls_problem_intro",
+        "image_urls_causes",
+        "image_urls_evaluation",
+        "image_urls_inspection",
+        "image_urls_solutions",
+        "image_urls_key_points",
+        "image_urls",
+    ]
+
+    for attr in image_attrs:
+        value = getattr(document, attr, None)
+        if not value:
+            continue
+        for image_url in str(value).split(", "):
+            filename = os.path.basename(image_url)
+            if filename.strip():
+                await asyncio.to_thread(delete_image_with_variants, os.path.join(base_url, filename.lstrip("/").lstrip("\\")))
+
+    if getattr(document, "origin_file_dir", None):
+        await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, document.origin_file_dir))
+
+
+async def _reset_source_documents_for_document(db: AsyncSession, document_id: int, library_type: str):
+    result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.document_id == document_id,
+            SourceDocument.document_library_type == _normalize_library_type(library_type),
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    for source_document in result.scalars().all():
+        source_document.status = "uploaded"
+        source_document.document_id = None
+        source_document.document_library_type = "breakdown"
+        source_document.review_id = None
+        source_document.parse_error = None
+
+
+async def _cleanup_review_origin_file(review: Document_review):
+    if review.action_type != 1 or not getattr(review, "origin_file_dir", None):
+        return
+    config_base_dir = os.getenv("BASE_DIR", "/")
+    await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, review.origin_file_dir))
 
 IMAGE_FIELDS = [
     "image_urls",
@@ -426,7 +477,7 @@ async def approve_review(
             db.add(new_document)
             await db.flush()
             review.document_id = new_document.id
-            await vector_service.add_document_to_vector_store(new_document)
+            await vector_service.add_document_to_vector_store(new_document, commit=False)
 
         elif review.action_type == 2:
             if not review.document_id:
@@ -449,7 +500,7 @@ async def approve_review(
                 setattr(document, field, _normalize_tags(getattr(review, field)) if field == "tag" else getattr(review, field))
             document.is_vectorized = 0
             await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
-            await vector_service.add_document_to_vector_store(document)
+            await vector_service.add_document_to_vector_store(document, commit=False)
 
         elif review.action_type == 3:
             if not review.document_id:
@@ -468,6 +519,8 @@ async def approve_review(
                 raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "待删除文档不存在")
 
             await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
+            await _cleanup_document_files(document)
+            await _reset_source_documents_for_document(db, document.id, getattr(document, "library_type", "breakdown"))
             document.is_deleted = 1
         else:
             raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "action_type 无效")
@@ -476,6 +529,19 @@ async def approve_review(
         review.reviewer_id = current_user.id
         review.reviewed_time = datetime.now()
         review.review_comment = review_comment if review_comment is not None else review.review_comment
+        source_result = await db.execute(
+            select(SourceDocument).where(
+                SourceDocument.review_id == review.id,
+                SourceDocument.is_deleted == 0,
+            )
+        )
+        source_document = source_result.scalar_one_or_none()
+        if source_document:
+            source_document.status = "vectorized" if review.action_type == 1 else "uploaded"
+            source_document.document_id = review.document_id if review.action_type == 1 else source_document.document_id
+            source_document.document_library_type = review.document_library_type
+            source_document.review_id = None
+            source_document.parse_error = None
         await db.commit()
         await db.refresh(review)
     except AppException:
@@ -514,6 +580,18 @@ async def reject_review(
     review.reviewed_time = datetime.now()
     review_comment = _extract_review_comment(payload)
     review.review_comment = review_comment if review_comment is not None else review.review_comment
+    source_result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.review_id == review.id,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    source_document = source_result.scalar_one_or_none()
+    if source_document:
+        source_document.status = "uploaded"
+        source_document.review_id = None
+        source_document.parse_error = review.review_comment
+    await _cleanup_review_origin_file(review)
     await db.commit()
     await db.refresh(review)
 
@@ -541,6 +619,18 @@ async def withdraw_review(
 
     review.status = 3
     review.reviewed_time = datetime.now()
+    source_result = await db.execute(
+        select(SourceDocument).where(
+            SourceDocument.review_id == review.id,
+            SourceDocument.is_deleted == 0,
+        )
+    )
+    source_document = source_result.scalar_one_or_none()
+    if source_document:
+        source_document.status = "uploaded"
+        source_document.review_id = None
+        source_document.parse_error = None
+    await _cleanup_review_origin_file(review)
     await db.commit()
     await db.refresh(review)
 

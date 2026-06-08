@@ -21,8 +21,31 @@ class User(Base):
     last_login = Column(DateTime)
 
 
+class SourceDocument(Base):
+    __tablename__ = "source_documents"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    origin_file_name = Column(String(255), nullable=False)
+    stored_file_path = Column(Text, nullable=False)
+    file_ext = Column(String(20))
+    file_category = Column(String(50), index=True)
+    file_size = Column(Integer, default=0)
+    uploader_id = Column(Integer, ForeignKey("users.id"), index=True)
+    upload_time = Column(DateTime)
+    status = Column(String(30), default="uploaded", nullable=False, index=True)
+    parse_error = Column(Text)
+    document_id = Column(Integer, nullable=True, index=True)
+    document_library_type = Column(String(32), default="breakdown", nullable=False, index=True)
+    review_id = Column(Integer, ForeignKey("document_reviews.id"), nullable=True, index=True)
+    is_deleted = Column(Integer, default=0, nullable=False, index=True)
+    deleted_time = Column(DateTime)
+
+    uploader = relationship("User")
+
+
 class DocumentFieldsMixin:
     """复用文档字段，保证故障库和知识库的表结构保持一致。"""
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"))

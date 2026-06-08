@@ -31,7 +31,9 @@ class MenuManager {
         const isReviewer = this.isUserReviewer();
         const canReview = isAdmin || isReviewer;
 
+        this.ensureSourceDocumentMenuLink();
         this.ensureReviewMenuLink();
+        this.normalizeMenuOrder();
 
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
@@ -109,6 +111,53 @@ class MenuManager {
         }
     }
 
+    ensureSourceDocumentMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="source-documents.html"]');
+        if (exists) return;
+
+        const sourceLink = document.createElement('a');
+        sourceLink.href = 'source-documents.html';
+        sourceLink.className = 'nav-item';
+        sourceLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+            <span>源文档库</span>
+        `;
+
+        const knowledgeBaseLink = navMenu.querySelector('a[href="main.html"]');
+        if (knowledgeBaseLink && knowledgeBaseLink.nextElementSibling) {
+            navMenu.insertBefore(sourceLink, knowledgeBaseLink.nextElementSibling);
+        } else if (knowledgeBaseLink) {
+            navMenu.appendChild(sourceLink);
+        } else {
+            navMenu.insertBefore(sourceLink, navMenu.firstChild);
+        }
+    }
+
+    normalizeMenuOrder() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const orderedHrefs = [
+            'main.html',
+            'source-documents.html',
+            'my-submissions.html',
+            'document-review.html',
+            'ai-assist.html',
+            'user-management.html',
+            'user-profile.html',
+        ];
+
+        orderedHrefs.forEach((href) => {
+            const link = navMenu.querySelector(`a[href="${href}"]`);
+            if (link) {
+                navMenu.appendChild(link);
+            }
+        });
+    }
+
     setActiveMenu() {
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach((item) => item.classList.remove('active'));
@@ -172,4 +221,3 @@ class MenuManager {
 }
 
 window.MenuManager = new MenuManager();
-
