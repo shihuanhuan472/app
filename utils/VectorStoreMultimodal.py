@@ -237,6 +237,14 @@ class VectorStoreMultimodal:
         chunks = []
         library_type = self._get_document_library_type(document)
         vector_doc_id = self._encode_doc_id(document.id, library_type)
+        raw_tags = getattr(document, "tag", []) or []
+        if isinstance(raw_tags, str):
+            try:
+                raw_tags = json.loads(raw_tags)
+            except Exception:
+                raw_tags = [raw_tags]
+        tag_text = "，".join(str(tag).strip() for tag in raw_tags if str(tag).strip())
+        tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
         sections = [
             ("title", "problem_intro", "标题", "问题简介"),
             ("causes", "原因"),
@@ -252,7 +260,7 @@ class VectorStoreMultimodal:
             content_origin = ""
             # 处理标题块
             if section[0] == "title":
-                content_origin = f"标题：{document.title}，\n问题简介：{document.problem_intro}"
+                content_origin = f"{tag_prefix}标题：{document.title}，\n问题简介：{document.problem_intro}"
                 images_str = getattr(document, "image_urls_problem_intro", "")
                 images = [img.strip() for img in images_str.split(',') if img.strip()] if images_str else []
                 flag = 0
@@ -314,9 +322,9 @@ class VectorStoreMultimodal:
                     })
                 continue
             if getattr(document, section[0], None) == None:
-                content_origin = f"{section[1]}："
+                content_origin = f"{tag_prefix}{section[1]}："
             else:
-                content_origin = f"{section[1]}：{getattr(document, section[0], None)}"
+                content_origin = f"{tag_prefix}{section[1]}：{getattr(document, section[0], None)}"
             images_str = getattr(document, f"image_urls_{section[0]}", "")
             images = [img.strip() for img in images_str.split(',') if img.strip()] if images_str else []
             flag = 0
@@ -358,7 +366,7 @@ class VectorStoreMultimodal:
                     # })
 
             # 没图片但是有文本
-            if flag == 0 and len(getattr(document, section[0])) > 0:
+            if flag == 0 and len(str(getattr(document, section[0], "") or "")) > 0:
                 chunks.append({
                     "doc_id": vector_doc_id,
                     "title": document.title,

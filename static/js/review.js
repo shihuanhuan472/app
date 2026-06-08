@@ -208,10 +208,11 @@ const reviewAPI = {
         });
     },
 
-    async submitDeleteReview(documentId, reviewComment = null) {
+    async submitDeleteReview(documentId, reviewComment = null, libraryType = 'breakdown') {
         return this.client.post('/review/create', {
             action_type: 3,
             document_id: Number(documentId),
+            document_library_type: libraryType,
             review_comment: reviewComment
         });
     },

@@ -25,6 +25,7 @@ from sqlalchemy import select, func, asc, desc as desc_func, delete
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.ai_endpoint import get_ai_base_url
+from utils.pagination import build_pagination_payload
 
 router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
 
@@ -127,6 +128,11 @@ async def get_sessions(chat_id: str, page: int = Query(1, ge=1), page_size: int 
         result = await db.execute(stmt)
         conversations = result.scalars().all()
 
+        total_count_result = await db.execute(
+            select(func.count()).select_from(Conversation).where(*conditions)
+        )
+        total_count = total_count_result.scalar_one()
+
         data = []
         for conversation in conversations:
             # messages = (db.query(Message).filter(Message.session_id == conversation.id)
@@ -153,7 +159,7 @@ async def get_sessions(chat_id: str, page: int = Query(1, ge=1), page_size: int 
                 "update_time": conversation.updated_time.timestamp()
             }
             data.append(data_tmp)
-        return ResultNew.result(0, None, data)
+        return ResultNew.result(0, None, build_pagination_payload(total_count, page, page_size, data, "sessions"))
     except Exception as e:
         print(e)
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "查询对话失败")

@@ -9,6 +9,7 @@
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
     <script src="js/menu.js"></script>
     <style>
         .document-detail-container {
@@ -295,6 +296,32 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function getLibraryLabel(libraryType) {
+            return libraryType === 'knowledge' ? '知识库' : '故障库';
+        }
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function getTagsLabel(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            return normalizedTags.length ? normalizedTags.join('、') : '无';
+        }
+
         function showError(message) {
             document.getElementById('documentDetail').innerHTML = `
                 <div class="document-error">
@@ -354,13 +381,25 @@
         function goToEditPage(docId) {
             const currentUser = Utils.getCurrentUser();
             if (!isAdminUser(currentUser)) {
-                Utils.showMessage('请在“我的提交”中发起修改审核', 'warning');
-                window.location.href = 'my-submissions.html';
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                window.location.href = `edit-document.html?id=${docId}&mode=review&source=${encodeURIComponent(source)}`;
                 return;
             }
             // 编辑页要继续沿用详情页的库类型，避免保存知识库文档时默认落到故障库。
             const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
             window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}`;
+        }
+
+        async function submitDeleteReviewFromDetail(docId) {
+            const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+            if (!confirm('确定提交删除审核吗？审核通过后该文档将被删除。')) return;
+            try {
+                await reviewAPI.submitDeleteReview(docId, '技术人员发起删除申请', source);
+                Utils.showMessage('删除审核已提交', 'success');
+                setTimeout(() => window.location.href = 'my-submissions.html', 1000);
+            } catch (error) {
+                Utils.showMessage(error.message || '提交删除审核失败', 'error');
+            }
         }
 
         async function loadDocumentDetail() {
@@ -388,10 +427,14 @@
                 const currentUserId = currentUser ? currentUser.id : null;
                 const isAdmin = isAdminUser(currentUser);
                 const isAuthor = currentUserId && String(currentUserId) === String(doc.contributor_id);
-                const showEditDeleteButtons = isAdmin || isAuthor;
+                const isTechnicianAuthor = !!currentUser && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && isAuthor;
+                const showEditDeleteButtons = isAdmin || isTechnicianAuthor;
 
                 let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
                 if (isAuthor) authorName = '我';
+                const libraryType = doc.library_type || new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const libraryLabel = getLibraryLabel(libraryType);
+                const tagsLabel = getTagsLabel(doc.tag);
 
                 const sections = [
                     { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro', icon: 'question-circle' },
@@ -487,8 +530,8 @@
                     } else {
                         actionButtons += `
                             <div class="action-right">
-                                <button class="btn btn-primary" disabled title="请在我的提交中发起修改审核"><i class="fas fa-edit"></i> 编辑</button>
-                                <button class="btn btn-danger" disabled title="请在我的提交中发起删除审核"><i class="fas fa-trash"></i> 删除</button>
+                                <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 提交修改</button>
+                                <button class="btn btn-danger" onclick="submitDeleteReviewFromDetail(${doc.id})"><i class="fas fa-trash"></i> 提交删除</button>
                             </div>
                         `;
                     }
@@ -502,6 +545,8 @@
                                 <div class="meta-item"><i class="fas fa-user"></i><span>作者：${escapeHtml(authorName)}</span></div>
                                 <div class="meta-item"><i class="fas fa-calendar-alt"></i><span>创建时间：${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span></div>
                                 <div class="meta-item"><i class="fas fa-hashtag"></i><span>文档ID：${doc.id}</span></div>
+                                <div class="meta-item"><i class="fas fa-layer-group"></i><span>所属库：${escapeHtml(libraryLabel)}</span></div>
+                                <div class="meta-item"><i class="fas fa-tags"></i><span>标签：${escapeHtml(tagsLabel)}</span></div>
                             </div>
                         </div>
                         ${sectionsHtml}

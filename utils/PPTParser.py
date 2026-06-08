@@ -327,6 +327,7 @@ class PPTParser:
                     if len(result[key]) == 0:
                         image_url_content = None
                     result[key] = image_url_content
+            used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
             document = Document(**result,
                                 is_vectorized=0)
 

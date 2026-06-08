@@ -12,6 +12,7 @@ from schemas import ConversationResponse, Result, Page
 from database import get_db
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.pagination import build_pagination_payload
 
 router = APIRouter(prefix="/conversation", tags=["对话"])
 
@@ -81,13 +82,8 @@ async def create_page(page: Page,
         )
         history = result.scalars().all()
 
-        total_pages = (total_count + page.size - 1) // page.size
         history_data = [ConversationResponse.from_orm(history_tmp) for history_tmp in history]
-        data = {
-            "total_count": total_count,
-            "total_pages": total_pages,
-            "history": history_data
-        }
+        data = build_pagination_payload(total_count, page.page, page.size, history_data, "history")
         return Result.success_with_data(data)
     except Exception as e:
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")

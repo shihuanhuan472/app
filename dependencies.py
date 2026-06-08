@@ -1,3 +1,5 @@
+import os
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -11,6 +13,26 @@ from utils.roles import UserRole, normalize_role_value, is_role_perm_consistent
 
 # 定义 HTTP Bearer 认证方案
 security = HTTPBearer()
+
+
+def _get_configured_api_keys() -> set[str]:
+    return {
+        key.strip()
+        for key in os.getenv("SYSTEM_API_KEYS", "").split(",")
+        if key.strip()
+    }
+
+
+async def _get_api_key_user(db: AsyncSession) -> Optional[User]:
+    user_id = os.getenv("SYSTEM_API_KEY_USER_ID", "1").strip()
+    if not user_id.isdigit():
+        return None
+
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None or user.status == 0:
+        return None
+    return user
 
 """
 用来登录校验的依赖
@@ -32,6 +54,16 @@ async def get_current_user(
         return {"user": current_user}
     """
     token = credentials.credentials
+
+    if token in _get_configured_api_keys():
+        user = await _get_api_key_user(db)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key user",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
 
     try:
         # 验证 token

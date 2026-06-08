@@ -336,8 +336,9 @@
             const reviewedAt = item.reviewed_time ? Utils.formatDate(item.reviewed_time, 'YYYY-MM-DD HH:mm') : '未审核';
             const canOperate = Number(item.status) === 0;
 
+            const libraryType = item.library_type || item.document_library_type || 'breakdown';
             const docLink = item.document_id
-                ? `<a href="document-detail.html?id=${item.document_id}&source=knowledge" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-link"></i> 查看当前文档</a>`
+                ? `<a href="document-detail.html?id=${item.document_id}&source=${encodeURIComponent(libraryType)}" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-link"></i> 查看当前文档</a>`
                 : '';
 
             const operateHtml = canOperate ? `

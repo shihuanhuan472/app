@@ -363,6 +363,14 @@
         Utils.loadUserInfo();
         const urlParams = new URLSearchParams(window.location.search);
         const isReviewMode = urlParams.get('mode') === 'review';
+        const isSourcePendingMode = urlParams.get('source_mode') === 'pending';
+        const currentUser = Utils.getCurrentUser();
+        if (!isReviewMode && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && !Utils.hasRole(currentUser, Utils.ROLE.ADMIN)) {
+            const redirectParams = new URLSearchParams(window.location.search);
+            redirectParams.set('mode', 'review');
+            window.location.replace(`import-documents.html?${redirectParams.toString()}`);
+            return;
+        }
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -381,6 +389,11 @@
             finishBtn.href = 'my-submissions.html';
             finishBtn.textContent = '完成，返回我的提交';
         }
+        if (isSourcePendingMode && finishBtn) {
+            finishBtn.href = 'source-documents.html';
+            finishBtn.textContent = '完成，返回源文档库';
+        }
+        applyPageMode();
 
         // 点击上传区域
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -580,12 +593,7 @@
 
         // 进入步骤2
         goToStep2Btn.addEventListener('click', () => {
-            step1Content.style.display = 'none';
-            step2Content.style.display = 'block';
-            step1Indicator.classList.remove('active');
-            step1Indicator.classList.add('completed');
-            step2Indicator.classList.add('active');
-            renderUploadedFilesList();
+            switchToAnalyzeStep();
         });
 
         // 渲染已上传文件列表（用于解析）
@@ -695,6 +703,72 @@
                 }
             }
         });
+
+        function applyPageMode() {
+            const pageTitle = document.querySelector('.page-title');
+            const pageSubtitle = document.querySelector('.page-subtitle');
+            const backBtn = document.querySelector('.header-actions .btn');
+            if (isSourcePendingMode) {
+                if (pageTitle) pageTitle.textContent = '批量解析文档';
+                if (pageSubtitle) pageSubtitle.textContent = '从源文档库选择未解析文档并写入知识库或故障库';
+                if (backBtn) {
+                    backBtn.href = 'source-documents.html';
+                    backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> 返回源文档库';
+                }
+            } else if (isReviewMode) {
+                if (pageSubtitle) pageSubtitle.textContent = '上传文件并解析后提交新增审核';
+            }
+        }
+
+        function switchToAnalyzeStep() {
+            step1Content.style.display = 'none';
+            step2Content.style.display = 'block';
+            step1Indicator.classList.remove('active');
+            step1Indicator.classList.add('completed');
+            step2Indicator.classList.add('active');
+            renderUploadedFilesList();
+        }
+
+        async function loadPendingSourceDocuments() {
+            switchToAnalyzeStep();
+            let page = 1;
+            const size = 50;
+            let totalPages = 1;
+            const sources = [];
+
+            while (page <= totalPages) {
+                const data = await sourceDocumentAPI.getSourceDocumentsPage(page, size, { pending_only: true });
+                sources.push(...(data.source_documents || []));
+                totalPages = Number(data.total_pages || 0) || 1;
+                page += 1;
+            }
+
+            uploadedFiles = sources.map(item => ({
+                sourceId: item.id,
+                name: item.origin_file_name,
+                url: item.stored_file_path,
+                size: item.file_size || 0,
+                type: item.file_ext || item.file_category || '',
+                status: item.status,
+                parseError: item.parse_error || ''
+            }));
+            renderUploadedFilesList();
+            if (uploadedFiles.length === 0) {
+                document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的源文档。</div>';
+                analyzeBtn.disabled = true;
+                selectAllCheckbox.disabled = true;
+            }
+        }
+
+        if (isSourcePendingMode) {
+            loadPendingSourceDocuments().catch(error => {
+                Utils.showMessage('加载待解析源文档失败：' + (error.message || '未知错误'), 'error');
+                document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">加载待解析源文档失败</div>';
+                switchToAnalyzeStep();
+                analyzeBtn.disabled = true;
+                selectAllCheckbox.disabled = true;
+            });
+        }
     });
 
     // 图片预览相关（复用 add-document.html 的逻辑）

@@ -1,5 +1,4 @@
 import os
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
@@ -97,13 +96,23 @@ def build_document_storage_path(
 ) -> Tuple[str, str, str]:
     file_ext = get_file_extension(original_filename)
     category = get_document_category(file_ext)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    stored_filename = f"{timestamp}_{uuid.uuid4().hex}{file_ext}"
+    original_path = Path(original_filename or f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}")
+    safe_stem = "".join(char for char in original_path.stem if char not in '<>:"/\\|?*').strip()
+    safe_ext = file_ext or original_path.suffix
+    if not safe_stem:
+        safe_stem = f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     relative_dir = Path(document_relative_dir) / category
     absolute_dir = Path(document_base_dir) / relative_dir
     absolute_dir.mkdir(parents=True, exist_ok=True)
 
-    relative_path = (relative_dir / stored_filename).as_posix()
+    stored_filename = f"{safe_stem}{safe_ext}"
     absolute_path = absolute_dir / stored_filename
+    suffix = 1
+    while absolute_path.exists():
+        stored_filename = f"{safe_stem}({suffix}){safe_ext}"
+        absolute_path = absolute_dir / stored_filename
+        suffix += 1
+
+    relative_path = (relative_dir / stored_filename).as_posix()
     return str(absolute_path), relative_path, category

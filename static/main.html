@@ -272,6 +272,7 @@
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
                             libraryType: doc.library_type || 'breakdown',
+                            tags: doc.tag || [],
                             fullData: doc
                         };
                     });
@@ -348,6 +349,7 @@
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
                             libraryType: doc.library_type || 'breakdown',
+                            tags: doc.tag || [],
                             fullData: doc
                         };
                     });
@@ -379,19 +381,60 @@
             return libraryType === 'knowledge' ? 'knowledge' : 'breakdown';
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function renderDocumentTags(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            if (!normalizedTags.length) return '';
+            return `
+                <div class="document-item-tags">
+                    ${normalizedTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+            `;
+        }
+
         // 显示文档列表（现在同时用于普通列表和搜索结果）
         function displayDocuments(documents, totalCount) {
             const container = document.getElementById('documentList');
 
             if (!documents || documents.length === 0) {
                 const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
+                const user = Utils.getCurrentUser();
+                const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+                const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
+                const addHref = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
+                const addText = isTechnician && !isAdmin ? '提交第一个文档' : '添加第一个文档';
                 container.innerHTML = `
                     <div class="document-empty">
                         <i class="fas fa-${isSearching ? 'search' : 'file-alt'}" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
                         <p style="color: #666;">${message}</p>
                         ${!isSearching ? `
-                            <a href="add-document.html" class="btn btn-primary" style="margin-top: 15px;">
-                                <i class="fas fa-plus"></i> 添加第一个文档
+                            <a href="${addHref}" class="btn btn-primary" style="margin-top: 15px;">
+                                <i class="fas fa-plus"></i> ${addText}
                             </a>
                         ` : `
                             <button class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 15px;">
@@ -419,6 +462,7 @@
                 const libraryLabel = getLibraryLabel(libraryType);
                 // 提前生成徽标样式类，让故障库和知识库显示不同颜色。
                 const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+                const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
 
                 html += `
                     <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=${libraryType}'">
@@ -437,6 +481,7 @@
                             <div class="document-item-author">
                                 <i class="fas fa-user"></i>
                                 <span>${doc.author}</span>
+                                ${tagHtml}
                             </div>
                             <div class="document-item-date">
                                 ${doc.date}
@@ -621,7 +666,7 @@
                 el.setAttribute('aria-disabled', 'true');
                 el.onclick = function (e) {
                     e.preventDefault();
-                    Utils.showMessage('???????????????????????????', 'warning');
+                    Utils.showMessage('当前身份没有权限执行该操作', 'warning');
                 };
             } else {
                 if (!el.getAttribute('href') && el.dataset.href) {
@@ -648,8 +693,20 @@
 
             const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
             const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
-            setActionButtonDisabled(addBtn, !isAdmin);
-            setActionButtonDisabled(importBtn, !isAdmin);
+            if (addBtn) {
+                addBtn.href = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
+                addBtn.innerHTML = isTechnician && !isAdmin
+                    ? '<i class="fas fa-plus"></i> 提交文档'
+                    : '<i class="fas fa-plus"></i> 添加文档';
+            }
+            if (importBtn) {
+                importBtn.href = isTechnician && !isAdmin ? 'import-documents.html?mode=review' : 'import-documents.html';
+                importBtn.innerHTML = isTechnician && !isAdmin
+                    ? '<i class="fas fa-upload"></i> 提交导入'
+                    : '<i class="fas fa-upload"></i> 导入文档';
+            }
+            setActionButtonDisabled(addBtn, !isAdmin && !isTechnician);
+            setActionButtonDisabled(importBtn, !isAdmin && !isTechnician);
             if (mySubmissionsNav) {
                 mySubmissionsNav.style.display = isTechnician ? 'flex' : 'none';
             }

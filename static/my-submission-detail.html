@@ -352,10 +352,10 @@
             ${fileBlock}
             <div class="action-row">
                 ${canOperateOnExistingDocument ? `
-                    <button type="button" class="btn btn-primary btn-sm" onclick="goEditSubmission(${item.document_id})">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="goEditSubmission(${item.document_id}, '${item.library_type || item.document_library_type || 'breakdown'}')">
                         <i class="fas fa-edit"></i> 提交修改申请
                     </button>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteRequest(${item.document_id}, '${escapeHtml(item.title || '').replace(/'/g, "\\'")}')">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteRequest(${item.document_id}, '${escapeHtml(item.title || '').replace(/'/g, "\\'")}', '${item.library_type || item.document_library_type || 'breakdown'}')">
                         <i class="fas fa-trash"></i> 提交删除申请
                     </button>
                 ` : ''}
@@ -363,16 +363,16 @@
         `;
     }
 
-    function goEditSubmission(docId) {
+    function goEditSubmission(docId, libraryType = 'breakdown') {
         if (!docId) return;
-        window.location.href = `edit-document.html?id=${docId}&mode=review&source=review`;
+        window.location.href = `edit-document.html?id=${docId}&mode=review&source=${encodeURIComponent(libraryType || 'breakdown')}`;
     }
 
-    async function submitDeleteRequest(documentId, title) {
+    async function submitDeleteRequest(documentId, title, libraryType = 'breakdown') {
         const confirmed = window.confirm(`确认提交删除申请吗？\n文档：${title || '未命名文档'}\n提交后需审核通过才会删除。`);
         if (!confirmed) return;
         try {
-            await reviewAPI.submitDeleteReview(documentId, '技术人员发起删除申请');
+            await reviewAPI.submitDeleteReview(documentId, '技术人员发起删除申请', libraryType);
             Utils.showMessage('删除申请已提交，等待审核', 'success');
             setTimeout(() => {
                 window.location.href = 'my-submissions.html';

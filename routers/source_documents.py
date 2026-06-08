@@ -1,4 +1,5 @@
 import asyncio
+import asyncio
 import os
 from datetime import datetime
 from typing import Optional
@@ -9,14 +10,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Document, Document_review, SourceDocument, User
+from models import DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument, User
 from schemas import Result, SourceDocumentResponse
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists
+from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
 
 router = APIRouter(prefix="/source-documents", tags=["源文档"])
+
+
+DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+
+
+def _normalize_library_type(library_type: str) -> str:
+    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _get_document_model(library_type: str):
+    return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
 
 
 def source_document_to_response(source: SourceDocument, uploader_name: Optional[str]) -> SourceDocumentResponse:
@@ -33,8 +46,28 @@ def source_document_to_response(source: SourceDocument, uploader_name: Optional[
         status=source.status,
         parse_error=source.parse_error,
         document_id=source.document_id,
+        document_library_type=source.document_library_type,
         review_id=source.review_id,
     )
+
+
+async def _repair_stale_source_link(db: AsyncSession, source: SourceDocument) -> bool:
+    if not source.document_id:
+        return False
+    document_model = _get_document_model(source.document_library_type)
+    doc_result = await db.execute(
+        select(document_model.id).where(
+            document_model.id == source.document_id,
+            document_model.is_deleted == 0,
+        )
+    )
+    if doc_result.scalar_one_or_none() is not None:
+        return False
+    source.status = "uploaded"
+    source.document_id = None
+    source.document_library_type = "breakdown"
+    source.parse_error = None
+    return True
 
 
 @router.get("/page", summary="分页查询源文档")
@@ -44,6 +77,7 @@ async def get_source_documents_page(
     keyword: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     source_status: Optional[str] = Query(None),
+    pending_only: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -67,6 +101,26 @@ async def get_source_documents_page(
 
     if source_status and source_status.strip():
         conditions.append(SourceDocument.status == source_status.strip())
+    if pending_only:
+        conditions.extend(
+            [
+                SourceDocument.review_id.is_(None),
+                SourceDocument.document_id.is_(None),
+                SourceDocument.status.in_(["uploaded", "parse_failed"]),
+            ]
+        )
+
+    repair_candidates_result = await db.execute(
+        select(SourceDocument)
+        .where(SourceDocument.is_deleted == 0, SourceDocument.document_id.is_not(None))
+        .order_by(SourceDocument.id.desc())
+    )
+    repair_candidates = repair_candidates_result.scalars().all()
+    repaired = False
+    for source in repair_candidates:
+        repaired = await _repair_stale_source_link(db, source) or repaired
+    if repaired:
+        await db.commit()
 
     total_result = await db.execute(select(func.count()).select_from(SourceDocument).where(*conditions))
     total_count = int(total_result.scalar_one() or 0)
@@ -96,13 +150,8 @@ async def get_source_documents_page(
         for source in sources
     ]
 
-    total_pages = (total_count + size - 1) // size if total_count else 0
     return Result.success_with_data(
-        {
-            "total_count": total_count,
-            "total_pages": total_pages,
-            "source_documents": items,
-        }
+        build_pagination_payload(total_count, page, size, items, "source_documents")
     )
 
 
@@ -125,9 +174,13 @@ async def delete_source_document(
     if source.uploader_id != current_user.id and not has_role(current_user, UserRole.ADMIN):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无权删除该源文档")
 
+    if await _repair_stale_source_link(db, source):
+        await db.flush()
+
     if source.document_id:
+        document_model = _get_document_model(source.document_library_type)
         doc_result = await db.execute(
-            select(Document.id).where(Document.id == source.document_id, Document.is_deleted == 0)
+            select(document_model.id).where(document_model.id == source.document_id, document_model.is_deleted == 0)
         )
         if doc_result.scalar_one_or_none() is not None:
             raise AppException(

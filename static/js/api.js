@@ -841,6 +841,7 @@ const sourceDocumentAPI = {
             if (filters.keyword) params.append('keyword', filters.keyword);
             if (filters.category) params.append('category', filters.category);
             if (filters.status) params.append('source_status', filters.status);
+            if (filters.pending_only) params.append('pending_only', 'true');
 
             const response = await this.client.get(`/source-documents/page?${params.toString()}`, true);
             if (response.code === 1) {

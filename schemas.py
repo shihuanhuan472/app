@@ -188,6 +188,7 @@ class SourceDocumentResponse(BaseModel):
     status: str
     parse_error: Optional[str] = None
     document_id: Optional[int] = None
+    document_library_type: Optional[str] = "breakdown"
     review_id: Optional[int] = None
 
     class Config:

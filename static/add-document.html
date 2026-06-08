@@ -733,6 +733,11 @@
             // 检查登录状态
             Utils.checkLogin();
             Utils.loadUserInfo();
+            const currentUser = Utils.getCurrentUser();
+            if (!isReviewMode && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && !Utils.hasRole(currentUser, Utils.ROLE.ADMIN)) {
+                window.location.replace('add-document.html?mode=review');
+                return;
+            }
             applyModeUI();
 
             // 初始化图片上传功能

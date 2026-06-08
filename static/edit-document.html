@@ -295,8 +295,11 @@
             const currentUser = Utils.getCurrentUser();
             if (!currentUser) return false;
             const isAdmin = isAdminUser(currentUser);
+            if (isAdmin) return true;
+            const isReviewMode = new URLSearchParams(window.location.search).get('mode') === 'review';
+            const isTechnician = Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
             const isAuthor = currentUser.id == doc.contributor_id;
-            return isAdmin || isAuthor;
+            return isReviewMode && isTechnician && isAuthor;
         }
 
         function getReturnUrl(docId) {

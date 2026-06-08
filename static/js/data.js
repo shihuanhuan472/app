@@ -70,7 +70,6 @@ const MockData = {
         }
     ],
 
-    // 修改文档数据，移除category字段
     documents: [
         {
             id: 1,
@@ -144,7 +143,6 @@ const MockData = {
         }
     ],
 
-    // 修改搜索函数，移除category搜索
     searchDocuments: function(query) {
         if (!query) return this.documents;
 

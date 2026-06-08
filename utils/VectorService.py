@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import os
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -27,11 +28,42 @@ os.environ["HF_HOME"] = os.getenv(
 logger = logging.getLogger(__name__)
 
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+VECTOR_DOCUMENT_FIELDS = [
+    "id",
+    "title",
+    "contributor_id",
+    "first_edit_date",
+    "problem_intro",
+    "image_urls",
+    "image_urls_problem_intro",
+    "causes",
+    "image_urls_causes",
+    "evaluation",
+    "image_urls_evaluation",
+    "inspection",
+    "image_urls_inspection",
+    "solutions",
+    "image_urls_solutions",
+    "key_points",
+    "image_urls_key_points",
+    "origin_file_name",
+    "origin_file_dir",
+    "tag",
+    "is_vectorized",
+    "vector_update_time",
+]
 
 
 def _normalize_library_type(library_type: str) -> str:
     """统一库类型，防止向量删除和回查文档时跨库误操作。"""
     return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _snapshot_document_for_vector_store(document: Document):
+    """复制 ORM 文档的普通字段，避免同步线程里触发异步 ORM 懒加载。"""
+    data = {field: getattr(document, field, None) for field in VECTOR_DOCUMENT_FIELDS}
+    data["library_type"] = _normalize_library_type(getattr(document, "library_type", "breakdown"))
+    return SimpleNamespace(**data)
 
 
 class VectorService:
@@ -49,17 +81,21 @@ class VectorService:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
 
-    async def add_document_to_vector_store(self, document: Document):
+    async def add_document_to_vector_store(self, document: Document, commit: bool = True):
         """将文档添加到向量库。"""
         try:
             if document.is_vectorized:
                 print(f"文档 {document.id} 已向量化，跳过")
                 return
 
-            await asyncio.to_thread(self.vector_store_multimodal.add_document, document)
+            vector_document = _snapshot_document_for_vector_store(document)
+            await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
             print(f"文档 {document.id} 向量化完成")
         except Exception as e:
             await self.db.rollback()

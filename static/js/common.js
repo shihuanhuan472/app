@@ -1,19 +1,19 @@
-// ¹«¹²¹¤¾ßº¯Êı
+ï»¿// å…¬å…±å·¥å…·å‡½æ•°
 const Utils = {
-    // ÏÔÊ¾ÏûÏ¢ÌáÊ¾
+    // æ˜¾ç¤ºæ¶ˆæ¯æç¤º
     showMessage: function(message, type = 'info') {
-        // ´´½¨ÏûÏ¢ÔªËØ
+        // åˆ›å»ºæ¶ˆæ¯å…ƒç´ 
         const messageEl = document.createElement('div');
         messageEl.className = `message message-${type}`;
         messageEl.innerHTML = `
             <div class="message-content">${message}</div>
-            <button class="message-close">¡Á</button>
+            <button class="message-close">Ã—</button>
         `;
 
-        // Ìí¼Óµ½Ò³Ãæ
+        // æ·»åŠ åˆ°é¡µé¢
         document.body.appendChild(messageEl);
 
-        // Ìí¼ÓÑùÊ½£¨Èç¹ûÉĞÎ´Ìí¼Ó£©
+        // æ·»åŠ æ ·å¼ï¼ˆå¦‚æœå°šæœªæ·»åŠ ï¼‰
         if (!document.querySelector('#message-styles')) {
             const styleEl = document.createElement('style');
             styleEl.id = 'message-styles';
@@ -34,27 +34,27 @@ const Utils = {
                     animation: slideIn 0.3s ease;
                     color: white;
                 }
-                
+
                 .message-info {
                     background: #4a9eff;
                 }
-                
+
                 .message-success {
                     background: #10b981;
                 }
-                
+
                 .message-warning {
                     background: #f59e0b;
                 }
-                
+
                 .message-error {
                     background: #ef4444;
                 }
-                
+
                 .message-content {
                     flex: 1;
                 }
-                
+
                 .message-close {
                     background: none;
                     border: none;
@@ -63,7 +63,7 @@ const Utils = {
                     cursor: pointer;
                     margin-left: 15px;
                 }
-                
+
                 @keyframes slideIn {
                     from {
                         transform: translateX(100%);
@@ -74,7 +74,7 @@ const Utils = {
                         opacity: 1;
                     }
                 }
-                
+
                 @keyframes slideOut {
                     from {
                         transform: translateX(0);
@@ -89,7 +89,7 @@ const Utils = {
             document.head.appendChild(styleEl);
         }
 
-        // ×Ô¶¯ÏûÊ§
+        // è‡ªåŠ¨æ¶ˆå¤±
         setTimeout(() => {
             messageEl.style.animation = 'slideOut 0.3s ease forwards';
             setTimeout(() => {
@@ -99,7 +99,7 @@ const Utils = {
             }, 300);
         }, 3000);
 
-        // µã»÷¹Ø±Õ
+        // ç‚¹å‡»å…³é—­
         messageEl.querySelector('.message-close').addEventListener('click', () => {
             messageEl.style.animation = 'slideOut 0.3s ease forwards';
             setTimeout(() => {
@@ -111,11 +111,11 @@ const Utils = {
     },
 
     getToken() {
-        // ¸ÄÎª´Ó localStorage »ñÈ¡
+        // æ”¹ä¸ºä» localStorage è·å–
         return localStorage.getItem('token') || sessionStorage.getItem('token');
     },
 
-    // ÔÚ Utils ¶ÔÏóÖĞÌí¼ÓÎÄ¼ş´óĞ¡¸ñÊ½»¯º¯Êı
+    // åœ¨ Utils å¯¹è±¡ä¸­æ·»åŠ æ–‡ä»¶å¤§å°æ ¼å¼åŒ–å‡½æ•°
     formatFileSize: function(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -124,7 +124,7 @@ const Utils = {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
 
-    // ¸ñÊ½»¯ÈÕÆÚ
+    // æ ¼å¼åŒ–æ—¥æœŸ
     formatDate: function(date, format = 'YYYY-MM-DD') {
         const d = new Date(date);
         const year = d.getFullYear();
@@ -142,28 +142,28 @@ const Utils = {
             .replace('mm', minutes)
             .replace('ss', seconds);
     },
-    
+
     ROLE: {
         ADMIN: 0,
         TECHNICIAN: 1,
         REVIEWER: 2,
         MAINTENANCE: 3
     },
-    
+
     normalizeRoleValue: function(role) {
         if (typeof role === 'number' && !Number.isNaN(role)) return role;
         if (typeof role === 'string') {
             const value = role.trim().toLowerCase();
-            if (value === '0' || value === 'admin' || value === '¹ÜÀíÔ±') return this.ROLE.ADMIN;
-            if (value === '1' || value === 'technician' || value === '¼¼ÊõÈËÔ±' || value === 'Î¬ĞŞ¹¤³ÌÊ¦') return this.ROLE.TECHNICIAN;
-            if (value === '2' || value === 'reviewer' || value === 'ÉóºËÈËÔ±') return this.ROLE.REVIEWER;
-            if (value === '3' || value === 'maintenance' || value === 'Î¬ĞŞÈËÔ±') return this.ROLE.MAINTENANCE;
+            if (value === '0' || value === 'admin' || value === 'ç®¡ç†å‘˜' || value === 'ç³»ç»Ÿç®¡ç†å‘˜') return this.ROLE.ADMIN;
+            if (value === '1' || value === 'technician' || value === 'æŠ€æœ¯äººå‘˜' || value === 'ç»´ä¿®å·¥ç¨‹å¸ˆ') return this.ROLE.TECHNICIAN;
+            if (value === '2' || value === 'reviewer' || value === 'å®¡æ ¸äººå‘˜') return this.ROLE.REVIEWER;
+            if (value === '3' || value === 'maintenance' || value === 'ç»´ä¿®äººå‘˜') return this.ROLE.MAINTENANCE;
             const parsed = Number(value);
             if (!Number.isNaN(parsed)) return parsed;
         }
         return null;
     },
-    
+
     hasRole: function(userOrRole, ...roles) {
         const rawRole = userOrRole && typeof userOrRole === 'object'
             ? (userOrRole.role ?? userOrRole.role_id)
@@ -172,19 +172,19 @@ const Utils = {
         if (currentRole === null || currentRole === undefined) return false;
         return roles.map(Number).includes(currentRole);
     },
-    
+
     getRoleDisplay: function(userOrRole) {
         const rawRole = userOrRole && typeof userOrRole === 'object'
             ? (userOrRole.role ?? userOrRole.role_id)
             : userOrRole;
         const roleValue = this.normalizeRoleValue(rawRole);
         const roleMap = {
-            0: { label: 'ÏµÍ³¹ÜÀíÔ±', icon: 'A' },
-            1: { label: '¼¼ÊõÈËÔ±', icon: 'T' },
-            2: { label: 'ÉóºËÈËÔ±', icon: 'R' },
-            3: { label: 'Î¬ĞŞÈËÔ±', icon: 'M' }
+            0: { label: 'ç³»ç»Ÿç®¡ç†å‘˜', icon: 'A' },
+            1: { label: 'æŠ€æœ¯äººå‘˜', icon: 'T' },
+            2: { label: 'å®¡æ ¸äººå‘˜', icon: 'R' },
+            3: { label: 'ç»´ä¿®äººå‘˜', icon: 'M' }
         };
-        const roleInfo = roleMap[roleValue] || { label: 'ÓÃ»§', icon: 'U' };
+        const roleInfo = roleMap[roleValue] || { label: 'ç”¨æˆ·', icon: 'U' };
         return {
             value: roleValue,
             label: roleInfo.label,
@@ -193,27 +193,27 @@ const Utils = {
     },
 
     checkLogin: function() {
-        // ÓÅÏÈ´Ó localStorage »ñÈ¡
+        // ä¼˜å…ˆä» localStorage è·å–
         let token = localStorage.getItem('token');
         let refreshToken = localStorage.getItem('refresh_token');
         let userStr = localStorage.getItem('user');
 
-        // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡£¨¼æÈİ¾É°æ±¾£©
+        // å¦‚æœ localStorage æ²¡æœ‰ï¼Œå°è¯•ä» sessionStorage è·å–ï¼ˆå…¼å®¹æ—§ç‰ˆæœ¬ï¼‰
         if (!token) {
             token = sessionStorage.getItem('token');
             refreshToken = sessionStorage.getItem('refresh_token');
             userStr = sessionStorage.getItem('user');
 
-            // Èç¹û sessionStorage ÓĞµ« localStorage Ã»ÓĞ£¬Ç¨ÒÆµ½ localStorage
+            // å¦‚æœ sessionStorage æœ‰ä½† localStorage æ²¡æœ‰ï¼Œè¿ç§»åˆ° localStorage
             if (token) {
                 localStorage.setItem('token', token);
                 if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
                 if (userStr) localStorage.setItem('user', userStr);
-                console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
+                console.log('Token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
             }
         }
 
-        // Èç¹û¶¼Ã»ÓĞ token£¬Ìø×ªµ½µÇÂ¼Ò³
+        // å¦‚æœéƒ½æ²¡æœ‰ tokenï¼Œè·³è½¬åˆ°ç™»å½•é¡µ
         if (!token && !refreshToken) {
             window.location.href = 'index.html';
             return null;
@@ -222,99 +222,99 @@ const Utils = {
         try {
             return userStr ? JSON.parse(userStr) : null;
         } catch (e) {
-            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', e);
+            console.error('è§£æç”¨æˆ·ä¿¡æ¯å¤±è´¥:', e);
             window.location.href = 'index.html';
             return null;
         }
     },
 
-    // ¼ÓÔØÓÃ»§ĞÅÏ¢µ½²à±ßÀ¸ - ¼ò»¯°æ
+    // åŠ è½½ç”¨æˆ·ä¿¡æ¯åˆ°ä¾§è¾¹æ  - ç®€åŒ–ç‰ˆ
     loadUserInfo: function() {
         try {
-            // ÓÅÏÈ´Ó localStorage »ñÈ¡ÓÃ»§ĞÅÏ¢
+            // ä¼˜å…ˆä» localStorage è·å–ç”¨æˆ·ä¿¡æ¯
             let userStr = localStorage.getItem('user');
 
-            // Èç¹û localStorage Ã»ÓĞ£¬³¢ÊÔ´Ó sessionStorage »ñÈ¡
+            // å¦‚æœ localStorage æ²¡æœ‰ï¼Œå°è¯•ä» sessionStorage è·å–
             if (!userStr) {
                 userStr = sessionStorage.getItem('user');
                 if (userStr) {
-                    // Ç¨ÒÆµ½ localStorage
+                    // è¿ç§»åˆ° localStorage
                     localStorage.setItem('user', userStr);
-                    console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
+                    console.log('ç”¨æˆ·ä¿¡æ¯å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
                 }
             }
 
             if (!userStr) {
-                console.warn('ÓÃ»§ĞÅÏ¢²»´æÔÚ');
+                console.warn('ç”¨æˆ·ä¿¡æ¯ä¸å­˜åœ¨');
                 return;
             }
 
             const user = JSON.parse(userStr);
-            console.log('¼ÓÔØÓÃ»§ĞÅÏ¢:', user);
+            console.log('åŠ è½½ç”¨æˆ·ä¿¡æ¯:', user);
 
             const avatar = document.getElementById('userAvatar');
             const name = document.getElementById('userName');
             const role = document.getElementById('userRole');
 
-            // ÉèÖÃÍ·Ïñ
+            // è®¾ç½®å¤´åƒ
             if (avatar) {
-                const displayName = user.full_name || user.username || 'ÓÃ»§';
+                const displayName = user.full_name || user.username || 'ç”¨æˆ·';
                 avatar.textContent = displayName.charAt(0).toUpperCase();
 
-                // ¸ù¾İÉí·İÉèÖÃ²»Í¬ÑÕÉ«
-                const isAdmin = user.role === 0; // ×¢Òâ£º0ÊÇ¹ÜÀíÔ±
+                // æ ¹æ®èº«ä»½è®¾ç½®ä¸åŒé¢œè‰²
+                const isAdmin = user.role === 0; // æ³¨æ„ï¼š0æ˜¯ç®¡ç†å‘˜
                 avatar.style.backgroundColor = isAdmin ? '#dc2626' : '#4a9eff';
             }
 
-            // ÉèÖÃÓÃ»§Ãû
+            // è®¾ç½®ç”¨æˆ·å
             if (name) {
-                name.textContent = user.full_name || user.username || 'ÓÃ»§';
+                name.textContent = user.full_name || user.username || 'ç”¨æˆ·';
             }
 
-            // ÉèÖÃ½ÇÉ«ÏÔÊ¾
+            // è®¾ç½®è§’è‰²æ˜¾ç¤º
             if (role) {
                 const roleMap = {
-                    0: 'ÏµÍ³¹ÜÀíÔ±',
-                    1: '¼¼ÊõÈËÔ±',
-                    2: 'ÉóºËÈËÔ±',
-                    3: 'Î¬ĞŞÈËÔ±'
+                    0: 'ç³»ç»Ÿç®¡ç†å‘˜',
+                    1: 'æŠ€æœ¯äººå‘˜',
+                    2: 'å®¡æ ¸äººå‘˜',
+                    3: 'ç»´ä¿®äººå‘˜'
                 };
-                role.textContent = roleMap[this.normalizeRoleValue(user.role)] || 'ÓÃ»§';
+                role.textContent = roleMap[this.normalizeRoleValue(user.role)] || 'ç”¨æˆ·';
             }
 
         } catch (error) {
-            console.error('¼ÓÔØÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
+            console.error('åŠ è½½ç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
         }
     },
 
     getCurrentUser: function() {
         try {
-            // ÓÅÏÈ´Ó localStorage »ñÈ¡
+            // ä¼˜å…ˆä» localStorage è·å–
             let userStr = localStorage.getItem('user');
             if (!userStr) {
                 userStr = sessionStorage.getItem('user');
             }
 
             const user = userStr ? JSON.parse(userStr) : null;
-            console.log('»ñÈ¡µ±Ç°ÓÃ»§ĞÅÏ¢:', user);
+            console.log('è·å–å½“å‰ç”¨æˆ·ä¿¡æ¯:', user);
             return user;
         } catch (error) {
-            console.error('½âÎöÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
+            console.error('è§£æç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
             return null;
         }
     },
 
-    // ¸ù¾İÉí·İ¸üĞÂ²Ëµ¥
+    // æ ¹æ®èº«ä»½æ›´æ–°èœå•
     updateMenuByRole: function(user) {
-        console.log('¸üĞÂ²Ëµ¥£¬ÓÃ»§Éí·İ:', user.role, typeof user.role, user);
+        console.log('æ›´æ–°èœå•ï¼Œç”¨æˆ·èº«ä»½:', user.role, typeof user.role, user);
 
-        // ĞŞÕı½ÇÉ«ÅĞ¶ÏÂß¼­ - ¸üÑÏ¸ñµÄÅĞ¶Ï
+        // ä¿®æ­£è§’è‰²åˆ¤æ–­é€»è¾‘ - æ›´ä¸¥æ ¼çš„åˆ¤æ–­
         let isAdmin = false;
 
         const roleValue = this.normalizeRoleValue(user.role ?? user.role_id);
         isAdmin = roleValue === this.ROLE.ADMIN;
 
-        console.log('ÊÇ¹ÜÀíÔ±Âğ?', isAdmin);
+        console.log('æ˜¯ç®¡ç†å‘˜å—?', isAdmin);
 
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
@@ -324,23 +324,23 @@ const Utils = {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
         }
 
-        // ÎÒµÄ×ÊÁÏËùÓĞÓÃ»§¶¼¿É¼û
+        // æˆ‘çš„èµ„æ–™æ‰€æœ‰ç”¨æˆ·éƒ½å¯è§
         if (myProfileLink) {
             myProfileLink.style.display = 'flex';
         }
 
-        // È·±£ AI ¸¨Öú¶ÔËùÓĞÓÃ»§¿É¼û
+        // ç¡®ä¿ AI è¾…åŠ©å¯¹æ‰€æœ‰ç”¨æˆ·å¯è§
         if (aiAssistLink) {
             aiAssistLink.style.display = 'flex';
         }
 
-        // ÒÆ³ı¶àÓàµÄ active Àà
+        // ç§»é™¤å¤šä½™çš„ active ç±»
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             item.classList.remove('active');
         });
 
-        // ¸ù¾İµ±Ç°Ò³ÃæÉèÖÃ active Àà
+        // æ ¹æ®å½“å‰é¡µé¢è®¾ç½® active ç±»
         const currentPath = window.location.pathname.split('/').pop();
         const currentLink = document.querySelector(`a[href="${currentPath}"]`);
         if (currentLink) {
@@ -349,20 +349,20 @@ const Utils = {
     },
 
     logout: function() {
-        // Çå³ı localStorage
+        // æ¸…é™¤ localStorage
         localStorage.removeItem('token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        // Çå³ı sessionStorage£¨ÎªÁË¼æÈİ¾É´úÂë£©
+        // æ¸…é™¤ sessionStorageï¼ˆä¸ºäº†å…¼å®¹æ—§ä»£ç ï¼‰
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('last_conversation_id');
-        // Ìø×ªµ½µÇÂ¼Ò³
+        // è·³è½¬åˆ°ç™»å½•é¡µ
         window.location.href = 'index.html';
     },
 
-    // ·À¶¶º¯Êı
+    // é˜²æŠ–å‡½æ•°
     debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -375,13 +375,13 @@ const Utils = {
         };
     },
 
-        // »ñÈ¡API»ù´¡URL
+    // è·å–APIåŸºç¡€URL
     getApiBaseUrl: function() {
-        // ¿ÉÒÔ¸ù¾İ»·¾³ÅäÖÃ²»Í¬µÄURL
+        // å¯ä»¥æ ¹æ®ç¯å¢ƒé…ç½®ä¸åŒçš„URL
         return '';
     },
 
-    // »ñÈ¡ÈÏÖ¤Í·²¿
+    // è·å–è®¤è¯å¤´éƒ¨
     getAuthHeaders: function() {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = {
@@ -402,82 +402,82 @@ const Utils = {
                 ...options
             };
 
-            // Èç¹ûÓĞ body£¬È·±£ËüÊÇ JSON ×Ö·û´®
+            // å¦‚æœæœ‰ bodyï¼Œç¡®ä¿å®ƒæ˜¯ JSON å­—ç¬¦ä¸²
             if (defaultOptions.body && typeof defaultOptions.body !== 'string') {
                 defaultOptions.body = JSON.stringify(defaultOptions.body);
             }
 
             const response = await fetch(url, defaultOptions);
 
-            // ¼ì²éÊÇ·ñÎ´ÊÚÈ¨
+            // æ£€æŸ¥æ˜¯å¦æœªæˆæƒ
             if (response.status === 401) {
-                console.log('Token¹ıÆÚ£¬³¢ÊÔË¢ĞÂ...');
+                console.log('Tokenè¿‡æœŸï¼Œå°è¯•åˆ·æ–°...');
 
-                // ³¢ÊÔË¢ĞÂtoken
+                // å°è¯•åˆ·æ–°token
                 try {
                     const newToken = await this.refreshToken();
 
-                    // ¸üĞÂÇëÇóÍ·ÖĞµÄtoken
+                    // æ›´æ–°è¯·æ±‚å¤´ä¸­çš„token
                     defaultOptions.headers['Authorization'] = `Bearer ${newToken}`;
 
-                    // ÖØĞÂ·¢ËÍÇëÇó
+                    // é‡æ–°å‘é€è¯·æ±‚
                     const retryResponse = await fetch(url, defaultOptions);
 
                     if (!retryResponse.ok) {
                         const errorText = await retryResponse.text();
-                        throw new Error(`HTTP´íÎó: ${retryResponse.status} - ${errorText}`);
+                        throw new Error(`HTTPé”™è¯¯: ${retryResponse.status} - ${errorText}`);
                     }
 
                     const result = await retryResponse.json();
 
-                    // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
+                    // æ ¹æ®ä½ çš„Resultæ ¼å¼ï¼Œcodeä¸º1è¡¨ç¤ºæˆåŠŸ
                     if (result.code === 1) {
                         return result.data;
                     } else {
-                        throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
+                        throw new Error(result.msg || 'è¯·æ±‚å¤±è´¥');
                     }
                 } catch (refreshError) {
-                    console.error('Ë¢ĞÂtokenÊ§°Ü:', refreshError);
+                    console.error('åˆ·æ–°tokenå¤±è´¥:', refreshError);
                     sessionStorage.removeItem('token');
                     sessionStorage.removeItem('refresh_token');
                     sessionStorage.removeItem('user');
                     window.location.href = 'index.html';
-                    throw new Error('µÇÂ¼ÒÑ¹ıÆÚ£¬ÇëÖØĞÂµÇÂ¼');
+                    throw new Error('ç™»å½•å·²è¿‡æœŸï¼Œè¯·é‡æ–°ç™»å½•');
                 }
             }
 
-            // ¼ì²éÊÇ·ñÊÇ 404
+            // æ£€æŸ¥æ˜¯å¦æ˜¯ 404
             if (response.status === 404) {
-                throw new Error('ÇëÇóµÄ½Ó¿Ú²»´æÔÚ£¬Çë¼ì²éÂ·ÓÉ');
+                throw new Error('è¯·æ±‚çš„æ¥å£ä¸å­˜åœ¨ï¼Œè¯·æ£€æŸ¥è·¯ç”±');
             }
 
-            // ¼ì²éÆäËû´íÎó×´Ì¬
+            // æ£€æŸ¥å…¶ä»–é”™è¯¯çŠ¶æ€
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`HTTP´íÎó: ${response.status} - ${errorText}`);
+                throw new Error(`HTTPé”™è¯¯: ${response.status} - ${errorText}`);
             }
 
             const result = await response.json();
 
-            // ¸ù¾İÄãµÄResult¸ñÊ½£¬codeÎª1±íÊ¾³É¹¦
+            // æ ¹æ®ä½ çš„Resultæ ¼å¼ï¼Œcodeä¸º1è¡¨ç¤ºæˆåŠŸ
             if (result.code === 1) {
                 return result.data;
             } else {
-                throw new Error(result.msg || 'ÇëÇóÊ§°Ü');
+                throw new Error(result.msg || 'è¯·æ±‚å¤±è´¥');
             }
 
         } catch (error) {
-            console.error('APIÇëÇóÊ§°Ü:', error);
+            console.error('APIè¯·æ±‚å¤±è´¥:', error);
             throw error;
         }
     },
 
-    // Ìí¼ÓË¢ĞÂtokenµÄ¸¨Öúº¯Êı
+    // æ·»åŠ åˆ·æ–°tokençš„è¾…åŠ©å‡½æ•°
     refreshToken: async function() {
         try {
             const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
             if (!refreshToken) {
-                throw new Error('Ã»ÓĞ¿ÉÓÃµÄË¢ĞÂÁîÅÆ');
+                throw new Error('æ²¡æœ‰å¯ç”¨çš„åˆ·æ–°ä»¤ç‰Œ');
             }
 
             const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
@@ -491,7 +491,7 @@ const Utils = {
             });
 
             if (!response.ok) {
-                throw new Error(`Ë¢ĞÂÁîÅÆÊ§°Ü: ${response.status}`);
+                throw new Error(`åˆ·æ–°ä»¤ç‰Œå¤±è´¥: ${response.status}`);
             }
 
             const result = await response.json();
@@ -500,62 +500,63 @@ const Utils = {
                 const newAccessToken = result.data.access_token;
                 localStorage.setItem('token', newAccessToken);
                 sessionStorage.setItem('token', newAccessToken);
-                console.log('TokenË¢ĞÂ³É¹¦');
+                console.log('Tokenåˆ·æ–°æˆåŠŸ');
                 return newAccessToken;
             } else {
-                throw new Error(result.msg || 'Ë¢ĞÂÁîÅÆÊ§°Ü');
+                throw new Error(result.msg || 'åˆ·æ–°ä»¤ç‰Œå¤±è´¥');
             }
         } catch (error) {
-            console.error('Ë¢ĞÂÁîÅÆÊ§°Ü:', error);
+            console.error('åˆ·æ–°ä»¤ç‰Œå¤±è´¥:', error);
             throw error;
         }
     },
-        // ĞÂÔö£º´Ó sessionStorage Ç¨ÒÆµ½ localStorage µÄ¸¨Öúº¯Êı
+
+    // æ–°å¢ï¼šä» sessionStorage è¿ç§»åˆ° localStorage çš„è¾…åŠ©å‡½æ•°
     migrateToLocalStorage: function() {
-        // ¼ì²é²¢Ç¨ÒÆ token
+        // æ£€æŸ¥å¹¶è¿ç§» token
         const sessionToken = sessionStorage.getItem('token');
         const localToken = localStorage.getItem('token');
 
         if (sessionToken && !localToken) {
             localStorage.setItem('token', sessionToken);
-            console.log('Token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
+            console.log('Token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
         }
 
-        // ¼ì²é²¢Ç¨ÒÆ refresh_token
+        // æ£€æŸ¥å¹¶è¿ç§» refresh_token
         const sessionRefreshToken = sessionStorage.getItem('refresh_token');
         const localRefreshToken = localStorage.getItem('refresh_token');
 
         if (sessionRefreshToken && !localRefreshToken) {
             localStorage.setItem('refresh_token', sessionRefreshToken);
-            console.log('Refresh token ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
+            console.log('Refresh token å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
         }
 
-        // ¼ì²é²¢Ç¨ÒÆÓÃ»§ĞÅÏ¢
+        // æ£€æŸ¥å¹¶è¿ç§»ç”¨æˆ·ä¿¡æ¯
         const sessionUser = sessionStorage.getItem('user');
         const localUser = localStorage.getItem('user');
 
         if (sessionUser && !localUser) {
             localStorage.setItem('user', sessionUser);
-            console.log('ÓÃ»§ĞÅÏ¢ÒÑ´Ó sessionStorage Ç¨ÒÆµ½ localStorage');
+            console.log('ç”¨æˆ·ä¿¡æ¯å·²ä» sessionStorage è¿ç§»åˆ° localStorage');
         }
     },
 
-    // Ìí¼Ó»ñÈ¡ÓÃ»§ĞÅÏ¢º¯Êı£¨Ê¾Àı£©
+    // æ·»åŠ è·å–ç”¨æˆ·ä¿¡æ¯å‡½æ•°ï¼ˆç¤ºä¾‹ï¼‰
     getUserInfo: async function() {
         try {
-            // ÔÚÊµ¼ÊÏîÄ¿ÖĞ£¬µ÷ÓÃ»ñÈ¡ÓÃ»§ĞÅÏ¢µÄAPI
+            // åœ¨å®é™…é¡¹ç›®ä¸­ï¼Œè°ƒç”¨è·å–ç”¨æˆ·ä¿¡æ¯çš„API
             // const result = await this.apiRequest('/auth/profile');
             // return result.data;
 
-            // ÁÙÊ±·µ»ØsessionStorageÖĞµÄÓÃ»§ĞÅÏ¢
+            // ä¸´æ—¶è¿”å›sessionStorageä¸­çš„ç”¨æˆ·ä¿¡æ¯
             return JSON.parse(sessionStorage.getItem('user') || '{}');
         } catch (error) {
-            console.error('»ñÈ¡ÓÃ»§ĞÅÏ¢Ê§°Ü:', error);
+            console.error('è·å–ç”¨æˆ·ä¿¡æ¯å¤±è´¥:', error);
             return null;
         }
     },
 
-    // ½ÚÁ÷º¯Êı
+    // èŠ‚æµå‡½æ•°
     throttle: function(func, limit) {
         let inThrottle;
         return function() {
@@ -569,25 +570,25 @@ const Utils = {
         };
     },
 
-    // ÔÚ common.js ÎÄ¼şµÄ Utils ¶ÔÏóÖĞÌí¼ÓÒÔÏÂº¯Êı
+    // åœ¨ common.js æ–‡ä»¶çš„ Utils å¯¹è±¡ä¸­æ·»åŠ ä»¥ä¸‹å‡½æ•°
 
-    // ¸ñÊ½»¯ÏûÏ¢ÄÚÈİ£¨´¦Àí»»ĞĞµÈ£©
+    // æ ¼å¼åŒ–æ¶ˆæ¯å†…å®¹ï¼ˆå¤„ç†æ¢è¡Œç­‰ï¼‰
     formatMessageContent: function(content) {
         return content.replace(/\n/g, '<br>');
     },
 
-    // Éú³ÉËæ»úID
+    // ç”ŸæˆéšæœºID
     generateId: function() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     },
 
-    // ½Ø¶Ï×Ö·û´®
+    // æˆªæ–­å­—ç¬¦ä¸²
     truncateString: function(str, length) {
         if (str.length <= length) return str;
         return str.substring(0, length) + '...';
     },
 
-    // »ñÈ¡µ±Ç°Ê±¼ä×Ö·û´®
+    // è·å–å½“å‰æ—¶é—´å­—ç¬¦ä¸²
     getCurrentTime: function() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -595,22 +596,22 @@ const Utils = {
 
 };
 
-// Ò³Ãæ¼ÓÔØÊ±¼ì²éµÇÂ¼×´Ì¬
+// é¡µé¢åŠ è½½æ—¶æ£€æŸ¥ç™»å½•çŠ¶æ€
 document.addEventListener('DOMContentLoaded', function() {
-    // Èç¹û²»ÊÇµÇÂ¼Ò³£¬¼ì²éµÇÂ¼×´Ì¬
+    // å¦‚æœä¸æ˜¯ç™»å½•é¡µï¼Œæ£€æŸ¥ç™»å½•çŠ¶æ€
     const currentPath = window.location.pathname;
     const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
 
     if (!isLoginPage) {
-        // ÏÈÇ¨ÒÆÊı¾İ£¨Èç¹ûÓĞ£©
+        // å…ˆè¿ç§»æ•°æ®ï¼ˆå¦‚æœæœ‰ï¼‰
         Utils.migrateToLocalStorage();
 
-        // È»ºó¼ì²éµÇÂ¼
+        // ç„¶åæ£€æŸ¥ç™»å½•
         const user = Utils.checkLogin();
 
-        // È»ºó¼ÓÔØÓÃ»§ĞÅÏ¢
+        // ç„¶ååŠ è½½ç”¨æˆ·ä¿¡æ¯
         if (user) {
-            // ÑÓ³ÙÒ»µãÈ·±£DOMÍêÈ«¼ÓÔØ
+            // å»¶è¿Ÿä¸€ç‚¹ç¡®ä¿DOMå®Œå…¨åŠ è½½
             setTimeout(() => {
                 Utils.loadUserInfo();
             }, 100);
@@ -618,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ±íµ¥ÑéÖ¤
+// è¡¨å•éªŒè¯
 function initFormValidation() {
     const forms = document.querySelectorAll('form[data-validate]');
     forms.forEach(form => {
@@ -629,50 +630,50 @@ function initFormValidation() {
             inputs.forEach(input => {
                 if (!input.value.trim()) {
                     isValid = false;
-                    highlightError(input, '´Ë×Ö¶Î²»ÄÜÎª¿Õ');
+                    highlightError(input, 'æ­¤å­—æ®µä¸èƒ½ä¸ºç©º');
                 } else {
                     clearError(input);
                 }
 
-                // ÓÊÏäÑéÖ¤
+                // é‚®ç®±éªŒè¯
                 if (input.type === 'email' && input.value) {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!emailRegex.test(input.value)) {
                         isValid = false;
-                        highlightError(input, 'ÇëÊäÈëÓĞĞ§µÄÓÊÏäµØÖ·');
+                        highlightError(input, 'è¯·è¾“å…¥æœ‰æ•ˆçš„é‚®ç®±åœ°å€');
                     }
                 }
 
-                // ÃÜÂë³¤¶ÈÑéÖ¤
+                // å¯†ç é•¿åº¦éªŒè¯
                 if (input.type === 'password' && input.value) {
                     if (input.value.length < 6) {
                         isValid = false;
-                        highlightError(input, 'ÃÜÂë³¤¶È²»ÄÜÉÙÓÚ6Î»');
+                        highlightError(input, 'å¯†ç é•¿åº¦ä¸èƒ½å°‘äº6ä½');
                     }
                 }
             });
 
             if (!isValid) {
                 e.preventDefault();
-                Utils.showMessage('Çë¼ì²é±íµ¥ÖĞµÄ´íÎó', 'error');
+                Utils.showMessage('è¯·æ£€æŸ¥è¡¨å•ä¸­çš„é”™è¯¯', 'error');
             }
         });
     });
 }
 
-// ¸ßÁÁ´íÎó×Ö¶Î
+// é«˜äº®é”™è¯¯å­—æ®µ
 function highlightError(input, message) {
     const formGroup = input.closest('.form-group');
     if (!formGroup) return;
 
-    // ÒÆ³ıÏÖÓĞµÄ´íÎóĞÅÏ¢
+    // ç§»é™¤ç°æœ‰çš„é”™è¯¯ä¿¡æ¯
     const existingError = formGroup.querySelector('.error-message');
     if (existingError) existingError.remove();
 
-    // Ìí¼Ó´íÎóÑùÊ½
+    // æ·»åŠ é”™è¯¯æ ·å¼
     input.classList.add('error');
 
-    // Ìí¼Ó´íÎóĞÅÏ¢
+    // æ·»åŠ é”™è¯¯ä¿¡æ¯
     const errorEl = document.createElement('div');
     errorEl.className = 'error-message';
     errorEl.textContent = message;
@@ -683,7 +684,7 @@ function highlightError(input, message) {
     formGroup.appendChild(errorEl);
 }
 
-// Çå³ı´íÎóÌáÊ¾
+// æ¸…é™¤é”™è¯¯æç¤º
 function clearError(input) {
     input.classList.remove('error');
     const formGroup = input.closest('.form-group');
@@ -693,7 +694,7 @@ function clearError(input) {
     if (errorMessage) errorMessage.remove();
 }
 
-// Í¼Æ¬ÉÏ´«´¦Àí
+// å›¾ç‰‡ä¸Šä¼ å¤„ç†
 function initImageUpload(uploadAreaId, previewContainerId) {
     const uploadArea = document.getElementById(uploadAreaId);
     const previewContainer = document.getElementById(previewContainerId);
@@ -705,12 +706,12 @@ function initImageUpload(uploadAreaId, previewContainerId) {
 
     document.body.appendChild(fileInput);
 
-    // µã»÷ÉÏ´«ÇøÓòÑ¡ÔñÎÄ¼ş
+    // ç‚¹å‡»ä¸Šä¼ åŒºåŸŸé€‰æ‹©æ–‡ä»¶
     uploadArea.addEventListener('click', () => {
         fileInput.click();
     });
 
-    // ÍÏ·ÅÉÏ´«
+    // æ‹–æ”¾ä¸Šä¼ 
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadArea.style.borderColor = '#4a9eff';
@@ -731,7 +732,7 @@ function initImageUpload(uploadAreaId, previewContainerId) {
         handleImageFiles(files, previewContainer);
     });
 
-    // ÎÄ¼şÑ¡Ôñ±ä»¯
+    // æ–‡ä»¶é€‰æ‹©å˜åŒ–
     fileInput.addEventListener('change', () => {
         handleImageFiles(fileInput.files, previewContainer);
     });
@@ -741,7 +742,7 @@ function initImageUpload(uploadAreaId, previewContainerId) {
     };
 }
 
-// ´¦ÀíÍ¼Æ¬ÎÄ¼ş
+// å¤„ç†å›¾ç‰‡æ–‡ä»¶
 function handleImageFiles(files, previewContainer) {
     previewContainer.innerHTML = '';
 
@@ -753,8 +754,8 @@ function handleImageFiles(files, previewContainer) {
             const preview = document.createElement('div');
             preview.className = 'image-preview';
             preview.innerHTML = `
-                <img src="${e.target.result}" alt="Ô¤ÀÀ">
-                <button type="button" class="btn-remove-image">¡Á</button>
+                <img src="${e.target.result}" alt="é¢„è§ˆ">
+                <button type="button" class="btn-remove-image">Ã—</button>
             `;
 
             preview.querySelector('.btn-remove-image').addEventListener('click', () => {
@@ -768,7 +769,6 @@ function handleImageFiles(files, previewContainer) {
 }
 
 
-// µ¼³öµ½È«¾Ö
+// å¯¼å‡ºåˆ°å…¨å±€
 window.Utils = Utils;
 window.initImageUpload = initImageUpload;
-

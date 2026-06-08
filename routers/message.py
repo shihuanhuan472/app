@@ -183,12 +183,21 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
             stream=True
         )
         full_content = ""
+        async def persist_partial_content(content_text: str):
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(Message).where(Message.id == id))
+                ai_msg = result.scalar_one_or_none()
+                if ai_msg:
+                    ai_msg.content_text = content_text
+                    await db.commit()
+
         async for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
                 full_content += content
                 data["answer"] = full_content
                 data["code"] = 1
+                await persist_partial_content(full_content)
                 yield f"data: {json.dumps(data)}\n\n"
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
@@ -206,6 +215,7 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
             "message": "回答失败"
         }
         yield f"data: {json.dumps(error_data)}\n\n"
+
 
 @router.post("/ask", summary="提问以获得回答")
 async def ask(message: MessageCreate,
@@ -285,16 +295,16 @@ async def ask(message: MessageCreate,
         await db.commit()
         await db.refresh(ai_msg)
 
-        if message.stream:
-            return StreamingResponse(
-                stream_ai_response(ai_msg.id, messages, message.session_id,
-                                   ai_reference_documents, ai_reference_document_ids_str),
-                media_type="text/event-stream"
-            )
-        else:
-            answer = await get_ai_answer(db, messages, ai_msg.id)
-            ai_response = MessageResponse.from_orm(answer)
-            return Result.success_with_data(ai_response)
+        return StreamingResponse(
+            stream_ai_response(
+                ai_msg.id,
+                messages,
+                message.session_id,
+                ai_reference_documents,
+                ai_reference_document_ids_str
+            ),
+            media_type="text/event-stream"
+        )
 
 
     except AppException:

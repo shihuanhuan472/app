@@ -12,6 +12,7 @@ from models import User
 from schemas import Page, Result, UserCreate, UserQueryByPage, UserResponse, UserUpdateByAdmin
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.pagination import build_pagination_payload
 from utils.roles import (
     get_expected_perm_for_role,
     is_role_perm_consistent,
@@ -234,13 +235,8 @@ async def get_user_page(
         result = await db.execute(select(User).where(User.status == 1).offset(offset).limit(page.size))
         users = result.scalars().all()
 
-        total_pages = (total_count + page.size - 1) // page.size
         users_data = [UserResponse.from_orm(user) for user in users]
-        data = {
-            "total_count": total_count,
-            "total_pages": total_pages,
-            "users": users_data,
-        }
+        data = build_pagination_payload(total_count, page.page, page.size, users_data, "users")
         return Result.success_with_data(data)
     except Exception as e:
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
@@ -271,14 +267,9 @@ async def query(
         result = await db.execute(select(User).where(filters).offset(offset).limit(query.size))
         users = result.scalars().all()
 
-        total_pages = (total_count + query.size - 1) // query.size
         users_response = [UserResponse.from_orm(user) for user in users]
 
-        data = {
-            "total_count": total_count,
-            "total_pages": total_pages,
-            "users": users_response,
-        }
+        data = build_pagination_payload(total_count, query.page, query.size, users_response, "users")
 
         return Result.success_with_data(data)
     except Exception as e:
