@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Optional
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,23 +22,11 @@ def _require_tag_operator(user: User):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "仅技术人员或管理员可操作标签")
 
 
-def _normalize_color(color: Optional[str]) -> Optional[str]:
-    if color is None:
-        return None
-    color = str(color).strip()
-    if not color:
-        return None
-    if len(color) > 20:
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "颜色值过长")
-    return color
-
-
 def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
     return TagResponse(
         id=tag.id,
         name=tag.name,
         description=tag.description,
-        color=tag.color,
         document_count=document_count,
         created_by=tag.created_by,
         created_time=tag.created_time,
@@ -125,7 +112,6 @@ async def add_tag(
         if existing.is_deleted:
             existing.is_deleted = 0
             existing.description = payload.description
-            existing.color = _normalize_color(payload.color)
             existing.updated_time = now
             await db.commit()
             await db.refresh(existing)
@@ -135,7 +121,6 @@ async def add_tag(
     tag = Tag(
         name=name,
         description=payload.description,
-        color=_normalize_color(payload.color),
         is_deleted=0,
         created_by=current_user.id,
         created_time=now,
@@ -169,8 +154,6 @@ async def update_tag(
 
     if payload.description is not None:
         tag.description = payload.description
-    if payload.color is not None:
-        tag.color = _normalize_color(payload.color)
 
     tag.updated_time = datetime.now()
     await db.commit()

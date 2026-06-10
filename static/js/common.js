@@ -881,11 +881,9 @@ const TagSelector = {
             const name = String(tag.name || '').trim();
             if (!name) return '';
             const checked = instance.selected.has(name) ? 'checked' : '';
-            const color = /^#[0-9a-fA-F]{6}$/.test(String(tag.color || '')) ? tag.color : '#4a9eff';
             return `
                 <label class="tag-select-option">
                     <input type="checkbox" value="${this.escapeHtml(name)}" ${checked}>
-                    <span class="tag-select-dot" style="background: ${color};"></span>
                     <span class="tag-select-name">${this.escapeHtml(name)}</span>
                 </label>
             `;

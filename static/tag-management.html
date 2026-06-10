@@ -65,15 +65,6 @@
             min-width: 0;
         }
 
-        .tag-color-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 1px solid rgba(0, 0, 0, 0.12);
-            flex: 0 0 12px;
-            background: #4a9eff;
-        }
-
         .tag-name-text,
         .tag-description-text {
             overflow: hidden;
@@ -124,23 +115,6 @@
             color: #1a3a5f;
             font-weight: 600;
             font-size: 18px;
-        }
-
-        .color-row {
-            display: grid;
-            grid-template-columns: 48px minmax(0, 1fr);
-            gap: 10px;
-            align-items: center;
-        }
-
-        .color-row input[type="color"] {
-            width: 48px;
-            height: 38px;
-            border: 1px solid #d9e3f0;
-            border-radius: 6px;
-            background: #fff;
-            padding: 3px;
-            cursor: pointer;
         }
 
         .tag-empty {
@@ -276,13 +250,6 @@
                             <label class="form-label" for="tagDescription">备注</label>
                             <textarea id="tagDescription" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="tagColor">颜色</label>
-                            <div class="color-row">
-                                <input type="color" id="tagColor" value="#4a9eff">
-                                <input type="text" id="tagColorText" class="form-control" value="#4a9eff" maxlength="20">
-                            </div>
-                        </div>
                         <button class="btn btn-primary" type="submit" id="tagSubmitBtn" style="width: 100%;">
                             <i class="fas fa-save"></i> 保存
                         </button>
@@ -309,16 +276,6 @@
                 return;
             }
 
-            const colorInput = document.getElementById('tagColor');
-            const colorText = document.getElementById('tagColorText');
-            colorInput.addEventListener('input', () => colorText.value = colorInput.value);
-            colorText.addEventListener('input', () => {
-                const value = colorText.value.trim();
-                if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-                    colorInput.value = value;
-                }
-            });
-
             const searchInput = document.getElementById('tagSearchInput');
             searchInput.addEventListener('input', Utils.debounce(() => {
                 tagKeyword = searchInput.value.trim();
@@ -340,10 +297,6 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
-        }
-
-        function safeColor(color) {
-            return /^#[0-9a-fA-F]{6}$/.test(String(color || '').trim()) ? color : '#4a9eff';
         }
 
         async function loadTags() {
@@ -372,7 +325,6 @@
                 <tr>
                     <td>
                         <div class="tag-name-cell">
-                            <span class="tag-color-dot" style="background: ${safeColor(tag.color)};"></span>
                             <span class="tag-name-text" title="${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</span>
                         </div>
                     </td>
@@ -439,9 +391,6 @@
             document.getElementById('tagId').value = tag.id || '';
             document.getElementById('tagName').value = tag.name || '';
             document.getElementById('tagDescription').value = tag.description || '';
-            const color = safeColor(tag.color);
-            document.getElementById('tagColor').value = color;
-            document.getElementById('tagColorText').value = color;
         }
 
         function editTagById(tagId) {
@@ -458,8 +407,6 @@
             document.getElementById('tagId').value = '';
             document.getElementById('tagName').value = '';
             document.getElementById('tagDescription').value = '';
-            document.getElementById('tagColor').value = '#4a9eff';
-            document.getElementById('tagColorText').value = '#4a9eff';
         }
 
         async function submitTagForm(event) {
@@ -469,7 +416,6 @@
             const id = document.getElementById('tagId').value;
             const name = document.getElementById('tagName').value.trim();
             const description = document.getElementById('tagDescription').value.trim();
-            const color = document.getElementById('tagColorText').value.trim() || '#4a9eff';
             if (!name) {
                 Utils.showMessage('标签名称不能为空', 'error');
                 return;
@@ -482,10 +428,10 @@
 
             try {
                 if (id) {
-                    await tagAPI.updateTag({ id: Number(id), name, description, color });
+                    await tagAPI.updateTag({ id: Number(id), name, description });
                     Utils.showMessage('标签已更新', 'success');
                 } else {
-                    await tagAPI.addTag({ name, description, color });
+                    await tagAPI.addTag({ name, description });
                     Utils.showMessage('标签已新增', 'success');
                 }
                 resetTagForm();

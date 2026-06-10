@@ -57,14 +57,12 @@ class Page(BaseModel):
 class TagCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    color: Optional[str] = None
 
 
 class TagUpdate(BaseModel):
     id: int
     name: Optional[str] = None
     description: Optional[str] = None
-    color: Optional[str] = None
 
 
 class TagQuery(BaseModel):
@@ -77,7 +75,6 @@ class TagResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
-    color: Optional[str] = None
     document_count: Optional[int] = 0
     created_by: Optional[int] = None
     created_time: Optional[datetime] = None

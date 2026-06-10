@@ -80,7 +80,6 @@ async def ensure_tags(
 
         tag = Tag(
             name=name,
-            color=None,
             description=None,
             is_deleted=0,
             created_by=created_by,
