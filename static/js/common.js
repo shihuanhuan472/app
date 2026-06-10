@@ -772,3 +772,166 @@ function handleImageFiles(files, previewContainer) {
 // 导出到全局
 window.Utils = Utils;
 window.initImageUpload = initImageUpload;
+
+const TagSelector = {
+    instances: {},
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    normalizeTags(tags) {
+        if (Array.isArray(tags)) {
+            return tags.map(tag => String(tag).trim()).filter(Boolean);
+        }
+        if (typeof tags === 'string' && tags.trim()) {
+            try {
+                const parsed = JSON.parse(tags);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                }
+            } catch (_) {
+                return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+            }
+        }
+        return [];
+    },
+
+    async init(containerId, options = {}) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const selected = new Set(this.normalizeTags(options.selected || []));
+        this.instances[containerId] = {
+            tags: [],
+            selected,
+            placeholder: options.placeholder || '请选择标签'
+        };
+
+        container.classList.add('tag-select');
+        container.innerHTML = `
+            <button type="button" class="tag-select-trigger" aria-expanded="false">
+                <span class="tag-select-value">正在加载标签...</span>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="tag-select-menu" hidden>
+                <div class="tag-select-loading">正在加载标签...</div>
+            </div>
+        `;
+
+        container.querySelector('.tag-select-trigger').addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.toggle(containerId);
+        });
+
+        try {
+            if (typeof tagAPI === 'undefined') {
+                throw new Error('标签接口未加载');
+            }
+            const tags = await tagAPI.getAllTags();
+            this.instances[containerId].tags = Array.isArray(tags) ? tags : [];
+            this.render(containerId);
+        } catch (error) {
+            const menu = container.querySelector('.tag-select-menu');
+            menu.innerHTML = `<div class="tag-select-empty">${this.escapeHtml(error.message || '标签加载失败')}</div>`;
+            container.querySelector('.tag-select-value').textContent = '标签加载失败';
+        }
+
+        if (!this._documentClickBound) {
+            document.addEventListener('click', (event) => {
+                Object.keys(this.instances).forEach(id => {
+                    const root = document.getElementById(id);
+                    if (root && !root.contains(event.target)) {
+                        this.close(id);
+                    }
+                });
+            });
+            this._documentClickBound = true;
+        }
+    },
+
+    render(containerId) {
+        const instance = this.instances[containerId];
+        const container = document.getElementById(containerId);
+        if (!instance || !container) return;
+
+        const value = container.querySelector('.tag-select-value');
+        const menu = container.querySelector('.tag-select-menu');
+        const selectedNames = Array.from(instance.selected);
+
+        if (selectedNames.length) {
+            value.innerHTML = selectedNames
+                .map(name => `<span class="tag-select-chip">${this.escapeHtml(name)}</span>`)
+                .join('');
+        } else {
+            value.textContent = instance.placeholder;
+        }
+
+        if (!instance.tags.length) {
+            menu.innerHTML = '<div class="tag-select-empty">暂无可选标签，请先到标签管理新增</div>';
+            return;
+        }
+
+        menu.innerHTML = instance.tags.map(tag => {
+            const name = String(tag.name || '').trim();
+            if (!name) return '';
+            const checked = instance.selected.has(name) ? 'checked' : '';
+            const color = /^#[0-9a-fA-F]{6}$/.test(String(tag.color || '')) ? tag.color : '#4a9eff';
+            return `
+                <label class="tag-select-option">
+                    <input type="checkbox" value="${this.escapeHtml(name)}" ${checked}>
+                    <span class="tag-select-dot" style="background: ${color};"></span>
+                    <span class="tag-select-name">${this.escapeHtml(name)}</span>
+                </label>
+            `;
+        }).join('');
+
+        menu.querySelectorAll('input[type="checkbox"]').forEach(input => {
+            input.addEventListener('change', () => {
+                const name = input.value;
+                if (input.checked) {
+                    instance.selected.add(name);
+                } else {
+                    instance.selected.delete(name);
+                }
+                this.render(containerId);
+            });
+        });
+    },
+
+    toggle(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const trigger = container.querySelector('.tag-select-trigger');
+        const menu = container.querySelector('.tag-select-menu');
+        const shouldOpen = menu.hasAttribute('hidden');
+        if (shouldOpen) {
+            menu.removeAttribute('hidden');
+            trigger.setAttribute('aria-expanded', 'true');
+        } else {
+            this.close(containerId);
+        }
+    },
+
+    close(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const trigger = container.querySelector('.tag-select-trigger');
+        const menu = container.querySelector('.tag-select-menu');
+        if (menu) menu.setAttribute('hidden', '');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    },
+
+    getSelected(containerId) {
+        const instance = this.instances[containerId];
+        if (!instance) return [];
+        return Array.from(instance.selected);
+    }
+};
+
+window.TagSelector = TagSelector;

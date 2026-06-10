@@ -434,7 +434,7 @@
                     </div>
                     <div class="form-group">
                         <label for="documentTags">标签</label>
-                        <input type="text" id="documentTags" name="documentTags" value="${normalizeDocumentTags(doc.tag).join(', ').replace(/"/g, '&quot;')}" placeholder="多个标签用逗号分隔，例如：机械, 电气">
+                        <div id="documentTags" class="tag-select"></div>
                     </div>
             `;
 
@@ -470,6 +470,10 @@
             `;
 
             document.getElementById('editFormContainer').innerHTML = formHtml;
+            TagSelector.init('documentTags', {
+                selected: normalizeDocumentTags(doc.tag),
+                placeholder: '请选择标签'
+            });
             initAllImageUploads();
             renderAllExistingPreviews();
 
@@ -738,11 +742,7 @@
         }
 
         function parseDocumentTags() {
-            const tagInput = document.getElementById('documentTags');
-            if (!tagInput) return [];
-            const rawTags = tagInput.value.trim();
-            if (!rawTags) return [];
-            return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+            return TagSelector.getSelected('documentTags');
         }
     </script>
 </body>
