@@ -432,6 +432,10 @@
                         <label for="title" class="required">文档标题</label>
                         <input type="text" id="title" name="title" value="${(doc.title || '').replace(/"/g, '&quot;')}" required placeholder="请输入文档标题">
                     </div>
+                    <div class="form-group">
+                        <label for="documentTags">标签</label>
+                        <input type="text" id="documentTags" name="documentTags" value="${normalizeDocumentTags(doc.tag).join(', ').replace(/"/g, '&quot;')}" placeholder="多个标签用逗号分隔，例如：机械, 电气">
+                    </div>
             `;
 
             fields.forEach(f => {
@@ -641,6 +645,7 @@
 
             const formData = {
                 title: document.getElementById('title').value.trim(),
+                tag: parseDocumentTags(),
                 problem_intro: document.getElementById('problem_intro').value.trim(),
                 causes: document.getElementById('causes').value.trim(),
                 evaluation: document.getElementById('evaluation').value.trim(),
@@ -714,6 +719,31 @@
 
         window.cancelEdit = cancelEdit;
         window.updateDocument = updateDocument;
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function parseDocumentTags() {
+            const tagInput = document.getElementById('documentTags');
+            if (!tagInput) return [];
+            const rawTags = tagInput.value.trim();
+            if (!rawTags) return [];
+            return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+        }
     </script>
 </body>
 </html>

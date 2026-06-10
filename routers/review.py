@@ -15,6 +15,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
+from utils.tag_service import normalize_tag_names, set_document_tag_names
 from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/review", tags=["document-review"])
@@ -33,10 +34,8 @@ def _get_document_model(library_type: str):
 
 
 def _normalize_tags(tag):
-    """把标签保存为干净的字符串数组，方便 JSON 字段检索。"""
-    if not tag:
-        return []
-    return [str(item).strip() for item in tag if str(item).strip()]
+    """把标签保存为干净的字符串数组。审核表保留 JSON，文档表使用标签关联表。"""
+    return normalize_tag_names(tag)
 
 
 async def _cleanup_document_files(document: Document):
@@ -476,6 +475,7 @@ async def approve_review(
             )
             db.add(new_document)
             await db.flush()
+            await set_document_tag_names(db, new_document, review.tag, created_by=review.contributor_id)
             review.document_id = new_document.id
             await vector_service.add_document_to_vector_store(new_document, commit=False)
 
@@ -497,7 +497,10 @@ async def approve_review(
             for field in REVIEW_COPY_FIELDS:
                 if field == "title" and not review.title:
                     continue
-                setattr(document, field, _normalize_tags(getattr(review, field)) if field == "tag" else getattr(review, field))
+                if field == "tag":
+                    await set_document_tag_names(db, document, getattr(review, field), created_by=review.contributor_id)
+                    continue
+                setattr(document, field, getattr(review, field))
             document.is_vectorized = 0
             await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
             await vector_service.add_document_to_vector_store(document, commit=False)

@@ -39,6 +39,13 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
+from utils.tag_service import (
+    get_document_tag_names,
+    normalize_tag_names,
+    set_document_tag_names,
+    tag_filter_for_model,
+    tag_keyword_filter_for_model,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select, func, delete
 
@@ -70,10 +77,8 @@ def _sort_documents_by_edit_time(documents):
 
 
 def _normalize_tags(tag):
-    """把标签统一为去空白的字符串数组，便于用 MySQL JSON 字段保存。"""
-    if not tag:
-        return []
-    return [str(item).strip() for item in tag if str(item).strip()]
+    """把标签统一为去空白的字符串数组。实际关系保存在标签关联表中。"""
+    return normalize_tag_names(tag)
 
 
 def _require_admin_document_write(current_user: User, message: str = "技术人员需提交审核，审核通过后才会写入文档库"):
@@ -84,21 +89,12 @@ def _require_admin_document_write(current_user: User, message: str = "技术人�
 
 def _tag_filter(model, tags):
     """按标签做包含任一标签的过滤，用于设备语义标签的交叉检索。"""
-    normalized_tags = _normalize_tags(tags)
-    if not normalized_tags:
-        return None
-    return or_(*[func.JSON_CONTAINS(model.tag, json.dumps(tag, ensure_ascii=False)) == 1 for tag in normalized_tags])
+    return tag_filter_for_model(model, tags)
 
 
 def _tag_keyword_filter(model, keyword: str):
     """让搜索框关键词也能命中文档标签。"""
-    keyword = str(keyword or "").strip()
-    if not keyword:
-        return None
-    return or_(
-        func.JSON_CONTAINS(model.tag, json.dumps(keyword, ensure_ascii=False)) == 1,
-        model.tag.like(f"%{keyword}%"),
-    )
+    return tag_keyword_filter_for_model(model, keyword)
 
 
 DOCUMENT_COPY_FIELDS = [
@@ -280,7 +276,11 @@ async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relat
     await asyncio.to_thread(shutil.copy2, source_path, target_path)
     return target_relative_path
 
-def document_convert_documentResponse(document: Document, contributor_name: str) -> DocumentResponse:
+async def document_convert_documentResponse(
+        db: AsyncSession,
+        document: Document,
+        contributor_name: str
+) -> DocumentResponse:
     """
     document类型转为documentResponse类型
     （其实是因为document类型没有作者姓名，所以不能直接用from_orm）
@@ -289,7 +289,7 @@ def document_convert_documentResponse(document: Document, contributor_name: str)
     return DocumentResponse(
         id=document.id,
         library_type=getattr(document, "library_type", "breakdown"),
-        tag=_normalize_tags(getattr(document, "tag", [])),
+        tag=await get_document_tag_names(db, document),
         title=document.title,
         contributor_id=document.contributor_id,
         contributor_name=contributor_name,
@@ -363,7 +363,8 @@ async def documents_to_responses(
             else:
                 contributor_name = f"用户{doc.contributor_id}"
 
-        responses.append(document_convert_documentResponse(
+        responses.append(await document_convert_documentResponse(
+            db=db,
             document=doc,
             contributor_name=contributor_name
         ))
@@ -444,13 +445,15 @@ async def create_document(document: DocumentCreate,
                                        is_deleted=0,
                                        first_edit_date=datetime.now())
         db.add(document_data)
-        await db.commit()
+        await db.flush()
         await db.refresh(document_data)
+        await set_document_tag_names(db, document_data, document.tag, created_by=current_user.id)
         print("数据库插入成功")
         vector_service = VectorService(db)
-        await vector_service.add_document_to_vector_store(document_data)
+        await vector_service.add_document_to_vector_store(document_data, commit=False)
+        await db.commit()
         print("向量化完成")
-        data = document_convert_documentResponse(document_data, current_user.full_name)
+        data = await document_convert_documentResponse(db, document_data, current_user.full_name)
         return Result.success_with_data(data)
 
     except AppException:
@@ -625,7 +628,8 @@ async def update_document(id: int,
             if key == "id" or key in attrs:
                 continue
             if key == "tag":
-                value = _normalize_tags(value)
+                await set_document_tag_names(db, document_now, value, created_by=current_user.id)
+                continue
             setattr(document_now, key, value)
 
         if len(image_urls_str) > 0:
@@ -639,18 +643,19 @@ async def update_document(id: int,
         vector_service = VectorService(db)
         await vector_service.delete_document_from_vector_store(id, getattr(document_now, "library_type", "breakdown"))
 
-        await db.commit()
-        await db.refresh(document_now)
+        await db.flush()
 
         # vector_service.add_document_to_vector_store(document_now)
-        await vector_service.add_document_to_vector_store(document_now)
+        await vector_service.add_document_to_vector_store(document_now, commit=False)
+        await db.commit()
+        await db.refresh(document_now)
 
         # full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
 
         full_name_result = await db.execute(select(User.full_name).where(User.id == document_now.contributor_id))
         full_name = full_name_result.scalar_one_or_none()
 
-        document_response = document_convert_documentResponse(document_now, full_name)
+        document_response = await document_convert_documentResponse(db, document_now, full_name)
         return Result.success_with_data(document_response)
     except AppException:
         raise
@@ -799,7 +804,7 @@ async def get_document(id: int,
             full_name_result = await db.execute(select(User.full_name).where(User.id == document.contributor_id))
             full_name = full_name_result.scalar_one_or_none()
 
-            document_data = document_convert_documentResponse(document, full_name)
+            document_data = await document_convert_documentResponse(db, document, full_name)
             return Result.success_with_data(document_data)
         return Result.success()
     except Exception as e:
@@ -1278,6 +1283,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
+                await set_document_tag_names(db, document, file_list.tag, created_by=current_user.id)
                 vector_service = VectorService(db)
                 await vector_service.add_document_to_vector_store(document, commit=False)
                 source = await _get_source_document_by_path(db, file)

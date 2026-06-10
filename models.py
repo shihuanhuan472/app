@@ -43,6 +43,37 @@ class SourceDocument(Base):
     uploader = relationship("User")
 
 
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(50), unique=True, nullable=False, index=True)
+    description = Column(Text)
+    color = Column(String(20))
+    is_deleted = Column(Integer, default=0, nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    creator = relationship("User")
+
+
+class DocumentBreakdownTag(Base):
+    __tablename__ = "document_breakdown_tags"
+
+    document_id = Column(Integer, ForeignKey("document_breakdown.id"), primary_key=True)
+    tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
+    created_time = Column(DateTime)
+
+
+class DocumentKnowledgeTag(Base):
+    __tablename__ = "document_knowledge_tags"
+
+    document_id = Column(Integer, ForeignKey("document_knowledge.id"), primary_key=True)
+    tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
+    created_time = Column(DateTime)
+
+
 class DocumentFieldsMixin:
     """复用文档字段，保证故障库和知识库的表结构保持一致。"""
 

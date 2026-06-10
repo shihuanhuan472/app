@@ -47,13 +47,14 @@ from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents
+from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents, tags
 # from routers import auth, conversation_v1
 from routers import documents
-from models import Base
-from database import engine
+from models import Base, DocumentBreakdown, DocumentKnowledge
+from database import AsyncSessionLocal, engine
 from starlette.types import Scope
-from sqlalchemy import text
+from sqlalchemy import func, select, text
+from utils.tag_service import get_document_tag_link_model, normalize_tag_names, set_document_tag_names
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
 
@@ -185,6 +186,24 @@ async def migrate_legacy_documents_to_breakdown():
             )
         )
 
+
+async def migrate_legacy_tags_to_tag_tables():
+    async with AsyncSessionLocal() as db:
+        for document_model in (DocumentBreakdown, DocumentKnowledge):
+            result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
+            documents = result.scalars().all()
+            link_model = get_document_tag_link_model(getattr(document_model, "library_type", "breakdown"))
+            for document in documents:
+                legacy_tag_names = normalize_tag_names(getattr(document, "tag", []))
+                if not legacy_tag_names:
+                    continue
+                link_count_result = await db.execute(
+                    select(func.count()).select_from(link_model).where(link_model.document_id == document.id)
+                )
+                if int(link_count_result.scalar_one() or 0) == 0:
+                    await set_document_tag_names(db, document, legacy_tag_names, created_by=document.contributor_id)
+        await db.commit()
+
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 class CORSStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> FileResponse:
@@ -217,6 +236,7 @@ async def on_startup():
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()
     await migrate_legacy_documents_to_breakdown()
+    await migrate_legacy_tags_to_tag_tables()
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(
@@ -247,6 +267,7 @@ app.include_router(admin.router)
 app.include_router(documents.router)
 app.include_router(review.router)
 app.include_router(source_documents.router)
+app.include_router(tags.router)
 app.include_router(conversation.router)
 app.include_router(message.router)
 app.include_router(conversation_v1.router)

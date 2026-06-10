@@ -53,6 +53,39 @@ class Page(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[str]] = None
 
+
+class TagCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+
+
+class TagUpdate(BaseModel):
+    id: int
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+
+
+class TagQuery(BaseModel):
+    data: Optional[str] = ""
+    page: Optional[int] = 1
+    size: Optional[int] = 10
+
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    document_count: Optional[int] = 0
+    created_by: Optional[int] = None
+    created_time: Optional[datetime] = None
+    updated_time: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class UserLogin(BaseModel):
     username: str
     password: str

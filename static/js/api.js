@@ -868,6 +868,58 @@ const sourceDocumentAPI = {
     }
 };
 
+const tagAPI = {
+    client: new APIClient(),
+
+    async getTagsPage(page = 1, size = 10, keyword = '') {
+        const response = await this.client.post(
+            '/tag/page',
+            {
+                page,
+                size,
+                data: keyword
+            },
+            true
+        );
+        if (response.code === 1) {
+            return response.data || { tags: [], total_count: 0, total_pages: 1 };
+        }
+        throw new Error(response.msg || response.message || '获取标签失败');
+    },
+
+    async getAllTags() {
+        const response = await this.client.get('/tag/list', true);
+        if (response.code === 1) {
+            return response.data || [];
+        }
+        throw new Error(response.msg || response.message || '获取标签失败');
+    },
+
+    async addTag(tagData) {
+        const response = await this.client.post('/tag/add', tagData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '新增标签失败');
+    },
+
+    async updateTag(tagData) {
+        const response = await this.client.patch('/tag/update', tagData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '更新标签失败');
+    },
+
+    async deleteTag(tagId) {
+        const response = await this.client.delete(`/tag/delete/${encodeURIComponent(tagId)}`, null, true);
+        if (response.code === 1) {
+            return true;
+        }
+        throw new Error(response.msg || response.message || '删除标签失败');
+    }
+};
+
 // 用户相关的 API
 const userAPI = {
     client: new APIClient(),
@@ -1535,5 +1587,6 @@ window.messageAPI = messageAPI;
 window.DataManager = DataManager;
 window.documentAPI = documentAPI;
 window.userAPI = userAPI;
+window.tagAPI = tagAPI;
 // 导出到全局
 // window.adminAPI = adminAPI;
