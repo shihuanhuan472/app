@@ -107,6 +107,9 @@ class VectorStoreMultimodal:
             result.append(value)
         return result
 
+    def _tags_to_text(self, raw_tags) -> str:
+        return "，".join(str(tag) for tag in self._normalize_tags(raw_tags))
+
     def _normalize_image_urls(self, image_urls) -> List[str]:
         if not image_urls:
             return []
@@ -279,7 +282,7 @@ class VectorStoreMultimodal:
 
         vector_doc_id = self._encode_doc_id(document.id, library_type)
         tags = self._normalize_tags(getattr(document, "tag", []) or [])
-        tag_text = "，".join(tags)
+        tag_text = self._tags_to_text(tags)
         tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
         sections = [
             ("title", "problem_intro", "标题", "问题简介"),
@@ -486,7 +489,7 @@ class VectorStoreMultimodal:
         library_type = "knowledge"
         vector_doc_id = self._encode_doc_id(document.id, library_type)
         tags = self._normalize_tags(getattr(document, "tag", []) or [])
-        tag_text = "，".join(tags)
+        tag_text = self._tags_to_text(tags)
         tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
         sections = self.prepare_knowledge_sections(getattr(document, "knowledge_sections", []) or [])
 
@@ -982,7 +985,7 @@ class VectorStoreMultimodal:
                 f"【{section.get('section_title') or '章节'}】\n{section.get('plain_text') or ''}"
                 for section in sections[:8]
             )
-            tag_text = "，".join(self._normalize_tags(getattr(document, "tag", []) or []))
+            tag_text = self._tags_to_text(getattr(document, "tag", []) or [])
             content = (
                 f"【标题】：{getattr(document, 'title', '')}\n"
                 f"【摘要】：{getattr(document, 'summary', '') or ''}\n"

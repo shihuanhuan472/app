@@ -98,6 +98,7 @@ class DocumentKnowledge(Base):
     __tablename__ = "document_knowledge"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    library_type = Column(String(32), default="knowledge", server_default="knowledge", nullable=False, index=True)
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"))
     first_edit_date = Column(DateTime)
@@ -110,7 +111,6 @@ class DocumentKnowledge(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
-    library_type = "knowledge"
 
     contributor = relationship("User")
 
