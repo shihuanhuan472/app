@@ -14,7 +14,9 @@ class User(Base):
     email = Column(String(100), unique=True)
     full_name = Column(String(100), nullable=False)
     status = Column(Integer, default=1)  # 0-disabled, 1-enabled
-    role = Column(Integer, default=1)  # 0-admin, 1-technician, 2-reviewer, 3-maintenance
+    role = Column(
+        Integer, default=1
+    )  # 0-admin, 1-technician, 2-reviewer, 3-maintenance
     perm = Column(Integer, default=1)  # 0-admin, 1-read/write, 2-review, 3-readonly
     department = Column(String(100))
     created_time = Column(DateTime)
@@ -35,8 +37,12 @@ class SourceDocument(Base):
     status = Column(String(30), default="uploaded", nullable=False, index=True)
     parse_error = Column(Text)
     document_id = Column(Integer, nullable=True, index=True)
-    document_library_type = Column(String(32), default="breakdown", nullable=False, index=True)
-    review_id = Column(Integer, ForeignKey("document_reviews.id"), nullable=True, index=True)
+    document_library_type = Column(
+        String(32), default="breakdown", nullable=False, index=True
+    )
+    review_id = Column(
+        Integer, ForeignKey("document_reviews.id"), nullable=True, index=True
+    )
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     deleted_time = Column(DateTime)
 
@@ -57,24 +63,8 @@ class Tag(Base):
     creator = relationship("User")
 
 
-class DocumentBreakdownTag(Base):
-    __tablename__ = "document_breakdown_tags"
-
-    document_id = Column(Integer, ForeignKey("document_breakdown.id"), primary_key=True)
-    tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
-    created_time = Column(DateTime)
-
-
-class DocumentKnowledgeTag(Base):
-    __tablename__ = "document_knowledge_tags"
-
-    document_id = Column(Integer, ForeignKey("document_knowledge.id"), primary_key=True)
-    tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
-    created_time = Column(DateTime)
-
-
-class DocumentFieldsMixin:
-    """复用文档字段，保证故障库和知识库的表结构保持一致。"""
+class DocumentBreakdown(Base):
+    __tablename__ = "document_breakdown"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String(255), nullable=False)
@@ -99,22 +89,62 @@ class DocumentFieldsMixin:
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
-
-
-class DocumentBreakdown(DocumentFieldsMixin, Base):
-    __tablename__ = "document_breakdown"
-
     library_type = "breakdown"
 
     contributor = relationship("User")
 
 
-class DocumentKnowledge(DocumentFieldsMixin, Base):
+class DocumentKnowledge(Base):
     __tablename__ = "document_knowledge"
 
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    contributor_id = Column(Integer, ForeignKey("users.id"))
+    first_edit_date = Column(DateTime)
+    image_urls = Column(Text)
+    summary = Column(Text)
+    content = Column(Text)
+    is_vectorized = Column(Integer, default=0, nullable=False)
+    is_deleted = Column(Integer, default=0, nullable=False, index=True)
+    vector_update_time = Column(DateTime, nullable=True)
+    origin_file_name = Column(String(255))
+    origin_file_dir = Column(Text)
+    tag = Column(JSON, default=list)
     library_type = "knowledge"
 
     contributor = relationship("User")
+
+
+class KnowledgeDocumentSection(Base):
+    __tablename__ = "knowledge_document_sections"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    document_id = Column(
+        Integer, ForeignKey("document_knowledge.id"), nullable=False, index=True
+    )
+    document_library_type = Column(
+        String(32), default="knowledge", nullable=False, index=True
+    )
+    section_index = Column(Integer, nullable=False, default=0)
+    section_title = Column(String(255))
+    section_type = Column(String(64), default="knowledge_section")
+    plain_text = Column(Text)
+    image_urls = Column(JSON, default=list)
+    char_start = Column(Integer, nullable=True)
+    char_end = Column(Integer, nullable=True)
+    section_metadata = Column("metadata", JSON, default=dict)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    document = relationship("DocumentKnowledge", back_populates="sections")
+
+
+DocumentKnowledge.sections = relationship(
+    "KnowledgeDocumentSection",
+    back_populates="document",
+    cascade="all, delete-orphan",
+    order_by=KnowledgeDocumentSection.section_index,
+)
 
 
 Document = DocumentBreakdown
@@ -131,7 +161,9 @@ class Document_review(Base):
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     first_edit_date = Column(DateTime)
     reviewed_time = Column(DateTime, nullable=True)
-    status = Column(Integer, default=0, nullable=False, index=True)  # 0-pending, 1-approved, 2-rejected, 3-withdrawn
+    status = Column(
+        Integer, default=0, nullable=False, index=True
+    )  # 0-pending, 1-approved, 2-rejected, 3-withdrawn
     problem_intro = Column(Text)
     image_urls = Column(Text)
     image_urls_problem_intro = Column(Text)

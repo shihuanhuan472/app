@@ -15,7 +15,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
-from utils.tag_service import normalize_tag_names, set_document_tag_names
+from utils.tag_service import normalize_tag_values, set_document_tag_names
 from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/review", tags=["document-review"])
@@ -34,8 +34,13 @@ def _get_document_model(library_type: str):
 
 
 def _normalize_tags(tag):
-    """把标签保存为干净的字符串数组。审核表保留 JSON，文档表使用标签关联表。"""
-    return normalize_tag_names(tag)
+    """审核表保留 tag id/name 混合输入，最终写文档表时会转成 tag id 数组。"""
+    return normalize_tag_values(tag)
+
+
+def _filter_model_data(model, data: dict) -> dict:
+    allowed_fields = set(model.__table__.columns.keys())
+    return {key: value for key, value in data.items() if key in allowed_fields}
 
 
 async def _cleanup_document_files(document: Document):
@@ -451,28 +456,28 @@ async def approve_review(
 
     try:
         if review.action_type == 1:
-            new_document = document_model(
-                title=review.title,
-                contributor_id=review.contributor_id,
-                first_edit_date=review.first_edit_date or datetime.now(),
-                problem_intro=review.problem_intro,
-                image_urls=review.image_urls,
-                causes=review.causes,
-                evaluation=review.evaluation,
-                inspection=review.inspection,
-                solutions=review.solutions,
-                key_points=review.key_points,
-                origin_file_name=review.origin_file_name,
-                origin_file_dir=review.origin_file_dir,
-                image_urls_problem_intro=review.image_urls_problem_intro,
-                image_urls_causes=review.image_urls_causes,
-                image_urls_evaluation=review.image_urls_evaluation,
-                image_urls_inspection=review.image_urls_inspection,
-                image_urls_solutions=review.image_urls_solutions,
-                image_urls_key_points=review.image_urls_key_points,
-                tag=_normalize_tags(review.tag),
-                is_vectorized=0,
-            )
+            new_document = document_model(**_filter_model_data(document_model, {
+                "title": review.title,
+                "contributor_id": review.contributor_id,
+                "first_edit_date": review.first_edit_date or datetime.now(),
+                "problem_intro": review.problem_intro,
+                "image_urls": review.image_urls,
+                "causes": review.causes,
+                "evaluation": review.evaluation,
+                "inspection": review.inspection,
+                "solutions": review.solutions,
+                "key_points": review.key_points,
+                "origin_file_name": review.origin_file_name,
+                "origin_file_dir": review.origin_file_dir,
+                "image_urls_problem_intro": review.image_urls_problem_intro,
+                "image_urls_causes": review.image_urls_causes,
+                "image_urls_evaluation": review.image_urls_evaluation,
+                "image_urls_inspection": review.image_urls_inspection,
+                "image_urls_solutions": review.image_urls_solutions,
+                "image_urls_key_points": review.image_urls_key_points,
+                "tag": _normalize_tags(review.tag),
+                "is_vectorized": 0,
+            }))
             db.add(new_document)
             await db.flush()
             await set_document_tag_names(db, new_document, review.tag, created_by=review.contributor_id)
@@ -500,7 +505,8 @@ async def approve_review(
                 if field == "tag":
                     await set_document_tag_names(db, document, getattr(review, field), created_by=review.contributor_id)
                     continue
-                setattr(document, field, getattr(review, field))
+                if hasattr(document, field):
+                    setattr(document, field, getattr(review, field))
             document.is_vectorized = 0
             await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
             await vector_service.add_document_to_vector_store(document, commit=False)

@@ -86,6 +86,44 @@ class VectorStoreMultimodal:
         """把 Milvus 内部 id 还原为数据库表中的真实 id。"""
         return int(encoded_doc_id) - self.KNOWLEDGE_DOC_ID_OFFSET if self._normalize_library_type(library_type) == "knowledge" else int(encoded_doc_id)
 
+    def _normalize_tags(self, raw_tags) -> List[Any]:
+        if isinstance(raw_tags, str):
+            try:
+                raw_tags = json.loads(raw_tags)
+            except Exception:
+                raw_tags = [raw_tags]
+        if raw_tags is None:
+            raw_tags = []
+        result = []
+        seen = set()
+        for tag in raw_tags:
+            text = str(tag).strip()
+            if not text:
+                continue
+            value = int(text) if text.isdigit() else text
+            if value in seen:
+                continue
+            seen.add(value)
+            result.append(value)
+        return result
+
+    def _normalize_image_urls(self, image_urls) -> List[str]:
+        if not image_urls:
+            return []
+        if isinstance(image_urls, str):
+            try:
+                image_urls = json.loads(image_urls)
+            except Exception:
+                image_urls = [item.strip() for item in image_urls.split(",") if item.strip()]
+        return [str(item).strip() for item in image_urls if str(item).strip()]
+
+    def _absolute_document_image_path(self, image_url: str) -> str:
+        if not image_url:
+            return ""
+        if os.path.isabs(image_url):
+            return image_url
+        return os.path.join(self.get_config()["DOCUMENT_IMAGE_BASE_DIR"], image_url)
+
     def get_config(self):
         IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
         BASE_DIR: str = os.getenv("BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
@@ -236,14 +274,12 @@ class VectorStoreMultimodal:
     def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1) -> List[Dict]:
         chunks = []
         library_type = self._get_document_library_type(document)
+        if library_type == "knowledge":
+            return self.chunk_knowledge_document(document)
+
         vector_doc_id = self._encode_doc_id(document.id, library_type)
-        raw_tags = getattr(document, "tag", []) or []
-        if isinstance(raw_tags, str):
-            try:
-                raw_tags = json.loads(raw_tags)
-            except Exception:
-                raw_tags = [raw_tags]
-        tag_text = "，".join(str(tag).strip() for tag in raw_tags if str(tag).strip())
+        tags = self._normalize_tags(getattr(document, "tag", []) or [])
+        tag_text = "，".join(tags)
         tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
         sections = [
             ("title", "problem_intro", "标题", "问题简介"),
@@ -283,10 +319,16 @@ class VectorStoreMultimodal:
                                 "contributor_id": document.contributor_id,
                                 "source_doc_id": document.id,
                                 "library_type": library_type,
+                                "tag": tags,
                                 "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                                 "chunk_index": len(chunks),
-                                "chunk_size": len(content)
-                            })
+                                "subchunk_index": len(chunks),
+                                "unit_type": "text",
+                                "content_type": "text_with_image_description",
+                                "chunk_id": f"{library_type}-{document.id}-{len(chunks)}",
+                                "chunk_size": len(content),
+                                "semantic_method": "field_section_v1",
+                            }, ensure_ascii=False)
                         }
                         chunks.append(chunk)
 
@@ -315,10 +357,16 @@ class VectorStoreMultimodal:
                             "contributor_id": document.contributor_id,
                             "source_doc_id": document.id,
                             "library_type": library_type,
+                            "tag": tags,
                             "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                             "chunk_index": len(chunks),
-                            "chunk_size": len(content_origin)
-                        })
+                            "subchunk_index": len(chunks),
+                            "unit_type": "text",
+                            "content_type": "section_text",
+                            "chunk_id": f"{library_type}-{document.id}-{len(chunks)}",
+                            "chunk_size": len(content_origin),
+                            "semantic_method": "field_section_v1",
+                        }, ensure_ascii=False)
                     })
                 continue
             if getattr(document, section[0], None) == None:
@@ -346,10 +394,16 @@ class VectorStoreMultimodal:
                             "contributor_id": document.contributor_id,
                             "source_doc_id": document.id,
                             "library_type": library_type,
+                            "tag": tags,
                             "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
                             "chunk_index": len(chunks),
-                            "chunk_size": len(content)
-                        })
+                            "subchunk_index": len(chunks),
+                            "unit_type": "text",
+                            "content_type": "text_with_image_description",
+                            "chunk_id": f"{library_type}-{document.id}-{len(chunks)}",
+                            "chunk_size": len(content),
+                            "semantic_method": "field_section_v1",
+                        }, ensure_ascii=False)
                     })
                     #
                     # chunks.append({
@@ -372,19 +426,165 @@ class VectorStoreMultimodal:
                     "title": document.title,
                     "content": content_origin,
                     "image_url": "",
-                    "metadata": json.dumps({
-                        "contributor_id": document.contributor_id,
-                        "source_doc_id": document.id,
-                        "library_type": library_type,
-                        "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
-                        "chunk_index": len(chunks),
-                        "chunk_size": len(content_origin)
+                        "metadata": json.dumps({
+                            "contributor_id": document.contributor_id,
+                            "source_doc_id": document.id,
+                            "library_type": library_type,
+                            "tag": tags,
+                            "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                            "chunk_index": len(chunks),
+                            "subchunk_index": len(chunks),
+                            "unit_type": "text",
+                            "content_type": "section_text",
+                            "chunk_id": f"{library_type}-{document.id}-{len(chunks)}",
+                            "chunk_size": len(content_origin),
+                            "semantic_method": "field_section_v1",
+                        }, ensure_ascii=False)
                     })
+        return chunks
+
+    def prepare_knowledge_sections(self, sections: List[Dict]) -> List[Dict]:
+        """为知识库章节补全图片描述并回写到 section metadata 快照中。"""
+        prepared = []
+        for section in sections or []:
+            section = dict(section)
+            metadata = dict(section.get("metadata") or {})
+            image_urls = self._normalize_image_urls(section.get("image_urls"))
+            image_descriptions = list(metadata.get("image_descriptions") or [])
+            description_by_url = {
+                item.get("image_url"): item
+                for item in image_descriptions
+                if isinstance(item, dict) and item.get("image_url")
+            }
+
+            for image_url in image_urls:
+                if image_url in description_by_url and description_by_url[image_url].get("description"):
+                    continue
+                absolute_url = self._absolute_document_image_path(image_url)
+                description = None
+                if os.path.exists(absolute_url):
+                    messages = self.generate_descript_image_messages(absolute_url)
+                    description = self.get_ai_answer(messages)
+                description_by_url[image_url] = {
+                    "image_url": image_url,
+                    "description": description or "",
+                    "described_time": None,
+                }
+
+            metadata["image_descriptions"] = [
+                description_by_url[image_url]
+                for image_url in image_urls
+                if image_url in description_by_url
+            ]
+            section["image_urls"] = image_urls
+            section["metadata"] = metadata
+            prepared.append(section)
+        return prepared
+
+    def chunk_knowledge_document(self, document: Document) -> List[Dict]:
+        chunks = []
+        library_type = "knowledge"
+        vector_doc_id = self._encode_doc_id(document.id, library_type)
+        tags = self._normalize_tags(getattr(document, "tag", []) or [])
+        tag_text = "，".join(tags)
+        tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
+        sections = self.prepare_knowledge_sections(getattr(document, "knowledge_sections", []) or [])
+
+        for section in sections:
+            section_id = section.get("id")
+            section_title = section.get("section_title") or getattr(document, "title", "")
+            section_text = section.get("plain_text") or ""
+            image_urls = self._normalize_image_urls(section.get("image_urls"))
+            metadata = section.get("metadata") or {}
+            image_positions = metadata.get("image_positions") or []
+            descriptions = {
+                item.get("image_url"): item.get("description", "")
+                for item in metadata.get("image_descriptions", [])
+                if isinstance(item, dict)
+            }
+            content_origin = (
+                f"{tag_prefix}文档标题：{getattr(document, 'title', '')}\n"
+                f"章节标题：{section_title}\n"
+                f"章节内容：{section_text}"
+            ).strip()
+
+            if image_urls:
+                for image_index, image_url in enumerate(image_urls):
+                    absolute_url = self._absolute_document_image_path(image_url)
+                    image_position = next(
+                        (position for position in image_positions if position.get("image_url") == image_url),
+                        {},
+                    )
+                    description = descriptions.get(image_url, "")
+                    position_text = ""
+                    if image_position:
+                        position_text = (
+                            f"\n[图片位置]\n"
+                            f"段落序号：{image_position.get('paragraph_index')}\n"
+                            f"前文：{image_position.get('nearby_text_before', '')}\n"
+                            f"后文：{image_position.get('nearby_text_after', '')}"
+                        )
+                    content = content_origin
+                    if position_text:
+                        content += position_text
+                    if description:
+                        content += f"\n[图像信息]\n{description}"
+                    chunk_metadata = {
+                        "contributor_id": getattr(document, "contributor_id", None),
+                        "source_doc_id": getattr(document, "id", None),
+                        "library_type": library_type,
+                        "tag": tags,
+                        "first_edit_date": document.first_edit_date.isoformat() if getattr(document, "first_edit_date", None) else None,
+                        "section_id": section_id,
+                        "section_title": section_title,
+                        "section_index": section.get("section_index", 0),
+                        "subchunk_index": image_index,
+                        "unit_type": "text",
+                        "content_type": "text_with_image_description",
+                        "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-{image_index}",
+                        "chunk_size": len(content),
+                        "semantic_method": "knowledge_section_v1",
+                        "image_urls": image_urls,
+                        "current_image_url": image_url,
+                        "image_positions": image_positions,
+                    }
+                    chunks.append({
+                        "doc_id": vector_doc_id,
+                        "title": getattr(document, "title", "")[:100],
+                        "content": content,
+                        "image_url": absolute_url if os.path.exists(absolute_url) else "",
+                        "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
+                    })
+            elif section_text.strip():
+                chunk_metadata = {
+                    "contributor_id": getattr(document, "contributor_id", None),
+                    "source_doc_id": getattr(document, "id", None),
+                    "library_type": library_type,
+                    "tag": tags,
+                    "first_edit_date": document.first_edit_date.isoformat() if getattr(document, "first_edit_date", None) else None,
+                    "section_id": section_id,
+                    "section_title": section_title,
+                    "section_index": section.get("section_index", 0),
+                    "subchunk_index": 0,
+                    "unit_type": "text",
+                    "content_type": "section_text",
+                    "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-0",
+                    "chunk_size": len(content_origin),
+                    "semantic_method": "knowledge_section_v1",
+                    "image_urls": [],
+                    "image_positions": image_positions,
+                }
+                chunks.append({
+                    "doc_id": vector_doc_id,
+                    "title": getattr(document, "title", "")[:100],
+                    "content": content_origin,
+                    "image_url": "",
+                    "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
                 })
         return chunks
 
     def generate_descript_image_messages(self, image_url: str):
-        prompt = """请详细描述图像信息，重点包含设备信息，故障信息或维修信息。\n仅返回答案，不要任何markdown渲染。回答长度不超过300字。"""
+        prompt = """请详细描述图像信息，重点包含设备信息、操作信息、维修信息或知识点。\n仅返回答案，不要任何markdown渲染。回答长度不超过300字。"""
         messages = []
         data = {}
         msg_content = [{"type": "text", "text": prompt}]
@@ -464,28 +664,62 @@ class VectorStoreMultimodal:
 
         chunks = self.chunk_document(document)
 
-        if not chunks:
-            return
-
         main_chunk = self.get_main_chunk(document)
         # print(111)
         if main_chunk is not None:
-            content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
+            if library_type == "knowledge":
+                content = (
+                    f"标题：{main_chunk.get('title', getattr(document, 'title', ''))}\n"
+                    f"摘要：{main_chunk.get('summary', '')}\n"
+                    f"核心主题：{main_chunk.get('core_topic', '')}\n"
+                    f"关键知识点：{main_chunk.get('key_points', '')}\n"
+                    f"适用范围：{main_chunk.get('scope', '')}\n"
+                    f"标签：{main_chunk.get('tags', '')}"
+                )
+                tags = self._normalize_tags(getattr(document, "tag", []) or [])
+                metadata = {
+                    "contributor_id": document.contributor_id,
+                    "source_doc_id": document.id,
+                    "library_type": library_type,
+                    "tag": tags,
+                    "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                    "section_id": None,
+                    "section_title": "文档摘要",
+                    "section_index": -1,
+                    "subchunk_index": 0,
+                    "unit_type": "text",
+                    "content_type": "main_chunk",
+                    "chunk_id": f"knowledge-main-{document.id}",
+                    "chunk_size": len(content),
+                    "semantic_method": "knowledge_main_chunk_v1",
+                }
+            else:
+                content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
+                metadata = {
+                    "contributor_id": document.contributor_id,
+                    "source_doc_id": document.id,
+                    "library_type": library_type,
+                    "tag": self._normalize_tags(getattr(document, "tag", []) or []),
+                    "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
+                    "chunk_index": len(chunks),
+                    "subchunk_index": len(chunks),
+                    "unit_type": "text",
+                    "content_type": "main_chunk",
+                    "chunk_id": f"{library_type}-main-{document.id}",
+                    "chunk_size": len(content),
+                    "semantic_method": "field_main_chunk_v1",
+                }
             chunks.append({
                 "doc_id": vector_doc_id,
                 "title": document.title,
                 "content": content,
                 "image_url": "",
-                "metadata": json.dumps({
-                    "contributor_id": document.contributor_id,
-                    "source_doc_id": document.id,
-                    "library_type": library_type,
-                    "first_edit_date": document.first_edit_date.isoformat() if document.first_edit_date else None,
-                    "chunk_index": len(chunks),
-                    "chunk_size": len(content)
-                })
+                "metadata": json.dumps(metadata, ensure_ascii=False)
             })
         # print(222)
+
+        if not chunks:
+            return
 
         # 准备批量插入数据
         data = []
@@ -678,7 +912,113 @@ class VectorStoreMultimodal:
         messages.append(data)
         return messages
 
+    def generate_knowledge_message(self, content, images):
+        messages = []
+        data = {}
+        prompt = """我将提供一段知识库文档内容，请根据文本和图像内容，总结文档级检索入口。
+请不要使用“故障原因、检查、解决方案”等故障库模板字段。
+
+输出JSON格式如下：
+{
+    "title": "标题",
+    "summary": "文档摘要",
+    "core_topic": "核心主题",
+    "key_points": "关键知识点",
+    "scope": "适用范围",
+    "tags": "相关标签"
+}
+
+注意：
+1. 不得杜撰内容，必须基于给定文本和图片。
+2. 回答仅包含JSON对象，不要输出其他内容。
+3. 回答长度不得超过500个token。
+
+现在给定内容如下：
+[文本内容]
+{text}
+
+[图片内容由后续base64给出]
+""".format(text=content)
+        msg_content = [{"type": "text", "text": prompt}]
+        token_cnt = get_token_count(prompt)
+        if images is not None:
+            for image in images:
+                image = image.strip()
+                if not image:
+                    continue
+                image_path = self._absolute_document_image_path(image)
+                if not os.path.exists(image_path):
+                    continue
+                compress_image = self.compress_image(image_path, max_size=768)
+                mime_type, _ = mimetypes.guess_type(compress_image)
+                if mime_type is None:
+                    ext = os.path.splitext(compress_image)[1].lower()
+                    mime_type = {
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.webp': 'image/webp',
+                        '.bmp': 'image/bmp'
+                    }.get(ext, 'image/jpeg')
+                image_base64 = self.image_to_base64(compress_image)
+
+                if token_cnt + 578 > 6000:
+                    break
+                token_cnt += 578
+
+                msg_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+                })
+        data["role"] = "user"
+        data["content"] = msg_content
+        messages.append(data)
+        return messages
+
     def get_main_chunk(self, document: Document):
+        if self._get_document_library_type(document) == "knowledge":
+            sections = getattr(document, "knowledge_sections", []) or []
+            section_text = "\n".join(
+                f"【{section.get('section_title') or '章节'}】\n{section.get('plain_text') or ''}"
+                for section in sections[:8]
+            )
+            tag_text = "，".join(self._normalize_tags(getattr(document, "tag", []) or []))
+            content = (
+                f"【标题】：{getattr(document, 'title', '')}\n"
+                f"【摘要】：{getattr(document, 'summary', '') or ''}\n"
+                f"【正文】：{getattr(document, 'content', '') or section_text}\n"
+                f"【标签】：{tag_text}\n"
+            )
+            images = []
+            for section in sections:
+                images.extend(self._normalize_image_urls(section.get("image_urls")))
+            try:
+                client = OpenAI(
+                    base_url=get_ai_base_url(),
+                    api_key=self.api_key
+                )
+                messages = self.generate_knowledge_message(content, images)
+                response = client.chat.completions.create(
+                    model=self.model_chat,
+                    messages=messages,
+                    max_tokens=self.max_token
+                )
+                ans = response.choices[0].message.content
+                print("生成知识库主chunk的ai回答")
+                print(ans)
+                return json.loads(ans)
+            except Exception as e:
+                print(e)
+                fallback_summary = getattr(document, "summary", None) or (getattr(document, "content", "") or section_text)[:300]
+                return {
+                    "title": getattr(document, "title", ""),
+                    "summary": fallback_summary,
+                    "core_topic": getattr(document, "title", ""),
+                    "key_points": fallback_summary,
+                    "scope": "",
+                    "tags": tag_text,
+                }
+
         content = f"【标题】：{document.title}\n【问题简介】：{document.problem_intro}\n【成因】：{document.causes}\n"
 
         if document.image_urls_problem_intro is not None and document.image_urls_problem_intro != "":

@@ -54,7 +54,7 @@ from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
 from starlette.types import Scope
 from sqlalchemy import func, select, text
-from utils.tag_service import get_document_tag_link_model, normalize_tag_names, set_document_tag_names
+from utils.tag_service import normalize_tag_ids, normalize_tag_names, set_document_tag_names
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
 
@@ -98,6 +98,22 @@ async def ensure_document_tables_for_library_split():
             )
             if int(index_result.scalar_one() or 0) == 0:
                 await conn.execute(text(f"CREATE INDEX idx_{table_name}_is_deleted ON {table_name} (is_deleted)"))
+
+        for column_name in ("summary", "content"):
+            column_result = await conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'document_knowledge'
+                      AND COLUMN_NAME = :column_name
+                    """
+                ),
+                {"column_name": column_name},
+            )
+            if int(column_result.scalar_one() or 0) == 0:
+                await conn.execute(text(f"ALTER TABLE document_knowledge ADD COLUMN {column_name} TEXT NULL"))
 
 
 async def ensure_review_library_columns():
@@ -192,15 +208,12 @@ async def migrate_legacy_tags_to_tag_tables():
         for document_model in (DocumentBreakdown, DocumentKnowledge):
             result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
             documents = result.scalars().all()
-            link_model = get_document_tag_link_model(getattr(document_model, "library_type", "breakdown"))
             for document in documents:
-                legacy_tag_names = normalize_tag_names(getattr(document, "tag", []))
-                if not legacy_tag_names:
+                raw_tag = getattr(document, "tag", [])
+                if normalize_tag_ids(raw_tag):
                     continue
-                link_count_result = await db.execute(
-                    select(func.count()).select_from(link_model).where(link_model.document_id == document.id)
-                )
-                if int(link_count_result.scalar_one() or 0) == 0:
+                legacy_tag_names = normalize_tag_names(raw_tag)
+                if legacy_tag_names:
                     await set_document_tag_names(db, document, legacy_tag_names, created_by=document.contributor_id)
         await db.commit()
 

@@ -13,7 +13,7 @@ from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Document, DocumentBreakdown, DocumentKnowledge
+from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 
@@ -49,6 +49,8 @@ VECTOR_DOCUMENT_FIELDS = [
     "origin_file_name",
     "origin_file_dir",
     "tag",
+    "summary",
+    "content",
     "is_vectorized",
     "vector_update_time",
 ]
@@ -64,6 +66,22 @@ def _snapshot_document_for_vector_store(document: Document):
     data = {field: getattr(document, field, None) for field in VECTOR_DOCUMENT_FIELDS}
     data["library_type"] = _normalize_library_type(getattr(document, "library_type", "breakdown"))
     return SimpleNamespace(**data)
+
+
+def _snapshot_section_for_vector_store(section: KnowledgeDocumentSection) -> Dict[str, Any]:
+    return {
+        "id": section.id,
+        "document_id": section.document_id,
+        "document_library_type": section.document_library_type,
+        "section_index": section.section_index,
+        "section_title": section.section_title,
+        "section_type": section.section_type,
+        "plain_text": section.plain_text,
+        "image_urls": section.image_urls or [],
+        "char_start": section.char_start,
+        "char_end": section.char_end,
+        "metadata": section.section_metadata or {},
+    }
 
 
 class VectorService:
@@ -88,7 +106,30 @@ class VectorService:
                 print(f"文档 {document.id} 已向量化，跳过")
                 return
 
+            knowledge_sections = []
+            if _normalize_library_type(getattr(document, "library_type", "breakdown")) == "knowledge":
+                section_result = await self.db.execute(
+                    select(KnowledgeDocumentSection)
+                    .where(KnowledgeDocumentSection.document_id == document.id)
+                    .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
+                )
+                section_models = list(section_result.scalars().all())
+                section_snapshots = [_snapshot_section_for_vector_store(section) for section in section_models]
+                prepared_sections = await asyncio.to_thread(
+                    self.vector_store_multimodal.prepare_knowledge_sections,
+                    section_snapshots,
+                )
+                prepared_by_id = {section.get("id"): section for section in prepared_sections}
+                for section_model in section_models:
+                    prepared = prepared_by_id.get(section_model.id)
+                    if prepared is not None:
+                        section_model.section_metadata = prepared.get("metadata") or {}
+                        section_model.updated_time = datetime.now()
+                        knowledge_sections.append(prepared)
+
             vector_document = _snapshot_document_for_vector_store(document)
+            if knowledge_sections:
+                vector_document.knowledge_sections = knowledge_sections
             await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()

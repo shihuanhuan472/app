@@ -1,0 +1,543 @@
+import csv
+import os
+import re
+import shutil
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+from bs4 import BeautifulSoup
+from docx import Document as DocxDocument
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+from PIL import Image
+
+from utils.error_codes import BizCode
+
+try:
+    import pymupdf
+except Exception:  # pragma: no cover - optional import is validated at runtime
+    pymupdf = None
+
+
+@dataclass
+class KnowledgeSectionData:
+    section_index: int
+    section_title: str
+    section_type: str = "knowledge_section"
+    plain_text: str = ""
+    image_urls: List[str] = field(default_factory=list)
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+    metadata: Dict = field(default_factory=dict)
+
+
+@dataclass
+class KnowledgeParsedDocument:
+    title: str
+    summary: str
+    content: str
+    image_urls: List[str]
+    sections: List[KnowledgeSectionData]
+
+
+class KnowledgeParser:
+    """
+    知识库导入解析器。
+
+    该解析器不按故障库的 problem_intro/causes/solutions 字段拆分，
+    而是尽量保留原文档标题、段落和图片位置，产出知识库文档 + 章节结构。
+    """
+
+    def __init__(self):
+        self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+        self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
+        self.last_error_code = None
+        self.last_error_detail = None
+        os.makedirs(os.path.join(self.document_base_dir, self.image_dir), exist_ok=True)
+
+    def parse(self, file_path: str) -> Optional[KnowledgeParsedDocument]:
+        self.last_error_code = None
+        self.last_error_detail = None
+        try:
+            ext = Path(file_path).suffix.lower()
+            if ext == ".pdf":
+                return self._parse_pdf(file_path)
+            if ext == ".docx":
+                return self._parse_docx(file_path)
+            if ext in {".md", ".markdown"}:
+                return self._parse_markdown(file_path)
+            if ext in {".html", ".mhtml"}:
+                return self._parse_html(file_path)
+            if ext == ".txt":
+                return self._parse_txt(file_path)
+            if ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+                return self._parse_image(file_path)
+            if ext in {".csv"}:
+                return self._parse_csv(file_path)
+            if ext in {".xlsx", ".xls", ".xlsm"}:
+                return self._parse_excel(file_path)
+            if ext in {".pptx", ".ppt"}:
+                return self._parse_ppt(file_path)
+            self._set_last_error(BizCode.DOC_PARSE_FAILED, f"知识库解析器暂不支持该文件类型：{ext}")
+            return None
+        except Exception as exc:
+            self._set_last_error(BizCode.DOC_PARSE_FAILED, str(exc))
+            return None
+
+    def _set_last_error(self, code: int, message: str):
+        self.last_error_code = int(code)
+        self.last_error_detail = message
+
+    def _relative_image_path(self, filename: str) -> str:
+        image_dir = self.image_dir.rstrip("/").rstrip("\\")
+        return f"{image_dir}/{filename}".replace("\\", "/")
+
+    def _copy_image_to_upload(self, source_path: str) -> str:
+        ext = Path(source_path).suffix.lower() or ".png"
+        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}{ext}"
+        target_path = os.path.join(self.document_base_dir, self.image_dir, filename)
+        shutil.copy2(source_path, target_path)
+        return self._relative_image_path(filename)
+
+    def _save_image_blob(self, blob: bytes, ext: str = ".png") -> str:
+        ext = ext if ext.startswith(".") else f".{ext}"
+        if ext == ".jpeg":
+            ext = ".jpg"
+        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}{ext}"
+        target_path = os.path.join(self.document_base_dir, self.image_dir, filename)
+        with open(target_path, "wb") as f:
+            f.write(blob)
+        return self._relative_image_path(filename)
+
+    def _build_document(self, file_path: str, blocks: List[Dict]) -> KnowledgeParsedDocument:
+        blocks = self._filter_noise_blocks(blocks)
+        sections = self._blocks_to_sections(blocks, fallback_title=Path(file_path).stem)
+        content = "\n\n".join(section.plain_text for section in sections if section.plain_text).strip()
+        title = self._guess_title(file_path, sections, content)
+        summary = self._build_summary(content)
+        image_urls = []
+        for section in sections:
+            for image_url in section.image_urls:
+                if image_url not in image_urls:
+                    image_urls.append(image_url)
+        return KnowledgeParsedDocument(
+            title=title,
+            summary=summary,
+            content=content,
+            image_urls=image_urls,
+            sections=sections,
+        )
+
+    def _filter_noise_blocks(self, blocks: List[Dict]) -> List[Dict]:
+        """过滤页眉页脚、页码、空白和明显导航噪声。"""
+        text_counter: Dict[str, int] = {}
+        page_count = len({block.get("page") for block in blocks if block.get("page") is not None})
+        for block in blocks:
+            if block.get("type") != "text":
+                continue
+            normalized = self._normalize_noise_text(block.get("text", ""))
+            if normalized:
+                text_counter[normalized] = text_counter.get(normalized, 0) + 1
+
+        filtered = []
+        for block in blocks:
+            if block.get("type") != "text":
+                filtered.append(block)
+                continue
+            text = (block.get("text") or "").strip()
+            normalized = self._normalize_noise_text(text)
+            if not text:
+                continue
+            if re.fullmatch(r"第?\s*\d+\s*页?|[-–—]?\s*\d+\s*[-–—]?", text):
+                continue
+            if page_count >= 3 and text_counter.get(normalized, 0) >= max(3, page_count // 2):
+                continue
+            if block.get("region") in {"header", "footer"} and len(text) <= 80:
+                continue
+            if normalized.lower() in {"目录", "返回顶部", "上一页", "下一页"}:
+                continue
+            filtered.append(block)
+        return filtered
+
+    def _normalize_noise_text(self, text: str) -> str:
+        return re.sub(r"\s+", "", text or "")
+
+    def _blocks_to_sections(self, blocks: List[Dict], fallback_title: str) -> List[KnowledgeSectionData]:
+        sections: List[KnowledgeSectionData] = []
+        current = None
+        full_offset = 0
+
+        def start_section(title: str, section_type: str = "knowledge_section"):
+            nonlocal current
+            if current and (current.plain_text.strip() or current.image_urls):
+                current.char_end = full_offset
+                sections.append(current)
+            current = KnowledgeSectionData(
+                section_index=len(sections),
+                section_title=(title or fallback_title or "未命名章节").strip()[:255],
+                section_type=section_type,
+                plain_text="",
+                char_start=full_offset,
+                metadata={"image_positions": []},
+            )
+
+        start_section(fallback_title, "document_start")
+        paragraph_index = 0
+        previous_text = ""
+
+        for block in blocks:
+            if block.get("type") == "text":
+                text = (block.get("text") or "").strip()
+                if not text:
+                    continue
+                if self._is_heading(block, text) and (current.plain_text.strip() or current.image_urls):
+                    start_section(text, block.get("section_type") or "heading")
+                    paragraph_index = 0
+                    previous_text = ""
+                    continue
+                if current.plain_text:
+                    current.plain_text += "\n"
+                    full_offset += 1
+                current.plain_text += text
+                full_offset += len(text)
+                previous_text = text
+                paragraph_index += 1
+            elif block.get("type") == "image":
+                image_url = block.get("image_url")
+                if not image_url:
+                    continue
+                current.image_urls.append(image_url)
+                marker = f"【图片{len(current.image_urls)}】"
+                if current.plain_text:
+                    current.plain_text += "\n"
+                    full_offset += 1
+                current.plain_text += marker
+                full_offset += len(marker)
+                current.metadata.setdefault("image_positions", []).append(
+                    {
+                        "image_url": image_url,
+                        "paragraph_index": max(paragraph_index - 1, 0),
+                        "char_offset": full_offset,
+                        "page": block.get("page"),
+                        "nearby_text_before": previous_text[-200:],
+                        "nearby_text_after": "",
+                    }
+                )
+
+        if current and (current.plain_text.strip() or current.image_urls):
+            current.char_end = full_offset
+            sections.append(current)
+
+        if not sections:
+            sections.append(
+                KnowledgeSectionData(
+                    section_index=0,
+                    section_title=fallback_title or "未命名章节",
+                    section_type="knowledge_section",
+                    plain_text="",
+                    char_start=0,
+                    char_end=0,
+                    metadata={"image_positions": []},
+                )
+            )
+
+        for index, section in enumerate(sections):
+            section.section_index = index
+        self._fill_image_after_context(sections)
+        return sections
+
+    def _fill_image_after_context(self, sections: List[KnowledgeSectionData]):
+        for section in sections:
+            paragraphs = [p.strip() for p in section.plain_text.splitlines() if p.strip()]
+            for position in section.metadata.get("image_positions", []):
+                paragraph_index = position.get("paragraph_index", 0)
+                if paragraph_index + 1 < len(paragraphs):
+                    position["nearby_text_after"] = paragraphs[paragraph_index + 1][:200]
+
+    def _is_heading(self, block: Dict, text: str) -> bool:
+        if block.get("is_heading"):
+            return True
+        stripped = text.strip()
+        if len(stripped) > 80:
+            return False
+        if re.match(r"^#{1,6}\s+", stripped):
+            return True
+        if re.match(r"^(\d+(\.\d+)*|[一二三四五六七八九十]+)[、.．\s]", stripped):
+            return True
+        if stripped.endswith(("：", ":")) and len(stripped) <= 30:
+            return True
+        return False
+
+    def _guess_title(self, file_path: str, sections: List[KnowledgeSectionData], content: str) -> str:
+        if sections:
+            first_section_text = (sections[0].plain_text or "").strip()
+            if first_section_text:
+                first_line = first_section_text.splitlines()[0].strip().strip("#").strip()
+                if first_line and len(first_line) <= 80:
+                    return first_line[:255]
+        for section in sections:
+            title = (section.section_title or "").strip()
+            if title and section.section_type != "document_start":
+                return title[:255]
+        for line in content.splitlines():
+            line = line.strip().strip("#").strip()
+            if line:
+                return line[:255]
+        return Path(file_path).stem[:255]
+
+    def _build_summary(self, content: str) -> str:
+        text = re.sub(r"\s+", " ", content or "").strip()
+        return text[:500]
+
+    def _parse_docx(self, file_path: str) -> KnowledgeParsedDocument:
+        doc = DocxDocument(file_path)
+        blocks: List[Dict] = []
+        for block in self._iter_docx_blocks(doc):
+            if isinstance(block, Paragraph):
+                text = block.text.strip()
+                if text:
+                    style_name = (block.style.name or "").lower() if block.style else ""
+                    blocks.append(
+                        {
+                            "type": "text",
+                            "text": text,
+                            "is_heading": style_name.startswith("heading") or style_name.startswith("标题"),
+                            "section_type": "heading" if style_name.startswith(("heading", "标题")) else "paragraph",
+                        }
+                    )
+                blocks.extend(self._docx_images_from_element(doc, block._element))
+            elif isinstance(block, Table):
+                table_text = self._docx_table_to_text(block)
+                if table_text:
+                    blocks.append({"type": "text", "text": table_text, "section_type": "table_text"})
+                blocks.extend(self._docx_images_from_element(doc, block._element))
+        return self._build_document(file_path, blocks)
+
+    def _iter_docx_blocks(self, doc):
+        for child in doc.element.body.iterchildren():
+            if isinstance(child, CT_P):
+                yield Paragraph(child, doc)
+            elif isinstance(child, CT_Tbl):
+                yield Table(child, doc)
+
+    def _docx_images_from_element(self, doc, element) -> List[Dict]:
+        blocks = []
+        rel_ids = []
+        for xpath in (".//a:blip/@r:embed", ".//a:blip/@r:link"):
+            try:
+                rel_ids.extend(element.xpath(xpath))
+            except Exception:
+                continue
+        for rel_id in rel_ids:
+            if rel_id not in doc.part.rels:
+                continue
+            rel = doc.part.rels[rel_id]
+            if "image" not in rel.target_ref:
+                continue
+            image_part = rel.target_part
+            ext = image_part.content_type.split("/")[-1]
+            image_url = self._save_image_blob(image_part.blob, ext)
+            blocks.append({"type": "image", "image_url": image_url})
+        return blocks
+
+    def _docx_table_to_text(self, table: Table) -> str:
+        rows = []
+        for row in table.rows:
+            cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
+            line = " | ".join(cell for cell in cells if cell)
+            if line:
+                rows.append(line)
+        return "\n".join(rows)
+
+    def _parse_pdf(self, file_path: str) -> KnowledgeParsedDocument:
+        if pymupdf is None:
+            raise RuntimeError("pymupdf 未安装，无法解析 PDF")
+        doc = pymupdf.open(file_path)
+        blocks: List[Dict] = []
+        for page_index in range(len(doc)):
+            page = doc[page_index]
+            page_height = page.rect.height or 1
+            text_dict = page.get_text("dict")
+            for block in text_dict.get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                text, max_size = self._pdf_block_text_and_size(block)
+                if not text:
+                    continue
+                x0, y0, x1, y1 = block.get("bbox", (0, 0, 0, 0))
+                region = "body"
+                if y0 < page_height * 0.06:
+                    region = "header"
+                elif y1 > page_height * 0.94:
+                    region = "footer"
+                blocks.append(
+                    {
+                        "type": "text",
+                        "text": text,
+                        "page": page_index + 1,
+                        "region": region,
+                        "is_heading": len(text) <= 80 and max_size >= 13,
+                    }
+                )
+            for img in page.get_images(full=True):
+                xref = img[0]
+                rects = page.get_image_rects(xref)
+                if not rects:
+                    continue
+                pix = pymupdf.Pixmap(doc, xref)
+                if pix.n - pix.alpha > 3:
+                    pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
+                image_bytes = pix.tobytes("png")
+                image_url = self._save_image_blob(image_bytes, ".png")
+                pix = None
+                for rect in rects[:1]:
+                    blocks.append(
+                        {
+                            "type": "image",
+                            "image_url": image_url,
+                            "page": page_index + 1,
+                            "bbox": (rect.x0, rect.y0, rect.x1, rect.y1),
+                        }
+                    )
+        return self._build_document(file_path, blocks)
+
+    def _pdf_block_text_and_size(self, block) -> Tuple[str, float]:
+        lines = []
+        max_size = 0.0
+        for line in block.get("lines", []):
+            spans = []
+            for span in line.get("spans", []):
+                span_text = span.get("text", "")
+                if span_text:
+                    spans.append(span_text)
+                max_size = max(max_size, float(span.get("size", 0) or 0))
+            line_text = "".join(spans).strip()
+            if line_text:
+                lines.append(line_text)
+        return "\n".join(lines).strip(), max_size
+
+    def _parse_markdown(self, file_path: str) -> KnowledgeParsedDocument:
+        text = Path(file_path).read_text(encoding="utf-8", errors="ignore")
+        blocks: List[Dict] = []
+        base_dir = Path(file_path).parent
+        image_pattern = re.compile(r"!\[[^\]]*]\(([^)]+)\)")
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            matched_images = image_pattern.findall(line)
+            clean_line = image_pattern.sub("", line).strip()
+            if clean_line:
+                blocks.append({"type": "text", "text": clean_line.lstrip("#").strip(), "is_heading": line.startswith("#")})
+            for image_ref in matched_images:
+                image_ref = image_ref.strip().strip('"').strip("'")
+                image_path = (base_dir / image_ref).resolve()
+                if image_path.exists():
+                    blocks.append({"type": "image", "image_url": self._copy_image_to_upload(str(image_path))})
+        return self._build_document(file_path, blocks)
+
+    def _parse_html(self, file_path: str) -> KnowledgeParsedDocument:
+        html = Path(file_path).read_text(encoding="utf-8", errors="ignore")
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+            tag.decompose()
+        blocks: List[Dict] = []
+        for element in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "img"]):
+            if element.name == "img":
+                src = element.get("src") or ""
+                if src.startswith("data:"):
+                    continue
+                image_path = (Path(file_path).parent / src).resolve()
+                if image_path.exists():
+                    blocks.append({"type": "image", "image_url": self._copy_image_to_upload(str(image_path))})
+                continue
+            text = element.get_text(" ", strip=True)
+            if text:
+                blocks.append({"type": "text", "text": text, "is_heading": element.name.startswith("h")})
+        return self._build_document(file_path, blocks)
+
+    def _parse_txt(self, file_path: str) -> KnowledgeParsedDocument:
+        text = Path(file_path).read_text(encoding="utf-8", errors="ignore")
+        blocks = [{"type": "text", "text": line.strip()} for line in text.splitlines() if line.strip()]
+        return self._build_document(file_path, blocks)
+
+    def _parse_image(self, file_path: str) -> KnowledgeParsedDocument:
+        image_url = self._copy_image_to_upload(file_path)
+        title = Path(file_path).stem
+        section = KnowledgeSectionData(
+            section_index=0,
+            section_title=title,
+            section_type="image",
+            plain_text=f"图片资料：{title}\n【图片1】",
+            image_urls=[image_url],
+            char_start=0,
+            char_end=len(title),
+            metadata={
+                "image_positions": [
+                    {
+                        "image_url": image_url,
+                        "paragraph_index": 0,
+                        "char_offset": len(title),
+                        "nearby_text_before": title,
+                        "nearby_text_after": "",
+                    }
+                ]
+            },
+        )
+        return KnowledgeParsedDocument(title=title, summary=title, content=section.plain_text, image_urls=[image_url], sections=[section])
+
+    def _parse_csv(self, file_path: str) -> KnowledgeParsedDocument:
+        rows = []
+        with open(file_path, "r", encoding="utf-8", errors="ignore", newline="") as f:
+            reader = csv.reader(f)
+            for index, row in enumerate(reader):
+                if index >= 200:
+                    break
+                rows.append(" | ".join(cell.strip() for cell in row if cell.strip()))
+        blocks = [{"type": "text", "text": "\n".join(row for row in rows if row)}]
+        return self._build_document(file_path, blocks)
+
+    def _parse_excel(self, file_path: str) -> KnowledgeParsedDocument:
+        try:
+            import openpyxl
+        except Exception:
+            raise RuntimeError("openpyxl 未安装，无法解析 Excel")
+        workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        blocks: List[Dict] = []
+        for sheet in workbook.worksheets[:5]:
+            blocks.append({"type": "text", "text": sheet.title, "is_heading": True})
+            for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
+                if row_index >= 100:
+                    break
+                line = " | ".join(str(cell).strip() for cell in row if cell is not None and str(cell).strip())
+                if line:
+                    blocks.append({"type": "text", "text": line})
+        return self._build_document(file_path, blocks)
+
+    def _parse_ppt(self, file_path: str) -> KnowledgeParsedDocument:
+        try:
+            from pptx import Presentation
+        except Exception:
+            raise RuntimeError("python-pptx 未安装，无法解析 PPT")
+        presentation = Presentation(file_path)
+        blocks: List[Dict] = []
+        for slide_index, slide in enumerate(presentation.slides, start=1):
+            blocks.append({"type": "text", "text": f"第{slide_index}页", "is_heading": True})
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text = shape.text.strip()
+                    if text:
+                        blocks.append({"type": "text", "text": text})
+                if getattr(shape, "shape_type", None) == 13 and hasattr(shape, "image"):
+                    ext = shape.image.ext or "png"
+                    image_url = self._save_image_blob(shape.image.blob, ext)
+                    blocks.append({"type": "image", "image_url": image_url})
+        return self._build_document(file_path, blocks)
+
+
+knowledge_parser = KnowledgeParser()

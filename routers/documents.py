@@ -7,6 +7,7 @@ import os
 import shutil
 from pathlib import Path
 import logging
+from types import SimpleNamespace
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, status, UploadFile, Body, File
 from sqlalchemy import or_
@@ -14,9 +15,9 @@ from sqlalchemy import or_
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
-from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument, User
+from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentSection, SourceDocument, User
 from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
-                     DocumentQuery, UploadDocumentResponse, AnalyzeRequest)
+                     DocumentQuery, KnowledgeSectionResponse, UploadDocumentResponse, AnalyzeRequest)
 from database import get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
@@ -27,6 +28,8 @@ from utils.TXTParser import txt_parser
 from utils.MarkdownParser import markdown_parser
 from utils.ImageParser import image_parser
 from utils.CsvExcelParser import csv_excel_parser
+from knowledge_parsers import knowledge_parser
+from knowledge_parsers.section_service import get_knowledge_document_sections, replace_knowledge_document_sections
 from utils.file_classifier import (
     ALLOWED_DOCUMENT_EXTENSIONS,
     build_document_storage_path,
@@ -41,6 +44,7 @@ from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
 from utils.tag_service import (
     get_document_tag_names,
+    normalize_tag_values,
     normalize_tag_names,
     set_document_tag_names,
     tag_filter_for_model,
@@ -78,7 +82,7 @@ def _sort_documents_by_edit_time(documents):
 
 def _normalize_tags(tag):
     """把标签统一为去空白的字符串数组。实际关系保存在标签关联表中。"""
-    return normalize_tag_names(tag)
+    return normalize_tag_values(tag)
 
 
 def _require_admin_document_write(current_user: User, message: str = "技术人员需提交审核，审核通过后才会写入文档库"):
@@ -97,6 +101,24 @@ def _tag_keyword_filter(model, keyword: str):
     return tag_keyword_filter_for_model(model, keyword)
 
 
+def _document_text_keyword_conditions(model, keyword: str):
+    conditions = [model.title.like(f"%{keyword}%")]
+    for field in ("problem_intro", "summary", "content"):
+        column = getattr(model, field, None)
+        if column is not None:
+            conditions.append(column.like(f"%{keyword}%"))
+    return conditions
+
+
+def _model_column_names(model) -> set:
+    return set(model.__table__.columns.keys())
+
+
+def _filter_model_data(model, data: dict) -> dict:
+    allowed_fields = _model_column_names(model)
+    return {key: value for key, value in data.items() if key in allowed_fields}
+
+
 DOCUMENT_COPY_FIELDS = [
     "title", "contributor_id", "first_edit_date", "problem_intro", "image_urls", "image_urls_problem_intro",
     "causes", "image_urls_causes", "evaluation", "image_urls_evaluation", "inspection", "image_urls_inspection",
@@ -104,12 +126,81 @@ DOCUMENT_COPY_FIELDS = [
 ]
 
 
+def _is_knowledge_library(library_type: str) -> bool:
+    return _normalize_library_type(library_type) == "knowledge"
+
+
+def _join_image_urls(image_urls) -> str:
+    if not image_urls:
+        return None
+    if isinstance(image_urls, str):
+        return image_urls
+    return ", ".join(str(image_url).strip() for image_url in image_urls if str(image_url).strip()) or None
+
+
 def _copy_document_to_library(document: Document, library_type: str, tag=None):
     """把解析器产出的文档对象转换成目标库表对象，避免知识库导入时仍写入故障库表。"""
     document_model = _get_document_model(library_type)
     copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
+    if _is_knowledge_library(library_type):
+        copied_data["summary"] = getattr(document, "summary", None)
+        copied_data["content"] = getattr(document, "content", None)
     copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
-    return document_model(**copied_data)
+    return document_model(**_filter_model_data(document_model, copied_data))
+
+
+def _knowledge_sections_from_request(sections):
+    result = []
+    for index, section in enumerate(sections or []):
+        data = section.model_dump() if hasattr(section, "model_dump") else dict(section)
+        result.append(
+            SimpleNamespace(
+                section_index=data.get("section_index") if data.get("section_index") is not None else index,
+                section_title=data.get("section_title") or f"章节{index + 1}",
+                section_type=data.get("section_type") or "knowledge_section",
+                plain_text=data.get("plain_text") or "",
+                image_urls=data.get("image_urls") or [],
+                char_start=data.get("char_start"),
+                char_end=data.get("char_end"),
+                metadata=data.get("metadata") or {},
+            )
+        )
+    return result
+
+
+def _knowledge_document_from_parsed(parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags):
+    return DocumentKnowledge(
+        title=parsed.title or file_name,
+        contributor_id=contributor_id,
+        first_edit_date=datetime.now(),
+        image_urls=_join_image_urls(parsed.image_urls),
+        summary=parsed.summary,
+        content=parsed.content,
+        origin_file_name=file_name,
+        origin_file_dir=origin_file_dir,
+        tag=_normalize_tags(tags),
+        is_vectorized=0,
+        is_deleted=0,
+    )
+
+
+async def _knowledge_sections_to_response(db: AsyncSession, document_id: int):
+    sections = await get_knowledge_document_sections(db, document_id)
+    return [
+        KnowledgeSectionResponse(
+            id=section.id,
+            section_index=section.section_index,
+            section_title=section.section_title,
+            section_type=section.section_type,
+            plain_text=section.plain_text,
+            image_urls=section.image_urls or [],
+            char_start=section.char_start,
+            char_end=section.char_end,
+            metadata=section.section_metadata or {},
+        )
+        for section in sections
+    ]
+
 
 # 目前支持的文档类型
 ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
@@ -118,7 +209,7 @@ ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 def _normalize_document_for_db(document: Document) -> None:
     text_fields = [
         "title", "problem_intro", "causes", "evaluation",
-        "inspection", "solutions", "key_points", "origin_file_name", "origin_file_dir"
+        "inspection", "solutions", "key_points", "summary", "content", "origin_file_name", "origin_file_dir"
     ]
     image_fields = [
         "image_urls", "image_urls_problem_intro", "image_urls_causes",
@@ -255,14 +346,14 @@ async def _delete_source_documents_for_document(db: AsyncSession, document_base_
         source_document.parse_error = None
 
 
-async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str):
+async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str, library_type: str = "breakdown"):
     source = await _get_source_document_by_path(db, stored_file_path)
     if source:
         source.status = "parse_failed"
         source.parse_error = error_message
         source.review_id = None
         source.document_id = None
-        source.document_library_type = "breakdown"
+        source.document_library_type = _normalize_library_type(library_type)
         await db.commit()
 
 
@@ -291,26 +382,29 @@ async def document_convert_documentResponse(
         library_type=getattr(document, "library_type", "breakdown"),
         tag=await get_document_tag_names(db, document),
         title=document.title,
+        summary=getattr(document, "summary", None),
+        content=getattr(document, "content", None),
+        sections=await _knowledge_sections_to_response(db, document.id) if getattr(document, "library_type", "breakdown") == "knowledge" else None,
         contributor_id=document.contributor_id,
         contributor_name=contributor_name,
         first_edit_date=document.first_edit_date,
-        problem_intro=document.problem_intro,
-        image_urls=document.image_urls,
-        causes=document.causes,
-        evaluation=document.evaluation,
-        inspection=document.inspection,
-        solutions=document.solutions,
-        key_points=document.key_points,
+        problem_intro=getattr(document, "problem_intro", None),
+        image_urls=getattr(document, "image_urls", None),
+        causes=getattr(document, "causes", None),
+        evaluation=getattr(document, "evaluation", None),
+        inspection=getattr(document, "inspection", None),
+        solutions=getattr(document, "solutions", None),
+        key_points=getattr(document, "key_points", None),
 
-        origin_file_name=document.origin_file_name,
-        origin_file_dir=document.origin_file_dir,
+        origin_file_name=getattr(document, "origin_file_name", None),
+        origin_file_dir=getattr(document, "origin_file_dir", None),
 
-        image_urls_problem_intro=document.image_urls_problem_intro,
-        image_urls_causes=document.image_urls_causes,
-        image_urls_evaluation=document.image_urls_evaluation,
-        image_urls_inspection=document.image_urls_inspection,
-        image_urls_solutions=document.image_urls_solutions,
-        image_urls_key_points=document.image_urls_key_points
+        image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
+        image_urls_causes=getattr(document, "image_urls_causes", None),
+        image_urls_evaluation=getattr(document, "image_urls_evaluation", None),
+        image_urls_inspection=getattr(document, "image_urls_inspection", None),
+        image_urls_solutions=getattr(document, "image_urls_solutions", None),
+        image_urls_key_points=getattr(document, "image_urls_key_points", None)
     )
 
 
@@ -438,15 +532,27 @@ async def create_document(document: DocumentCreate,
             setattr(document, attr, value)
 
         document_model = _get_document_model(document.library_type)
-        document_data = document_model(**document.dict(exclude={"library_type", "tag"}),
-                                       tag=_normalize_tags(document.tag),
-                                       contributor_id=contributor_id,
-                                       is_vectorized=0,
-                                       is_deleted=0,
-                                       first_edit_date=datetime.now())
+        exclude_fields = {"library_type", "tag", "sections"}
+        if not _is_knowledge_library(document.library_type):
+            exclude_fields.update({"summary", "content"})
+        document_payload = document.dict(exclude=exclude_fields)
+        document_payload.update(
+            tag=_normalize_tags(document.tag),
+            contributor_id=contributor_id,
+            is_vectorized=0,
+            is_deleted=0,
+            first_edit_date=datetime.now(),
+        )
+        document_data = document_model(**_filter_model_data(document_model, document_payload))
         db.add(document_data)
         await db.flush()
         await db.refresh(document_data)
+        if _is_knowledge_library(document.library_type):
+            await replace_knowledge_document_sections(
+                db,
+                document_data,
+                _knowledge_sections_from_request(document.sections),
+            )
         await set_document_tag_names(db, document_data, document.tag, created_by=current_user.id)
         print("数据库插入成功")
         vector_service = VectorService(db)
@@ -579,8 +685,13 @@ async def update_document(id: int,
         _require_admin_document_write(current_user, "技术人员需提交修改审核，审核通过后才会更新文档")
 
         image_urls_str = ""
-        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
-                 "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+        attrs = [
+            attr for attr in [
+                "image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"
+            ]
+            if hasattr(document_now, attr)
+        ]
 
         for attr in attrs:
             urls_str = ""
@@ -622,7 +733,13 @@ async def update_document(id: int,
         #
         #         image_urls_str += url_check_str + ", "
 
-        document_data = document.dict(exclude_unset=True, exclude={"library_type"})
+        document_data = _filter_model_data(
+            document_model,
+            document.dict(exclude_unset=True, exclude={"library_type", "sections"}),
+        )
+        if not _is_knowledge_library(getattr(document_now, "library_type", library_type)):
+            document_data.pop("summary", None)
+            document_data.pop("content", None)
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
@@ -631,6 +748,13 @@ async def update_document(id: int,
                 await set_document_tag_names(db, document_now, value, created_by=current_user.id)
                 continue
             setattr(document_now, key, value)
+
+        if _is_knowledge_library(getattr(document_now, "library_type", library_type)) and document.sections is not None:
+            await replace_knowledge_document_sections(
+                db,
+                document_now,
+                _knowledge_sections_from_request(document.sections),
+            )
 
         if len(image_urls_str) > 0:
             image_urls_str = image_urls_str.removesuffix(", ")
@@ -687,14 +811,19 @@ async def delete(id: int,
         # 文档表直删仅允许管理员；技术人员必须走删除审核流程
         if not has_role(current_user, UserRole.ADMIN):
             raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "技术人员需提交删除审核，审核通过后才会删除文档")
-        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
-                 "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+        attrs = [
+            attr for attr in [
+                "image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
+                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"
+            ]
+            if hasattr(document, attr)
+        ]
         config = get_image_config()
         base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
 
         # 删除文档的时候，把文档里的图片都删掉
         for attr in attrs:
-            value = getattr(document, attr)
+            value = getattr(document, attr, None)
             if value is not None:
                 image_urls = value.split(", ")
                 for image_url in image_urls:
@@ -904,10 +1033,9 @@ async def query(query: DocumentQuery,
                 # 关键词搜索条件：标题、作者姓名、用户名、问题简介、标签都可以匹配。
                 tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
                 filter_condition = or_(
-                    document_model.title.like(f"%{query.data}%"),
+                    *_document_text_keyword_conditions(document_model, query.data),
                     User.full_name.like(f"%{query.data}%"),
                     User.username.like(f"%{query.data}%"),
-                    document_model.problem_intro.like(f"%{query.data}%"),
                     tag_keyword_condition,
                 )
                 # 默认排除已删除文档，并叠加关键词过滤。
@@ -946,10 +1074,9 @@ async def query(query: DocumentQuery,
         tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
 
         filter_condition = or_(
-            document_model.title.like(f"%{query.data}%"),
+            *_document_text_keyword_conditions(document_model, query.data),
             User.full_name.like(f"%{query.data}%"),
             User.username.like(f"%{query.data}%"),
-            document_model.problem_intro.like(f"%{query.data}%"),
             tag_keyword_condition,
         )
         where_conditions = [document_model.is_deleted == 0, filter_condition]
@@ -1127,6 +1254,12 @@ async def analyze_files(file_list: AnalyzeRequest,
             message="请求核心参数无效"
         )
     submit_for_review = bool(file_list.submit_for_review)
+    if _is_knowledge_library(file_list.library_type) and submit_for_review:
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="知识库导入暂不支持审核流程，请由管理员直接导入"
+        )
     if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
         raise AppException(
             http_status=status.HTTP_403_FORBIDDEN,
@@ -1153,14 +1286,73 @@ async def analyze_files(file_list: AnalyzeRequest,
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
-                await _mark_source_parse_failed(db, file, "文件格式不支持")
+                await _mark_source_parse_failed(db, file, "文件格式不支持", file_list.library_type)
                 continue
             url = os.path.join(document_base_dir, file)
             if not os.path.exists(url):
                 error_origin_filename.append(file_name)
                 has_not_found_error = True
-                await _mark_source_parse_failed(db, file, "源文件不存在")
+                await _mark_source_parse_failed(db, file, "源文件不存在", file_list.library_type)
                 continue
+
+            if _is_knowledge_library(file_list.library_type):
+                parsed = await asyncio.to_thread(knowledge_parser.parse, url)
+                if parsed is None:
+                    error_origin_filename.append(file_name)
+                    has_invalid_request_error = True
+                    parser_code = getattr(knowledge_parser, "last_error_code", None)
+                    parser_detail = getattr(knowledge_parser, "last_error_detail", None)
+                    parse_error_details.append(
+                        {
+                            "file_name": file_name,
+                            "file_path": file,
+                            "code": int(parser_code) if parser_code is not None else int(BizCode.DOC_PARSE_FAILED),
+                            "detail": parser_detail or "知识库解析器未返回文档对象",
+                        }
+                    )
+                    await _mark_source_parse_failed(db, file, parser_detail or "知识库解析器未返回文档对象", file_list.library_type)
+                    continue
+
+                if _is_empty_text(parsed.title) and _is_empty_text(parsed.content):
+                    error_origin_filename.append(file_name)
+                    has_invalid_request_error = True
+                    parse_error_details.append(
+                        {
+                            "file_name": file_name,
+                            "file_path": file,
+                            "code": int(BizCode.DOC_PARSE_FAILED),
+                            "detail": "知识库解析结果为空，未能提取有效标题或正文。",
+                        }
+                    )
+                    await _mark_source_parse_failed(db, file, "知识库解析结果为空。", file_list.library_type)
+                    continue
+
+                knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
+                document = _knowledge_document_from_parsed(
+                    parsed=parsed,
+                    contributor_id=current_user.id,
+                    file_name=file_name,
+                    origin_file_dir=knowledge_file_path,
+                    tags=file_list.tag,
+                )
+                db.add(document)
+                await db.flush()
+                await db.refresh(document)
+                await replace_knowledge_document_sections(db, document, parsed.sections)
+                await set_document_tag_names(db, document, file_list.tag, created_by=current_user.id)
+                vector_service = VectorService(db)
+                await vector_service.add_document_to_vector_store(document, commit=False)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "vectorized"
+                    source.document_id = document.id
+                    source.document_library_type = "knowledge"
+                    source.parse_error = None
+                await db.commit()
+                success_file_url.append(file)
+                success_origin_filename.append(file_name)
+                continue
+
             # print(url)
             document = None
             parser_for_error = None
@@ -1219,7 +1411,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     parser_code,
                     parser_detail,
                 )
-                await _mark_source_parse_failed(db, file, parser_detail or "解析器未返回文档对象")
+                await _mark_source_parse_failed(db, file, parser_detail or "解析器未返回文档对象", file_list.library_type)
                 if parser_code == int(BizCode.DOC_TOKEN_LIMIT_EXCEEDED):
                     has_token_limit_error = True
                 if parser_code == int(BizCode.AI_SERVICE_UNAVAILABLE):
@@ -1241,6 +1433,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     db,
                     file,
                     "AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。",
+                    file_list.library_type,
                 )
                 continue
 
@@ -1255,7 +1448,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "detail": "AI解析失败：未能生成有效标题。可能该文档不是故障知识，或内容不完整/不清晰。",
                     }
                 )
-                await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。")
+                await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。", file_list.library_type)
                 continue
             document.contributor_id = current_user.id
             document.origin_file_name = file_name
@@ -1300,7 +1493,7 @@ async def analyze_files(file_list: AnalyzeRequest,
         except Exception as e:
             print(e)
             await db.rollback()
-            await _mark_source_parse_failed(db, file, str(e))
+            await _mark_source_parse_failed(db, file, str(e), file_list.library_type)
             error_origin_filename.append(file_name)
             has_server_error = True
 
