@@ -145,6 +145,38 @@ async def ensure_review_library_columns():
             await conn.execute(text("ALTER TABLE document_reviews ADD COLUMN tag JSON NULL AFTER origin_file_dir"))
 
 
+async def ensure_source_document_library_columns():
+    async with engine.begin() as conn:
+        fk_result = await conn.execute(
+            text(
+                """
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'source_documents'
+                  AND COLUMN_NAME = 'document_id'
+                  AND REFERENCED_TABLE_NAME = 'documents'
+                """
+            )
+        )
+        for row in fk_result.all():
+            await conn.execute(text(f"ALTER TABLE source_documents DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
+
+        library_column_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'source_documents'
+                  AND COLUMN_NAME = 'document_library_type'
+                """
+            )
+        )
+        if int(library_column_result.scalar_one() or 0) == 0:
+            await conn.execute(text("ALTER TABLE source_documents ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
+
+
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
         legacy_table_result = await conn.execute(
@@ -216,6 +248,7 @@ async def on_startup():
     await init_db()
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()
+    await ensure_source_document_library_columns()
     await migrate_legacy_documents_to_breakdown()
 
 # 配置 CORS（跨域资源共享）

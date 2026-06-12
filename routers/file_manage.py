@@ -285,6 +285,7 @@ async def analyze_files(file_list: AnalyzeRequest,
     success_origin_filename = []
     error_origin_filename = []
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    current_user_id = current_user.id
     for file, file_name in zip(file_list.file_list, file_list.file_name):
         try:
             file_ext = os.path.splitext(file)[1].lower()
@@ -319,7 +320,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 error_origin_filename.append(file_name)
                 await _mark_source_parse_failed(db, file, "文件解析失败")
                 continue
-            document.contributor_id = current_user.id
+            document.contributor_id = current_user_id
             document.origin_file_name = file_name
             knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
             document.origin_file_dir = knowledge_file_path
@@ -329,7 +330,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
-                review = _build_create_review_from_document(document, current_user.id)
+                review = _build_create_review_from_document(document, current_user_id)
                 db.add(review)
                 await db.commit()
                 await db.refresh(review)

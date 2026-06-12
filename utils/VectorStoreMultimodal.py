@@ -10,6 +10,7 @@ from PIL import Image
 from qwen_token_counter import get_token_count
 import base64
 import mimetypes
+import time
 
 from pymilvus.orm import utility
 from openai import OpenAI
@@ -233,10 +234,14 @@ class VectorStoreMultimodal:
                 print(f"加载集合失败: {e}")
                 raise
 
-    def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1) -> List[Dict]:
+    def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1, vector_ai_result=None) -> List[Dict]:
+        timing_started = time.perf_counter()
         chunks = []
         library_type = self._get_document_library_type(document)
         vector_doc_id = self._encode_doc_id(document.id, library_type)
+        image_description_by_url = {}
+        if isinstance(vector_ai_result, dict):
+            image_description_by_url = vector_ai_result.get("_image_description_by_url", {}) or {}
         raw_tags = getattr(document, "tag", []) or []
         if isinstance(raw_tags, str):
             try:
@@ -269,8 +274,11 @@ class VectorStoreMultimodal:
                     print(url)
                     if os.path.exists(url):
                         flag = 1
-                        messages = self.generate_descript_image_messages(url)
-                        answer = self.get_ai_answer(messages)
+                        answer = image_description_by_url.get(self._normalize_image_key(url))
+                        print(
+                            f"[TIMING] image_describe section=problem_intro image={os.path.basename(url)} "
+                            f"source=combined found={answer is not None}"
+                        )
                         content = content_origin + "\n[图像信息]\n" + answer if answer is not None else content_origin
                         print(content)
                         print("=====================")
@@ -332,8 +340,11 @@ class VectorStoreMultimodal:
                 url = os.path.join(self.get_config()["DOCUMENT_IMAGE_BASE_DIR"], image)
                 if os.path.exists(url):
                     flag = 1
-                    messages = self.generate_descript_image_messages(url)
-                    answer = self.get_ai_answer(messages)
+                    answer = image_description_by_url.get(self._normalize_image_key(url))
+                    print(
+                        f"[TIMING] image_describe section={section[0]} image={os.path.basename(url)} "
+                        f"source=combined found={answer is not None}"
+                    )
                     content = content_origin + "\n[图像信息]\n" + answer if answer is not None else content_origin
                     print(content)
                     print("=======================")
@@ -381,6 +392,11 @@ class VectorStoreMultimodal:
                         "chunk_size": len(content_origin)
                     })
                 })
+        image_chunk_count = sum(1 for chunk in chunks if chunk.get("image_url"))
+        print(
+            f"[TIMING] chunk_document doc_id={getattr(document, 'id', None)} "
+            f"chunks={len(chunks)} image_chunks={image_chunk_count} elapsed={time.perf_counter() - timing_started:.2f}s"
+        )
         return chunks
 
     def generate_descript_image_messages(self, image_url: str):
@@ -454,23 +470,50 @@ class VectorStoreMultimodal:
 
     def add_document(self, document: Document):
         """添加文档到向量数据库"""
+        add_started = time.perf_counter()
         library_type = self._get_document_library_type(document)
         vector_doc_id = self._encode_doc_id(document.id, library_type)
 
         try:
+            load_started = time.perf_counter()
             self.load_collection()
+            print(
+                f"[TIMING] vector_load_collection doc_id={document.id} elapsed={time.perf_counter() - load_started:.2f}s"
+            )
         except:
             pass  # 如果加载失败，继续执行，可能在插入时会有问题
 
-        chunks = self.chunk_document(document)
+        combined_started = time.perf_counter()
+        image_items = self._get_vector_image_items(document)
+        vector_ai_result = self.get_combined_vector_ai_result(document, image_items)
+        print(
+            f"[TIMING] vector_combined_prepare doc_id={document.id} images={len(image_items)} "
+            f"has_result={vector_ai_result is not None} elapsed={time.perf_counter() - combined_started:.2f}s"
+        )
+
+        chunk_started = time.perf_counter()
+        chunks = self.chunk_document(document, vector_ai_result=vector_ai_result)
+        print(
+            f"[TIMING] vector_chunk_build doc_id={document.id} chunks={len(chunks)} elapsed={time.perf_counter() - chunk_started:.2f}s"
+        )
 
         if not chunks:
             return
 
-        main_chunk = self.get_main_chunk(document)
+        main_started = time.perf_counter()
+        main_chunk = vector_ai_result.get("main_chunk") if isinstance(vector_ai_result, dict) else None
+        if not isinstance(main_chunk, dict):
+            main_chunk = self.get_main_chunk(document)
+        print(
+            f"[TIMING] vector_main_chunk doc_id={document.id} has_main={main_chunk is not None} elapsed={time.perf_counter() - main_started:.2f}s"
+        )
         # print(111)
         if main_chunk is not None:
-            content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
+            content = (
+                f"问题简介：{main_chunk.get('problem_intro', '')}\n"
+                f"核心成因：{main_chunk.get('causes', '')}\n"
+                f"关键特征：{main_chunk.get('feature', '')}"
+            )
             chunks.append({
                 "doc_id": vector_doc_id,
                 "title": document.title,
@@ -504,7 +547,11 @@ class VectorStoreMultimodal:
         # print(333)
         # 生成向量（文档不使用提示词）
         # embeddings = self.embed_texts(chunk_contents, is_query=False)
+        embed_started = time.perf_counter()
         embeddings = self.embed_multimodal(chunks)
+        print(
+            f"[TIMING] vector_embed_all doc_id={document.id} chunks={len(chunks)} elapsed={time.perf_counter() - embed_started:.2f}s"
+        )
         # print(444)
         # 插入数据
         insert_data = [
@@ -517,10 +564,16 @@ class VectorStoreMultimodal:
             [item[5] for item in data]  # metadata
         ]
 
+        insert_started = time.perf_counter()
         self.collection.insert(insert_data)
         self.collection.flush()
+        print(
+            f"[TIMING] vector_milvus_insert doc_id={document.id} chunks={len(chunks)} elapsed={time.perf_counter() - insert_started:.2f}s"
+        )
         print(f"Added {len(chunks)} chunks from document {document.id} to vector store")
-        print(embeddings[0])
+        print(f"[TIMING] vector_add_document doc_id={document.id} chunks={len(chunks)} elapsed={time.perf_counter() - add_started:.2f}s")
+        if embeddings:
+            print(f"embedding_dim={len(embeddings[0])}")
 
     def search(self, query_text: str, query_image=None, top_k: int = -1) -> List[Dict]:
         """搜索相似文档"""
@@ -605,6 +658,155 @@ class VectorStoreMultimodal:
         with open(image, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
             return image_base64
+
+    def _normalize_image_key(self, image_path: str) -> str:
+        return os.path.normcase(os.path.abspath(image_path))
+
+    def _split_image_urls(self, value):
+        if not value:
+            return []
+        if isinstance(value, (list, tuple)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return [item.strip() for item in str(value).split(",") if item.strip()]
+
+    def _get_vector_image_items(self, document: Document):
+        image_fields = [
+            ("problem_intro", "image_urls_problem_intro"),
+            ("causes", "image_urls_causes"),
+            ("evaluation", "image_urls_evaluation"),
+            ("inspection", "image_urls_inspection"),
+            ("solutions", "image_urls_solutions"),
+            ("key_points", "image_urls_key_points"),
+        ]
+        base_dir = self.get_config()["DOCUMENT_IMAGE_BASE_DIR"]
+        items = []
+        for section, field_name in image_fields:
+            for image in self._split_image_urls(getattr(document, field_name, "")):
+                url = os.path.join(base_dir, image)
+                if os.path.exists(url):
+                    items.append({
+                        "image_id": len(items) + 1,
+                        "section": section,
+                        "url": url,
+                        "filename": os.path.basename(url),
+                    })
+        return items
+
+    def _parse_json_object(self, answer: str):
+        if not answer:
+            return None
+        text = answer.strip()
+        if text.startswith("```"):
+            text = text.strip("`").strip()
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            text = text[start:end + 1]
+        return json.loads(text)
+
+    def generate_combined_vector_messages(self, document: Document, image_items):
+        content = (
+            f"标题：{getattr(document, 'title', '')}\n"
+            f"问题简介：{getattr(document, 'problem_intro', '')}\n"
+            f"原因：{getattr(document, 'causes', '')}\n"
+            f"评估：{getattr(document, 'evaluation', '')}\n"
+            f"检查：{getattr(document, 'inspection', '')}\n"
+            f"解决方法：{getattr(document, 'solutions', '')}\n"
+            f"总结：{getattr(document, 'key_points', '')}"
+        )
+        image_catalog = "\n".join(
+            f"图片{item['image_id']}：section={item['section']}，filename={item['filename']}"
+            for item in image_items
+        ) or "无图片"
+        prompt = f"""请基于下面的设备维修文档文本和图片，一次性完成两项任务：
+1. 为每张图片生成不超过300字的描述，重点包含设备信息、故障信息或维修信息。
+2. 生成一个用于检索的 main_chunk，包含 problem_intro、causes、feature。
+
+必须严格返回 JSON，不要 markdown，不要额外解释。格式如下：
+{{
+  "image_descriptions": [
+    {{"image_id": 1, "description": "图片描述"}}
+  ],
+  "main_chunk": {{
+    "problem_intro": "核心问题简介",
+    "causes": "核心成因",
+    "feature": "关键特征"
+  }}
+}}
+
+如果某张图片与故障无关，也要按图片编号返回客观描述。不要改变 image_id。
+
+[图片列表]
+{image_catalog}
+
+[文本内容]
+{content}
+"""
+        msg_content = [{"type": "text", "text": prompt}]
+        token_cnt = get_token_count(prompt)
+        sent_items = []
+        for item in image_items:
+            try:
+                compress_image = self.compress_image(item["url"], max_size=768)
+                mime_type, _ = mimetypes.guess_type(compress_image)
+                if mime_type is None:
+                    ext = os.path.splitext(compress_image)[1].lower()
+                    mime_type = {
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.webp': 'image/webp',
+                        '.bmp': 'image/bmp'
+                    }.get(ext, 'image/jpeg')
+                if token_cnt + 578 > 6000:
+                    break
+                token_cnt += 578
+                msg_content.append({
+                    "type": "text",
+                    "text": f"图片{item['image_id']}，section={item['section']}，filename={item['filename']}"
+                })
+                msg_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{self.image_to_base64(compress_image)}"}
+                })
+                sent_items.append(item)
+            except Exception as e:
+                print(f"combined vector image skipped: {item.get('url')}, {e}")
+        return [{"role": "user", "content": msg_content}], sent_items
+
+    def get_combined_vector_ai_result(self, document: Document, image_items):
+        started = time.perf_counter()
+        try:
+            messages, sent_items = self.generate_combined_vector_messages(document, image_items)
+            answer = self.get_ai_answer(messages)
+            result = self._parse_json_object(answer)
+            if not isinstance(result, dict):
+                return None
+            descriptions = result.get("image_descriptions", []) or []
+            description_by_id = {}
+            for item in descriptions:
+                if not isinstance(item, dict):
+                    continue
+                image_id = item.get("image_id", item.get("image_index"))
+                description = item.get("description")
+                if image_id is not None and description:
+                    description_by_id[int(image_id)] = str(description).strip()
+            result["_image_description_by_url"] = {
+                self._normalize_image_key(item["url"]): description_by_id[item["image_id"]]
+                for item in sent_items
+                if item["image_id"] in description_by_id
+            }
+            print(
+                f"[TIMING] vector_combined_ai doc_id={getattr(document, 'id', None)} "
+                f"images={len(image_items)} sent={len(sent_items)} descriptions={len(result['_image_description_by_url'])} "
+                f"has_main={isinstance(result.get('main_chunk'), dict)} elapsed={time.perf_counter() - started:.2f}s"
+            )
+            return result
+        except Exception as e:
+            print(f"[TIMING] vector_combined_ai failed doc_id={getattr(document, 'id', None)} elapsed={time.perf_counter() - started:.2f}s error={e}")
+            return None
 
     def delete_document(self, doc_id: int, library_type: str = "breakdown"):
         """从向量库中删除文档"""
@@ -713,10 +915,15 @@ class VectorStoreMultimodal:
         """生成向量"""
         embeds = []
         with torch.no_grad():
-            for chunk in chunks:
+            for index, chunk in enumerate(chunks):
                 chunk["image_url"] = None if chunk["image_url"] == "" else chunk["image_url"]
+                started = time.perf_counter()
                 encode_result = self.model.encode(text=chunk["content"], image=chunk["image_url"])
                 embeds.append(encode_result.cpu().numpy().flatten().tolist())
+                print(
+                    f"[TIMING] embed_chunk index={index} has_image={chunk['image_url'] is not None} "
+                    f"content_len={len(chunk['content'])} elapsed={time.perf_counter() - started:.2f}s"
+                )
         return embeds
 
     def embed_multimodal_query(self, text=None, image=None):
