@@ -73,6 +73,7 @@ class VectorStoreMultimodal:
         self.context_margin_token = int(os.getenv("CONTEXT_MARGIN_TOKEN", 128))
         self.image_input_token = int(os.getenv("IMAGE_INPUT_TOKEN", 1500))
         self.enable_vector_image_description = os.getenv("ENABLE_VECTOR_IMAGE_DESCRIPTION", "0").strip().lower() in {"1", "true", "yes", "on"}
+        self.enable_knowledge_main_chunk_ai = os.getenv("ENABLE_KNOWLEDGE_MAIN_CHUNK_AI", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def _normalize_library_type(self, library_type: str) -> str:
         """统一库类型，保证向量库 metadata 中只出现 breakdown/knowledge 两种值。"""
@@ -1049,6 +1050,24 @@ class VectorStoreMultimodal:
             images = []
             for section in sections:
                 images.extend(self._normalize_image_urls(section.get("image_urls")))
+
+            fallback_summary = section_text[:300]
+            fallback_main_chunk = {
+                "title": getattr(document, "title", ""),
+                "summary": fallback_summary,
+                "core_topic": getattr(document, "title", ""),
+                "key_points": "；".join(
+                    str(section.get("section_title") or "").strip()
+                    for section in sections[:8]
+                    if str(section.get("section_title") or "").strip()
+                ) or fallback_summary,
+                "scope": "",
+                "tags": tag_text,
+            }
+
+            if not self.enable_knowledge_main_chunk_ai:
+                return fallback_main_chunk
+
             try:
                 client = OpenAI(
                     base_url=get_ai_base_url(),
@@ -1065,16 +1084,8 @@ class VectorStoreMultimodal:
                 print(ans)
                 return json.loads(ans)
             except Exception as e:
-                print(e)
-                fallback_summary = section_text[:300]
-                return {
-                    "title": getattr(document, "title", ""),
-                    "summary": fallback_summary,
-                    "core_topic": getattr(document, "title", ""),
-                    "key_points": fallback_summary,
-                    "scope": "",
-                    "tags": tag_text,
-                }
+                print(f"知识库主chunk AI生成失败，使用文本兜底主chunk: {e}")
+                return fallback_main_chunk
 
         content = f"【标题】：{document.title}\n【问题简介】：{document.problem_intro}\n【成因】：{document.causes}\n"
 
