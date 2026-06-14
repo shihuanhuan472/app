@@ -147,8 +147,34 @@ def _normalize_section_marker(value) -> str:
         return value
     match = re.fullmatch(r"level_([1-6])", value)
     if match:
-        return match.group(1)
+        return f"level_{match.group(1)}"
     return "1"
+
+
+def _fill_request_section_markers(sections):
+    counters = [0, 0, 0, 0, 0, 0]
+    for index, section in enumerate(sections):
+        raw = str(section.section_type or "").strip().lower()
+        if raw in {"title", "directory"}:
+            section.section_type = raw
+            continue
+        if re.fullmatch(r"\d+(?:\.\d+)*", raw):
+            parts = [int(part) for part in raw.split(".") if part.isdigit()]
+            for idx, part in enumerate(parts[:6]):
+                counters[idx] = part
+            for idx in range(len(parts), len(counters)):
+                counters[idx] = 0
+            section.section_type = raw
+            continue
+
+        level_match = re.fullmatch(r"level_([1-6])", raw)
+        level = int(level_match.group(1)) if level_match else 1
+        if level > 1 and counters[0] == 0:
+            counters[0] = 1
+        counters[level - 1] += 1
+        for idx in range(level, len(counters)):
+            counters[idx] = 0
+        section.section_type = ".".join(str(part) for part in counters[:level] if part > 0) or str(index + 1)
 
 
 def _copy_document_to_library(document: Document, library_type: str, tag=None):
@@ -175,6 +201,7 @@ def _knowledge_sections_from_request(sections):
                 metadata=data.get("metadata") or {},
             )
         )
+    _fill_request_section_markers(result)
     return result
 
 

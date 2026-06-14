@@ -218,21 +218,38 @@ class KnowledgeParser:
         in_directory = False
         misses_after_items = 0
         seen = set()
+        pending_marker = ""
 
         for block in blocks[:500]:
             if block.get("type") != "text":
                 continue
             for raw_line in str(block.get("text") or "").splitlines():
-                line = raw_line.strip()
-                normalized = self._normalize_noise_text(line)
+                line = raw_line.rstrip()
+                stripped_line = line.strip()
+                normalized = self._normalize_noise_text(stripped_line)
                 if not line:
                     continue
                 if normalized in {"目录", "目錄", "contents", "tableofcontents"}:
                     in_directory = True
                     misses_after_items = 0
                     continue
+                marker_only = re.fullmatch(
+                    r"(\d+(?:[.．]\d+)*|第\s*[一二三四五六七八九十百千万0-9]+\s*[章节]|[一二三四五六七八九十]+[、.．]?)",
+                    stripped_line,
+                )
+                if marker_only:
+                    pending_marker = marker_only.group(1).replace("．", ".").strip("、. ")
+                    in_directory = True
+                    misses_after_items = 0
+                    continue
                 item = self._parse_directory_line(line)
                 if item:
+                    if pending_marker and not item.get("marker"):
+                        item["marker"] = pending_marker
+                        item["display_title"] = f"{pending_marker} {item['title']}".strip()
+                        item["level"] = self._directory_level(pending_marker, item["title"])
+                        item["raw_text"] = f"{pending_marker}\n{item.get('raw_text') or stripped_line}"
+                    pending_marker = ""
                     in_directory = True
                     misses_after_items = 0
                     key = (item.get("marker") or f"auto-{len(outline)}", self._normalize_heading_key(item["title"]))
@@ -241,14 +258,19 @@ class KnowledgeParser:
                         item["outline_index"] = len(outline)
                         outline.append(item)
                     continue
+                pending_marker = ""
                 if in_directory and outline:
                     misses_after_items += 1
                     if misses_after_items >= 8:
+                        self._assign_outline_markers(outline)
                         return outline
+        self._assign_outline_markers(outline)
         return outline
 
     def _parse_directory_line(self, line: str) -> Optional[Dict]:
-        text = re.sub(r"\s+", " ", (line or "").strip())
+        original_line = line or ""
+        leading_spaces = len(original_line) - len(original_line.lstrip(" \t"))
+        text = re.sub(r"\s+", " ", original_line.strip())
         if not text or self._is_noise_line(text):
             return None
 
@@ -279,7 +301,7 @@ class KnowledgeParser:
             return None
         if self._is_noise_line(title):
             return None
-        level = self._directory_level(marker, title)
+        level = self._directory_level(marker, title, leading_spaces)
         display_title = f"{marker} {title}".strip() if marker else title
         return {
             "marker": marker,
@@ -290,14 +312,42 @@ class KnowledgeParser:
             "raw_text": line.strip(),
         }
 
-    def _directory_level(self, marker: str, title: str) -> int:
+    def _directory_level(self, marker: str, title: str, leading_spaces: int = 0) -> int:
         marker = (marker or "").replace("．", ".")
         number_match = re.search(r"\d+(?:\.\d+)*", marker)
         if number_match:
             return max(1, min(6, len(number_match.group(0).split("."))))
         if re.match(r"^[一二三四五六七八九十]+[、.．]", marker or ""):
             return 1
+        if leading_spaces > 0:
+            return max(1, min(6, leading_spaces // 2 + 1))
         return 1
+
+    def _assign_outline_markers(self, outline: List[Dict]):
+        """为无编号目录项补齐层级编号，避免 section_type 退化成顺序号。"""
+        counters = [0, 0, 0, 0, 0, 0]
+        for index, item in enumerate(outline):
+            marker = str(item.get("marker") or "").replace("．", ".").strip("、. ")
+            numeric_match = re.search(r"\d+(?:\.\d+)*", marker)
+            if numeric_match:
+                numeric_marker = numeric_match.group(0)
+                parts = [int(part) for part in numeric_marker.split(".") if part.isdigit()]
+                for idx, part in enumerate(parts[:6]):
+                    counters[idx] = part
+                for idx in range(len(parts), len(counters)):
+                    counters[idx] = 0
+                item["computed_marker"] = numeric_marker
+                item["level"] = max(1, min(6, len(parts)))
+                continue
+
+            level = max(1, min(6, int(item.get("level") or 1)))
+            if level > 1 and counters[0] == 0:
+                counters[0] = 1
+            counters[level - 1] += 1
+            for idx in range(level, len(counters)):
+                counters[idx] = 0
+            item["computed_marker"] = ".".join(str(part) for part in counters[:level] if part > 0) or str(index + 1)
+            item["level"] = level
 
     def _is_directory_line(self, text: str) -> bool:
         normalized = self._normalize_noise_text(text)
@@ -356,10 +406,10 @@ class KnowledgeParser:
 
     def _make_outline_section(self, item: Dict, index: int, full_offset: int) -> KnowledgeSectionData:
         marker = str(item.get("marker") or "").replace("．", ".").strip("、. ")
-        generated_marker = marker or str(int(item.get("outline_index", max(index - 2, 0))) + 1)
+        generated_marker = item.get("computed_marker") or marker or str(int(item.get("outline_index", max(index - 2, 0))) + 1)
         return KnowledgeSectionData(
             section_index=index,
-            section_title=(item.get("display_title") or item.get("title") or "未命名章节").strip()[:255],
+            section_title=(item.get("title") or item.get("display_title") or "未命名章节").strip()[:255],
             section_type=generated_marker,
             plain_text="",
             char_start=full_offset,
@@ -367,6 +417,7 @@ class KnowledgeParser:
             metadata={
                 "image_positions": [],
                 "directory_marker": marker,
+                "computed_marker": generated_marker,
                 "directory_level": item.get("level", 1),
                 "directory_page": item.get("page"),
                 "directory_raw_text": item.get("raw_text"),
