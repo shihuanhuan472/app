@@ -10,7 +10,7 @@ from pathlib import Path
 import logging
 from types import SimpleNamespace
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, status, UploadFile, Body, File
+from fastapi import APIRouter, BackgroundTasks, Depends, status, UploadFile, Body, File
 from sqlalchemy import or_
 # from sqlalchemy.orm import Session
 from typing import List
@@ -19,7 +19,7 @@ from dependencies import get_current_active_user
 from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentSection, SourceDocument, User
 from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
                      DocumentQuery, KnowledgeSectionResponse, UploadDocumentResponse, AnalyzeRequest)
-from database import get_db
+from database import AsyncSessionLocal, get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
@@ -361,6 +361,43 @@ async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, err
         source.document_id = None
         source.document_library_type = _normalize_library_type(library_type)
         await db.commit()
+
+
+async def _vectorize_knowledge_document_background(document_id: int, stored_file_path: str):
+    """后台向量化知识库文档，避免 /analyze_files 等待 Milvus/Embedding 导致前端一直显示解析中。"""
+    async with AsyncSessionLocal() as bg_db:
+        try:
+            result = await bg_db.execute(
+                select(DocumentKnowledge).where(
+                    DocumentKnowledge.id == document_id,
+                    DocumentKnowledge.is_deleted == 0,
+                )
+            )
+            document = result.scalar_one_or_none()
+            if not document:
+                logger.warning("knowledge vectorize skipped, document not found, id=%s", document_id)
+                return
+
+            vector_service = VectorService(bg_db)
+            await vector_service.add_document_to_vector_store(document, commit=False)
+            source = await _get_source_document_by_path(bg_db, stored_file_path)
+            if source:
+                source.status = "vectorized"
+                source.document_id = document.id
+                source.document_library_type = "knowledge"
+                source.parse_error = None
+            await bg_db.commit()
+            logger.info("knowledge document vectorized in background, document_id=%s", document_id)
+        except Exception as exc:
+            await bg_db.rollback()
+            logger.exception("knowledge document background vectorize failed, document_id=%s", document_id)
+            source = await _get_source_document_by_path(bg_db, stored_file_path)
+            if source:
+                source.status = "parsed"
+                source.document_id = document_id
+                source.document_library_type = "knowledge"
+                source.parse_error = f"后台向量化失败：{exc}"
+                await bg_db.commit()
 
 
 async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
@@ -1239,6 +1276,7 @@ async def upload_files(files: List[UploadFile] = File(...),
 
 @router.post("/analyze_files", summary="解析文件")
 async def analyze_files(file_list: AnalyzeRequest,
+                        background_tasks: BackgroundTasks,
                         db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(get_current_active_user)):
     # file_list是后端相对路径
@@ -1356,18 +1394,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                     source.document_library_type = "knowledge"
                     source.parse_error = None
                 # 先提交文档和章节，释放 MySQL 锁。
-                # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
+                # 后续向量化/Milvus 写入较慢，放到后台执行，避免前端一直停留在“解析中”。
                 await db.commit()
-
-                vector_service = VectorService(db)
-                await vector_service.add_document_to_vector_store(document, commit=False)
-                source = await _get_source_document_by_path(db, file)
-                if source:
-                    source.status = "vectorized"
-                    source.document_id = document.id
-                    source.document_library_type = "knowledge"
-                    source.parse_error = None
-                await db.commit()
+                background_tasks.add_task(_vectorize_knowledge_document_background, document.id, file)
                 success_file_url.append(file)
                 success_origin_filename.append(file_name)
                 continue
