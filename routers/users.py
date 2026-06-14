@@ -25,6 +25,7 @@ async def get_user_profile(current_user: User = Depends(get_current_active_user)
         "email": current_user.email,
         "full_name": current_user.full_name,
         "department": current_user.department,
+        "api_key": current_user.api_key,
         "last_login": current_user.last_login,
         "created_time": current_user.created_time,
         "role": current_user.role,

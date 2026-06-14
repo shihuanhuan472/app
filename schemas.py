@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     role: int
     perm: Optional[int] = None
     department: Optional[str]
+    api_key: Optional[str] = None
     created_time: Optional[datetime]
     last_login: Optional[datetime]
 

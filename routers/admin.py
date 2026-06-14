@@ -12,6 +12,7 @@ from models import User
 from schemas import Page, Result, UserCreate, UserQueryByPage, UserResponse, UserUpdateByAdmin
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.api_key import generate_api_key
 from utils.pagination import build_pagination_payload
 from utils.roles import (
     get_expected_perm_for_role,
@@ -44,6 +45,15 @@ def _normalize_and_validate_role_perm(role_value, perm_value):
         )
 
     return normalized_role, normalized_perm
+
+
+async def _generate_unique_api_key(db: AsyncSession) -> str:
+    for _ in range(10):
+        api_key = generate_api_key()
+        result = await db.execute(select(User.id).where(User.api_key == api_key))
+        if result.scalar_one_or_none() is None:
+            return api_key
+    raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "API Key 生成失败")
 
 
 @router.post("/add_user", summary="管理员添加用户")
@@ -89,6 +99,8 @@ async def add_user(
             user_delete.password = hashed_password
             user_delete.full_name = user.full_name
             user_delete.department = user.department
+            if not user_delete.api_key:
+                user_delete.api_key = await _generate_unique_api_key(db)
             user_delete.created_time = datetime.now()
             user_delete.last_login = None
             await db.commit()
@@ -101,6 +113,7 @@ async def add_user(
             new_user = User(
                 **user_dict,
                 password=hashed_password,
+                api_key=await _generate_unique_api_key(db),
                 status=user.status if user.status is not None else 1,
                 created_time=datetime.now(),
                 last_login=None,

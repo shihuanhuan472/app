@@ -55,6 +55,7 @@ from database import engine
 from starlette.types import Scope
 from sqlalchemy import text
 from utils.app_exceptions import AppException
+from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,47 @@ async def ensure_review_library_columns():
             await conn.execute(text("ALTER TABLE document_reviews ADD COLUMN tag JSON NULL AFTER origin_file_dir"))
 
 
+async def ensure_user_api_key_column():
+    async with engine.begin() as conn:
+        column_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'users'
+                  AND COLUMN_NAME = 'api_key'
+                """
+            )
+        )
+        if int(column_result.scalar_one() or 0) == 0:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR(128) NULL AFTER department"))
+
+        users_without_key_result = await conn.execute(
+            text("SELECT id FROM users WHERE api_key IS NULL OR api_key = ''")
+        )
+        for row in users_without_key_result.all():
+            api_key = generate_api_key()
+            await conn.execute(
+                text("UPDATE users SET api_key = :api_key WHERE id = :user_id"),
+                {"api_key": api_key, "user_id": row.id},
+            )
+
+        index_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'users'
+                  AND INDEX_NAME = 'idx_users_api_key'
+                """
+            )
+        )
+        if int(index_result.scalar_one() or 0) == 0:
+            await conn.execute(text("CREATE UNIQUE INDEX idx_users_api_key ON users (api_key)"))
+
+
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
         legacy_table_result = await conn.execute(
@@ -214,6 +256,7 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await ensure_user_api_key_column()
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()
     await migrate_legacy_documents_to_breakdown()
@@ -251,6 +294,18 @@ app.include_router(conversation.router)
 app.include_router(message.router)
 app.include_router(conversation_v1.router)
 app.include_router(file_manage.router)
+
+# Enterprise-facing API namespace. Keep legacy routes above for backward
+# compatibility while exposing a consistent /api/v1 prefix for integrations.
+API_V1_PREFIX = "/api/v1"
+app.include_router(auth.router, prefix=API_V1_PREFIX)
+app.include_router(users.router, prefix=API_V1_PREFIX)
+app.include_router(admin.router, prefix=API_V1_PREFIX)
+app.include_router(documents.router, prefix=API_V1_PREFIX)
+app.include_router(review.router, prefix=API_V1_PREFIX)
+app.include_router(source_documents.router, prefix=API_V1_PREFIX)
+app.include_router(conversation.router, prefix=API_V1_PREFIX)
+app.include_router(message.router, prefix=API_V1_PREFIX)
 
 @app.get("/", summary="根路径")
 async def root():

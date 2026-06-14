@@ -1,6 +1,7 @@
-import base64
+﻿import base64
 import json
 import mimetypes
+import re
 import uuid
 from datetime import datetime
 from PIL import Image
@@ -13,9 +14,7 @@ import os
 from openai import OpenAI
 
 from utils.error_codes import BizCode
-"""
-解析pdf文件的，使用了pymupdf提取文本和图像
-"""
+"""PDF 解析器：使用 PyMuPDF 提取文本和图片。"""
 
 class PdfParser:
     def __init__(self):
@@ -101,20 +100,32 @@ class PdfParser:
             line_text = "".join(spans).strip()
             if line_text:
                 lines.append(line_text)
-        return "\n".join(lines).strip()
+        return self._clean_image_references("\n".join(lines)).strip()
+
+    def _clean_image_references(self, text: str) -> str:
+        if not text:
+            return ""
+        text = re.sub(r"[【\[]\s*图片\s*\d+\s*[】\]]", "", text)
+        text = re.sub(r"<image_position\s+indexes?=\"[\d,]+\"\s*/>", "", text)
+        text = re.sub(r"\s{2,}", " ", text)
+        return text.strip()
 
     def _detect_section(self, text: str):
-        normalized = "".join((text or "").split())
+        raw_text = (text or "").strip()
+        first_line = raw_text.splitlines()[0].strip() if raw_text else ""
+        normalized = "".join(first_line.split())
+        if not normalized:
+            return None
         section_keywords = [
-            ("problem_intro", ["问题描述", "问题简介"]),
-            ("causes", ["原因分析", "原因"]),
-            ("evaluation", ["故障评估", "评估"]),
-            ("inspection", ["检查步骤", "检查"]),
-            ("solutions", ["解决方案", "问题解决", "解决"]),
-            ("key_points", ["关键要点", "总结"]),
+            ("problem_intro", ["问题描述", "问题简介", "问题概述", "故障描述"]),
+            ("causes", ["原因分析", "问题原因", "故障原因", "原因"]),
+            ("evaluation", ["故障评估", "问题评估", "问题现象", "故障现象", "现象描述", "问题表现", "故障表现", "评估"]),
+            ("inspection", ["检查步骤", "检测步骤", "排查步骤", "检查", "检测", "排查"]),
+            ("solutions", ["解决方案", "处理方案", "维修方案", "问题解决", "解决措施", "解决"]),
+            ("key_points", ["关键要点", "注意事项", "经验总结", "总结"]),
         ]
         for section, keywords in section_keywords:
-            if any(keyword in normalized for keyword in keywords):
+            if any(normalized == keyword or normalized.startswith(keyword) for keyword in keywords):
                 return section
         return None
 
@@ -127,6 +138,198 @@ class PdfParser:
             "solutions": [],
             "key_points": [],
         }
+
+    def _format_image_position_hint(self, image_indexes):
+        indexes = ",".join(str(index) for index in image_indexes)
+        return f'<image_position indexes="{indexes}" />'
+
+    def _has_forward_image_anchor(self, text: str) -> bool:
+        normalized = "".join((text or "").split()).lower()
+        if not normalized:
+            return False
+        if self._has_numbered_image_reference(text):
+            return False
+        anchor_patterns = [
+            "如下图",
+            "如下为",
+            "如下所示",
+            "见下图",
+            "下图",
+            "offset图",
+            "cycle的offset图",
+        ]
+        return any(pattern.lower() in normalized for pattern in anchor_patterns)
+
+    def _has_numbered_image_reference(self, text: str) -> bool:
+        normalized = "".join((text or "").split())
+        if not normalized:
+            return False
+        return bool(re.search(r"(?:如|见)?图\s*[0-9一二三四五六七八九十]+", normalized))
+
+    def _extract_figure_numbers(self, text: str):
+        normalized = "".join((text or "").split())
+        if not normalized:
+            return []
+        return re.findall(r"(?:如|见)?图\s*([0-9一二三四五六七八九十]+)", normalized)
+
+    def _is_figure_caption(self, text: str) -> bool:
+        normalized = "".join((text or "").split())
+        return bool(re.fullmatch(r"图\s*[0-9一二三四五六七八九十]+", normalized or ""))
+
+    def _extract_figure_caption_number(self, text: str):
+        normalized = "".join((text or "").split())
+        match = re.fullmatch(r"图\s*([0-9一二三四五六七八九十]+)", normalized or "")
+        return match.group(1) if match else None
+
+    def _is_section_heading_text(self, text: str) -> bool:
+        return self._detect_section(text) is not None and len("".join((text or "").split())) <= 8
+
+    def _consume_nearest_anchor(self, anchors, image_item, max_vertical_gap=260, next_page_top_limit=220):
+        if not anchors:
+            return None
+
+        image_page = image_item["page"]
+        image_x0, image_y0, image_x1, _ = image_item["bbox"]
+        image_center_x = (image_x0 + image_x1) / 2
+        best_index = None
+        best_score = None
+
+        for index, anchor in enumerate(anchors):
+            anchor_x0, _, anchor_x1, anchor_y1 = anchor["bbox"]
+            page_gap = image_page - anchor["page"]
+
+            if page_gap == 0:
+                vertical_gap = image_y0 - anchor_y1
+                if vertical_gap < -20 or vertical_gap > max_vertical_gap:
+                    continue
+                page_penalty = 0
+            elif page_gap == 1:
+                if image_y0 > next_page_top_limit:
+                    continue
+                vertical_gap = image_y0
+                page_penalty = max_vertical_gap
+            else:
+                continue
+
+            anchor_center_x = (anchor_x0 + anchor_x1) / 2
+            horizontal_gap = abs(image_center_x - anchor_center_x)
+            score = page_penalty + vertical_gap + horizontal_gap * 0.15
+            if best_score is None or score < best_score:
+                best_index = index
+                best_score = score
+
+        if best_index is None:
+            return None
+
+        return anchors.pop(best_index)["section"]
+
+    def _find_section_from_nearest_text_above(self, text_items, image_item, max_vertical_gap=320):
+        image_page = image_item["page"]
+        image_x0, image_y0, image_x1, _ = image_item["bbox"]
+        image_center_x = (image_x0 + image_x1) / 2
+        best_section = None
+        best_score = None
+
+        for text_item in text_items:
+            section = text_item.get("section")
+            if not section:
+                continue
+            content = text_item.get("content", "")
+            if (
+                self._is_figure_caption(content)
+                or self._is_section_heading_text(content)
+                or self._has_numbered_image_reference(content)
+            ):
+                continue
+
+            text_x0, _, text_x1, text_y1 = text_item["bbox"]
+            page_gap = image_page - text_item["page"]
+
+            if page_gap == 0:
+                vertical_gap = image_y0 - text_y1
+                if vertical_gap < -20 or vertical_gap > max_vertical_gap:
+                    continue
+                page_penalty = 0
+            elif page_gap == 1:
+                # Page break fallback: the image may start the next page while
+                # its explanatory text ended near the bottom of the previous page.
+                if image_y0 > 220:
+                    continue
+                vertical_gap = image_y0
+                page_penalty = max_vertical_gap
+            else:
+                continue
+
+            text_center_x = (text_x0 + text_x1) / 2
+            horizontal_gap = abs(image_center_x - text_center_x)
+            score = page_penalty + vertical_gap + horizontal_gap * 0.1
+            if best_score is None or score < best_score:
+                best_score = score
+                best_section = section
+
+        return best_section
+
+    def _find_nearest_image_for_caption(self, image_items, caption_item, max_vertical_gap=160):
+        caption_page = caption_item["page"]
+        caption_x0, caption_y0, caption_x1, caption_y1 = caption_item["bbox"]
+        caption_center_x = (caption_x0 + caption_x1) / 2
+        best_image_index = None
+        best_score = None
+
+        for image_item in image_items:
+            if image_item["page"] != caption_page:
+                continue
+            image_x0, image_y0, image_x1, image_y1 = image_item["bbox"]
+            image_center_x = (image_x0 + image_x1) / 2
+
+            if image_y1 <= caption_y0:
+                vertical_gap = caption_y0 - image_y1
+            elif image_y0 >= caption_y1:
+                vertical_gap = image_y0 - caption_y1
+            else:
+                vertical_gap = 0
+
+            if vertical_gap > max_vertical_gap:
+                continue
+
+            horizontal_gap = abs(caption_center_x - image_center_x)
+            score = vertical_gap + horizontal_gap * 0.1
+            if best_score is None or score < best_score:
+                best_score = score
+                best_image_index = image_item["image_index"]
+
+        return best_image_index
+
+    def _apply_numbered_figure_references(self, layout_text_items, image_items, section_image_indexes):
+        caption_to_image = {}
+        for text_item in layout_text_items:
+            figure_number = self._extract_figure_caption_number(text_item.get("content", ""))
+            if not figure_number:
+                continue
+            image_index = self._find_nearest_image_for_caption(image_items, text_item)
+            if image_index:
+                caption_to_image[figure_number] = image_index
+
+        if not caption_to_image:
+            return
+
+        referenced_by_section = self._empty_section_image_indexes()
+        for text_item in layout_text_items:
+            section = text_item.get("section")
+            if not section or self._is_figure_caption(text_item.get("content", "")):
+                continue
+            for figure_number in self._extract_figure_numbers(text_item.get("content", "")):
+                image_index = caption_to_image.get(figure_number)
+                if image_index and image_index not in referenced_by_section[section]:
+                    referenced_by_section[section].append(image_index)
+
+        for section, referenced_indexes in referenced_by_section.items():
+            if not referenced_indexes:
+                continue
+            existing_indexes = section_image_indexes[section]
+            section_image_indexes[section] = referenced_indexes + [
+                image_index for image_index in existing_indexes if image_index not in referenced_indexes
+            ]
 
     def get_pdf_layout_content(self, pdf_url: str):
         if not os.path.exists(pdf_url):
@@ -160,15 +363,11 @@ class PdfParser:
                 if not rects:
                     continue
                 for rect in rects:
-                    image_path, image_name = self._build_image_file(doc, xref)
-                    image_urls.append(image_path)
-                    file_names.append(image_name)
-                    image_index = len(image_urls)
                     layout_items.append({
                         "type": "image",
                         "page": page_index,
                         "bbox": (rect.x0, rect.y0, rect.x1, rect.y1),
-                        "image_index": image_index,
+                        "xref": xref,
                     })
 
         layout_items.sort(key=lambda item: (item["page"], item["bbox"][1], item["bbox"][0]))
@@ -176,19 +375,63 @@ class PdfParser:
         current_section = None
         section_image_indexes = self._empty_section_image_indexes()
         text_parts = []
+        pending_image_indexes = []
+        pending_image_anchors = []
+        positioned_text_items = []
+        layout_text_items = []
+        image_items = []
+
+        def flush_pending_images():
+            if not pending_image_indexes:
+                return
+            text_parts.append(self._format_image_position_hint(pending_image_indexes))
+            pending_image_indexes.clear()
+
         for item in layout_items:
             if item["type"] == "text":
+                flush_pending_images()
                 content = item["content"]
                 detected_section = self._detect_section(content)
                 if detected_section:
                     current_section = detected_section
                 text_parts.append(content)
-            else:
-                image_index = item["image_index"]
-                text_parts.append(f"【图片{image_index}】")
                 if current_section:
-                    section_image_indexes[current_section].append(image_index)
+                    text_item = {
+                        "section": current_section,
+                        "page": item["page"],
+                        "bbox": item["bbox"],
+                        "content": content,
+                    }
+                    positioned_text_items.append(text_item)
+                    layout_text_items.append(text_item)
+                if self._has_forward_image_anchor(content) and current_section:
+                    pending_image_anchors.append({
+                        "section": current_section,
+                        "page": item["page"],
+                        "bbox": item["bbox"],
+                    })
+            else:
+                image_path, image_name = self._build_image_file(doc, item["xref"])
+                image_urls.append(image_path)
+                file_names.append(image_name)
+                image_index = len(image_urls)
+                pending_image_indexes.append(image_index)
+                image_items.append({
+                    "image_index": image_index,
+                    "page": item["page"],
+                    "bbox": item["bbox"],
+                })
+                target_section = (
+                    self._consume_nearest_anchor(pending_image_anchors, item)
+                    or self._find_section_from_nearest_text_above(positioned_text_items, item)
+                    or current_section
+                )
+                if target_section:
+                    section_image_indexes[target_section].append(image_index)
+        flush_pending_images()
+        self._apply_numbered_figure_references(layout_text_items, image_items, section_image_indexes)
 
+        doc.close()
         return "\n".join(text_parts), image_urls, file_names, section_image_indexes
 
     def compress_image(self, image_path: str, max_size=512, pad_color=(0, 0, 0)):
@@ -231,15 +474,15 @@ class PdfParser:
             page = doc[page_index]
             image_list = page.get_images()
             # if image_list:
-            #     print(f"在第 {page_index} 页找到 {len(image_list)} 张图片")
+            # if image_list:
             # else:
-            #     print(f"第 {page_index} 页未找到图片")
+            # else:
 
             for image_index, img in enumerate(image_list, start=1):  # 遍历图像列表
-                xref = img[0]  # 获取图像的 XREF
-                pix = pymupdf.Pixmap(doc, xref)  # 创建 Pixmap 对象
+                xref = img[0]  # 获取图像 XREF
+                pix = pymupdf.Pixmap(doc, xref)  
 
-                if pix.n - pix.alpha > 3:  # 如果是 CMYK 模式，则先转换为 RGB
+                if pix.n - pix.alpha > 3:  # 如果是 CMYK，先转换为 RGB
                     pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
 
 
@@ -248,7 +491,7 @@ class PdfParser:
 
                 url = os.path.join(base_url, unique_filename)
 
-                pix.save(url)  # 以 PNG 格式保存图片
+                pix.save(url)  # 保存为 PNG
                 pix = None
                 image_urls.append(url)
                 file_names.append(unique_filename)
@@ -261,59 +504,44 @@ class PdfParser:
 
     def generate_message(self, text: str = None, image_urls: str = None):
         messages = []
-        data = {}
-        # msg_content = []
-        prompt = """你好，你是一位问题分析专家，我将给你一段有关设备维修的文本和几张图片。请你最大限度使用内容，按照以下的模板提供信息，以JSON格式返回。若内容未提供，字段可以为空，但不可缺失字段。对于图片，请给出图片编号。
-模板：
-标题：<简洁的标题，点明核心内容>
-问题简介：<可包含定义解释，现象介绍，问题发生频率，后果等内容>
-原因：<造成该问题的主要原因，尽量从高频到低频排序>
-评估：<评估问题的手段，方法，工具等信息>
-检查：<描述维修现场如何进行定位确认>
-解决方法：<现场的解决措施及根本的解决方案>
-总结：<总结问题的主要原因，后果及解决方案的关键信息>
+        prompt = """你好，你是一位设备维修问题分析专家。我将提供一段文档文本和若干张图片。请严格基于文本和图片内容，整理为 JSON，不要补充原文没有的信息。
 
-输出JSON格式如下：
-{{
-    "title": "标题", // 案例名
+输出 JSON 格式如下：
+{
+    "title": "标题",
     "problem_intro": "问题简介文本",
-    "image_urls_problem_intro": [1, 3], // 与问题简介相关的图片编号
+    "image_urls_problem_intro": [1, 3],
     "causes": "原因文本",
-    "image_urls_causes": [2], // 与原因相关的图片编号
+    "image_urls_causes": [2],
     "evaluation": "评估方法文本",
-    "image_urls_evaluation": [4], // 与评估相关的图片编号
+    "image_urls_evaluation": [4],
     "inspection": "检查方法文本",
-    "image_urls_inspection": [5], // 与检查相关的图片编号
+    "image_urls_inspection": [5],
     "solutions": "解决方案文本",
-    "image_urls_solutions": [6], // 与解决方案相关的图片编号
+    "image_urls_solutions": [6],
     "key_points": "总结文本",
-    "image_urls_key_points": [7, 8] // 与总结相关的图片编号
-}}
+    "image_urls_key_points": [7, 8]
+}
 
-注意：
-1.所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释，并且最大限度利用文本。
-2. 内容中不包含的信息，对应字段可以为空，若不包含图片，图片为空列表[]。
-3. 内容必须基于我提供的文本和图片，不可杜撰任何信息。
-4. 你给出的回答仅包含我要求的JSON格式答案。
-5. 给定图片编号从1开始，不得编写新的图片。
-6. title不可为空，同一张图片尽量不要出现太多次，即一张图片不要出现在2个以上字段中。
-7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
-8. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
-9. 各字段内容请勿大量重复。
+要求：
+1. 仅输出 JSON，不要输出 markdown 或其他解释。
+2. title 不可为空；其他字段没有内容时用空字符串，图片字段没有内容时用空列表 []。
+3. 图片编号从 1 开始，不得编造新的图片编号。
+4. 图片归属优先依据原文位置：图片位于哪个小节下，就归入对应 image_urls_* 字段，不要只凭图片语义移动到其他字段。
+5. 文本中的 <image_position indexes=\"1,2\" /> 是图片位置标记，表示此处对应第 1、2 张图片。它只能用于填写 image_urls_* 字段，禁止写入 title、problem_intro、causes、evaluation、inspection、solutions、key_points 等正文结果中。
+6. 正文字段中不要出现“图片1”“【图片1】”“第1张配图”或 image_position 标记。
+7. 内容应连贯、详细，尽量保留文档原意，但不要大量重复。
 
-现在请分析下面的内容：
 [文本内容]
 {text}
 
-[图片内容由后续base64给出]
-""".format(text=text)
-        prompt += "\n注意：图片归属必须优先依据其在原文中的位置。图片位于哪个小节下，就归入对应 image_urls 字段，不得仅凭图片内容语义移动到其他字段。"
-        msg_content = [{"type": "text", "text": prompt}]
-        # encoding = tiktoken.get_encoding("cl100k_base")
-        token_cnt = get_token_count(prompt)
+[图片内容由后续 base64 给出]
+""".replace("{text}", text or "")
 
+        msg_content = [{"type": "text", "text": prompt}]
+        token_cnt = get_token_count(prompt)
         print(f"token1: {token_cnt}")
-        for image in image_urls:
+        for image in image_urls or []:
             print(image)
             if token_cnt >= self.input_token - 1000:
                 break
@@ -322,23 +550,20 @@ class PdfParser:
             if mime_type is None:
                 ext = os.path.splitext(compress_image)[1].lower()
                 mime_type = {
-                    '.png': 'image/png',
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.webp': 'image/webp',
-                    '.bmp': 'image/bmp'
-                }.get(ext, 'image/jpeg')
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".webp": "image/webp",
+                    ".bmp": "image/bmp",
+                }.get(ext, "image/jpeg")
             image_base64 = self.image_to_base64(compress_image)
             msg_content.append({
                 "type": "image_url",
-                "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+                "image_url": {"url": f"data:{mime_type};base64,{image_base64}"},
             })
             token_cnt += 258
-        data["role"] = "user"
-        data["content"] = msg_content
-        messages.append(data)
+        messages.append({"role": "user", "content": msg_content})
         return messages
-
     def _image_indexes_to_urls(self, image_indexes, image_names):
         urls = []
         for image_index in image_indexes:
@@ -358,6 +583,22 @@ class PdfParser:
             used_indexes.update(image_indexes)
         return result, used_indexes
 
+    def _clean_result_text_fields(self, result):
+        text_fields = [
+            "title",
+            "problem_intro",
+            "causes",
+            "evaluation",
+            "inspection",
+            "solutions",
+            "key_points",
+        ]
+        for field in text_fields:
+            value = result.get(field)
+            if isinstance(value, str):
+                result[field] = self._clean_image_references(value)
+        return result
+
     def file2document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
             client = OpenAI(
@@ -375,6 +616,7 @@ class PdfParser:
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
+            result = self._clean_result_text_fields(result)
 
             result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 
@@ -424,4 +666,4 @@ class PdfParser:
 pdf_parser = PdfParser()
 
 if __name__ == "__main__":
-    document = pdf_parser.parse("D:\机密\毕设\开发\数据集\家电维修\Refrigerator Door Not Closing.pdf")
+    pass

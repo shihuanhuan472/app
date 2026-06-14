@@ -107,6 +107,7 @@
         </div>
     </div>
 
+    <script src="js/config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('loginForm');
@@ -148,7 +149,8 @@
                     hideError();
 
                     // 调用后端登录 API，发送三个参数
-                    const response = await fetch('/auth/login', {
+                    const loginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`;
+                    const response = await fetch(loginUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

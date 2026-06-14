@@ -1,5 +1,4 @@
 import os
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -9,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models import User
 from utils.JwtUtils import jwt_utils
+from utils.api_key import looks_like_api_key
 from utils.roles import UserRole, normalize_role_value, is_role_perm_consistent
 
 # 定义 HTTP Bearer 认证方案
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def _get_configured_api_keys() -> set[str]:
@@ -34,12 +34,25 @@ async def _get_api_key_user(db: AsyncSession) -> Optional[User]:
         return None
     return user
 
+
+async def _get_user_by_api_key(api_key: str, db: AsyncSession) -> Optional[User]:
+    if not api_key:
+        return None
+
+    result = await db.execute(
+        select(User).where(
+            User.api_key == api_key,
+            User.status == 1,
+        )
+    )
+    return result.scalar_one_or_none()
+
 """
 用来登录校验的依赖
 """
 
 async def get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(security),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
         db: AsyncSession = Depends(get_db)
 ):
     """
@@ -53,9 +66,14 @@ async def get_current_user(
     async def protected_route(current_user: dict = Depends(get_current_user)):
         return {"user": current_user}
     """
-    token = credentials.credentials
+    token = credentials.credentials if credentials else None
+    api_key = token if looks_like_api_key(token) else None
 
-    if token in _get_configured_api_keys():
+    user = await _get_user_by_api_key(api_key, db)
+    if user is not None:
+        return user
+
+    if token and token in _get_configured_api_keys():
         user = await _get_api_key_user(db)
         if user is None:
             raise HTTPException(
@@ -64,6 +82,13 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return user
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         # 验证 token

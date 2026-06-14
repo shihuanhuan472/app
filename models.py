@@ -17,6 +17,7 @@ class User(Base):
     role = Column(Integer, default=1)  # 0-admin, 1-technician, 2-reviewer, 3-maintenance
     perm = Column(Integer, default=1)  # 0-admin, 1-read/write, 2-review, 3-readonly
     department = Column(String(100))
+    api_key = Column(String(128), unique=True, index=True)
     created_time = Column(DateTime)
     last_login = Column(DateTime)
 

@@ -21,7 +21,7 @@ def get_prompt(docs, max_tokens):
     if contexts:
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(contexts)
-        final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
+        final_prompt += "\n\n请参考上述文档，回答用户的问题。严格按照文档内容回答，不要添加额外信息！"
         return final_prompt
 
     return ""
