@@ -177,6 +177,25 @@ async def ensure_source_document_library_columns():
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
 
 
+async def ensure_message_token_count_column():
+    async with engine.begin() as conn:
+        token_column_result = await conn.execute(
+            text(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'message'
+                  AND COLUMN_NAME = 'token_count'
+                """
+            )
+        )
+        if int(token_column_result.scalar_one() or 0) == 0:
+            await conn.execute(
+                text("ALTER TABLE message ADD COLUMN token_count INT NOT NULL DEFAULT 0 AFTER ai_reference_doc_ids")
+            )
+
+
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
         legacy_table_result = await conn.execute(
@@ -249,6 +268,7 @@ async def on_startup():
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()
     await ensure_source_document_library_columns()
+    await ensure_message_token_count_column()
     await migrate_legacy_documents_to_breakdown()
 
 # 配置 CORS（跨域资源共享）

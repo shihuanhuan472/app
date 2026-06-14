@@ -149,6 +149,7 @@ class Message(Base):
     content_text = Column(Text)
     user_uploaded_images = Column(Text)
     ai_reference_doc_ids = Column(Text)
+    token_count = Column(Integer, default=0, nullable=False)
     created_time = Column(DateTime)
 
     conversation = relationship("Conversation", back_populates="messages")
