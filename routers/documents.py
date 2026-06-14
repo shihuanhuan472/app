@@ -1280,6 +1280,11 @@ async def analyze_files(file_list: AnalyzeRequest,
     has_token_limit_error = False
     has_ai_service_unavailable_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    # AsyncSession.rollback() 会使当前 Session 中已加载的 ORM 对象属性过期。
+    # 后面解析流程为了释放连接会先 rollback，如果继续访问 current_user.id，
+    # SQLAlchemy 可能尝试在同步属性访问中重新 SELECT users，从而触发 MissingGreenlet。
+    # 因此必须在 rollback 前把后续只读的标量值缓存下来。
+    current_user_id = current_user.id
     # 当前请求在鉴权时已经执行过 SELECT，会开启一个隐式事务。
     # PDF 解析/向量化可能耗时较长，不能让这个事务一直空闲占着连接和锁。
     await db.rollback()
@@ -1334,7 +1339,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
                 document = _knowledge_document_from_parsed(
                     parsed=parsed,
-                    contributor_id=current_user.id,
+                    contributor_id=current_user_id,
                     file_name=file_name,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
@@ -1343,7 +1348,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.flush()
                 await db.refresh(document)
                 await replace_knowledge_document_sections(db, document, parsed.sections)
-                await set_document_tag_names(db, document, file_list.tag, created_by=current_user.id)
+                await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
                 source = await _get_source_document_by_path(db, file)
                 if source:
                     source.status = "parsed"
@@ -1464,7 +1469,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 )
                 await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。", file_list.library_type)
                 continue
-            document.contributor_id = current_user.id
+            document.contributor_id = current_user_id
             document.origin_file_name = file_name
             knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
             document.origin_file_dir = knowledge_file_path
@@ -1474,7 +1479,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
-                review = _build_create_review_from_document(document, current_user.id)
+                review = _build_create_review_from_document(document, current_user_id)
                 db.add(review)
                 await db.commit()
                 await db.refresh(review)
@@ -1490,7 +1495,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
-                await set_document_tag_names(db, document, file_list.tag, created_by=current_user.id)
+                await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
                 vector_service = VectorService(db)
                 await vector_service.add_document_to_vector_store(document, commit=False)
                 source = await _get_source_document_by_path(db, file)
