@@ -134,18 +134,32 @@ class KnowledgeParser:
         )
 
     def _filter_noise_blocks(self, blocks: List[Dict]) -> List[Dict]:
-        """过滤页眉页脚、页码、空白和明显导航噪声。"""
+        """过滤页眉页脚、页码、空白和明显导航噪声。
+
+        知识库解析会把图片占位符写入正文，页脚中的保密提示和页码如果混入
+        章节表，会影响查重、存储和向量召回；这里按“行”清洗后再做重复页眉
+        页脚判断，避免类似“机密...请勿外传\n9”这样的组合块入库。
+        """
         text_counter: Dict[str, int] = {}
         page_count = len({block.get("page") for block in blocks if block.get("page") is not None})
+
+        cleaned_blocks: List[Dict] = []
         for block in blocks:
             if block.get("type") != "text":
+                cleaned_blocks.append(block)
                 continue
-            normalized = self._normalize_noise_text(block.get("text", ""))
+            cleaned_text = self._clean_text_noise_lines(block.get("text", ""))
+            if not cleaned_text:
+                continue
+            cleaned_block = dict(block)
+            cleaned_block["text"] = cleaned_text
+            cleaned_blocks.append(cleaned_block)
+            normalized = self._normalize_noise_text(cleaned_text)
             if normalized:
                 text_counter[normalized] = text_counter.get(normalized, 0) + 1
 
         filtered = []
-        for block in blocks:
+        for block in cleaned_blocks:
             if block.get("type") != "text":
                 filtered.append(block)
                 continue
@@ -153,21 +167,321 @@ class KnowledgeParser:
             normalized = self._normalize_noise_text(text)
             if not text:
                 continue
-            if re.fullmatch(r"第?\s*\d+\s*页?|[-–—]?\s*\d+\s*[-–—]?", text):
+            if self._is_noise_line(text):
                 continue
             if page_count >= 3 and text_counter.get(normalized, 0) >= max(3, page_count // 2):
                 continue
-            if block.get("region") in {"header", "footer"} and len(text) <= 80:
+            if block.get("region") in {"header", "footer"} and len(text) <= 120:
                 continue
             if normalized.lower() in {"目录", "返回顶部", "上一页", "下一页"}:
                 continue
             filtered.append(block)
         return filtered
 
+    def _clean_text_noise_lines(self, text: str) -> str:
+        lines = []
+        for raw_line in str(text or "").splitlines():
+            line = raw_line.strip()
+            if not line or self._is_noise_line(line):
+                continue
+            lines.append(line)
+        return "\n".join(lines).strip()
+
+    def _is_noise_line(self, text: str) -> bool:
+        normalized = self._normalize_noise_text(text)
+        if not normalized:
+            return True
+        if re.fullmatch(r"第?\s*\d+\s*页?|[-–—]?\s*\d+\s*[-–—]?", text.strip()):
+            return True
+        if re.fullmatch(r"page\s*\d+(\s*/\s*\d+)?", text.strip(), flags=re.IGNORECASE):
+            return True
+        # MGI 手册页脚常见保密提示；作为页脚噪声处理，不进入章节正文。
+        if re.search(r"机密|保密|confidential", normalized, flags=re.IGNORECASE) and re.search(
+            r"仅适用于|服务工程师|授权服务提供商|请勿外传|donotdistribute|internaluse",
+            normalized,
+            flags=re.IGNORECASE,
+        ):
+            return True
+        return False
+
     def _normalize_noise_text(self, text: str) -> str:
         return re.sub(r"\s+", "", text or "")
 
+    def _extract_directory_outline(self, blocks: List[Dict]) -> List[Dict]:
+        """从文档目录页提取章节顺序。
+
+        目录项可能带编号（如 2、2.1），也可能只有标题加点线页码
+        （如“上电前准备........11”）。提取后章节表按“题目 + 目录 + 目录项”生成，
+        因此正常情况下章节数 = 目录标题数 + 2。
+        """
+        outline: List[Dict] = []
+        in_directory = False
+        misses_after_items = 0
+        seen = set()
+
+        for block in blocks[:500]:
+            if block.get("type") != "text":
+                continue
+            for raw_line in str(block.get("text") or "").splitlines():
+                line = raw_line.strip()
+                normalized = self._normalize_noise_text(line)
+                if not line:
+                    continue
+                if normalized in {"目录", "目錄", "contents", "tableofcontents"}:
+                    in_directory = True
+                    misses_after_items = 0
+                    continue
+                item = self._parse_directory_line(line)
+                if item:
+                    in_directory = True
+                    misses_after_items = 0
+                    key = (item.get("marker") or f"auto-{len(outline)}", self._normalize_heading_key(item["title"]))
+                    if key not in seen and item["title"] and self._normalize_noise_text(item["title"]) not in {"目录", "目錄"}:
+                        seen.add(key)
+                        item["outline_index"] = len(outline)
+                        outline.append(item)
+                    continue
+                if in_directory and outline:
+                    misses_after_items += 1
+                    if misses_after_items >= 8:
+                        return outline
+        return outline
+
+    def _parse_directory_line(self, line: str) -> Optional[Dict]:
+        text = re.sub(r"\s+", " ", (line or "").strip())
+        if not text or self._is_noise_line(text):
+            return None
+
+        # 目录页常见形式：2.1 开箱 ........ 11 / 第2章 安装 ........ 11
+        numbered_match = re.match(
+            r"^(?P<marker>\d+(?:[.．]\d+)*|第\s*[一二三四五六七八九十百千万0-9]+\s*[章节]|[一二三四五六七八九十]+[、.．])\s*"
+            r"(?P<title>.+?)\s*(?:[.·•…\-–—_ ]{2,}|\s+)\s*(?P<page>\d{1,4})$",
+            text,
+        )
+        marker = ""
+        title = ""
+        page = None
+        if numbered_match:
+            marker = numbered_match.group("marker").strip().replace("．", ".")
+            marker = re.sub(r"\s+", "", marker).strip("、. ")
+            title = numbered_match.group("title")
+            page = int(numbered_match.group("page"))
+        else:
+            # 无编号目录项：上电前准备................................................................11
+            plain_match = re.match(r"^(?P<title>.+?)\s*(?:[.·•…\-–—_ ]{2,}|\s{2,})\s*(?P<page>\d{1,4})$", text)
+            if not plain_match:
+                return None
+            title = plain_match.group("title")
+            page = int(plain_match.group("page"))
+
+        title = re.sub(r"[.·•…\-–—_]+", " ", title).strip(" ：:.-—–、")
+        if not title or len(title) > 120:
+            return None
+        if self._is_noise_line(title):
+            return None
+        level = self._directory_level(marker, title)
+        display_title = f"{marker} {title}".strip() if marker else title
+        return {
+            "marker": marker,
+            "title": title,
+            "display_title": display_title,
+            "level": level,
+            "page": page,
+            "raw_text": line.strip(),
+        }
+
+    def _directory_level(self, marker: str, title: str) -> int:
+        marker = (marker or "").replace("．", ".")
+        number_match = re.search(r"\d+(?:\.\d+)*", marker)
+        if number_match:
+            return max(1, min(6, len(number_match.group(0).split("."))))
+        if re.match(r"^[一二三四五六七八九十]+[、.．]", marker or ""):
+            return 1
+        return 1
+
+    def _is_directory_line(self, text: str) -> bool:
+        normalized = self._normalize_noise_text(text)
+        if normalized in {"目录", "目錄", "contents", "tableofcontents"}:
+            return True
+        lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+        return bool(lines) and all(self._parse_directory_line(line) for line in lines)
+
+    def _normalize_heading_key(self, text: str) -> str:
+        text = re.sub(r"^#{1,6}\s*", "", str(text or "").strip())
+        text = re.sub(r"^\d+(?:[.．]\d+)*[、.．\s]*", "", text)
+        text = re.sub(r"^第\s*[一二三四五六七八九十百千万0-9]+\s*[章节][、.．\s]*", "", text)
+        text = re.sub(r"^[一二三四五六七八九十]+[、.．]\s*", "", text)
+        text = re.sub(r"[\s:：.。\-–—_]+", "", text)
+        return text.lower()
+
+    def _match_directory_heading(self, text: str, outline: List[Dict], start_index: int = 0) -> Optional[int]:
+        if not text or self._is_directory_line(text):
+            return None
+        line = str(text).splitlines()[0].strip()
+        line_key = self._normalize_heading_key(line)
+        line_marker = self._section_marker_from_text(line)
+        search_window = outline[start_index:start_index + 30] if start_index < len(outline) else outline
+        base_index = start_index if start_index < len(outline) else 0
+        for offset, item in enumerate(search_window):
+            title_key = self._normalize_heading_key(item.get("title", ""))
+            display_key = self._normalize_heading_key(item.get("display_title", ""))
+            marker = str(item.get("marker", "")).replace("．", ".").strip("、. ")
+            marker_number = re.search(r"\d+(?:\.\d+)*", marker)
+            marker_number = marker_number.group(0) if marker_number else marker
+            marker_ok = bool(marker_number and (line.startswith(marker_number) or line_marker == marker_number))
+            title_ok = bool(title_key and line_key == title_key)
+            display_ok = bool(display_key and line_key == display_key)
+            if title_ok or display_ok or (marker_ok and title_key and title_key in line_key):
+                return base_index + offset
+        return None
+
+    def _guess_title_from_blocks(self, blocks: List[Dict], fallback_title: str) -> str:
+        for block in blocks[:80]:
+            if block.get("type") != "text":
+                continue
+            text = self._clean_text_noise_lines(block.get("text", ""))
+            if not text or self._is_directory_line(text):
+                continue
+            first_line = text.splitlines()[0].strip().strip("#").strip()
+            if first_line and len(first_line) <= 120:
+                return first_line[:255]
+        return (fallback_title or "未命名文档")[:255]
+
+    def _append_text_to_section(self, section: KnowledgeSectionData, text: str, full_offset: int) -> int:
+        if section.plain_text:
+            section.plain_text += "\n"
+            full_offset += 1
+        section.plain_text += text
+        return full_offset + len(text)
+
+    def _make_outline_section(self, item: Dict, index: int, full_offset: int) -> KnowledgeSectionData:
+        marker = str(item.get("marker") or "").replace("．", ".").strip("、. ")
+        generated_marker = marker or str(int(item.get("outline_index", max(index - 2, 0))) + 1)
+        return KnowledgeSectionData(
+            section_index=index,
+            section_title=(item.get("display_title") or item.get("title") or "未命名章节").strip()[:255],
+            section_type=generated_marker,
+            plain_text="",
+            char_start=full_offset,
+            char_end=full_offset,
+            metadata={
+                "image_positions": [],
+                "directory_marker": marker,
+                "directory_level": item.get("level", 1),
+                "directory_page": item.get("page"),
+                "directory_raw_text": item.get("raw_text"),
+                "chunk_strategy": "directory_section_v3",
+                "section_role": "body",
+            },
+        )
+
+    def _blocks_to_sections_by_outline(self, blocks: List[Dict], fallback_title: str, outline: List[Dict]) -> List[KnowledgeSectionData]:
+        title_text = self._guess_title_from_blocks(blocks, fallback_title)
+        full_offset = 0
+        title_section = KnowledgeSectionData(
+            section_index=0,
+            section_title=title_text,
+            section_type="title",
+            plain_text=title_text,
+            char_start=0,
+            char_end=len(title_text),
+            metadata={"image_positions": [], "section_role": "title", "chunk_strategy": "directory_section_v3"},
+        )
+        full_offset = title_section.char_end or 0
+
+        directory_text = "\n".join((item.get("display_title") or item.get("title") or "").strip() for item in outline if (item.get("display_title") or item.get("title")))
+        if full_offset:
+            full_offset += 1
+        directory_section = KnowledgeSectionData(
+            section_index=1,
+            section_title="目录",
+            section_type="directory",
+            plain_text=directory_text,
+            char_start=full_offset,
+            char_end=full_offset + len(directory_text),
+            metadata={
+                "image_positions": [],
+                "section_role": "directory",
+                "chunk_strategy": "directory_section_v3",
+                "directory_items": [
+                    {
+                        "marker": item.get("marker"),
+                        "title": item.get("title"),
+                        "display_title": item.get("display_title"),
+                        "level": item.get("level"),
+                        "page": item.get("page"),
+                    }
+                    for item in outline
+                ],
+            },
+        )
+        full_offset = directory_section.char_end or full_offset
+
+        body_sections = [self._make_outline_section(item, index + 2, full_offset) for index, item in enumerate(outline)]
+        sections = [title_section, directory_section] + body_sections
+        current: Optional[KnowledgeSectionData] = None
+        paragraph_index_by_section: Dict[int, int] = {}
+        previous_text_by_section: Dict[int, str] = {}
+        next_outline_index = 0
+
+        for block in blocks:
+            if block.get("type") == "text":
+                text = (block.get("text") or "").strip()
+                if not text or self._is_directory_line(text):
+                    continue
+                matched_index = self._match_directory_heading(text, outline, next_outline_index)
+                if matched_index is not None:
+                    current = body_sections[matched_index]
+                    next_outline_index = max(next_outline_index, matched_index + 1)
+                    continue
+                if current is None:
+                    continue
+                if current.char_start is None:
+                    current.char_start = full_offset
+                full_offset = self._append_text_to_section(current, text, full_offset)
+                current.char_end = full_offset
+                previous_text_by_section[current.section_index] = text
+                paragraph_index_by_section[current.section_index] = paragraph_index_by_section.get(current.section_index, 0) + 1
+            elif block.get("type") == "image":
+                if current is None:
+                    continue
+                image_url = block.get("image_url")
+                if not image_url:
+                    continue
+                current.image_urls.append(image_url)
+                marker = f"【图片{len(current.image_urls)}】"
+                if current.char_start is None:
+                    current.char_start = full_offset
+                full_offset = self._append_text_to_section(current, marker, full_offset)
+                current.char_end = full_offset
+                paragraph_index = paragraph_index_by_section.get(current.section_index, 0)
+                previous_text = previous_text_by_section.get(current.section_index, "")
+                current.metadata.setdefault("image_positions", []).append(
+                    {
+                        "image_url": image_url,
+                        "paragraph_index": max(paragraph_index - 1, 0),
+                        "char_offset": full_offset,
+                        "page": block.get("page"),
+                        "nearby_text_before": previous_text[-200:],
+                        "nearby_text_after": "",
+                    }
+                )
+
+        for section in sections:
+            if section.char_start is None:
+                section.char_start = full_offset
+            if section.char_end is None:
+                section.char_end = section.char_start
+        self._fill_image_after_context(sections)
+        return sections
+
     def _blocks_to_sections(self, blocks: List[Dict], fallback_title: str) -> List[KnowledgeSectionData]:
+        outline = self._extract_directory_outline(blocks)
+        if outline:
+            sections_by_outline = self._blocks_to_sections_by_outline(blocks, fallback_title, outline)
+            if sections_by_outline:
+                return sections_by_outline
+
         sections: List[KnowledgeSectionData] = []
         current = None
         full_offset = 0
@@ -196,6 +510,8 @@ class KnowledgeParser:
             if block.get("type") == "text":
                 text = (block.get("text") or "").strip()
                 if not text:
+                    continue
+                if outline and self._is_directory_line(text):
                     continue
                 if self._is_heading(block, text) and (current.plain_text.strip() or current.image_urls):
                     start_section(text, self._section_level_from_block(block, text))
@@ -314,6 +630,9 @@ class KnowledgeParser:
         counters = [0, 0, 0, 0, 0, 0]
         for index, section in enumerate(sections):
             raw = str(section.section_type or "").strip().lower()
+            if raw in {"title", "directory"}:
+                section.section_type = raw
+                continue
             if re.fullmatch(r"\d+(?:\.\d+)*", raw):
                 parts = [int(part) for part in raw.split(".") if part.isdigit()]
                 for idx, part in enumerate(parts[:6]):
@@ -473,6 +792,8 @@ class KnowledgeParser:
                         "text": text,
                         "page": page_index + 1,
                         "region": region,
+                        "bbox": (x0, y0, x1, y1),
+                        "block_order": len(blocks),
                         "is_heading": len(text) <= 80 and max_size >= 13,
                     }
                 )
@@ -494,8 +815,10 @@ class KnowledgeParser:
                             "image_url": image_url,
                             "page": page_index + 1,
                             "bbox": (rect.x0, rect.y0, rect.x1, rect.y1),
+                            "block_order": len(blocks),
                         }
                     )
+        blocks.sort(key=lambda item: (item.get("page") or 0, (item.get("bbox") or (0, 0, 0, 0))[1], (item.get("bbox") or (0, 0, 0, 0))[0], item.get("block_order") or 0))
         return self._build_document(file_path, blocks)
 
     def _pdf_block_text_and_size(self, block) -> Tuple[str, float]:

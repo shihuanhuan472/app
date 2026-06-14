@@ -234,6 +234,40 @@
             background: #fff7ed !important;
             border-left-color: #f59e0b !important;
         }
+        .knowledge-section .section-content {
+            background: #ffffff !important;
+            border-left-color: #4a9eff !important;
+            padding: 28px !important;
+        }
+        .knowledge-paragraph {
+            margin: 0 0 14px 0 !important;
+            line-height: 1.8 !important;
+            white-space: pre-wrap !important;
+        }
+        .knowledge-inline-image {
+            margin: 14px auto 18px auto !important;
+            text-align: center !important;
+            background: #f8fafc !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            padding: 8px !important;
+            max-width: 540px !important;
+        }
+        .knowledge-inline-image img {
+            max-width: min(100%, 500px) !important;
+            max-height: 320px !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain !important;
+            border-radius: 6px !important;
+            cursor: zoom-in !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+        }
+        .knowledge-inline-caption {
+            color: #6b7280 !important;
+            font-size: 13px !important;
+            margin-top: 8px !important;
+        }
     </style>
 </head>
 <body>
@@ -403,12 +437,69 @@
             return levelMatch ? Math.min(6, Math.max(1, Number(levelMatch[1]) || 1)) : 1;
         }
 
+        function sectionBadgeText(section, level) {
+            const raw = String(section.section_type || '').trim().toLowerCase();
+            if (raw === 'title') return '题目';
+            if (raw === 'directory') return '目录';
+            return section.section_type ? `章节 ${escapeHtml(section.section_type)}` : `${level}级章节`;
+        }
+
         function normalizeLibraryType(value) {
             return String(value || '').trim().toLowerCase() === 'knowledge' ? 'knowledge' : 'breakdown';
         }
 
         function isKnowledgeDocument(doc, source) {
             return normalizeLibraryType(doc.library_type || source) === 'knowledge' || Array.isArray(doc.sections);
+        }
+
+        function renderKnowledgeTextSegment(segment) {
+            return String(segment || '')
+                .split(/\n+/)
+                .map(line => line.trim())
+                .filter(Boolean)
+                .map(line => `<p class="knowledge-paragraph">${escapeHtml(line)}</p>`)
+                .join('');
+        }
+
+        function renderInlineKnowledgeImage(url, index) {
+            const fullUrl = getFullAssetUrl(url);
+            const safeUrl = escapeHtml(fullUrl);
+            return `
+                <figure class="knowledge-inline-image">
+                    <img src="${safeUrl}" alt="图片${index}" onclick="window.open(this.src, '_blank')" onerror="this.onerror=null; this.src='https://via.placeholder.com/640x360?text=图片加载失败'">
+                    <figcaption class="knowledge-inline-caption">图片 ${index}</figcaption>
+                </figure>
+            `;
+        }
+
+        function renderKnowledgeSectionContent(section) {
+            const imageUrls = normalizeImageUrls(section.image_urls);
+            const text = section.plain_text || '';
+            if (!text && !imageUrls.length) return '<p class="text-muted">无正文内容</p>';
+
+            const usedImageIndexes = new Set();
+            let html = '';
+            let lastIndex = 0;
+            const markerPattern = /【图片(\d+)】/g;
+            let match;
+            while ((match = markerPattern.exec(text)) !== null) {
+                html += renderKnowledgeTextSegment(text.slice(lastIndex, match.index));
+                const imageIndex = Number(match[1]);
+                const imageUrl = imageUrls[imageIndex - 1];
+                if (imageUrl) {
+                    usedImageIndexes.add(imageIndex - 1);
+                    html += renderInlineKnowledgeImage(imageUrl, imageIndex);
+                }
+                lastIndex = markerPattern.lastIndex;
+            }
+            html += renderKnowledgeTextSegment(text.slice(lastIndex));
+
+            imageUrls.forEach((url, index) => {
+                if (!usedImageIndexes.has(index)) {
+                    html += renderInlineKnowledgeImage(url, index + 1);
+                }
+            });
+            return html || '<p class="text-muted">无正文内容</p>';
         }
 
         function renderKnowledgeSections(doc) {
@@ -427,10 +518,9 @@
                 .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
                 .map((section, index) => {
                     const level = sectionLevelNumber(section.section_type);
-                    const sectionNo = section.section_type ? `章节 ${escapeHtml(section.section_type)}` : `${level}级章节`;
+                    const sectionNo = sectionBadgeText(section, level);
                     const title = section.section_title || `章节 ${index + 1}`;
-                    const text = section.plain_text || '';
-                    const contentHtml = text ? escapeHtml(text).replace(/\n/g, '<br>') : '<p class="text-muted">无正文内容</p>';
+                    const contentHtml = renderKnowledgeSectionContent(section);
                     return `
                         <div class="document-section knowledge-section level-${level}">
                             <div class="section-header">
@@ -439,7 +529,6 @@
                                 <span class="section-level-badge">${sectionNo}</span>
                             </div>
                             <div class="section-content">${contentHtml}</div>
-                            ${renderImageGrid(section.image_urls)}
                         </div>
                     `;
                 }).join('');

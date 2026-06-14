@@ -497,7 +497,38 @@ class VectorStoreMultimodal:
             prepared.append(section)
         return prepared
 
+    def _first_existing_image_path(self, image_urls: List[str]) -> str:
+        for image_url in image_urls or []:
+            absolute_url = self._absolute_document_image_path(image_url)
+            if absolute_url and os.path.exists(absolute_url):
+                return absolute_url
+        return ""
+
+    def _knowledge_section_content(self, document: Document, section: Dict, tag_prefix: str) -> str:
+        section_title = section.get("section_title") or getattr(document, "title", "")
+        section_text = section.get("plain_text") or ""
+        section_type = section.get("section_type") or ""
+        parts = [tag_prefix.rstrip()] if tag_prefix else []
+        parts.extend([
+            f"文档标题：{getattr(document, 'title', '')}",
+            f"目录编号：{section_type}",
+            f"目录标题：{section_title}",
+            f"章节正文：{section_text}",
+        ])
+        content = "\n".join(part for part in parts if part).strip()
+        # Milvus content 字段上限为 30000，按目录整章分块时留出余量。
+        if len(content) > 29000:
+            content = content[:29000].rstrip() + "\n【提示：该目录章节较长，向量内容已截断，原章节表仍保留完整正文。】"
+        return content
+
     def chunk_knowledge_document(self, document: Document) -> List[Dict]:
+        """知识库按目录章节分块。
+
+        与故障库不同，知识库不再按图片拆成多个 chunk；每条章节表记录（由
+        文档目录/标题解析得到）就是一个向量 chunk。图片作为正文占位符的一部分
+        保留在 section.plain_text 中，并在 metadata.image_positions/image_urls 中记录，
+        用于前端内联展示和后续定位。
+        """
         chunks = []
         library_type = "knowledge"
         vector_doc_id = self._encode_doc_id(document.id, library_type)
@@ -513,90 +544,39 @@ class VectorStoreMultimodal:
             image_urls = self._normalize_image_urls(section.get("image_urls"))
             metadata = section.get("metadata") or {}
             image_positions = metadata.get("image_positions") or []
-            descriptions = {
-                item.get("image_url"): item.get("description", "")
-                for item in metadata.get("image_descriptions", [])
-                if isinstance(item, dict)
-            }
-            content_origin = (
-                f"{tag_prefix}文档标题：{getattr(document, 'title', '')}\n"
-                f"章节标题：{section_title}\n"
-                f"章节内容：{section_text}"
-            ).strip()
+            if not section_text.strip() and not image_urls:
+                continue
 
-            if image_urls:
-                for image_index, image_url in enumerate(image_urls):
-                    absolute_url = self._absolute_document_image_path(image_url)
-                    image_position = next(
-                        (position for position in image_positions if position.get("image_url") == image_url),
-                        {},
-                    )
-                    description = descriptions.get(image_url, "")
-                    position_text = ""
-                    if image_position:
-                        position_text = (
-                            f"\n[图片位置]\n"
-                            f"段落序号：{image_position.get('paragraph_index')}\n"
-                            f"前文：{image_position.get('nearby_text_before', '')}\n"
-                            f"后文：{image_position.get('nearby_text_after', '')}"
-                        )
-                    content = content_origin
-                    if position_text:
-                        content += position_text
-                    if description:
-                        content += f"\n[图像信息]\n{description}"
-                    chunk_metadata = {
-                        "contributor_id": getattr(document, "contributor_id", None),
-                        "source_doc_id": getattr(document, "id", None),
-                        "library_type": library_type,
-                        "tag": tags,
-                        "first_edit_date": document.first_edit_date.isoformat() if getattr(document, "first_edit_date", None) else None,
-                        "section_id": section_id,
-                        "section_title": section_title,
-                        "section_index": section.get("section_index", 0),
-                        "subchunk_index": image_index,
-                        "unit_type": "text",
-                        "content_type": "text_with_image_description",
-                        "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-{image_index}",
-                        "chunk_size": len(content),
-                        "semantic_method": "knowledge_section_v1",
-                        "image_urls": image_urls,
-                        "current_image_url": image_url,
-                        "image_positions": image_positions,
-                    }
-                    chunks.append({
-                        "doc_id": vector_doc_id,
-                        "title": getattr(document, "title", "")[:100],
-                        "content": content,
-                        "image_url": absolute_url if os.path.exists(absolute_url) else "",
-                        "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
-                    })
-            elif section_text.strip():
-                chunk_metadata = {
-                    "contributor_id": getattr(document, "contributor_id", None),
-                    "source_doc_id": getattr(document, "id", None),
-                    "library_type": library_type,
-                    "tag": tags,
-                    "first_edit_date": document.first_edit_date.isoformat() if getattr(document, "first_edit_date", None) else None,
-                    "section_id": section_id,
-                    "section_title": section_title,
-                    "section_index": section.get("section_index", 0),
-                    "subchunk_index": 0,
-                    "unit_type": "text",
-                    "content_type": "section_text",
-                    "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-0",
-                    "chunk_size": len(content_origin),
-                    "semantic_method": "knowledge_section_v1",
-                    "image_urls": [],
-                    "image_positions": image_positions,
-                }
-                chunks.append({
-                    "doc_id": vector_doc_id,
-                    "title": getattr(document, "title", "")[:100],
-                    "content": content_origin,
-                    "image_url": "",
-                    "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
-                })
+            content = self._knowledge_section_content(document, section, tag_prefix)
+            chunk_metadata = {
+                "contributor_id": getattr(document, "contributor_id", None),
+                "source_doc_id": getattr(document, "id", None),
+                "library_type": library_type,
+                "tag": tags,
+                "first_edit_date": document.first_edit_date.isoformat() if getattr(document, "first_edit_date", None) else None,
+                "section_id": section_id,
+                "section_title": section_title,
+                "section_type": section.get("section_type"),
+                "section_index": section.get("section_index", 0),
+                "subchunk_index": 0,
+                "unit_type": "directory_section",
+                "content_type": "directory_section",
+                "chunk_id": f"knowledge-directory-section-{section_id or section.get('section_index', 0)}",
+                "chunk_size": len(content),
+                "semantic_method": "knowledge_directory_section_v2",
+                "chunk_strategy": metadata.get("chunk_strategy") or "directory_section_v2",
+                "image_urls": image_urls,
+                "image_positions": image_positions,
+            }
+            chunks.append({
+                "doc_id": vector_doc_id,
+                "title": getattr(document, "title", "")[:100],
+                "content": content,
+                # 向量库 schema 只能保存单张 image_url；目录 chunk 以第一张可用图片作为多模态代表，
+                # 全部图片仍完整保存在 metadata.image_urls 和章节表中。
+                "image_url": self._first_existing_image_path(image_urls),
+                "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
+            })
         return chunks
 
     def _truncate_text_by_tokens(self, text: str, token_budget: int) -> str:

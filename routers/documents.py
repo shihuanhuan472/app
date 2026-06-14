@@ -141,6 +141,8 @@ def _join_image_urls(image_urls) -> str:
 
 def _normalize_section_marker(value) -> str:
     value = str(value or "").strip().lower()
+    if value in {"title", "directory"}:
+        return value
     if re.fullmatch(r"\d+(?:\.\d+)*", value):
         return value
     match = re.fullmatch(r"level_([1-6])", value)
