@@ -214,6 +214,26 @@
         .file-name { font-weight: 500; word-break: break-all; }
         .file-actions { display: flex; gap: 10px; }
         .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .knowledge-section {
+            margin-bottom: 28px !important;
+        }
+        .knowledge-section.level-2 { margin-left: 24px !important; }
+        .knowledge-section.level-3,
+        .knowledge-section.level-4,
+        .knowledge-section.level-5,
+        .knowledge-section.level-6 { margin-left: 48px !important; }
+        .section-level-badge {
+            background: #eaf4ff !important;
+            color: #2563eb !important;
+            border-radius: 999px !important;
+            padding: 3px 10px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+        }
+        .knowledge-empty {
+            background: #fff7ed !important;
+            border-left-color: #f59e0b !important;
+        }
     </style>
 </head>
 <body>
@@ -344,6 +364,109 @@
             return !!user && Utils.hasRole(user, Utils.ROLE.ADMIN);
         }
 
+        function normalizeImageUrls(value) {
+            if (!value) return [];
+            if (Array.isArray(value)) return value.map(url => String(url).trim()).filter(Boolean);
+            if (typeof value === 'string' && value.trim() && value !== 'null') {
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) return parsed.map(url => String(url).trim()).filter(Boolean);
+                } catch (_) {}
+                return value.split(',').map(url => url.trim()).filter(Boolean);
+            }
+            return [];
+        }
+
+        function renderImageGrid(imageUrls) {
+            const urls = normalizeImageUrls(imageUrls);
+            if (!urls.length) return '';
+            return `
+                <div class="image-grid-small">
+                    ${urls.map(url => {
+                        const fullUrl = getFullAssetUrl(url);
+                        return `
+                            <div class="image-item-small" onclick="window.open('${fullUrl}', '_blank')">
+                                <img src="${fullUrl}" alt="图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/120x120?text=加载失败'">
+                                <div class="image-overlay-small"><i class="fas fa-search-plus" style="color:white; font-size:20px;"></i></div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function sectionLevelNumber(sectionType) {
+            const raw = String(sectionType || '').trim();
+            const outlineMatch = raw.match(/^\d+(?:\.\d+)*$/);
+            if (outlineMatch) return Math.min(6, raw.split('.').length);
+            const levelMatch = raw.match(/level_(\d+)/i);
+            return levelMatch ? Math.min(6, Math.max(1, Number(levelMatch[1]) || 1)) : 1;
+        }
+
+        function normalizeLibraryType(value) {
+            return String(value || '').trim().toLowerCase() === 'knowledge' ? 'knowledge' : 'breakdown';
+        }
+
+        function isKnowledgeDocument(doc, source) {
+            return normalizeLibraryType(doc.library_type || source) === 'knowledge' || Array.isArray(doc.sections);
+        }
+
+        function renderKnowledgeSections(doc) {
+            const sections = Array.isArray(doc.sections) ? doc.sections : [];
+            if (!sections.length) {
+                return `
+                    <div class="document-section">
+                        <div class="section-header"><i class="fas fa-book-open"></i><h3>文档章节</h3></div>
+                        <div class="section-content knowledge-empty">暂无章节内容，请重新解析该知识库文档。</div>
+                    </div>
+                `;
+            }
+
+            return sections
+                .slice()
+                .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
+                .map((section, index) => {
+                    const level = sectionLevelNumber(section.section_type);
+                    const sectionNo = section.section_type ? `章节 ${escapeHtml(section.section_type)}` : `${level}级章节`;
+                    const title = section.section_title || `章节 ${index + 1}`;
+                    const text = section.plain_text || '';
+                    const contentHtml = text ? escapeHtml(text).replace(/\n/g, '<br>') : '<p class="text-muted">无正文内容</p>';
+                    return `
+                        <div class="document-section knowledge-section level-${level}">
+                            <div class="section-header">
+                                <i class="fas fa-book-open"></i>
+                                <h3>${escapeHtml(title)}</h3>
+                                <span class="section-level-badge">${sectionNo}</span>
+                            </div>
+                            <div class="section-content">${contentHtml}</div>
+                            ${renderImageGrid(section.image_urls)}
+                        </div>
+                    `;
+                }).join('');
+        }
+
+        function renderBreakdownSections(doc) {
+            const sections = [
+                { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro', icon: 'question-circle' },
+                { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes', icon: 'search' },
+                { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation', icon: 'clipboard-list' },
+                { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection', icon: 'clipboard-check' },
+                { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions', icon: 'tools' },
+                { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points', icon: 'star' }
+            ];
+
+            return sections.map(section => {
+                const contentHtml = section.content ? escapeHtml(section.content).replace(/\n/g, '<br>') : '<p class="text-muted">无</p>';
+                return `
+                    <div class="document-section">
+                        <div class="section-header"><i class="fas fa-${section.icon}"></i><h3>${section.title}</h3></div>
+                        <div class="section-content">${contentHtml}</div>
+                        ${renderImageGrid(doc[section.imgField])}
+                    </div>
+                `;
+            }).join('');
+        }
+
         function openDeleteModal(docId, docTitle) {
             const currentUser = Utils.getCurrentUser();
             if (!isAdminUser(currentUser)) {
@@ -432,51 +555,13 @@
 
                 let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
                 if (isAuthor) authorName = '我';
-                const libraryType = doc.library_type || new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const libraryType = normalizeLibraryType(doc.library_type || source);
                 const libraryLabel = getLibraryLabel(libraryType);
                 const tagsLabel = getTagsLabel(doc.tag);
 
-                const sections = [
-                    { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro', icon: 'question-circle' },
-                    { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes', icon: 'search' },
-                    { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation', icon: 'clipboard-list' },
-                    { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection', icon: 'clipboard-check' },
-                    { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions', icon: 'tools' },
-                    { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points', icon: 'star' }
-                ];
-
-                let sectionsHtml = '';
-                sections.forEach(section => {
-                    let imagesHtml = '';
-                    const imgUrlsStr = doc[section.imgField];
-                    if (imgUrlsStr && String(imgUrlsStr).trim() && imgUrlsStr !== 'null') {
-                        const urls = String(imgUrlsStr).split(',').map(u => u.trim()).filter(Boolean);
-                        if (urls.length > 0) {
-                            imagesHtml = `
-                                <div class="image-grid-small">
-                                    ${urls.map(url => {
-                                        const fullUrl = getFullAssetUrl(url);
-                                        return `
-                                            <div class="image-item-small" onclick="window.open('${fullUrl}', '_blank')">
-                                                <img src="${fullUrl}" alt="图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/120x120?text=加载失败'">
-                                                <div class="image-overlay-small"><i class="fas fa-search-plus" style="color:white; font-size:20px;"></i></div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            `;
-                        }
-                    }
-
-                    const contentHtml = section.content ? escapeHtml(section.content).replace(/\n/g, '<br>') : '<p class="text-muted">无</p>';
-                    sectionsHtml += `
-                        <div class="document-section">
-                            <div class="section-header"><i class="fas fa-${section.icon}"></i><h3>${section.title}</h3></div>
-                            <div class="section-content">${contentHtml}</div>
-                            ${imagesHtml}
-                        </div>
-                    `;
-                });
+                const sectionsHtml = isKnowledgeDocument(doc, source)
+                    ? renderKnowledgeSections(doc)
+                    : renderBreakdownSections(doc);
 
                 let originalFileHtml = '';
                 if (doc.origin_file_name && doc.origin_file_dir) {

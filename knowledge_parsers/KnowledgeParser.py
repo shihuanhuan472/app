@@ -28,7 +28,7 @@ except Exception:  # pragma: no cover - optional import is validated at runtime
 class KnowledgeSectionData:
     section_index: int
     section_title: str
-    section_type: str = "knowledge_section"
+    section_type: str = "1"
     plain_text: str = ""
     image_urls: List[str] = field(default_factory=list)
     char_start: Optional[int] = None
@@ -172,7 +172,7 @@ class KnowledgeParser:
         current = None
         full_offset = 0
 
-        def start_section(title: str, section_type: str = "knowledge_section"):
+        def start_section(title: str, section_type: str = "level_1"):
             nonlocal current
             if current and (current.plain_text.strip() or current.image_urls):
                 current.char_end = full_offset
@@ -180,13 +180,15 @@ class KnowledgeParser:
             current = KnowledgeSectionData(
                 section_index=len(sections),
                 section_title=(title or fallback_title or "未命名章节").strip()[:255],
-                section_type=section_type,
+                # section_type 字段用于前端展示章节编号，如 1 / 2 / 1.1。
+                # 例如“2．下阶段工作内容”会被标记为 2。
+                section_type=self._normalize_section_marker(section_type, title),
                 plain_text="",
                 char_start=full_offset,
                 metadata={"image_positions": []},
             )
 
-        start_section(fallback_title, "document_start")
+        start_section(fallback_title, "level_1")
         paragraph_index = 0
         previous_text = ""
 
@@ -196,7 +198,7 @@ class KnowledgeParser:
                 if not text:
                     continue
                 if self._is_heading(block, text) and (current.plain_text.strip() or current.image_urls):
-                    start_section(text, block.get("section_type") or "heading")
+                    start_section(text, self._section_level_from_block(block, text))
                     paragraph_index = 0
                     previous_text = ""
                     continue
@@ -238,7 +240,7 @@ class KnowledgeParser:
                 KnowledgeSectionData(
                     section_index=0,
                     section_title=fallback_title or "未命名章节",
-                    section_type="knowledge_section",
+                    section_type="1",
                     plain_text="",
                     char_start=0,
                     char_end=0,
@@ -248,8 +250,87 @@ class KnowledgeParser:
 
         for index, section in enumerate(sections):
             section.section_index = index
+        self._fill_missing_section_markers(sections)
         self._fill_image_after_context(sections)
         return sections
+
+    def _normalize_section_marker(self, value: str, title: str = "") -> str:
+        value = str(value or "").strip().lower()
+        if re.fullmatch(r"\d+(?:\.\d+)*", value):
+            return value
+        marker = self._section_marker_from_text(title)
+        if marker:
+            return marker
+        if re.fullmatch(r"level_[1-6]", value):
+            return value
+        return ""
+
+    def _section_level_from_block(self, block: Dict, text: str) -> str:
+        raw_level = block.get("heading_level")
+        if raw_level is not None:
+            try:
+                return f"level_{max(1, min(6, int(raw_level)))}"
+            except Exception:
+                pass
+        return self._section_level_from_text(text)
+
+    def _section_level_from_text(self, text: str) -> str:
+        stripped = (text or "").strip()
+        markdown_match = re.match(r"^(#{1,6})\s+", stripped)
+        if markdown_match:
+            return f"level_{len(markdown_match.group(1))}"
+        number_match = re.match(r"^(\d+(?:[.．]\d+)*)[、.．\s]", stripped)
+        if number_match:
+            level = len(re.split(r"[.．]", number_match.group(1)))
+            return f"level_{max(1, min(6, level))}"
+        if re.match(r"^[一二三四五六七八九十]+[、.．\s]", stripped):
+            return "level_1"
+        return "level_1"
+
+    def _section_marker_from_text(self, text: str) -> str:
+        stripped = (text or "").strip()
+        number_match = re.match(r"^(\d+(?:[.．]\d+)*)[、.．\s]", stripped)
+        if number_match:
+            return number_match.group(1).replace("．", ".").strip(".")
+        chinese_match = re.match(r"^([一二三四五六七八九十]+)[、.．\s]", stripped)
+        if chinese_match:
+            value = self._chinese_number_to_int(chinese_match.group(1))
+            if value:
+                return str(value)
+        return ""
+
+    def _chinese_number_to_int(self, value: str) -> Optional[int]:
+        digits = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+        if value == "十":
+            return 10
+        if value.startswith("十"):
+            return 10 + digits.get(value[1:], 0)
+        if "十" in value:
+            left, _, right = value.partition("十")
+            return digits.get(left, 0) * 10 + digits.get(right, 0)
+        return digits.get(value)
+
+    def _fill_missing_section_markers(self, sections: List[KnowledgeSectionData]):
+        counters = [0, 0, 0, 0, 0, 0]
+        for index, section in enumerate(sections):
+            raw = str(section.section_type or "").strip().lower()
+            if re.fullmatch(r"\d+(?:\.\d+)*", raw):
+                parts = [int(part) for part in raw.split(".") if part.isdigit()]
+                for idx, part in enumerate(parts[:6]):
+                    counters[idx] = part
+                for idx in range(len(parts), len(counters)):
+                    counters[idx] = 0
+                section.section_type = raw
+                continue
+
+            level_match = re.fullmatch(r"level_([1-6])", raw)
+            level = int(level_match.group(1)) if level_match else 1
+            counters[level - 1] += 1
+            for idx in range(level, len(counters)):
+                counters[idx] = 0
+            if level > 1 and counters[0] == 0:
+                counters[0] = 1
+            section.section_type = ".".join(str(part) for part in counters[:level] if part > 0) or str(index + 1)
 
     def _fill_image_after_context(self, sections: List[KnowledgeSectionData]):
         for section in sections:
@@ -282,7 +363,7 @@ class KnowledgeParser:
                     return first_line[:255]
         for section in sections:
             title = (section.section_title or "").strip()
-            if title and section.section_type != "document_start":
+            if title:
                 return title[:255]
         for line in content.splitlines():
             line = line.strip().strip("#").strip()
@@ -302,12 +383,14 @@ class KnowledgeParser:
                 text = block.text.strip()
                 if text:
                     style_name = (block.style.name or "").lower() if block.style else ""
+                    heading_level = self._docx_heading_level(style_name)
                     blocks.append(
                         {
                             "type": "text",
                             "text": text,
-                            "is_heading": style_name.startswith("heading") or style_name.startswith("标题"),
-                            "section_type": "heading" if style_name.startswith(("heading", "标题")) else "paragraph",
+                            "is_heading": heading_level is not None,
+                            "heading_level": heading_level,
+                            "section_type": f"level_{heading_level}" if heading_level is not None else "paragraph",
                         }
                     )
                 blocks.extend(self._docx_images_from_element(doc, block._element))
@@ -317,6 +400,15 @@ class KnowledgeParser:
                     blocks.append({"type": "text", "text": table_text, "section_type": "table_text"})
                 blocks.extend(self._docx_images_from_element(doc, block._element))
         return self._build_document(file_path, blocks)
+
+    def _docx_heading_level(self, style_name: str) -> Optional[int]:
+        style_name = style_name or ""
+        match = re.search(r"(?:heading|标题)\s*([1-6])", style_name)
+        if match:
+            return int(match.group(1))
+        if style_name.startswith(("heading", "标题")):
+            return 1
+        return None
 
     def _iter_docx_blocks(self, doc):
         for child in doc.element.body.iterchildren():
@@ -433,7 +525,13 @@ class KnowledgeParser:
             matched_images = image_pattern.findall(line)
             clean_line = image_pattern.sub("", line).strip()
             if clean_line:
-                blocks.append({"type": "text", "text": clean_line.lstrip("#").strip(), "is_heading": line.startswith("#")})
+                heading_match = re.match(r"^(#{1,6})\s+", line)
+                blocks.append({
+                    "type": "text",
+                    "text": clean_line.lstrip("#").strip(),
+                    "is_heading": bool(heading_match),
+                    "heading_level": len(heading_match.group(1)) if heading_match else None,
+                })
             for image_ref in matched_images:
                 image_ref = image_ref.strip().strip('"').strip("'")
                 image_path = (base_dir / image_ref).resolve()
@@ -458,7 +556,8 @@ class KnowledgeParser:
                 continue
             text = element.get_text(" ", strip=True)
             if text:
-                blocks.append({"type": "text", "text": text, "is_heading": element.name.startswith("h")})
+                heading_level = int(element.name[1]) if element.name.startswith("h") and element.name[1:].isdigit() else None
+                blocks.append({"type": "text", "text": text, "is_heading": heading_level is not None, "heading_level": heading_level})
         return self._build_document(file_path, blocks)
 
     def _parse_txt(self, file_path: str) -> KnowledgeParsedDocument:
@@ -472,7 +571,7 @@ class KnowledgeParser:
         section = KnowledgeSectionData(
             section_index=0,
             section_title=title,
-            section_type="image",
+            section_type="1",
             plain_text=f"图片资料：{title}\n【图片1】",
             image_urls=[image_url],
             char_start=0,

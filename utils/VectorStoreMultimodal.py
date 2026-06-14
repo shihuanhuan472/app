@@ -69,6 +69,10 @@ class VectorStoreMultimodal:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = 2000
+        self.chat_context_window = int(os.getenv("LLM_CONTEXT_WINDOW", 4096))
+        self.context_margin_token = int(os.getenv("CONTEXT_MARGIN_TOKEN", 128))
+        self.image_input_token = int(os.getenv("IMAGE_INPUT_TOKEN", 1500))
+        self.enable_vector_image_description = os.getenv("ENABLE_VECTOR_IMAGE_DESCRIPTION", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def _normalize_library_type(self, library_type: str) -> str:
         """统一库类型，保证向量库 metadata 中只出现 breakdown/knowledge 两种值。"""
@@ -447,13 +451,21 @@ class VectorStoreMultimodal:
         return chunks
 
     def prepare_knowledge_sections(self, sections: List[Dict]) -> List[Dict]:
-        """为知识库章节补全图片描述并回写到 section metadata 快照中。"""
+        """准备知识库章节；默认不调用视觉模型逐图生成描述，只保留图片位置。"""
         prepared = []
         for section in sections or []:
             section = dict(section)
             metadata = dict(section.get("metadata") or {})
             image_urls = self._normalize_image_urls(section.get("image_urls"))
             image_descriptions = list(metadata.get("image_descriptions") or [])
+            if not self.enable_vector_image_description:
+                # 大 PDF 往往包含上百张图片。逐图调用视觉模型既慢，又容易因为图片 token
+                # 超过 4096 上下文报错。默认跳过图片描述，保留图片位置，继续文本分块和向量化。
+                metadata["image_descriptions"] = image_descriptions
+                section["image_urls"] = image_urls
+                section["metadata"] = metadata
+                prepared.append(section)
+                continue
             description_by_url = {
                 item.get("image_url"): item
                 for item in image_descriptions
@@ -586,6 +598,46 @@ class VectorStoreMultimodal:
                 })
         return chunks
 
+    def _truncate_text_by_tokens(self, text: str, token_budget: int) -> str:
+        text = text or ""
+        if token_budget <= 0:
+            return ""
+        if get_token_count(text) <= token_budget:
+            return text
+        left, right = 0, len(text)
+        best = ""
+        suffix = "\n\n【提示：内容较长，已按模型上下文上限截断。】"
+        budget = max(1, token_budget - get_token_count(suffix))
+        while left <= right:
+            mid = (left + right) // 2
+            candidate = text[:mid]
+            if get_token_count(candidate) <= budget:
+                best = candidate
+                left = mid + 1
+            else:
+                right = mid - 1
+        return best.rstrip() + suffix
+
+    def _message_input_tokens(self, messages, image_token: int = None) -> int:
+        image_token = image_token or self.image_input_token
+        total = 0
+        for message in messages or []:
+            content = message.get("content", "")
+            if isinstance(content, str):
+                total += get_token_count(content)
+                continue
+            for item in content or []:
+                if item.get("type") == "text":
+                    total += get_token_count(item.get("text", ""))
+                elif item.get("type") == "image_url":
+                    total += image_token
+        return total
+
+    def _safe_max_tokens(self, messages, preferred: int = None) -> int:
+        preferred = preferred or int(os.getenv("VECTOR_AI_MAX_OUTPUT_TOKEN", 512))
+        available = self.chat_context_window - self._message_input_tokens(messages) - self.context_margin_token
+        return max(1, min(preferred, self.max_token, available))
+
     def generate_descript_image_messages(self, image_url: str):
         prompt = """请详细描述图像信息，重点包含设备信息、操作信息、维修信息或知识点。\n仅返回答案，不要任何markdown渲染。回答长度不超过300字。"""
         messages = []
@@ -621,7 +673,7 @@ class VectorStoreMultimodal:
             response = client.chat.completions.create(
                 model=self.model_chat,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self._safe_max_tokens(messages, int(os.getenv("IMAGE_DESCRIBE_MAX_OUTPUT_TOKEN", 512)))
             )
             ans = response.choices[0].message.content
             # print(ans)
@@ -918,33 +970,38 @@ class VectorStoreMultimodal:
     def generate_knowledge_message(self, content, images):
         messages = []
         data = {}
-        prompt = """我将提供一段知识库文档内容，请根据文本和图像内容，总结文档级检索入口。
+        prompt_template = """我将提供一段知识库文档内容，请根据文本内容，总结文档级检索入口。
 请不要使用“故障原因、检查、解决方案”等故障库模板字段。
 
 输出JSON格式如下：
-{
+{{
     "title": "标题",
     "summary": "文档摘要",
     "core_topic": "核心主题",
     "key_points": "关键知识点",
     "scope": "适用范围",
     "tags": "相关标签"
-}
+}}
 
 注意：
-1. 不得杜撰内容，必须基于给定文本和图片。
+1. 不得杜撰内容，必须基于给定文本。
 2. 回答仅包含JSON对象，不要输出其他内容。
 3. 回答长度不得超过500个token。
 
 现在给定内容如下：
 [文本内容]
 {text}
-
-[图片内容由后续base64给出]
-""".format(text=content)
+"""
+        preferred_output = int(os.getenv("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512))
+        base_prompt = prompt_template.format(text="")
+        text_budget = self.chat_context_window - preferred_output - self.context_margin_token - get_token_count(base_prompt)
+        content = self._truncate_text_by_tokens(content or "", text_budget)
+        prompt = prompt_template.format(text=content)
         msg_content = [{"type": "text", "text": prompt}]
         token_cnt = get_token_count(prompt)
-        if images is not None:
+
+        include_images = os.getenv("ENABLE_KNOWLEDGE_MAIN_CHUNK_IMAGES", "0").strip().lower() in {"1", "true", "yes", "on"}
+        if include_images and images is not None:
             for image in images:
                 image = image.strip()
                 if not image:
@@ -952,7 +1009,7 @@ class VectorStoreMultimodal:
                 image_path = self._absolute_document_image_path(image)
                 if not os.path.exists(image_path):
                     continue
-                compress_image = self.compress_image(image_path, max_size=768)
+                compress_image = self.compress_image(image_path, max_size=336)
                 mime_type, _ = mimetypes.guess_type(compress_image)
                 if mime_type is None:
                     ext = os.path.splitext(compress_image)[1].lower()
@@ -963,12 +1020,10 @@ class VectorStoreMultimodal:
                         '.webp': 'image/webp',
                         '.bmp': 'image/bmp'
                     }.get(ext, 'image/jpeg')
-                image_base64 = self.image_to_base64(compress_image)
-
-                if token_cnt + 578 > 6000:
+                if token_cnt + self.image_input_token > self.chat_context_window - preferred_output - self.context_margin_token:
                     break
-                token_cnt += 578
-
+                image_base64 = self.image_to_base64(compress_image)
+                token_cnt += self.image_input_token
                 msg_content.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
@@ -988,8 +1043,7 @@ class VectorStoreMultimodal:
             tag_text = self._tags_to_text(getattr(document, "tag", []) or [])
             content = (
                 f"【标题】：{getattr(document, 'title', '')}\n"
-                f"【摘要】：{getattr(document, 'summary', '') or ''}\n"
-                f"【正文】：{getattr(document, 'content', '') or section_text}\n"
+                f"【章节内容】：{section_text}\n"
                 f"【标签】：{tag_text}\n"
             )
             images = []
@@ -1004,7 +1058,7 @@ class VectorStoreMultimodal:
                 response = client.chat.completions.create(
                     model=self.model_chat,
                     messages=messages,
-                    max_tokens=self.max_token
+                    max_tokens=self._safe_max_tokens(messages, int(os.getenv("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512)))
                 )
                 ans = response.choices[0].message.content
                 print("生成知识库主chunk的ai回答")
@@ -1012,7 +1066,7 @@ class VectorStoreMultimodal:
                 return json.loads(ans)
             except Exception as e:
                 print(e)
-                fallback_summary = getattr(document, "summary", None) or (getattr(document, "content", "") or section_text)[:300]
+                fallback_summary = section_text[:300]
                 return {
                     "title": getattr(document, "title", ""),
                     "summary": fallback_summary,
@@ -1041,7 +1095,7 @@ class VectorStoreMultimodal:
             response = client.chat.completions.create(
                 model=self.model_chat,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self._safe_max_tokens(messages, int(os.getenv("MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512)))
             )
             ans = response.choices[0].message.content
             print("生成主chunk的ai回答")

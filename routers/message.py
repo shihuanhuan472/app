@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, and_, select, desc
 from typing import List, Dict, Any
 from schemas import Result
-from models import Message, User, Conversation, Document, DocumentBreakdown, DocumentKnowledge
+from models import Message, User, Conversation, Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
 from dependencies import get_current_active_user
@@ -543,7 +543,23 @@ async def get_prompt(db, document_ids, max_tokens):
     for i, document in enumerate(documents):
         if not document:
             continue
-        doc_prompt = f"""【文档{i + 1}】：{document.title}
+        if _normalize_library_type(getattr(document, "library_type", "breakdown")) == "knowledge":
+            section_result = await db.execute(
+                select(KnowledgeDocumentSection)
+                .where(KnowledgeDocumentSection.document_id == document.id)
+                .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
+                .limit(8)
+            )
+            section_text = "\n".join(
+                f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
+                for section in section_result.scalars().all()
+            )
+            doc_prompt = f"""【知识库文档{i + 1}】：{document.title}
+章节内容：
+{section_text}
+        """
+        else:
+            doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
 评估建议：{document.evaluation}

@@ -96,7 +96,8 @@ class UserChangePassword(BaseModel):
 class KnowledgeSectionCreate(BaseModel):
     section_index: Optional[int] = None
     section_title: Optional[str] = None
-    section_type: Optional[str] = "knowledge_section"
+    # 前端展示用章节编号，例如 1、2、1.1、1.1.1。
+    section_type: Optional[str] = "1"
     plain_text: Optional[str] = None
     image_urls: Optional[List[str]] = None
     char_start: Optional[int] = None
@@ -138,8 +139,7 @@ class DocumentResponse(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[str]] = None
     title: str
-    summary: Optional[str] = None
-    content: Optional[str] = None
+    section_ids: Optional[List[int]] = None
     sections: Optional[List[KnowledgeSectionResponse]] = None
     contributor_id: Optional[int]
     contributor_name: Optional[str]

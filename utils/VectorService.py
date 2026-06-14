@@ -49,8 +49,6 @@ VECTOR_DOCUMENT_FIELDS = [
     "origin_file_name",
     "origin_file_dir",
     "tag",
-    "summary",
-    "content",
     "is_vectorized",
     "vector_update_time",
 ]

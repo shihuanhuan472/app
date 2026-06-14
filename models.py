@@ -1,7 +1,11 @@
 ﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 
 from database import Base
+
+
+LargeText = Text().with_variant(MEDIUMTEXT(), "mysql")
 
 
 class User(Base):
@@ -102,9 +106,8 @@ class DocumentKnowledge(Base):
     title = Column(String(255), nullable=False)
     contributor_id = Column(Integer, ForeignKey("users.id"))
     first_edit_date = Column(DateTime)
-    image_urls = Column(Text)
-    summary = Column(Text)
-    content = Column(Text)
+    image_urls = Column(LargeText)
+    section_ids = Column("sections", JSON, default=list)
     is_vectorized = Column(Integer, default=0, nullable=False)
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     vector_update_time = Column(DateTime, nullable=True)
@@ -127,8 +130,8 @@ class KnowledgeDocumentSection(Base):
     )
     section_index = Column(Integer, nullable=False, default=0)
     section_title = Column(String(255))
-    section_type = Column(String(64), default="knowledge_section")
-    plain_text = Column(Text)
+    section_type = Column(String(64), default="1")
+    plain_text = Column(LargeText)
     image_urls = Column(JSON, default=list)
     char_start = Column(Integer, nullable=True)
     char_end = Column(Integer, nullable=True)
@@ -136,10 +139,10 @@ class KnowledgeDocumentSection(Base):
     created_time = Column(DateTime)
     updated_time = Column(DateTime)
 
-    document = relationship("DocumentKnowledge", back_populates="sections")
+    document = relationship("DocumentKnowledge", back_populates="section_items")
 
 
-DocumentKnowledge.sections = relationship(
+DocumentKnowledge.section_items = relationship(
     "KnowledgeDocumentSection",
     back_populates="document",
     cascade="all, delete-orphan",

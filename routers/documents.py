@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime
 import os
+import re
 import shutil
 from pathlib import Path
 import logging
@@ -138,13 +139,20 @@ def _join_image_urls(image_urls) -> str:
     return ", ".join(str(image_url).strip() for image_url in image_urls if str(image_url).strip()) or None
 
 
+def _normalize_section_marker(value) -> str:
+    value = str(value or "").strip().lower()
+    if re.fullmatch(r"\d+(?:\.\d+)*", value):
+        return value
+    match = re.fullmatch(r"level_([1-6])", value)
+    if match:
+        return match.group(1)
+    return "1"
+
+
 def _copy_document_to_library(document: Document, library_type: str, tag=None):
     """把解析器产出的文档对象转换成目标库表对象，避免知识库导入时仍写入故障库表。"""
     document_model = _get_document_model(library_type)
     copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
-    if _is_knowledge_library(library_type):
-        copied_data["summary"] = getattr(document, "summary", None)
-        copied_data["content"] = getattr(document, "content", None)
     copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
     return document_model(**_filter_model_data(document_model, copied_data))
 
@@ -157,7 +165,7 @@ def _knowledge_sections_from_request(sections):
             SimpleNamespace(
                 section_index=data.get("section_index") if data.get("section_index") is not None else index,
                 section_title=data.get("section_title") or f"章节{index + 1}",
-                section_type=data.get("section_type") or "knowledge_section",
+                section_type=_normalize_section_marker(data.get("section_type") or str(index + 1)),
                 plain_text=data.get("plain_text") or "",
                 image_urls=data.get("image_urls") or [],
                 char_start=data.get("char_start"),
@@ -174,8 +182,6 @@ def _knowledge_document_from_parsed(parsed, contributor_id: int, file_name: str,
         contributor_id=contributor_id,
         first_edit_date=datetime.now(),
         image_urls=_join_image_urls(parsed.image_urls),
-        summary=parsed.summary,
-        content=parsed.content,
         origin_file_name=file_name,
         origin_file_dir=origin_file_dir,
         tag=_normalize_tags(tags),
@@ -209,7 +215,7 @@ ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 def _normalize_document_for_db(document: Document) -> None:
     text_fields = [
         "title", "problem_intro", "causes", "evaluation",
-        "inspection", "solutions", "key_points", "summary", "content", "origin_file_name", "origin_file_dir"
+        "inspection", "solutions", "key_points", "origin_file_name", "origin_file_dir"
     ]
     image_fields = [
         "image_urls", "image_urls_problem_intro", "image_urls_causes",
@@ -382,8 +388,7 @@ async def document_convert_documentResponse(
         library_type=getattr(document, "library_type", "breakdown"),
         tag=await get_document_tag_names(db, document),
         title=document.title,
-        summary=getattr(document, "summary", None),
-        content=getattr(document, "content", None),
+        section_ids=getattr(document, "section_ids", None) if getattr(document, "library_type", "breakdown") == "knowledge" else None,
         sections=await _knowledge_sections_to_response(db, document.id) if getattr(document, "library_type", "breakdown") == "knowledge" else None,
         contributor_id=document.contributor_id,
         contributor_name=contributor_name,
@@ -533,8 +538,7 @@ async def create_document(document: DocumentCreate,
 
         document_model = _get_document_model(document.library_type)
         exclude_fields = {"library_type", "tag", "sections"}
-        if not _is_knowledge_library(document.library_type):
-            exclude_fields.update({"summary", "content"})
+        exclude_fields.update({"summary", "content"})
         document_payload = document.dict(exclude=exclude_fields)
         document_payload.update(
             tag=_normalize_tags(document.tag),
@@ -735,11 +739,8 @@ async def update_document(id: int,
 
         document_data = _filter_model_data(
             document_model,
-            document.dict(exclude_unset=True, exclude={"library_type", "sections"}),
+            document.dict(exclude_unset=True, exclude={"library_type", "sections", "summary", "content"}),
         )
-        if not _is_knowledge_library(getattr(document_now, "library_type", library_type)):
-            document_data.pop("summary", None)
-            document_data.pop("content", None)
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
@@ -1279,6 +1280,9 @@ async def analyze_files(file_list: AnalyzeRequest,
     has_token_limit_error = False
     has_ai_service_unavailable_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    # 当前请求在鉴权时已经执行过 SELECT，会开启一个隐式事务。
+    # PDF 解析/向量化可能耗时较长，不能让这个事务一直空闲占着连接和锁。
+    await db.rollback()
     for file, file_name in zip(file_list.file_list, file_list.file_name):
         try:
             file_ext = os.path.splitext(file)[1].lower()
@@ -1340,6 +1344,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.refresh(document)
                 await replace_knowledge_document_sections(db, document, parsed.sections)
                 await set_document_tag_names(db, document, file_list.tag, created_by=current_user.id)
+                source = await _get_source_document_by_path(db, file)
+                if source:
+                    source.status = "parsed"
+                    source.document_id = document.id
+                    source.document_library_type = "knowledge"
+                    source.parse_error = None
+                # 先提交文档和章节，释放 MySQL 锁。
+                # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
+                await db.commit()
+
                 vector_service = VectorService(db)
                 await vector_service.add_document_to_vector_store(document, commit=False)
                 source = await _get_source_document_by_path(db, file)

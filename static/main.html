@@ -268,7 +268,9 @@
                         return {
                             id: doc.id,
                             title: doc.title || '无标题',
-                            content: doc.problem_intro || '',
+                            content: doc.library_type === 'knowledge'
+                                ? getKnowledgePreview(doc)
+                                : (doc.problem_intro || ''),
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
                             libraryType: doc.library_type || 'breakdown',
@@ -345,7 +347,9 @@
                         return {
                             id: doc.id,
                             title: doc.title || '无标题',
-                            content: doc.problem_intro || '',
+                            content: doc.library_type === 'knowledge'
+                                ? getKnowledgePreview(doc)
+                                : (doc.problem_intro || ''),
                             author: authorName,
                             date: formatDate(doc.first_edit_date),
                             libraryType: doc.library_type || 'breakdown',
@@ -388,6 +392,17 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        function getKnowledgePreview(doc) {
+            const sections = Array.isArray(doc.sections) ? doc.sections : [];
+            const firstSection = sections
+                .slice()
+                .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
+                .find(section => String(section.plain_text || '').trim());
+            if (!firstSection) return '暂无章节内容';
+            const title = firstSection.section_title ? `${firstSection.section_title}：` : '';
+            return `${title}${firstSection.plain_text || ''}`;
         }
 
         function normalizeDocumentTags(tags) {
@@ -455,6 +470,7 @@
                 if (content.length > 100) {
                     content = content.substring(0, 100) + '...';
                 }
+                content = escapeHtml(content);
 
                 // 优先使用列表转换出来的库类型，兼容旧数据没有 library_type 时默认按故障库处理。
                 const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
@@ -468,7 +484,7 @@
                     <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=${libraryType}'">
                         <div class="document-item-header">
                             <div class="document-item-title-row">
-                                <div class="document-item-title">${doc.title}</div>
+                                <div class="document-item-title">${escapeHtml(doc.title)}</div>
                                 <span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span>
                             </div>
                         </div>

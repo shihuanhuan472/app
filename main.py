@@ -119,6 +119,30 @@ async def _column_exists(conn, table_name: str, column_name: str) -> bool:
     return int(result.scalar_one() or 0) > 0
 
 
+async def _column_type(conn, table_name: str, column_name: str) -> str:
+    result = await conn.execute(
+        text(
+            """
+            SELECT COLUMN_TYPE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+              AND COLUMN_NAME = :column_name
+            """
+        ),
+        {"table_name": table_name, "column_name": column_name},
+    )
+    return str(result.scalar_one_or_none() or "").lower()
+
+
+async def _ensure_mediumtext_column(conn, table_name: str, column_name: str):
+    if not await _table_exists(conn, table_name) or not await _column_exists(conn, table_name, column_name):
+        return
+    column_type = await _column_type(conn, table_name, column_name)
+    if column_type not in {"mediumtext", "longtext"}:
+        await conn.execute(text(f"ALTER TABLE `{table_name}` MODIFY COLUMN `{column_name}` MEDIUMTEXT NULL"))
+
+
 async def _index_exists(conn, table_name: str, index_name: str) -> bool:
     result = await conn.execute(
         text(
@@ -220,81 +244,138 @@ async def _ensure_document_knowledge_schema(conn):
     if not await _index_exists(conn, "document_knowledge", "idx_document_knowledge_library_type"):
         await conn.execute(text("CREATE INDEX idx_document_knowledge_library_type ON document_knowledge (library_type)"))
 
-    for column_name in ("summary", "content"):
-        if not await _column_exists(conn, "document_knowledge", column_name):
-            await conn.execute(text(f"ALTER TABLE document_knowledge ADD COLUMN {column_name} TEXT NULL"))
+    if not await _column_exists(conn, "document_knowledge", "sections"):
+        await conn.execute(text("ALTER TABLE document_knowledge ADD COLUMN sections JSON NULL"))
+
+    await _ensure_mediumtext_column(conn, "document_knowledge", "image_urls")
+
+    summary_exists = await _column_exists(conn, "document_knowledge", "summary")
+    content_exists = await _column_exists(conn, "document_knowledge", "content")
+    if await _table_exists(conn, "knowledge_document_sections") and (summary_exists or content_exists):
+        text_exprs = []
+        if content_exists:
+            text_exprs.append("NULLIF(dk.content, '')")
+        if summary_exists:
+            text_exprs.append("NULLIF(dk.summary, '')")
+        plain_text_expr = f"COALESCE({', '.join(text_exprs)})"
+        await conn.execute(
+            text(
+                f"""
+                INSERT INTO knowledge_document_sections
+                    (document_id, document_library_type, section_index, section_title, section_type,
+                     plain_text, image_urls, char_start, char_end, metadata, created_time, updated_time)
+                SELECT dk.id, 'knowledge', 0, COALESCE(NULLIF(dk.title, ''), '文档正文'), '1',
+                       {plain_text_expr}, JSON_ARRAY(), 0, CHAR_LENGTH({plain_text_expr}), JSON_OBJECT(), NOW(), NOW()
+                FROM document_knowledge dk
+                WHERE {plain_text_expr} IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM knowledge_document_sections ks WHERE ks.document_id = dk.id
+                  )
+                """
+            )
+        )
 
     existing_legacy_columns = [
         column_name
         for column_name in LEGACY_KNOWLEDGE_BREAKDOWN_COLUMNS
         if await _column_exists(conn, "document_knowledge", column_name)
     ]
-    if not existing_legacy_columns:
-        return
+    if existing_legacy_columns:
+        text_parts = []
+        legacy_text_fields = [
+            ("problem_intro", "问题简介"),
+            ("causes", "原因"),
+            ("evaluation", "评估"),
+            ("inspection", "检查"),
+            ("solutions", "解决方案"),
+            ("key_points", "总结"),
+        ]
+        for column_name, label in legacy_text_fields:
+            if column_name in existing_legacy_columns:
+                text_parts.append(
+                    f"IF(NULLIF(dk.{column_name}, '') IS NULL, NULL, CONCAT('{label}：', dk.{column_name}))"
+                )
+        if text_parts and await _table_exists(conn, "knowledge_document_sections"):
+            legacy_content_expr = f"NULLIF(CONCAT_WS('\\n\\n', {', '.join(text_parts)}), '')"
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO knowledge_document_sections
+                        (document_id, document_library_type, section_index, section_title, section_type,
+                         plain_text, image_urls, char_start, char_end, metadata, created_time, updated_time)
+                    SELECT dk.id, 'knowledge', 0, COALESCE(NULLIF(dk.title, ''), '历史知识内容'), '1',
+                           {legacy_content_expr}, JSON_ARRAY(), 0, CHAR_LENGTH({legacy_content_expr}), JSON_OBJECT(), NOW(), NOW()
+                    FROM document_knowledge dk
+                    WHERE {legacy_content_expr} IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM knowledge_document_sections ks WHERE ks.document_id = dk.id
+                      )
+                    """
+                )
+            )
 
-    if "problem_intro" in existing_legacy_columns:
+        image_columns = [
+            column_name
+            for column_name in (
+                "image_urls_problem_intro",
+                "image_urls_causes",
+                "image_urls_evaluation",
+                "image_urls_inspection",
+                "image_urls_solutions",
+                "image_urls_key_points",
+            )
+            if column_name in existing_legacy_columns
+        ]
+        if image_columns:
+            await conn.execute(
+                text(
+                    f"""
+                    UPDATE document_knowledge
+                    SET image_urls = NULLIF(CONCAT_WS(', ', {', '.join(f"NULLIF({column_name}, '')" for column_name in image_columns)}), '')
+                    WHERE (image_urls IS NULL OR image_urls = '')
+                    """
+                )
+            )
+
+        for column_name in existing_legacy_columns:
+            await conn.execute(text(f"ALTER TABLE document_knowledge DROP COLUMN {column_name}"))
+
+    for column_name in ("summary", "content"):
+        if await _column_exists(conn, "document_knowledge", column_name):
+            await conn.execute(text(f"ALTER TABLE document_knowledge DROP COLUMN {column_name}"))
+
+    if await _table_exists(conn, "knowledge_document_sections"):
         await conn.execute(
             text(
                 """
-                UPDATE document_knowledge
-                SET summary = NULLIF(problem_intro, '')
-                WHERE (summary IS NULL OR summary = '')
-                  AND problem_intro IS NOT NULL
-                  AND problem_intro <> ''
+                UPDATE document_knowledge dk
+                LEFT JOIN (
+                    SELECT document_id, JSON_ARRAYAGG(id) AS section_ids
+                    FROM knowledge_document_sections
+                    GROUP BY document_id
+                ) ks ON ks.document_id = dk.id
+                SET dk.sections = COALESCE(ks.section_ids, JSON_ARRAY())
+                WHERE dk.sections IS NULL
                 """
             )
         )
 
-    text_parts = []
-    legacy_text_fields = [
-        ("problem_intro", "问题简介"),
-        ("causes", "原因"),
-        ("evaluation", "评估"),
-        ("inspection", "检查"),
-        ("solutions", "解决方案"),
-        ("key_points", "总结"),
-    ]
-    for column_name, label in legacy_text_fields:
-        if column_name in existing_legacy_columns:
-            text_parts.append(
-                f"IF(NULLIF({column_name}, '') IS NULL, NULL, CONCAT('{label}：', {column_name}))"
-            )
-    if text_parts:
+
+async def _ensure_knowledge_section_schema(conn):
+    await _ensure_mediumtext_column(conn, "knowledge_document_sections", "plain_text")
+    if await _table_exists(conn, "knowledge_document_sections") and await _column_exists(conn, "knowledge_document_sections", "section_type"):
         await conn.execute(
             text(
-                f"""
-                UPDATE document_knowledge
-                SET content = CONCAT_WS('\\n\\n', {', '.join(text_parts)})
-                WHERE (content IS NULL OR content = '')
+                """
+                UPDATE knowledge_document_sections
+                SET section_type = CAST(section_index + 1 AS CHAR)
+                WHERE section_type IS NULL
+                   OR section_type = ''
+                   OR section_type IN ('knowledge_section', 'document_start', 'heading', 'paragraph', 'image')
+                   OR section_type LIKE 'level\\_%'
                 """
             )
         )
-
-    image_columns = [
-        column_name
-        for column_name in (
-            "image_urls_problem_intro",
-            "image_urls_causes",
-            "image_urls_evaluation",
-            "image_urls_inspection",
-            "image_urls_solutions",
-            "image_urls_key_points",
-        )
-        if column_name in existing_legacy_columns
-    ]
-    if image_columns:
-        await conn.execute(
-            text(
-                f"""
-                UPDATE document_knowledge
-                SET image_urls = NULLIF(CONCAT_WS(', ', {', '.join(f"NULLIF({column_name}, '')" for column_name in image_columns)}), '')
-                WHERE (image_urls IS NULL OR image_urls = '')
-                """
-            )
-        )
-
-    for column_name in existing_legacy_columns:
-        await conn.execute(text(f"ALTER TABLE document_knowledge DROP COLUMN {column_name}"))
 
 
 async def ensure_document_tables_for_library_split():
@@ -306,6 +387,7 @@ async def ensure_document_tables_for_library_split():
             if not await _index_exists(conn, table_name, f"idx_{table_name}_is_deleted"):
                 await conn.execute(text(f"CREATE INDEX idx_{table_name}_is_deleted ON {table_name} (is_deleted)"))
 
+        await _ensure_knowledge_section_schema(conn)
         await _ensure_document_knowledge_schema(conn)
         await _cleanup_legacy_tag_relation_tables(conn)
 
