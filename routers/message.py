@@ -64,6 +64,32 @@ def get_image_config():
     }
 
 
+def _split_uploaded_images(uploaded_images: str) -> List[str]:
+    if not uploaded_images:
+        return []
+    return [image.strip() for image in uploaded_images.split(",") if image.strip()]
+
+
+async def _count_text_tokens(text: str) -> int:
+    if not text:
+        return 0
+    return int(await asyncio.to_thread(get_token_count, text))
+
+
+async def _get_or_update_text_token_count(db: AsyncSession, message: Message) -> int:
+    token_count = int(getattr(message, "token_count", 0) or 0)
+    if token_count > 0 or not message.content_text:
+        return token_count
+
+    token_count = await _count_text_tokens(message.content_text)
+    message.token_count = token_count
+    return token_count
+
+
+def _estimate_image_tokens(uploaded_images: str, per_image_tokens: int) -> int:
+    return len(_split_uploaded_images(uploaded_images)) * per_image_tokens
+
+
 def _is_ai_service_unavailable_error(error: Exception) -> bool:
     error_type = type(error).__name__
     if error_type in {"APIConnectionError", "APITimeoutError"}:
@@ -205,6 +231,7 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
 
             if ai_msg:
                 ai_msg.content_text = full_content
+                ai_msg.token_count = await _count_text_tokens(full_content)
                 await db.commit()
         final_data = {"code": 1, "data": "true"}
         yield f"data: {json.dumps(final_data)}\n\n"
@@ -255,12 +282,14 @@ async def ask(message: MessageCreate,
                                             .removesuffix(", "))
 
         print(message.user_uploaded_images)
+        user_text_token_count = await _count_text_tokens(message.content_text)
         db_message = Message(
             session_id=message.session_id,
             role=1,
             message_order=max_order + 1,
             content_text=message.content_text,
             user_uploaded_images=message.user_uploaded_images,
+            token_count=user_text_token_count,
             created_time=datetime.now()
         )
 
@@ -289,6 +318,7 @@ async def ask(message: MessageCreate,
             message_order=max_order + 1,
             content_text="",
             ai_reference_doc_ids=ai_reference_document_payload,
+            token_count=0,
             created_time=datetime.now()
         )
         db.add(ai_msg)
@@ -338,10 +368,10 @@ async def generate_messages(db, id, message_now, documents_id):
     print("get_config")
     tokens = 0
 
-    user_question_tokens = await asyncio.to_thread(get_token_count, message_now.content_text)
+    user_question_tokens = await _get_or_update_text_token_count(db, message_now)
 
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
-        user_question_tokens += len(message_now.user_uploaded_images.split(",")) * 578
+        user_question_tokens += _estimate_image_tokens(message_now.user_uploaded_images, 578)
 
     tokens_max -= user_question_tokens
 
@@ -349,6 +379,7 @@ async def generate_messages(db, id, message_now, documents_id):
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "消息长度过长")
 
     flag = 0
+    cached_tokens_updated = False
 
     if messages_db:
         print("messages_db")
@@ -362,10 +393,12 @@ async def generate_messages(db, id, message_now, documents_id):
             msg_text = []
             msg_text.append({"type": "text", "text": message.content_text})
 
-            token_tmp += await asyncio.to_thread(get_token_count, message.content_text)
+            had_cached_token = int(getattr(message, "token_count", 0) or 0) > 0 or not message.content_text
+            token_tmp += await _get_or_update_text_token_count(db, message)
+            cached_tokens_updated = cached_tokens_updated or not had_cached_token
 
             if message.user_uploaded_images and len(message.user_uploaded_images) > 0:
-                images = message.user_uploaded_images.split(", ")
+                images = _split_uploaded_images(message.user_uploaded_images)
                 for image in images:
 
                     image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image))
@@ -396,6 +429,8 @@ async def generate_messages(db, id, message_now, documents_id):
             print(f"token: {tokens}")
             if tokens > tokens_max:
                 raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.MESSAGE_CONTEXT_TOO_LONG, "对话内容达到上限，请重新创建对话")
+    if cached_tokens_updated:
+        await db.commit()
     data = {}
     messages.reverse()
     print(f"tokens: {tokens}")
@@ -407,7 +442,7 @@ async def generate_messages(db, id, message_now, documents_id):
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"}]
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
-        images = message_now.user_uploaded_images.split(", ")
+        images = _split_uploaded_images(message_now.user_uploaded_images)
         for image in images:
             image_compressed = await compress_image(os.path.join(config["MESSAGE_BASE_DIR"], image), max_size=768)
             print(image_compressed)
@@ -614,6 +649,7 @@ async def get_ai_answer(db, messages, id):
 
     if ai_msg:
         ai_msg.content_text = final_ans
+        ai_msg.token_count = await _count_text_tokens(final_ans)
         await db.commit()
         await db.refresh(ai_msg)
 

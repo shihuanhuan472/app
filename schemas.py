@@ -255,6 +255,7 @@ class MessageResponse(BaseModel):
     content_text: Optional[str]
     user_uploaded_images: Optional[str]
     ai_reference_doc_ids: Optional[str]
+    token_count: Optional[int] = 0
     created_time: Optional[datetime]
 
     class Config:
