@@ -1,6 +1,7 @@
 ﻿# routers/documents.py
 import asyncio
 import json
+import time
 import uuid
 from datetime import datetime
 import os
@@ -1141,7 +1142,10 @@ async def analyze_files(file_list: AnalyzeRequest,
     has_token_limit_error = False
     has_ai_service_unavailable_error = False
     document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    current_user_id = current_user.id
+    request_started = time.perf_counter()
     for file, file_name in zip(file_list.file_list, file_list.file_name):
+        file_started = time.perf_counter()
         try:
             file_ext = os.path.splitext(file)[1].lower()
             # print(file_ext)
@@ -1159,6 +1163,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             # print(url)
             document = None
             parser_for_error = None
+            parse_started = time.perf_counter()
 
             # 根据不同的文件类型调用不同的解析器
             if file_ext == ".pdf":
@@ -1194,6 +1199,13 @@ async def analyze_files(file_list: AnalyzeRequest,
             elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
                 parser_for_error = csv_excel_parser
                 document = await asyncio.to_thread(csv_excel_parser.parse, url)
+
+            logger.info(
+                "document analyze parser done, file=%s, ext=%s, elapsed=%.2fs",
+                file_name,
+                file_ext,
+                time.perf_counter() - parse_started,
+            )
 
             if document is None:
                 error_origin_filename.append(file_name)
@@ -1252,7 +1264,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 )
                 await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。")
                 continue
-            document.contributor_id = current_user.id
+            document.contributor_id = current_user_id
             document.origin_file_name = file_name
             knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
             document.origin_file_dir = knowledge_file_path
@@ -1262,7 +1274,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
-                review = _build_create_review_from_document(document, current_user.id)
+                review = _build_create_review_from_document(document, current_user_id)
                 db.add(review)
                 await db.commit()
                 await db.refresh(review)
@@ -1279,7 +1291,14 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.flush()
                 await db.refresh(document)
                 vector_service = VectorService(db)
+                vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(document, commit=False)
+                logger.info(
+                    "document analyze vectorize done, file=%s, document_id=%s, elapsed=%.2fs",
+                    file_name,
+                    document.id,
+                    time.perf_counter() - vector_started,
+                )
                 source = await _get_source_document_by_path(db, file)
                 if source:
                     source.status = "vectorized"
@@ -1290,6 +1309,11 @@ async def analyze_files(file_list: AnalyzeRequest,
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
+            logger.info(
+                "document analyze file done, file=%s, status=success, elapsed=%.2fs",
+                file_name,
+                time.perf_counter() - file_started,
+            )
 
         except Exception as e:
             print(e)
@@ -1297,6 +1321,18 @@ async def analyze_files(file_list: AnalyzeRequest,
             await _mark_source_parse_failed(db, file, str(e))
             error_origin_filename.append(file_name)
             has_server_error = True
+            logger.exception(
+                "document analyze file failed, file=%s, elapsed=%.2fs",
+                file_name,
+                time.perf_counter() - file_started,
+            )
+
+    logger.info(
+        "document analyze request done, success=%s, failed=%s, elapsed=%.2fs",
+        len(success_file_url),
+        len(error_origin_filename),
+        time.perf_counter() - request_started,
+    )
 
     if len(success_file_url) == 0 and len(error_origin_filename) > 0:
         if has_server_error:

@@ -271,17 +271,9 @@ class VectorService:
                         self.vector_store_multimodal.search, enhanced_query, image_path, top_k
                     )
 
-                    for item in results:
-                        llm_score = await self.rerank_by_llm(item, enhanced_query, image_path)
-                        if llm_score is not None:
-                            item["score"] = 0.75 * float(item.get("score", 0.0)) + 0.25 * llm_score
                     all_results.extend(results)
             else:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
-                for item in results:
-                    llm_score = await self.rerank_by_llm(item, query, None)
-                    if llm_score is not None:
-                        item["score"] = 0.75 * float(item.get("score", 0.0)) + 0.25 * llm_score
                 all_results.extend(results)
 
             if not all_results:
