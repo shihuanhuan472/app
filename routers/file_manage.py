@@ -31,6 +31,7 @@ from utils.file_classifier import (
 )
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
+from utils.upload_paths import normalize_upload_path
 from sqlalchemy import or_, select, func, delete
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
@@ -119,7 +120,7 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
         solutions=document.solutions,
         key_points=document.key_points,
         origin_file_name=document.origin_file_name,
-        origin_file_dir=document.origin_file_dir,
+        origin_file_dir=normalize_upload_path(document.origin_file_dir),
         tag=_normalize_tags(getattr(document, "tag", [])),
         image_urls_problem_intro=document.image_urls_problem_intro,
         image_urls_causes=document.image_urls_causes,
@@ -174,14 +175,7 @@ async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, err
 
 
 async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
-    source_path = os.path.join(document_base_dir, source_relative_path)
-    target_path, target_relative_path, _ = build_document_storage_path(
-        document_base_dir,
-        os.getenv("DOCUMENT_DIR", "upload/documents"),
-        origin_file_name or source_relative_path,
-    )
-    await asyncio.to_thread(shutil.copy2, source_path, target_path)
-    return target_relative_path
+    return source_relative_path
 
 @router.post("/upload_files")
 @router.post("/{dataset_id}/documents")
@@ -436,7 +430,7 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
 
                             await asyncio.to_thread(delete_image_with_variants, url)
             if document.origin_file_dir:
-                url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
+                url = os.path.join(config["BASE_DIR"], normalize_upload_path(document.origin_file_dir) or document.origin_file_dir)
                 await asyncio.to_thread(delete_file_if_exists, url)
                 print(f"已删除源文件{document.origin_file_dir}")
 

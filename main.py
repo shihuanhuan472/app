@@ -37,6 +37,7 @@ import os
 import uuid
 import json
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
@@ -59,6 +60,7 @@ from utils.tag_service import normalize_tag_names, set_document_tag_names
 from utils.app_exceptions import AppException
 from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
+from utils.upload_paths import normalize_upload_path
 
 logger = logging.getLogger(__name__)
 
@@ -575,6 +577,43 @@ async def migrate_legacy_tags_to_tag_tables():
         await db.commit()
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
+async def migrate_legacy_upload_document_paths_to_source_documents():
+    base_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    path_fields = [
+        ("source_documents", "stored_file_path"),
+        ("document_breakdown", "origin_file_dir"),
+        ("document_knowledge", "origin_file_dir"),
+        ("document_reviews", "origin_file_dir"),
+    ]
+
+    async with engine.begin() as conn:
+        for table_name, column_name in path_fields:
+            if not await _table_exists(conn, table_name):
+                continue
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id, {column_name}
+                    FROM {table_name}
+                    WHERE {column_name} LIKE 'upload/documents/%'
+                       OR {column_name} LIKE '/upload/documents/%'
+                       OR {column_name} LIKE 'upload\\\\documents\\\\%'
+                    """
+                )
+            )
+            for row in result.mappings().all():
+                old_path = row[column_name]
+                new_path = normalize_upload_path(old_path)
+                if not new_path or new_path == old_path:
+                    continue
+                if not (base_dir / new_path).exists():
+                    continue
+                await conn.execute(
+                    text(f"UPDATE {table_name} SET {column_name} = :new_path WHERE id = :id"),
+                    {"new_path": new_path, "id": row["id"]},
+                )
+
+
 class CORSStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> FileResponse:
         response = await super().get_response(path, scope)
@@ -610,6 +649,7 @@ async def on_startup():
     await ensure_message_token_count_column()
     await migrate_legacy_documents_to_breakdown()
     await migrate_legacy_tags_to_tag_tables()
+    await migrate_legacy_upload_document_paths_to_source_documents()
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(
@@ -655,6 +695,7 @@ app.include_router(admin.router, prefix=API_V1_PREFIX)
 app.include_router(documents.router, prefix=API_V1_PREFIX)
 app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)
+app.include_router(tags.router, prefix=API_V1_PREFIX)
 app.include_router(conversation.router, prefix=API_V1_PREFIX)
 app.include_router(message.router, prefix=API_V1_PREFIX)
 

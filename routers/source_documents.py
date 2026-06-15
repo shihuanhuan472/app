@@ -17,6 +17,7 @@ from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
+from utils.upload_paths import normalize_upload_path
 
 router = APIRouter(prefix="/source-documents", tags=["源文档"])
 
@@ -36,7 +37,7 @@ def source_document_to_response(source: SourceDocument, uploader_name: Optional[
     return SourceDocumentResponse(
         id=source.id,
         origin_file_name=source.origin_file_name,
-        stored_file_path=source.stored_file_path,
+        stored_file_path=normalize_upload_path(source.stored_file_path),
         file_ext=source.file_ext,
         file_category=source.file_category,
         file_size=source.file_size,
@@ -204,7 +205,7 @@ async def delete_source_document(
             )
 
     base_dir = os.getenv("DOCUMENT_BASE_DIR", ".")
-    absolute_path = os.path.join(base_dir, source.stored_file_path)
+    absolute_path = os.path.join(base_dir, normalize_upload_path(source.stored_file_path) or source.stored_file_path)
     await asyncio.to_thread(delete_file_if_exists, absolute_path)
 
     source.is_deleted = 1

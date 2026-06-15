@@ -384,7 +384,9 @@
                 return;
             }
             const normalizedPath = storedFilePath.replace(/\\/g, '/').replace(/^\/+/, '');
-            window.open(`/${encodeURI(normalizedPath)}`, '_blank');
+            const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+            const fileUrl = baseUrl ? `${baseUrl}/${normalizedPath}` : `/${normalizedPath}`;
+            window.open(encodeURI(fileUrl), '_blank');
         }
 
         async function analyzeSourceDocument(event, storedFilePath, originFileName) {

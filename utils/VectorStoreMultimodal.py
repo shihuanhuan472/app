@@ -10,6 +10,7 @@ from PIL import Image
 from qwen_token_counter import get_token_count
 import base64
 import mimetypes
+from functools import lru_cache
 
 from pymilvus.orm import utility
 from openai import OpenAI
@@ -20,6 +21,11 @@ from models import Document
 from utils.ai_endpoint import get_ai_base_url
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
+
+
+@lru_cache(maxsize=8192)
+def _count_tokens_cached(text: str) -> int:
+    return int(get_token_count(text or ""))
 
 """
 向量生成的核心模块，使用BAAI/bge-m3模型
@@ -583,21 +589,15 @@ class VectorStoreMultimodal:
         text = text or ""
         if token_budget <= 0:
             return ""
-        if get_token_count(text) <= token_budget:
+        if _count_tokens_cached(text) <= token_budget:
             return text
-        left, right = 0, len(text)
-        best = ""
-        suffix = "\n\n【提示：内容较长，已按模型上下文上限截断。】"
-        budget = max(1, token_budget - get_token_count(suffix))
-        while left <= right:
-            mid = (left + right) // 2
-            candidate = text[:mid]
-            if get_token_count(candidate) <= budget:
-                best = candidate
-                left = mid + 1
-            else:
-                right = mid - 1
-        return best.rstrip() + suffix
+        suffix = "\n\n[Content truncated to fit the model context window.]"
+        budget = max(1, token_budget - _count_tokens_cached(suffix))
+        approx_chars = max(1, budget * 4)
+        candidate = text[:approx_chars]
+        if _count_tokens_cached(candidate) > budget:
+            candidate = text[:max(1, int(approx_chars * 0.75))]
+        return candidate.rstrip() + suffix
 
     def _message_input_tokens(self, messages, image_token: int = None) -> int:
         image_token = image_token or self.image_input_token
@@ -605,11 +605,11 @@ class VectorStoreMultimodal:
         for message in messages or []:
             content = message.get("content", "")
             if isinstance(content, str):
-                total += get_token_count(content)
+                total += _count_tokens_cached(content)
                 continue
             for item in content or []:
                 if item.get("type") == "text":
-                    total += get_token_count(item.get("text", ""))
+                    total += _count_tokens_cached(item.get("text", ""))
                 elif item.get("type") == "image_url":
                     total += image_token
         return total
@@ -918,7 +918,7 @@ class VectorStoreMultimodal:
 [图片内容由后续base64给出]
 """.format(text=content)
         msg_content = [{"type": "text", "text": prompt}]
-        token_cnt = get_token_count(prompt)
+        token_cnt = _count_tokens_cached(prompt)
         if images is not None:
             for image in images:
                 image = image.strip()
@@ -975,11 +975,11 @@ class VectorStoreMultimodal:
 """
         preferred_output = int(os.getenv("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512))
         base_prompt = prompt_template.format(text="")
-        text_budget = self.chat_context_window - preferred_output - self.context_margin_token - get_token_count(base_prompt)
+        text_budget = self.chat_context_window - preferred_output - self.context_margin_token - _count_tokens_cached(base_prompt)
         content = self._truncate_text_by_tokens(content or "", text_budget)
         prompt = prompt_template.format(text=content)
         msg_content = [{"type": "text", "text": prompt}]
-        token_cnt = get_token_count(prompt)
+        token_cnt = _count_tokens_cached(prompt)
 
         include_images = os.getenv("ENABLE_KNOWLEDGE_MAIN_CHUNK_IMAGES", "0").strip().lower() in {"1", "true", "yes", "on"}
         if include_images and images is not None:

@@ -20,7 +20,7 @@ class PdfParser:
     def __init__(self):
         # self.db = db
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
-        self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
+        self.document_dir = os.getenv("DOCUMENT_DIR", "upload/source_documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
         self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")

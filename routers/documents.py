@@ -44,6 +44,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
+from utils.upload_paths import normalize_upload_path
 from utils.tag_service import (
     get_document_tag_names,
     normalize_tag_values,
@@ -320,7 +321,7 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
         solutions=document.solutions,
         key_points=document.key_points,
         origin_file_name=document.origin_file_name,
-        origin_file_dir=document.origin_file_dir,
+        origin_file_dir=normalize_upload_path(document.origin_file_dir),
         tag=_normalize_tags(getattr(document, "tag", [])),
         image_urls_problem_intro=document.image_urls_problem_intro,
         image_urls_causes=document.image_urls_causes,
@@ -372,7 +373,7 @@ async def _delete_source_documents_for_document(db: AsyncSession, document_base_
     source_documents = result.scalars().all()
     for source_document in source_documents:
         if source_document.stored_file_path:
-            absolute_path = os.path.join(document_base_dir, source_document.stored_file_path)
+            absolute_path = os.path.join(document_base_dir, normalize_upload_path(source_document.stored_file_path) or source_document.stored_file_path)
             await asyncio.to_thread(delete_file_if_exists, absolute_path)
         source_document.is_deleted = 1
         source_document.status = "deleted"
@@ -431,14 +432,7 @@ async def _vectorize_knowledge_document_background(document_id: int, stored_file
 
 
 async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
-    source_path = os.path.join(document_base_dir, source_relative_path)
-    target_path, target_relative_path, _ = build_document_storage_path(
-        document_base_dir,
-        os.getenv("DOCUMENT_DIR", "upload/documents"),
-        origin_file_name or source_relative_path,
-    )
-    await asyncio.to_thread(shutil.copy2, source_path, target_path)
-    return target_relative_path
+    return source_relative_path
 
 async def document_convert_documentResponse(
         db: AsyncSession,
@@ -469,7 +463,7 @@ async def document_convert_documentResponse(
         key_points=getattr(document, "key_points", None),
 
         origin_file_name=getattr(document, "origin_file_name", None),
-        origin_file_dir=getattr(document, "origin_file_dir", None),
+        origin_file_dir=normalize_upload_path(getattr(document, "origin_file_dir", None)),
 
         image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
         image_urls_causes=getattr(document, "image_urls_causes", None),
@@ -918,7 +912,7 @@ async def delete(id: int,
 
         # 把原始文件也删掉
         if document.origin_file_dir:
-            url = os.path.join(config["BASE_DIR"], document.origin_file_dir)
+            url = os.path.join(config["BASE_DIR"], normalize_upload_path(document.origin_file_dir) or document.origin_file_dir)
             # if os.path.exists(url):
             #     os.remove(url)
             #     print(f"已删除源文件{document.origin_file_dir}")

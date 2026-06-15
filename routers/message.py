@@ -5,6 +5,7 @@ import mimetypes
 import os
 import uuid
 import base64
+from functools import lru_cache
 
 import aiofiles
 from PIL import Image
@@ -73,7 +74,12 @@ def _split_uploaded_images(uploaded_images: str) -> List[str]:
 async def _count_text_tokens(text: str) -> int:
     if not text:
         return 0
-    return int(await asyncio.to_thread(get_token_count, text))
+    return int(await asyncio.to_thread(_count_text_tokens_cached, text))
+
+
+@lru_cache(maxsize=8192)
+def _count_text_tokens_cached(text: str) -> int:
+    return int(get_token_count(text or ""))
 
 
 async def _get_or_update_text_token_count(db: AsyncSession, message: Message) -> int:
@@ -602,7 +608,7 @@ async def get_prompt(db, document_ids, max_tokens):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
-        token_tmp = await asyncio.to_thread(get_token_count, doc_prompt)
+        token_tmp = _count_text_tokens_cached(doc_prompt)
 
         if tokens + token_tmp >= max_tokens:
             break
@@ -636,6 +642,7 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             continue
         payload.append({
             "doc_id": int(doc["doc_id"]),
+            "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
             "score": float(doc.get("score", 0.0))
         })

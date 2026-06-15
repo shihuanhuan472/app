@@ -16,6 +16,7 @@ from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
 from utils.tag_service import normalize_tag_values, set_document_tag_names
+from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
 
 router = APIRouter(prefix="/review", tags=["document-review"])
@@ -67,7 +68,8 @@ async def _cleanup_document_files(document: Document):
                 await asyncio.to_thread(delete_image_with_variants, os.path.join(base_url, filename.lstrip("/").lstrip("\\")))
 
     if getattr(document, "origin_file_dir", None):
-        await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, document.origin_file_dir))
+        origin_file_dir = normalize_upload_path(document.origin_file_dir) or document.origin_file_dir
+        await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, origin_file_dir))
 
 
 async def _reset_source_documents_for_document(db: AsyncSession, document_id: int, library_type: str):
@@ -90,7 +92,8 @@ async def _cleanup_review_origin_file(review: Document_review):
     if review.action_type != 1 or not getattr(review, "origin_file_dir", None):
         return
     config_base_dir = os.getenv("BASE_DIR", "/")
-    await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, review.origin_file_dir))
+    origin_file_dir = normalize_upload_path(review.origin_file_dir) or review.origin_file_dir
+    await asyncio.to_thread(delete_file_if_exists, os.path.join(config_base_dir, origin_file_dir))
 
 IMAGE_FIELDS = [
     "image_urls",
