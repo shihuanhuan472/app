@@ -1,6 +1,6 @@
 # schemas.py
 from pydantic import BaseModel
-from typing import Optional, List, TypeVar, Generic
+from typing import Any, Dict, Optional, List, TypeVar, Generic
 from datetime import datetime
 
 
@@ -52,7 +52,37 @@ class Page(BaseModel):
     page: Optional[int] = 1
     size: Optional[int] = 6
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[str]] = None
+    tag: Optional[List[Any]] = None
+
+
+class TagCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class TagUpdate(BaseModel):
+    id: int
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class TagQuery(BaseModel):
+    data: Optional[str] = ""
+    page: Optional[int] = 1
+    size: Optional[int] = 10
+
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    document_count: Optional[int] = 0
+    created_by: Optional[int] = None
+    created_time: Optional[datetime] = None
+    updated_time: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 class UserLogin(BaseModel):
     username: str
@@ -64,10 +94,32 @@ class UserChangePassword(BaseModel):
     new_password: str
 
 # 文档相关的Schema
+class KnowledgeSectionCreate(BaseModel):
+    section_index: Optional[int] = None
+    section_title: Optional[str] = None
+    # 前端展示用章节编号，例如 1、2、1.1、1.1.1。
+    section_type: Optional[str] = "1"
+    plain_text: Optional[str] = None
+    image_urls: Optional[List[str]] = None
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class KnowledgeSectionResponse(KnowledgeSectionCreate):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 class DocumentCreate(BaseModel):
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[str]] = None
+    tag: Optional[List[Any]] = None
     title: str
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    sections: Optional[List[KnowledgeSectionCreate]] = None
     problem_intro: Optional[str] = None
     image_urls: Optional[str] = None
     causes: Optional[str] = None
@@ -88,6 +140,8 @@ class DocumentResponse(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[str]] = None
     title: str
+    section_ids: Optional[List[int]] = None
+    sections: Optional[List[KnowledgeSectionResponse]] = None
     contributor_id: Optional[int]
     contributor_name: Optional[str]
     first_edit_date: Optional[datetime]
@@ -117,7 +171,7 @@ class DocumentReviewRequest(BaseModel):
     action_type: int
     document_id: Optional[int] = None
     document_library_type: Optional[str] = "breakdown"
-    tag: Optional[List[str]] = None
+    tag: Optional[List[Any]] = None
     review_comment: Optional[str] = None
 
     title: Optional[str] = None
@@ -156,7 +210,7 @@ class DocumentReviewResponse(DocumentResponse):
 class DocumentQuery(BaseModel):
     data: str
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[str]] = None
+    tag: Optional[List[Any]] = None
     page: Optional[int] = 1
     size: Optional[int] = 6
 
@@ -204,7 +258,7 @@ class AnalyzeRequest(BaseModel):
     file_name: List[str]
     submit_for_review: Optional[bool] = False
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[str]] = None
+    tag: Optional[List[Any]] = None
 
 # 对话相关的Schema
 class ConversationCreate(BaseModel):

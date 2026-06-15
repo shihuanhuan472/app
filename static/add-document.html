@@ -490,7 +490,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="documentTags">标签</label>
-                                <input type="text" id="documentTags" class="form-control" placeholder="多个标签用逗号分隔，例如：机械, 电气">
+                                <div id="documentTags" class="tag-select"></div>
                             </div>
                         </div>
                     </div>
@@ -739,6 +739,9 @@
                 return;
             }
             applyModeUI();
+            TagSelector.init('documentTags', {
+                placeholder: '请选择标签'
+            });
 
             // 初始化图片上传功能
             // initImageUpload();
@@ -1300,9 +1303,7 @@
 
         // 提交文档
         function parseDocumentTags() {
-            const rawTags = document.getElementById('documentTags').value.trim();
-            if (!rawTags) return [];
-            return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+            return TagSelector.getSelected('documentTags');
         }
 
         async function submitDocument() {

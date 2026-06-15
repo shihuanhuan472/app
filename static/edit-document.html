@@ -432,6 +432,10 @@
                         <label for="title" class="required">文档标题</label>
                         <input type="text" id="title" name="title" value="${(doc.title || '').replace(/"/g, '&quot;')}" required placeholder="请输入文档标题">
                     </div>
+                    <div class="form-group">
+                        <label for="documentTags">标签</label>
+                        <div id="documentTags" class="tag-select"></div>
+                    </div>
             `;
 
             fields.forEach(f => {
@@ -466,6 +470,10 @@
             `;
 
             document.getElementById('editFormContainer').innerHTML = formHtml;
+            TagSelector.init('documentTags', {
+                selected: normalizeDocumentTags(doc.tag),
+                placeholder: '请选择标签'
+            });
             initAllImageUploads();
             renderAllExistingPreviews();
 
@@ -641,6 +649,7 @@
 
             const formData = {
                 title: document.getElementById('title').value.trim(),
+                tag: parseDocumentTags(),
                 problem_intro: document.getElementById('problem_intro').value.trim(),
                 causes: document.getElementById('causes').value.trim(),
                 evaluation: document.getElementById('evaluation').value.trim(),
@@ -714,6 +723,27 @@
 
         window.cancelEdit = cancelEdit;
         window.updateDocument = updateDocument;
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function parseDocumentTags() {
+            return TagSelector.getSelected('documentTags');
+        }
     </script>
 </body>
 </html>

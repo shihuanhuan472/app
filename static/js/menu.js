@@ -30,9 +30,11 @@ class MenuManager {
         const isTechnician = this.isUserTechnician();
         const isReviewer = this.isUserReviewer();
         const canReview = isAdmin || isReviewer;
+        const canManageTags = isAdmin || isTechnician;
 
         this.ensureSourceDocumentMenuLink();
         this.ensureReviewMenuLink();
+        this.ensureTagManagementMenuLink();
         this.normalizeMenuOrder();
 
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
@@ -40,6 +42,7 @@ class MenuManager {
         const mySubmissionsLink = document.querySelector('a[href="my-submissions.html"]');
         const reviewCenterLink = document.querySelector('a[href="document-review.html"]');
         const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
+        const tagManagementLink = document.querySelector('a[href="tag-management.html"]');
 
         if (userManagementLink) {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
@@ -61,6 +64,10 @@ class MenuManager {
         // "Document Review" is only for reviewer/admin
         if (reviewCenterLink) {
             reviewCenterLink.style.display = canReview ? 'flex' : 'none';
+        }
+
+        if (tagManagementLink) {
+            tagManagementLink.style.display = canManageTags ? 'flex' : 'none';
         }
     }
 
@@ -136,6 +143,32 @@ class MenuManager {
         }
     }
 
+    ensureTagManagementMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="tag-management.html"]');
+        if (exists) return;
+
+        const tagLink = document.createElement('a');
+        tagLink.href = 'tag-management.html';
+        tagLink.className = 'nav-item';
+        tagLink.style.display = 'none';
+        tagLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-tags"></i></span>
+            <span>标签管理</span>
+        `;
+
+        const userManagementLink = navMenu.querySelector('a[href="user-management.html"]');
+        if (userManagementLink && userManagementLink.nextElementSibling) {
+            navMenu.insertBefore(tagLink, userManagementLink.nextElementSibling);
+        } else if (userManagementLink) {
+            navMenu.appendChild(tagLink);
+        } else {
+            navMenu.appendChild(tagLink);
+        }
+    }
+
     normalizeMenuOrder() {
         const navMenu = document.querySelector('.nav-menu');
         if (!navMenu) return;
@@ -147,6 +180,7 @@ class MenuManager {
             'document-review.html',
             'ai-assist.html',
             'user-management.html',
+            'tag-management.html',
             'user-profile.html',
         ];
 

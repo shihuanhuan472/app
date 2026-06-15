@@ -35,6 +35,7 @@ from cxx
 """
 import os
 import uuid
+import json
 import logging
 from dotenv import load_dotenv
 load_dotenv()
@@ -47,18 +48,40 @@ from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents
+from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents, tags
 # from routers import auth, conversation_v1
 from routers import documents
-from models import Base
-from database import engine
+from models import Base, DocumentBreakdown, DocumentKnowledge
+from database import AsyncSessionLocal, engine
 from starlette.types import Scope
-from sqlalchemy import text
+from sqlalchemy import func, select, text
+from utils.tag_service import normalize_tag_names, set_document_tag_names
 from utils.app_exceptions import AppException
 from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
 
 logger = logging.getLogger(__name__)
+
+
+LEGACY_KNOWLEDGE_BREAKDOWN_COLUMNS = (
+    "problem_intro",
+    "image_urls_problem_intro",
+    "causes",
+    "image_urls_causes",
+    "evaluation",
+    "image_urls_evaluation",
+    "inspection",
+    "image_urls_inspection",
+    "solutions",
+    "image_urls_solutions",
+    "key_points",
+    "image_urls_key_points",
+)
+
+LEGACY_TAG_RELATION_TABLES = {
+    "document_breakdown_tags": "document_breakdown",
+    "document_knowledge_tags": "document_knowledge",
+}
 
 # 创建数据库表（使用异步引擎）
 async def init_db():
@@ -66,38 +89,308 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
+async def _table_exists(conn, table_name: str) -> bool:
+    result = await conn.execute(
+        text(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+            """
+        ),
+        {"table_name": table_name},
+    )
+    return int(result.scalar_one() or 0) > 0
+
+
+async def _column_exists(conn, table_name: str, column_name: str) -> bool:
+    result = await conn.execute(
+        text(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+              AND COLUMN_NAME = :column_name
+            """
+        ),
+        {"table_name": table_name, "column_name": column_name},
+    )
+    return int(result.scalar_one() or 0) > 0
+
+
+async def _column_type(conn, table_name: str, column_name: str) -> str:
+    result = await conn.execute(
+        text(
+            """
+            SELECT COLUMN_TYPE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+              AND COLUMN_NAME = :column_name
+            """
+        ),
+        {"table_name": table_name, "column_name": column_name},
+    )
+    return str(result.scalar_one_or_none() or "").lower()
+
+
+async def _ensure_mediumtext_column(conn, table_name: str, column_name: str):
+    if not await _table_exists(conn, table_name) or not await _column_exists(conn, table_name, column_name):
+        return
+    column_type = await _column_type(conn, table_name, column_name)
+    if column_type not in {"mediumtext", "longtext"}:
+        await conn.execute(text(f"ALTER TABLE `{table_name}` MODIFY COLUMN `{column_name}` MEDIUMTEXT NULL"))
+
+
+async def _index_exists(conn, table_name: str, index_name: str) -> bool:
+    result = await conn.execute(
+        text(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+              AND INDEX_NAME = :index_name
+            """
+        ),
+        {"table_name": table_name, "index_name": index_name},
+    )
+    return int(result.scalar_one() or 0) > 0
+
+
+def _parse_json_list(raw_value):
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, str):
+        text_value = raw_value.strip()
+        if not text_value:
+            return []
+        try:
+            raw_value = json.loads(text_value)
+        except Exception:
+            raw_value = [item.strip() for item in text_value.replace("，", ",").split(",")]
+    if not isinstance(raw_value, (list, tuple, set)):
+        raw_value = [raw_value]
+    result = []
+    seen = set()
+    for item in raw_value:
+        if item is None:
+            continue
+        text_value = str(item).strip()
+        if not text_value:
+            continue
+        normalized = int(text_value) if text_value.isdigit() else text_value
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+async def _merge_and_drop_legacy_tag_relation_table(conn, relation_table: str, document_table: str):
+    """旧版标签关联表不再使用；删除前把其中 tag_id 合并回文档 JSON tag。"""
+    if not await _table_exists(conn, relation_table):
+        return
+    if not await _table_exists(conn, document_table) or not await _column_exists(conn, document_table, "tag"):
+        await conn.execute(text(f"DROP TABLE IF EXISTS `{relation_table}`"))
+        return
+
+    relation_rows = await conn.execute(
+        text(f"SELECT document_id, tag_id FROM `{relation_table}` WHERE document_id IS NOT NULL AND tag_id IS NOT NULL")
+    )
+    relation_tags = {}
+    for document_id, tag_id in relation_rows.all():
+        relation_tags.setdefault(int(document_id), []).append(int(tag_id))
+
+    for document_id, tag_ids in relation_tags.items():
+        raw_tag = (
+            await conn.execute(
+                text(f"SELECT tag FROM `{document_table}` WHERE id = :document_id"),
+                {"document_id": document_id},
+            )
+        ).scalar_one_or_none()
+        merged = _parse_json_list(raw_tag)
+        seen = set(merged)
+        for tag_id in tag_ids:
+            if tag_id not in seen:
+                merged.append(tag_id)
+                seen.add(tag_id)
+        await conn.execute(
+            text(f"UPDATE `{document_table}` SET tag = :tag WHERE id = :document_id"),
+            {"tag": json.dumps(merged, ensure_ascii=False), "document_id": document_id},
+        )
+
+    await conn.execute(text(f"DROP TABLE IF EXISTS `{relation_table}`"))
+
+
+async def _cleanup_legacy_tag_relation_tables(conn):
+    for relation_table, document_table in LEGACY_TAG_RELATION_TABLES.items():
+        await _merge_and_drop_legacy_tag_relation_table(conn, relation_table, document_table)
+
+
+async def _ensure_document_knowledge_schema(conn):
+    if not await _table_exists(conn, "document_knowledge"):
+        return
+
+    if not await _column_exists(conn, "document_knowledge", "library_type"):
+        await conn.execute(
+            text(
+                "ALTER TABLE document_knowledge "
+                "ADD COLUMN library_type VARCHAR(32) NOT NULL DEFAULT 'knowledge' AFTER id"
+            )
+        )
+    await conn.execute(text("UPDATE document_knowledge SET library_type = 'knowledge' WHERE library_type IS NULL OR library_type = ''"))
+    if not await _index_exists(conn, "document_knowledge", "idx_document_knowledge_library_type"):
+        await conn.execute(text("CREATE INDEX idx_document_knowledge_library_type ON document_knowledge (library_type)"))
+
+    if not await _column_exists(conn, "document_knowledge", "sections"):
+        await conn.execute(text("ALTER TABLE document_knowledge ADD COLUMN sections JSON NULL"))
+
+    await _ensure_mediumtext_column(conn, "document_knowledge", "image_urls")
+
+    summary_exists = await _column_exists(conn, "document_knowledge", "summary")
+    content_exists = await _column_exists(conn, "document_knowledge", "content")
+    if await _table_exists(conn, "knowledge_document_sections") and (summary_exists or content_exists):
+        text_exprs = []
+        if content_exists:
+            text_exprs.append("NULLIF(dk.content, '')")
+        if summary_exists:
+            text_exprs.append("NULLIF(dk.summary, '')")
+        plain_text_expr = f"COALESCE({', '.join(text_exprs)})"
+        await conn.execute(
+            text(
+                f"""
+                INSERT INTO knowledge_document_sections
+                    (document_id, document_library_type, section_index, section_title, section_type,
+                     plain_text, image_urls, char_start, char_end, metadata, created_time, updated_time)
+                SELECT dk.id, 'knowledge', 0, COALESCE(NULLIF(dk.title, ''), '文档正文'), '1',
+                       {plain_text_expr}, JSON_ARRAY(), 0, CHAR_LENGTH({plain_text_expr}), JSON_OBJECT(), NOW(), NOW()
+                FROM document_knowledge dk
+                WHERE {plain_text_expr} IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM knowledge_document_sections ks WHERE ks.document_id = dk.id
+                  )
+                """
+            )
+        )
+
+    existing_legacy_columns = [
+        column_name
+        for column_name in LEGACY_KNOWLEDGE_BREAKDOWN_COLUMNS
+        if await _column_exists(conn, "document_knowledge", column_name)
+    ]
+    if existing_legacy_columns:
+        text_parts = []
+        legacy_text_fields = [
+            ("problem_intro", "问题简介"),
+            ("causes", "原因"),
+            ("evaluation", "评估"),
+            ("inspection", "检查"),
+            ("solutions", "解决方案"),
+            ("key_points", "总结"),
+        ]
+        for column_name, label in legacy_text_fields:
+            if column_name in existing_legacy_columns:
+                text_parts.append(
+                    f"IF(NULLIF(dk.{column_name}, '') IS NULL, NULL, CONCAT('{label}：', dk.{column_name}))"
+                )
+        if text_parts and await _table_exists(conn, "knowledge_document_sections"):
+            legacy_content_expr = f"NULLIF(CONCAT_WS('\\n\\n', {', '.join(text_parts)}), '')"
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO knowledge_document_sections
+                        (document_id, document_library_type, section_index, section_title, section_type,
+                         plain_text, image_urls, char_start, char_end, metadata, created_time, updated_time)
+                    SELECT dk.id, 'knowledge', 0, COALESCE(NULLIF(dk.title, ''), '历史知识内容'), '1',
+                           {legacy_content_expr}, JSON_ARRAY(), 0, CHAR_LENGTH({legacy_content_expr}), JSON_OBJECT(), NOW(), NOW()
+                    FROM document_knowledge dk
+                    WHERE {legacy_content_expr} IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM knowledge_document_sections ks WHERE ks.document_id = dk.id
+                      )
+                    """
+                )
+            )
+
+        image_columns = [
+            column_name
+            for column_name in (
+                "image_urls_problem_intro",
+                "image_urls_causes",
+                "image_urls_evaluation",
+                "image_urls_inspection",
+                "image_urls_solutions",
+                "image_urls_key_points",
+            )
+            if column_name in existing_legacy_columns
+        ]
+        if image_columns:
+            await conn.execute(
+                text(
+                    f"""
+                    UPDATE document_knowledge
+                    SET image_urls = NULLIF(CONCAT_WS(', ', {', '.join(f"NULLIF({column_name}, '')" for column_name in image_columns)}), '')
+                    WHERE (image_urls IS NULL OR image_urls = '')
+                    """
+                )
+            )
+
+        for column_name in existing_legacy_columns:
+            await conn.execute(text(f"ALTER TABLE document_knowledge DROP COLUMN {column_name}"))
+
+    for column_name in ("summary", "content"):
+        if await _column_exists(conn, "document_knowledge", column_name):
+            await conn.execute(text(f"ALTER TABLE document_knowledge DROP COLUMN {column_name}"))
+
+    if await _table_exists(conn, "knowledge_document_sections"):
+        await conn.execute(
+            text(
+                """
+                UPDATE document_knowledge dk
+                LEFT JOIN (
+                    SELECT document_id, JSON_ARRAYAGG(id) AS section_ids
+                    FROM knowledge_document_sections
+                    GROUP BY document_id
+                ) ks ON ks.document_id = dk.id
+                SET dk.sections = COALESCE(ks.section_ids, JSON_ARRAY())
+                WHERE dk.sections IS NULL
+                """
+            )
+        )
+
+
+async def _ensure_knowledge_section_schema(conn):
+    await _ensure_mediumtext_column(conn, "knowledge_document_sections", "plain_text")
+    if await _table_exists(conn, "knowledge_document_sections") and await _column_exists(conn, "knowledge_document_sections", "section_type"):
+        await conn.execute(
+            text(
+                """
+                UPDATE knowledge_document_sections
+                SET section_type = CAST(section_index + 1 AS CHAR)
+                WHERE section_type IS NULL
+                   OR section_type = ''
+                   OR section_type IN ('knowledge_section', 'document_start', 'heading', 'paragraph', 'image')
+                   OR section_type LIKE 'level\\_%'
+                """
+            )
+        )
+
+
 async def ensure_document_tables_for_library_split():
     async with engine.begin() as conn:
         for table_name in ("document_breakdown", "document_knowledge"):
-            tag_column_result = await conn.execute(
-                text(
-                    """
-                    SELECT COUNT(*) AS cnt
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = :table_name
-                      AND COLUMN_NAME = 'tag'
-                    """
-                ),
-                {"table_name": table_name},
-            )
-            if int(tag_column_result.scalar_one() or 0) == 0:
+            if not await _column_exists(conn, table_name, "tag"):
                 await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN tag JSON NULL"))
 
-            index_result = await conn.execute(
-                text(
-                    """
-                    SELECT COUNT(*) AS cnt
-                    FROM INFORMATION_SCHEMA.STATISTICS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = :table_name
-                      AND INDEX_NAME = :index_name
-                    """
-                ),
-                {"table_name": table_name, "index_name": f"idx_{table_name}_is_deleted"},
-            )
-            if int(index_result.scalar_one() or 0) == 0:
+            if not await _index_exists(conn, table_name, f"idx_{table_name}_is_deleted"):
                 await conn.execute(text(f"CREATE INDEX idx_{table_name}_is_deleted ON {table_name} (is_deleted)"))
+
+        await _ensure_knowledge_section_schema(conn)
+        await _ensure_document_knowledge_schema(conn)
+        await _cleanup_legacy_tag_relation_tables(conn)
 
 
 async def ensure_review_library_columns():
@@ -240,17 +533,7 @@ async def ensure_message_token_count_column():
 
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
-        legacy_table_result = await conn.execute(
-            text(
-                """
-                SELECT COUNT(*) AS cnt
-                FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'documents'
-                """
-            )
-        )
-        if int(legacy_table_result.scalar_one() or 0) == 0:
+        if not await _table_exists(conn, "documents"):
             return
 
         breakdown_count_result = await conn.execute(text("SELECT COUNT(*) FROM document_breakdown"))
@@ -277,6 +560,19 @@ async def migrate_legacy_documents_to_breakdown():
                 """
             )
         )
+
+
+async def migrate_legacy_tags_to_tag_tables():
+    async with AsyncSessionLocal() as db:
+        for document_model in (DocumentBreakdown, DocumentKnowledge):
+            result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
+            documents = result.scalars().all()
+            for document in documents:
+                raw_tag = getattr(document, "tag", [])
+                legacy_tag_names = normalize_tag_names(raw_tag)
+                if legacy_tag_names:
+                    await set_document_tag_names(db, document, raw_tag, created_by=document.contributor_id)
+        await db.commit()
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 class CORSStaticFiles(StaticFiles):
@@ -313,6 +609,7 @@ async def on_startup():
     await ensure_source_document_library_columns()
     await ensure_message_token_count_column()
     await migrate_legacy_documents_to_breakdown()
+    await migrate_legacy_tags_to_tag_tables()
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(
@@ -343,6 +640,7 @@ app.include_router(admin.router)
 app.include_router(documents.router)
 app.include_router(review.router)
 app.include_router(source_documents.router)
+app.include_router(tags.router)
 app.include_router(conversation.router)
 app.include_router(message.router)
 app.include_router(conversation_v1.router)

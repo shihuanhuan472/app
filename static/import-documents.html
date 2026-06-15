@@ -281,7 +281,7 @@
                         </select>
                     </label>
                     <label>标签
-                        <input type="text" id="documentTags" class="form-control" placeholder="机械, 电气">
+                        <div id="documentTags" class="tag-select"></div>
                     </label>
                 </div>
                 <h4>已上传的文件（可勾选需要解析的）</h4>
@@ -352,9 +352,7 @@
     }
 
     function parseDocumentTags() {
-        const rawTags = document.getElementById('documentTags').value.trim();
-        if (!rawTags) return [];
-        return rawTags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+        return TagSelector.getSelected('documentTags');
     }
 
     // 初始化
@@ -394,6 +392,9 @@
             finishBtn.textContent = '完成，返回源文档库';
         }
         applyPageMode();
+        TagSelector.init('documentTags', {
+            placeholder: '请选择标签'
+        });
 
         // 点击上传区域
         uploadArea.addEventListener('click', () => fileInput.click());
