@@ -478,7 +478,9 @@
         try {
             const url = `${this.baseUrl}${endpoint}`;
             const formData = new FormData();
-            files.forEach(file => formData.append('files', file));
+            files.forEach(file => {
+                formData.append('files', file, file.name);
+            });
 
             const options = {
                 method: 'POST',

@@ -56,6 +56,14 @@ def get_file_extension(filename: Optional[str]) -> str:
     return os.path.splitext(filename or "")[-1].lower()
 
 
+def normalize_uploaded_relative_filename(filename: Optional[str]) -> str:
+    basename = Path(str(filename or "").replace("\\", "/")).name.strip()
+    safe_name = "".join(char for char in basename if char not in '<>:"/\\|?*').strip()
+    if not safe_name or safe_name in {".", ".."}:
+        return f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return safe_name
+
+
 def get_document_category(file_ext: str) -> str:
     return EXTENSION_CATEGORY.get(file_ext.lower(), "other")
 
@@ -96,8 +104,11 @@ def build_document_storage_path(
 ) -> Tuple[str, str, str]:
     file_ext = get_file_extension(original_filename)
     category = get_document_category(file_ext)
-    original_path = Path(original_filename or f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}")
-    safe_stem = "".join(char for char in original_path.stem if char not in '<>:"/\\|?*').strip()
+    safe_relative_filename = normalize_uploaded_relative_filename(
+        original_filename or f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}"
+    )
+    original_path = Path(safe_relative_filename)
+    safe_stem = original_path.stem.strip()
     safe_ext = file_ext or original_path.suffix
     if not safe_stem:
         safe_stem = f"document_{datetime.now().strftime('%Y%m%d_%H%M%S')}"

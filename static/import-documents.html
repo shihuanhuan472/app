@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -64,6 +64,7 @@
             cursor: pointer;
             transition: all 0.3s;
             margin-bottom: 20px;
+            position: relative;
         }
         .upload-area:hover {
             border-color: #4a9eff;
@@ -223,9 +224,13 @@
                 <div class="page-subtitle">上传文件并解析为知识库文档</div>
             </div>
             <div class="header-actions">
-                <a href="main.html" class="btn btn-secondary">
+                <button type="button" class="btn btn-secondary" id="chooseFolderBtn">
+                    <i class="fas fa-folder-open"></i> 选择文件夹
+                </button>
+                <a href="main.html" class="btn btn-secondary" id="backToKnowledgeBtn">
                     <i class="fas fa-arrow-left"></i> 返回知识库
                 </a>
+                <input type="file" id="folderInput" multiple webkitdirectory directory style="display: none;">
             </div>
         </div>
 
@@ -372,6 +377,8 @@
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        const chooseFolderBtn = document.getElementById('chooseFolderBtn');
         const uploadBtn = document.getElementById('uploadBtn');
         const clearSelectionBtn = document.getElementById('clearSelectionBtn');
         const selectedFilesListDiv = document.getElementById('selectedFilesList');
@@ -398,6 +405,10 @@
 
         // 点击上传区域
         uploadArea.addEventListener('click', () => fileInput.click());
+        chooseFolderBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            folderInput.click();
+        });
 
         // 拖拽上传
         uploadArea.addEventListener('dragover', (e) => {
@@ -409,11 +420,19 @@
             uploadArea.style.borderColor = '#d9e3f0';
             uploadArea.style.backgroundColor = '#f8f9fa';
         });
-        uploadArea.addEventListener('drop', (e) => {
+        uploadArea.addEventListener('drop', async (e) => {
             e.preventDefault();
             uploadArea.style.borderColor = '#d9e3f0';
             uploadArea.style.backgroundColor = '#f8f9fa';
-            handleFileSelect(e.dataTransfer.files);
+            uploadArea.style.pointerEvents = 'none';
+            try {
+                const droppedFiles = await getDroppedFiles(e.dataTransfer);
+                handleFileSelect(droppedFiles);
+            } catch (error) {
+                Utils.showMessage('读取文件夹失败：' + (error.message || '未知错误'), 'error');
+            } finally {
+                uploadArea.style.pointerEvents = '';
+            }
         });
 
         // 文件选择变化
@@ -421,24 +440,85 @@
             handleFileSelect(fileInput.files);
             fileInput.value = ''; // 允许重复选择相同文件
         });
+        folderInput.addEventListener('change', () => {
+            handleFileSelect(folderInput.files);
+            folderInput.value = '';
+        });
+
+        function getDisplayName(file) {
+            return file.name || '';
+        }
+
+        async function getDroppedFiles(dataTransfer) {
+            const items = Array.from(dataTransfer.items || []);
+            const entries = items
+                .map(item => item.webkitGetAsEntry && item.webkitGetAsEntry())
+                .filter(Boolean);
+
+            if (!entries.length) {
+                return Array.from(dataTransfer.files || []);
+            }
+
+            const files = [];
+            for (const entry of entries) {
+                files.push(...await readEntryFiles(entry));
+            }
+            return files;
+        }
+
+        function readEntryFiles(entry, parentPath = '') {
+            return new Promise((resolve, reject) => {
+                if (entry.isFile) {
+                    entry.file(file => resolve([file]), reject);
+                    return;
+                }
+
+                if (!entry.isDirectory) {
+                    resolve([]);
+                    return;
+                }
+
+                const reader = entry.createReader();
+                const entries = [];
+                const readBatch = () => {
+                    reader.readEntries(async batch => {
+                        if (!batch.length) {
+                            try {
+                                const nested = await Promise.all(
+                                    entries.map(child => readEntryFiles(child, `${parentPath}${entry.name}/`))
+                                );
+                                resolve(nested.flat());
+                            } catch (error) {
+                                reject(error);
+                            }
+                            return;
+                        }
+                        entries.push(...batch);
+                        readBatch();
+                    }, reject);
+                };
+                readBatch();
+            });
+        }
 
         // 处理选择的文件
         function handleFileSelect(files) {
             // 简单限制：每个文件不超过20MB
             const MAX_SIZE = 20 * 1024 * 1024;
             const newFiles = [];
-            for (let file of files) {
+            for (let file of Array.from(files)) {
+                const displayName = getDisplayName(file);
                 if (file.size > MAX_SIZE) {
-                    Utils.showMessage(`文件 "${file.name}" 超过20MB，已忽略`, 'warning');
+                    Utils.showMessage(`文件 "${displayName}" 超过20MB，已忽略`, 'warning');
                     continue;
                 }
-                const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+                const ext = displayName.includes('.') ? displayName.split('.').pop().toLowerCase() : '';
                 if (!ALLOWED_FILE_EXTENSIONS.has(ext)) {
-                    Utils.showMessage(`文件 "${file.name}" 格式不支持，已忽略`, 'warning');
+                    Utils.showMessage(`文件 "${displayName}" 格式不支持，已忽略`, 'warning');
                     continue;
                 }
                 // 避免重复添加（按名称和大小粗略判断）
-                const exists = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+                const exists = selectedFiles.some(f => getDisplayName(f) === displayName && f.size === file.size);
                 if (!exists) {
                     newFiles.push(file);
                 }
@@ -469,7 +549,7 @@
             selectedFiles.forEach((file, index) => {
                 html += `
                     <div class="file-item" data-index="${index}">
-                        <span class="file-name"><i class="fas fa-file"></i> ${file.name}</span>
+                        <span class="file-name"><i class="fas fa-file"></i> ${getDisplayName(file)}</span>
                         <span class="file-size">${formatFileSize(file.size)}</span>
                         <div class="file-actions">
                             <button class="remove-file" data-index="${index}"><i class="fas fa-trash"></i> 移除</button>
@@ -522,12 +602,15 @@
                 const errorNames = result.error_origin_filename || [];
 
                 // 更新 uploadedFiles
-                uploadedFiles = successNames.map((name, idx) => ({
-                    name: name,
-                    url: successUrls[idx],
-                    size: selectedFiles.find(f => f.name === name).size || 0,
-                    type: selectedFiles.find(f => f.name === name).type || ''
-                }));
+                uploadedFiles = successNames.map((name, idx) => {
+                    const originalFile = selectedFiles.find(f => getDisplayName(f) === name || f.name === name) || {};
+                    return {
+                        name: name,
+                        url: successUrls[idx],
+                        size: originalFile.size || 0,
+                        type: originalFile.type || ''
+                    };
+                });
                 uploadErrorFiles = errorNames;
 
                 // 显示上传结果
@@ -536,13 +619,13 @@
                 const errorList = document.getElementById('uploadErrorList');
 
                 if (successNames.length) {
-                    let successHtml = '<div style="font-weight:500; margin-bottom:8px;">✅ 成功：</div>';
+                    let successHtml = '<div style="font-weight:500; margin-bottom:8px;">成功：</div>';
                     successNames.forEach((name, i) => {
                         const fileUrl = getFileUrl(successUrls[i]);
                         const isImage = isImageFile(name);
                         const safeName = name.replace(/'/g, "\\'");
 
-                        // 根据是否支持预览决定是否显示“预览”链接
+                        // 根据是否支持预览决定是否显示预览链接
                         const showPreview = isPreviewSupported(name);
                         const previewLink = showPreview ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
                         const downloadLink = `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>`;
@@ -562,7 +645,7 @@
                 }
 
                 if (errorNames.length) {
-                    let errorHtml = '<div style="font-weight:500; margin-bottom:8px; color:#ef4444;">❌ 失败：</div>';
+                    let errorHtml = '<div style="font-weight:500; margin-bottom:8px; color:#ef4444;">失败：</div>';
                     errorNames.forEach(name => {
                         errorHtml += `<div class="error-item">${name}</div>`;
                     });
@@ -571,7 +654,7 @@
                     errorList.innerHTML = '';
                 }
 
-                // 显示“下一步”按钮（只要有成功文件）
+                // 显示下一步按钮（只要有成功文件）
                 if (successNames.length) {
                     goToStep2Btn.style.display = 'inline-block';
                 } else {
@@ -667,10 +750,10 @@
                 const errorDiv = document.getElementById('analyzeErrorList');
 
                 successDiv.innerHTML = successNames.length
-                    ? '<div style="font-weight:500;">✅ 解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
+                    ? '<div style="font-weight:500;">解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
                     : '';
                 errorDiv.innerHTML = errorNames.length
-                    ? '<div style="font-weight:500; color:#ef4444;">❌ 解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
+                    ? '<div style="font-weight:500; color:#ef4444;">解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
                     : '';
 
                 // 从 uploadedFiles 中移除已解析成功的文件
@@ -679,15 +762,15 @@
                 // 重新渲染已上传文件列表
                 renderUploadedFilesList();
 
-                // 如果列表为空，则隐藏“开始解析”按钮和全选选项，或显示提示
+                // 如果列表为空，则隐藏开始解析按钮和全选选项，或显示提示
                 if (uploadedFiles.length === 0) {
                     // 禁用解析按钮，隐藏全选
                     analyzeBtn.disabled = true;
                     document.getElementById('selectAllCheckbox').disabled = true;
-                    // 可选的：在列表区域显示提示
+                    // 在列表区域显示提示
                     document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的文件。</div>';
                 } else {
-                    // 重置全选为勾选状态（方便继续解析剩余文件）
+                    // 重置全选为勾选状态，方便继续解析剩余文件
                     document.getElementById('selectAllCheckbox').checked = true;
                     document.getElementById('selectAllCheckbox').disabled = false;
                 }
@@ -708,7 +791,7 @@
         function applyPageMode() {
             const pageTitle = document.querySelector('.page-title');
             const pageSubtitle = document.querySelector('.page-subtitle');
-            const backBtn = document.querySelector('.header-actions .btn');
+            const backBtn = document.getElementById('backToKnowledgeBtn');
             if (isSourcePendingMode) {
                 if (pageTitle) pageTitle.textContent = '批量解析文档';
                 if (pageSubtitle) pageSubtitle.textContent = '从源文档库选择未解析文档并写入知识库或故障库';

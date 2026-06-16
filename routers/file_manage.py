@@ -28,6 +28,7 @@ from utils.file_classifier import (
     get_document_category,
     get_file_extension,
     is_upload_content_valid,
+    normalize_uploaded_relative_filename,
 )
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
@@ -41,6 +42,13 @@ DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": Document
 def _normalize_library_type(library_type: str) -> str:
     """把 dataset_id 或请求体里的库类型统一成固定值，避免批量接口写错文档表。"""
     return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _title_from_source_filename(file_name: str) -> str:
+    """导入标题优先使用源文件名，去掉目录和扩展名。"""
+    filename = os.path.basename(str(file_name or "").replace("\\", "/"))
+    title = os.path.splitext(filename)[0].strip()
+    return title or filename.strip() or "未命名文档"
 
 
 def _get_document_model(library_type: str):
@@ -188,28 +196,29 @@ async def upload_files(dataset_id: str = "",
     final_result = []
     success_file_url = []
     pending_source_documents = []
-    upload_file_names = [file.filename for file in files]
+    upload_file_names = [normalize_uploaded_relative_filename(file.filename) for file in files]
     duplicate_file_names = sorted({name for name in upload_file_names if upload_file_names.count(name) > 1})
     if duplicate_file_names:
         return ResultNew.result(400, f"源文件名称重复：{', '.join(duplicate_file_names)}", None)
 
     for file in files:
-        file_ext = get_file_extension(file.filename)
+        normalized_filename = normalize_uploaded_relative_filename(file.filename)
+        file_ext = get_file_extension(normalized_filename)
         if file_ext not in ALLOWED_EXTENSIONS:
             for file_tmp_url in success_file_url:
                 url = os.path.join(document_base_dir, file_tmp_url)
                 if os.path.exists(url):
                     os.remove(url)
 
-            return ResultNew.result(400, f"{file.filename}格式不支持", None)
+            return ResultNew.result(400, f"{normalized_filename}格式不支持", None)
 
         try:
-            if await _source_filename_exists(db, file.filename):
+            if await _source_filename_exists(db, normalized_filename):
                 for file_tmp_url in success_file_url:
                     url = os.path.join(document_base_dir, file_tmp_url)
                     if os.path.exists(url):
                         os.remove(url)
-                return ResultNew.result(400, f"{file.filename}已存在，请勿重复上传", None)
+                return ResultNew.result(400, f"{normalized_filename}已存在，请勿重复上传", None)
 
             contents = await file.read()
             if not is_upload_content_valid(file_ext, contents):
@@ -218,18 +227,18 @@ async def upload_files(dataset_id: str = "",
                     if os.path.exists(url):
                         os.remove(url)
 
-                return ResultNew.result(400, f"{file.filename}文件内容与格式不匹配", None)
+                return ResultNew.result(400, f"{normalized_filename}文件内容与格式不匹配", None)
 
             url, relative_path, _ = build_document_storage_path(
                 document_base_dir,
                 source_relative_dir,
-                file.filename,
+                normalized_filename,
             )
             async with aiofiles.open(url, "wb") as f:
                 await f.write(contents)
 
             upload_document_tmp = UploadDocumentRequestNew(
-                name=file.filename,
+                name=normalized_filename,
                 size=file.size or len(contents),
                 type=file_ext[1:],
                 location=relative_path,
@@ -238,7 +247,7 @@ async def upload_files(dataset_id: str = "",
             success_file_url.append(relative_path)
             final_result.append(upload_document_tmp)
             pending_source_documents.append(SourceDocument(
-                origin_file_name=file.filename,
+                origin_file_name=normalized_filename,
                 stored_file_path=relative_path,
                 file_ext=file_ext,
                 file_category=get_document_category(file_ext),
@@ -254,7 +263,7 @@ async def upload_files(dataset_id: str = "",
                 url = os.path.join(document_base_dir, file_tmp_url)
                 if os.path.exists(url):
                     os.remove(url)
-            return ResultNew.result(101, f"文件{file.filename}上传失败，请稍后重试", None)
+            return ResultNew.result(101, f"文件{normalized_filename}上传失败，请稍后重试", None)
 
     for source_document in pending_source_documents:
         db.add(source_document)
@@ -310,10 +319,11 @@ async def analyze_files(file_list: AnalyzeRequest,
                 document = image_parser.parse(url)
             elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
                 document = csv_excel_parser.parse(url)
-            if not document or not document.title:
+            if not document:
                 error_origin_filename.append(file_name)
                 await _mark_source_parse_failed(db, file, "文件解析失败")
                 continue
+            document.title = _title_from_source_filename(file_name)
             document.contributor_id = current_user_id
             document.origin_file_name = file_name
             knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)

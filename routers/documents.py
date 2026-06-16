@@ -38,6 +38,7 @@ from utils.file_classifier import (
     get_document_category,
     get_file_extension,
     is_upload_content_valid,
+    normalize_uploaded_relative_filename,
 )
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.app_exceptions import AppException
@@ -66,6 +67,13 @@ DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": Document
 def _normalize_library_type(library_type: str) -> str:
     """把前端传入的库类型收敛为两个固定值，避免出现拼写不同导致写错表。"""
     return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+
+
+def _title_from_source_filename(file_name: str) -> str:
+    """导入标题优先使用源文件名，去掉目录和扩展名。"""
+    filename = Path(str(file_name or "").replace("\\", "/")).name
+    title = os.path.splitext(filename)[0].strip()
+    return title or filename.strip() or "未命名文档"
 
 
 def _get_document_model(library_type: str):
@@ -1223,36 +1231,37 @@ async def upload_files(files: List[UploadFile] = File(...),
         )
 
     for file in files:
-        file_ext = get_file_extension(file.filename)
+        normalized_filename = normalize_uploaded_relative_filename(file.filename)
+        file_ext = get_file_extension(normalized_filename)
         if file_ext not in ALLOWED_EXTENSIONS:
-            error_origin_filename.append(file.filename)
+            error_origin_filename.append(normalized_filename)
             continue
 
         try:
-            if await _source_filename_exists(db, file.filename):
-                error_origin_filename.append(file.filename)
-                duplicate_origin_filename.append(file.filename)
+            if await _source_filename_exists(db, normalized_filename):
+                error_origin_filename.append(normalized_filename)
+                duplicate_origin_filename.append(normalized_filename)
                 has_duplicate_file_error = True
                 continue
 
             contents = await file.read()
             if not is_upload_content_valid(file_ext, contents):
-                error_origin_filename.append(file.filename)
+                error_origin_filename.append(normalized_filename)
                 has_server_error = False
                 continue
 
             url, relative_path, category = build_document_storage_path(
                 document_base_dir,
                 source_relative_dir,
-                file.filename,
+                normalized_filename,
             )
             async with aiofiles.open(url, "wb") as f:
                 await f.write(contents)
 
-            success_origin_filename.append(file.filename)
+            success_origin_filename.append(normalized_filename)
             success_file_url.append(relative_path)
             source_document = SourceDocument(
-                origin_file_name=file.filename,
+                origin_file_name=normalized_filename,
                 stored_file_path=relative_path,
                 file_ext=file_ext,
                 file_category=get_document_category(file_ext),
@@ -1268,7 +1277,7 @@ async def upload_files(files: List[UploadFile] = File(...),
         except Exception as e:
             print(e)
             await db.rollback()
-            error_origin_filename.append(file.filename)
+            error_origin_filename.append(normalized_filename)
             has_server_error = True
             # return Result.error(f"文件{file.filename}上传失败，请稍后重试")
 
@@ -1408,6 +1417,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
                 )
+                document.title = _title_from_source_filename(file_name)
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
@@ -1519,19 +1529,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 )
                 continue
 
-            if not _has_meaningful_title(document):
-                error_origin_filename.append(file_name)
-                has_invalid_request_error = True
-                parse_error_details.append(
-                    {
-                        "file_name": file_name,
-                        "file_path": file,
-                        "code": int(BizCode.DOC_PARSE_FAILED),
-                        "detail": "AI解析失败：未能生成有效标题。可能该文档不是故障知识，或内容不完整/不清晰。",
-                    }
-                )
-                await _mark_source_parse_failed(db, file, "AI解析失败：未能生成有效标题。", file_list.library_type)
-                continue
+            document.title = _title_from_source_filename(file_name)
             document.contributor_id = current_user_id
             document.origin_file_name = file_name
             knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
