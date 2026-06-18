@@ -305,21 +305,17 @@
                                 <input type="text" id="department" placeholder="请输入部门" required>
                             </div>
                             <div class="form-group">
-                                <label class="required">角色</label>
-                                <select id="role" required>
-                                    <option value="">请选择角色</option>
-                                    <option value="0">系统管理员</option>
-                                    <option value="1">技术人员</option>
-                                    <option value="2">审核</option>
-                                    <option value="3">维修人员</option>
+                                <label class="required">角色组</label>
+                                <select id="role_group_id" required>
+                                    <option value="">请选择角色组</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="form-row">
+                        <div class="form-row" style="display:none;">
                             <div class="form-group">
-                                <label class="required">权限</label>
-                                <select id="perm" required>
+                                <label>兼容权限</label>
+                                <select id="perm">
                                     <option value="">请选择权限</option>
                                     <option value="0">管理员权限</option>
                                     <option value="1">读写权限</option>
@@ -364,6 +360,8 @@
     <script>
         // 用户表单逻辑
         const UserForm = {
+            roleGroups: [],
+
             // 初始化
             async init() {
                 try {
@@ -387,6 +385,8 @@
                         }, 1500);
                         return;
                     }
+
+                    await this.loadRoleGroups();
 
                     // 绑定表单提交事件
                     const userForm = document.getElementById('userForm');
@@ -435,6 +435,31 @@
                 return element ? element.value.trim() : '';
             },
 
+            async loadRoleGroups() {
+                const roleSelect = document.getElementById('role_group_id');
+                if (!roleSelect) return;
+                this.roleGroups = await DataManager.getRoleGroups();
+                roleSelect.innerHTML = '<option value="">请选择角色组</option>';
+                this.roleGroups.forEach(roleGroup => {
+                    const option = document.createElement('option');
+                    option.value = roleGroup.id;
+                    option.textContent = roleGroup.name;
+                    option.dataset.permissions = JSON.stringify(roleGroup.permissions || []);
+                    const legacy = this.getLegacyRolePermByPermissions(roleGroup.permissions || []);
+                    option.dataset.role = legacy.role;
+                    option.dataset.perm = legacy.perm;
+                    roleSelect.appendChild(option);
+                });
+            },
+
+            getLegacyRolePermByPermissions(permissions) {
+                const perms = Array.isArray(permissions) ? permissions : [];
+                if (perms.includes('admin')) return { role: '0', perm: '0' };
+                if (perms.includes('read_write')) return { role: '1', perm: '1' };
+                if (perms.includes('review')) return { role: '2', perm: '2' };
+                return { role: '3', perm: '3' };
+            },
+
             // 角色与权限一一对应映射
             getExpectedPermByRole(roleValue) {
                 const rolePermMap = {
@@ -447,46 +472,25 @@
             },
 
             validateRolePermRelation(showTip = false) {
-                const role = this.getFormValue('role');
-                const perm = this.getFormValue('perm');
-
-                // 必填校验在 validateForm 里处理，这里只校验映射关系
-                if (!role || !perm) return true;
-
-                const expectedPerm = this.getExpectedPermByRole(role);
-                if (expectedPerm === null) return true;
-
-                const isMatch = perm === expectedPerm;
-                if (!isMatch) {
-                    this.highlightError('role', '角色与权限不匹配');
-                    this.highlightError('perm', '角色与权限不匹配');
-                    if (showTip) {
-                        Utils.showMessage('角色与权限不匹配，请选择对应权限', 'warning');
-                    }
-                }
-                return isMatch;
+                return true;
             },
 
             syncPermByRole(showTip = true) {
-                const role = this.getFormValue('role');
+                const roleSelect = document.getElementById('role_group_id');
+                const selectedOption = roleSelect ? roleSelect.selectedOptions[0] : null;
+                const role = selectedOption ? selectedOption.dataset.role : '';
                 const permElement = document.getElementById('perm');
+                const legacyRoleElement = document.getElementById('role');
                 if (!role || !permElement) return;
 
-                const expectedPerm = this.getExpectedPermByRole(role);
-                if (expectedPerm === null) return;
-
-                if (permElement.value !== expectedPerm) {
-                    permElement.value = expectedPerm;
-                    this.clearError('role');
-                    this.clearError('perm');
-                    if (showTip) {
-                        Utils.showMessage('已根据角色自动同步权限', 'info');
-                    }
+                if (legacyRoleElement) {
+                    legacyRoleElement.value = role;
                 }
+                permElement.value = selectedOption ? selectedOption.dataset.perm : '1';
             },
 
             bindRolePermEvents() {
-                const roleElement = document.getElementById('role');
+                const roleElement = document.getElementById('role_group_id');
                 const permElement = document.getElementById('perm');
 
                 if (roleElement) {
@@ -506,7 +510,7 @@
 
             // 表单验证
             validateForm() {
-                const requiredFields = ['username', 'full_name', 'phone', 'email', 'department', 'role', 'perm', 'status'];
+                const requiredFields = ['username', 'full_name', 'phone', 'email', 'department', 'role_group_id', 'status'];
                 let isValid = true;
 
                 // 清除所有错误状态
@@ -618,11 +622,14 @@
                     const department = this.getFormValue('department');
                     const phone = this.getFormValue('phone');
                     const email = this.getFormValue('email');
-                    const role = this.getFormValue('role');
+                    const roleGroupId = this.getFormValue('role_group_id');
+                    const roleSelect = document.getElementById('role_group_id');
+                    const selectedRoleGroup = roleSelect ? roleSelect.selectedOptions[0] : null;
+                    const role = selectedRoleGroup ? selectedRoleGroup.dataset.role : '1';
                     const remark = this.getFormValue('remark');
-                    const perm = this.getFormValue('perm');
+                    const perm = selectedRoleGroup ? selectedRoleGroup.dataset.perm : this.getFormValue('perm');
                     const status = this.getFormValue('status');
-                    console.log('表单数据:', { username, full_name, department, phone, email, role, perm, status, remark });
+                    console.log('表单数据:', { username, full_name, department, phone, email, roleGroupId, role, perm, status, remark });
 
                     const userData = {
                         username: username,
@@ -630,7 +637,8 @@
                         department: department,
                         phone: phone,
                         email: email,
-                        role: role, 
+                        role_group_id: roleGroupId,
+                        role: role,
                         perm: perm,
                         status: status,
                         remark: remark
@@ -686,7 +694,9 @@
                             const element = document.getElementById(elementId);
                             if (element) {
                                 // 特别处理角色字段
-                                if (elementId === 'role') {
+                                if (elementId === 'role_group_id') {
+                                    element.value = value ? String(value) : '';
+                                } else if (elementId === 'role') {
                                     const normalizedRole = String(value ?? '1');
                                     element.value = ['0', '1', '2', '3'].includes(normalizedRole) ? normalizedRole : '1';
                                 } else if (elementId === 'perm') {
@@ -708,14 +718,11 @@
                         setFormValue('department', user.department);
                         setFormValue('phone', user.phone);
                         setFormValue('email', user.email);
-                        setFormValue('role', user.role);
+                        setFormValue('role_group_id', user.role_group_id);
                         setFormValue('remark', user.remark);
                         setFormValue('perm', user.perm);
                         setFormValue('status', user.status);
-
-                        if (!this.validateRolePermRelation(false)) {
-                            Utils.showMessage('该用户当前角色与权限不匹配，请修正后再保存', 'warning');
-                        }
+                        this.syncPermByRole(false);
                     } else {
                         Utils.showMessage('用户不存在', 'error');
                         setTimeout(() => {

@@ -150,6 +150,13 @@ const Utils = {
         MAINTENANCE: 3
     },
 
+    PERMISSION: {
+        ADMIN: 'admin',
+        READ_WRITE: 'read_write',
+        REVIEW: 'review',
+        READ_ONLY: 'read_only'
+    },
+
     normalizeRoleValue: function(role) {
         if (typeof role === 'number' && !Number.isNaN(role)) return role;
         if (typeof role === 'string') {
@@ -165,6 +172,18 @@ const Utils = {
     },
 
     hasRole: function(userOrRole, ...roles) {
+        if (userOrRole && typeof userOrRole === 'object' && Array.isArray(userOrRole.permissions)) {
+            const permissionMap = {
+                0: this.PERMISSION.ADMIN,
+                1: this.PERMISSION.READ_WRITE,
+                2: this.PERMISSION.REVIEW,
+                3: this.PERMISSION.READ_ONLY
+            };
+            const required = roles.map(role => permissionMap[Number(role)]).filter(Boolean);
+            if (required.length > 0) {
+                return this.hasPermission(userOrRole, ...required);
+            }
+        }
         const rawRole = userOrRole && typeof userOrRole === 'object'
             ? (userOrRole.role ?? userOrRole.role_id)
             : userOrRole;
@@ -173,10 +192,28 @@ const Utils = {
         return roles.map(Number).includes(currentRole);
     },
 
+    hasPermission: function(user, ...permissions) {
+        if (!user) return false;
+        const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+        if (userPermissions.includes(this.PERMISSION.ADMIN)) return true;
+        return permissions.some(permission => userPermissions.includes(permission));
+    },
+
     getRoleDisplay: function(userOrRole) {
         const rawRole = userOrRole && typeof userOrRole === 'object'
             ? (userOrRole.role ?? userOrRole.role_id)
             : userOrRole;
+        if (userOrRole && typeof userOrRole === 'object' && userOrRole.role_group_name) {
+            const permissionIcon = this.hasPermission(userOrRole, this.PERMISSION.ADMIN) ? 'A'
+                : this.hasPermission(userOrRole, this.PERMISSION.REVIEW) ? 'R'
+                : this.hasPermission(userOrRole, this.PERMISSION.READ_WRITE) ? 'T'
+                : 'M';
+            return {
+                value: this.normalizeRoleValue(rawRole),
+                label: userOrRole.role_group_name,
+                icon: permissionIcon
+            };
+        }
         const roleValue = this.normalizeRoleValue(rawRole);
         const roleMap = {
             0: { label: '系统管理员', icon: 'A' },
@@ -262,7 +299,7 @@ const Utils = {
                 avatar.textContent = displayName.charAt(0).toUpperCase();
 
                 // 根据身份设置不同颜色
-                const isAdmin = user.role === 0; // 注意：0是管理员
+                const isAdmin = this.hasPermission(user, this.PERMISSION.ADMIN) || user.role === 0;
                 avatar.style.backgroundColor = isAdmin ? '#dc2626' : '#4a9eff';
             }
 
@@ -279,7 +316,7 @@ const Utils = {
                     2: '审核人员',
                     3: '维修人员'
                 };
-                role.textContent = roleMap[this.normalizeRoleValue(user.role)] || '用户';
+                role.textContent = user.role_group_name || roleMap[this.normalizeRoleValue(user.role)] || '用户';
             }
 
         } catch (error) {
@@ -312,7 +349,7 @@ const Utils = {
         let isAdmin = false;
 
         const roleValue = this.normalizeRoleValue(user.role ?? user.role_id);
-        isAdmin = roleValue === this.ROLE.ADMIN;
+        isAdmin = this.hasPermission(user, this.PERMISSION.ADMIN) || roleValue === this.ROLE.ADMIN;
 
         console.log('是管理员吗?', isAdmin);
 

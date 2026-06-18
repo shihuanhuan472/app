@@ -22,10 +22,42 @@ class User(Base):
         Integer, default=1
     )  # 0-admin, 1-technician, 2-reviewer, 3-maintenance
     perm = Column(Integer, default=1)  # 0-admin, 1-read/write, 2-review, 3-readonly
+    role_group_id = Column(Integer, ForeignKey("role_groups.id"), nullable=True, index=True)
     department = Column(String(100))
     api_key = Column(String(128), unique=True, index=True)
     created_time = Column(DateTime)
     last_login = Column(DateTime)
+
+    role_group = relationship("RoleGroup")
+
+
+class RoleGroup(Base):
+    __tablename__ = "role_groups"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    code = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text)
+    is_system = Column(Integer, default=0, nullable=False)
+    is_deleted = Column(Integer, default=0, nullable=False, index=True)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    permissions = relationship(
+        "RoleGroupPermission",
+        back_populates="role_group",
+        cascade="all, delete-orphan",
+    )
+
+
+class RoleGroupPermission(Base):
+    __tablename__ = "role_group_permissions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    role_group_id = Column(Integer, ForeignKey("role_groups.id"), nullable=False, index=True)
+    permission_code = Column(String(64), nullable=False, index=True)
+
+    role_group = relationship("RoleGroup", back_populates="permissions")
 
 
 class SourceDocument(Base):

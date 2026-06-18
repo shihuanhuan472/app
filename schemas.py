@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
     department: Optional[str] = None
     role: Optional[int] = 1
     perm: Optional[int] = 1
+    role_group_id: Optional[int] = None
     status: Optional[int] = 1
 
 
@@ -24,6 +25,9 @@ class UserResponse(BaseModel):
     full_name: str
     role: int
     perm: Optional[int] = None
+    role_group_id: Optional[int] = None
+    role_group_name: Optional[str] = None
+    permissions: Optional[List[str]] = None
     department: Optional[str]
     api_key: Optional[str] = None
     created_time: Optional[datetime]
@@ -46,7 +50,36 @@ class UserUpdateByAdmin(BaseModel):
     department: Optional[str] = None
     role: Optional[int] = None
     perm: Optional[int] = None
+    role_group_id: Optional[int] = None
     status: Optional[int] = None
+
+
+class RoleGroupCreate(BaseModel):
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    permissions: List[str]
+
+
+class RoleGroupUpdate(BaseModel):
+    id: int
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    permissions: Optional[List[str]] = None
+    is_deleted: Optional[int] = None
+
+
+class RoleGroupResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: Optional[str] = None
+    permissions: List[str] = []
+    is_system: int = 0
+    is_deleted: int = 0
+    created_time: Optional[datetime] = None
+    updated_time: Optional[datetime] = None
 
 class Page(BaseModel):
     page: Optional[int] = 1
@@ -87,7 +120,7 @@ class TagResponse(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
-    role: str
+    role: Optional[str] = None
 
 class UserChangePassword(BaseModel):
     old_password: str

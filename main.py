@@ -60,6 +60,7 @@ from utils.tag_service import normalize_tag_names, set_document_tag_names
 from utils.app_exceptions import AppException
 from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
+from utils.roles import DEFAULT_ROLE_GROUPS
 from utils.upload_paths import normalize_upload_path
 
 logger = logging.getLogger(__name__)
@@ -482,6 +483,99 @@ async def ensure_user_api_key_column():
             await conn.execute(text("CREATE UNIQUE INDEX idx_users_api_key ON users (api_key)"))
 
 
+async def ensure_role_group_schema():
+    async with engine.begin() as conn:
+        if not await _column_exists(conn, "users", "role_group_id"):
+            await conn.execute(text("ALTER TABLE users ADD COLUMN role_group_id INT NULL AFTER perm"))
+        if not await _index_exists(conn, "users", "idx_users_role_group_id"):
+            await conn.execute(text("CREATE INDEX idx_users_role_group_id ON users (role_group_id)"))
+
+        for role_group in DEFAULT_ROLE_GROUPS:
+            existing_id = (
+                await conn.execute(
+                    text("SELECT id FROM role_groups WHERE code = :code"),
+                    {"code": role_group["code"]},
+                )
+            ).scalar_one_or_none()
+
+            if existing_id is None:
+                await conn.execute(
+                    text(
+                        """
+                        INSERT INTO role_groups
+                            (code, name, description, is_system, is_deleted, created_time, updated_time)
+                        VALUES
+                            (:code, :name, :description, 1, 0, NOW(), NOW())
+                        """
+                    ),
+                    {
+                        "code": role_group["code"],
+                        "name": role_group["name"],
+                        "description": role_group.get("description"),
+                    },
+                )
+                existing_id = (
+                    await conn.execute(
+                        text("SELECT id FROM role_groups WHERE code = :code"),
+                        {"code": role_group["code"]},
+                    )
+                ).scalar_one()
+            else:
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE role_groups
+                        SET name = :name, description = :description, is_system = 1, is_deleted = 0
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": existing_id,
+                        "name": role_group["name"],
+                        "description": role_group.get("description"),
+                    },
+                )
+
+            for permission_code in role_group["permissions"]:
+                exists = (
+                    await conn.execute(
+                        text(
+                            """
+                            SELECT COUNT(*) AS cnt
+                            FROM role_group_permissions
+                            WHERE role_group_id = :role_group_id
+                              AND permission_code = :permission_code
+                            """
+                        ),
+                        {"role_group_id": existing_id, "permission_code": permission_code},
+                    )
+                ).scalar_one()
+                if int(exists or 0) == 0:
+                    await conn.execute(
+                        text(
+                            """
+                            INSERT INTO role_group_permissions (role_group_id, permission_code)
+                            VALUES (:role_group_id, :permission_code)
+                            """
+                        ),
+                        {"role_group_id": existing_id, "permission_code": permission_code},
+                    )
+
+            await conn.execute(
+                text(
+                    """
+                    UPDATE users
+                    SET role_group_id = :role_group_id
+                    WHERE role_group_id IS NULL AND role = :legacy_role
+                    """
+                ),
+                {
+                    "role_group_id": existing_id,
+                    "legacy_role": role_group["legacy_role"],
+                },
+            )
+
+
 async def ensure_source_document_library_columns():
     async with engine.begin() as conn:
         fk_result = await conn.execute(
@@ -642,6 +736,7 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await ensure_role_group_schema()
     await ensure_user_api_key_column()
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()
