@@ -32,11 +32,13 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
     department: Optional[str] = None
+
 
 class UserUpdateByAdmin(BaseModel):
     id: int
@@ -47,6 +49,7 @@ class UserUpdateByAdmin(BaseModel):
     role: Optional[int] = None
     perm: Optional[int] = None
     status: Optional[int] = None
+
 
 class Page(BaseModel):
     page: Optional[int] = 1
@@ -84,14 +87,17 @@ class TagResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserLogin(BaseModel):
     username: str
     password: str
     role: str
 
+
 class UserChangePassword(BaseModel):
     old_password: str
     new_password: str
+
 
 # 文档相关的Schema
 class KnowledgeSectionCreate(BaseModel):
@@ -134,6 +140,7 @@ class DocumentCreate(BaseModel):
     image_urls_inspection: Optional[str] = None
     image_urls_solutions: Optional[str] = None
     image_urls_key_points: Optional[str] = None
+
 
 class DocumentResponse(BaseModel):
     id: int
@@ -193,6 +200,18 @@ class DocumentReviewRequest(BaseModel):
     image_urls_key_points: Optional[str] = None
 
 
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求"""
+
+    class DocumentItem(BaseModel):
+        """单个文档删除项"""
+
+        id: int
+        library_type: str = "breakdown"
+
+    documents: List[DocumentItem]
+
+
 class DocumentReviewResponse(DocumentResponse):
     document_id: Optional[int] = None
     reviewer_id: Optional[int] = None
@@ -207,6 +226,7 @@ class DocumentReviewResponse(DocumentResponse):
     class Config:
         from_attributes = True
 
+
 class DocumentQuery(BaseModel):
     data: str
     library_type: Optional[str] = "breakdown"
@@ -214,13 +234,16 @@ class DocumentQuery(BaseModel):
     page: Optional[int] = 1
     size: Optional[int] = 6
 
+
 class DeleteImageRequest(BaseModel):
     image_url: str
+
 
 class UploadDocumentResponse(BaseModel):
     success_origin_filename: List[str]
     success_file_url: List[str]
     error_origin_filename: List[str]
+
 
 class UploadDocumentRequestNew(BaseModel):
     name: str
@@ -253,6 +276,7 @@ class SourceDocumentResponse(BaseModel):
 class DeleteDocumentRequestNew(BaseModel):
     ids: List[int]
 
+
 class AnalyzeRequest(BaseModel):
     file_list: List[str]
     file_name: List[str]
@@ -260,10 +284,12 @@ class AnalyzeRequest(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
 
+
 # 对话相关的Schema
 class ConversationCreate(BaseModel):
     user_id: int
     title: Optional[str] = None
+
 
 class ConversationResponse(BaseModel):
     id: int
@@ -275,17 +301,21 @@ class ConversationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ConversationCreateNew(BaseModel):
     name: str
     user_id: Optional[str] = None
+
 
 class ConversationResponseNew(BaseModel):
     code: int
     data: Optional[dict] = None
     message: Optional[str] = None
 
+
 class ConversationDeleteRequest(BaseModel):
     ids: List[int]
+
 
 # 消息相关的Schema
 class MessageCreateNew(BaseModel):
@@ -293,6 +323,7 @@ class MessageCreateNew(BaseModel):
     session_id: int
     stream: bool
     user_uploaded_images: Optional[str] = None
+
 
 class MessageCreate(BaseModel):
     session_id: int
@@ -315,23 +346,28 @@ class MessageResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserQueryByPage(BaseModel):
     data: str
     page: Optional[int] = 1
     size: Optional[int] = 6
 
+
 class TokenData(BaseModel):
     """Token 数据模型"""
+
     user_id: Optional[str] = None
     username: Optional[str] = None
 
 
 # 1. 使用标准库的 TypeVar 定义泛型
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 # 2. 继承 BaseModel 并使用 Generic
 class Result(BaseModel, Generic[T]):
     """统一响应模型 (Pydantic v2 语法)"""
+
     code: int = 1
     msg: str = "success"
     data: Optional[T] = None
@@ -351,8 +387,10 @@ class Result(BaseModel, Generic[T]):
         """操作失败"""
         return cls(code=0, msg=msg, data=None)
 
+
 class ResultNew(BaseModel, Generic[T]):
     """统一响应模型 (Pydantic v2 语法)"""
+
     code: int = 1
     message: Optional[str] = None
     data: Optional[T] = None

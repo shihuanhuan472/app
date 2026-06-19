@@ -608,34 +608,49 @@
             batchDeleteBusy = true;
             updateBatchDeleteControls();
 
-            const results = await Promise.allSettled(
-                items.map(item => documentAPI.deleteDocument(item.id, item.libraryType))
-            );
-            const failed = results
-                .map((result, index) => ({ result, item: items[index] }))
-                .filter(entry => entry.result.status === 'rejected');
+            try {
+                // 1. 构造符合后端 BatchDeleteRequest 的数据结构
+                const payload = items.map(item => ({
+                    id: item.id,
+                    library_type: item.libraryType || 'breakdown' // 确保字段名与后端 Pydantic 模型一致
+                }));
 
-            batchDeleteBusy = false;
-            batchDeleteMode = false;
-            selectedDocuments.clear();
-            document.body.classList.remove('batch-delete-active');
+                // 2. 调用批量删除接口
+                const result = await documentAPI.batchDeleteDocuments(payload);
+                
+                // 3. 处理成功逻辑
+                const successCount = result.data?.deleted_count || 0;
+                const failedItems = result.data?.failed_items || [];
 
-            const successCount = items.length - failed.length;
-            if (successCount > 0) {
-                const remainingCount = Math.max(0, lastRenderedTotalCount - successCount);
-                if (remainingCount > 0 && docCurrentPage > 1 && remainingCount <= (docCurrentPage - 1) * docPageSize) {
-                    docCurrentPage -= 1;
-                    localStorage.setItem('docCurrentPage', docCurrentPage);
+                if (successCount > 0) {
+                    // 重新计算剩余总数并调整页码
+                    const remainingCount = Math.max(0, lastRenderedTotalCount - successCount);
+                    if (remainingCount > 0 && docCurrentPage > 1 && remainingCount <= (docCurrentPage - 1) * docPageSize) {
+                        docCurrentPage -= 1;
+                        localStorage.setItem('docCurrentPage', docCurrentPage);
+                    }
+                    Utils.showMessage(result.data?.message || `已删除 ${successCount} 篇文档`, 'success');
                 }
-                Utils.showMessage(`已删除 ${successCount} 篇文档`, 'success');
-            }
-            if (failed.length > 0) {
-                Utils.showMessage(`${failed.length} 篇文档删除失败，请稍后重试`, 'error');
-                console.error('批量删除失败:', failed);
-            }
 
-            updateBatchDeleteControls();
-            await refreshCurrentDocumentList();
+                // 4. 处理部分失败逻辑
+                if (failedItems.length > 0) {
+                    Utils.showMessage(`${failedItems.length} 篇文档删除失败，请稍后重试`, 'error');
+                    console.error('批量删除失败的文档:', failedItems);
+                }
+
+            } catch (error) {
+                // 5. 处理整体失败（如权限不足、服务器错误）
+                Utils.showMessage(error.message || '批量删除失败', 'error');
+                console.error('批量删除异常:', error);
+            } finally {
+                // 6. 重置状态并刷新列表
+                batchDeleteBusy = false;
+                batchDeleteMode = false;
+                selectedDocuments.clear();
+                document.body.classList.remove('batch-delete-active');
+                updateBatchDeleteControls();
+                await refreshCurrentDocumentList();
+            }
         }
 
         // 显示文档列表（现在同时用于普通列表和搜索结果）
