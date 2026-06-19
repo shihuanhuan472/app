@@ -130,6 +130,11 @@
             gap: 15px !important;
             justify-content: space-between !important;
         }
+        .document-actions-top {
+            margin-top: 24px !important;
+            padding-top: 18px !important;
+            border-top: 1px solid #edf2f7 !important;
+        }
         .action-left, .action-right { display: flex; gap: 15px; }
 
         .loading-spinner {
@@ -347,6 +352,21 @@
             gap: 10px !important;
             align-items: center !important;
             flex-wrap: wrap !important;
+        }
+        .knowledge-top-actions {
+            justify-content: flex-end !important;
+        }
+        .knowledge-top-actions .action-left,
+        .knowledge-top-actions .action-right {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            flex-wrap: wrap !important;
+        }
+        .knowledge-top-actions .btn {
+            min-height: 36px !important;
+            padding: 7px 13px !important;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
         }
         .knowledge-book-layout {
             display: flex !important;
@@ -1180,9 +1200,7 @@
                 <div class="knowledge-book-page">
                     <div class="knowledge-book-topbar">
                         <div class="knowledge-book-brand"><i class="fas fa-book-open"></i><span>维修知识库文档</span></div>
-                        <div class="knowledge-book-actions-inline">
-                            <a href="main.html" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> 返回列表</a>
-                        </div>
+                        <div class="knowledge-book-actions-inline knowledge-top-actions">${actionButtons}</div>
                     </div>
                     <div class="knowledge-book-layout">
                         <aside class="knowledge-book-sidebar" aria-label="文档章节导航">
@@ -1221,7 +1239,6 @@
 
                         </div>
                     </div>
-                    <div class="document-actions knowledge-manual-actions">${actionButtons}</div>
                 </div>
             `;
         }
@@ -1581,10 +1598,10 @@
                                     <div class="meta-item"><i class="fas fa-layer-group"></i><span>所属库：${escapeHtml(libraryLabel)}</span></div>
                                     <div class="meta-item"><i class="fas fa-tags"></i><span>标签：${escapeHtml(tagsLabel)}</span></div>
                                 </div>
+                                <div class="document-actions document-actions-top">${actionButtons}</div>
                             </div>
                             ${sectionsHtml}
                             ${originalFileHtml}
-                            <div class="document-actions">${actionButtons}</div>
                         </div>
                     `;
                 }

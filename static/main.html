@@ -79,6 +79,9 @@
                     <a href="import-documents.html" class="btn btn-secondary" style="margin-right: 8px;" id="importDocumentsBtn">
                         <i class="fas fa-upload"></i> 导入
                     </a>
+                    <button type="button" class="btn btn-danger" id="batchDeleteBtn" onclick="toggleBatchDeleteMode()">
+                        <i class="fas fa-check-square"></i> 批量删除
+                    </button>
                 </div>
             </div>
 
@@ -115,6 +118,27 @@
         </div>
     </div>
 
+    <div class="batch-delete-bar" id="batchDeleteBar" hidden>
+        <div class="batch-delete-meta">
+            <div class="batch-delete-icon"><i class="fas fa-check"></i></div>
+            <div>
+                <div class="batch-delete-title">批量选择</div>
+                <div class="batch-delete-count">已选择 <strong id="batchSelectedCount">0</strong> 篇文档</div>
+            </div>
+        </div>
+        <div class="batch-delete-actions">
+            <button type="button" class="btn btn-secondary" onclick="selectCurrentPageDocuments()">
+                <i class="fas fa-layer-group"></i> 选择本页
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="exitBatchDeleteMode()">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button type="button" class="btn btn-danger" id="batchDeleteConfirmBtn" onclick="confirmBatchDelete()" disabled>
+                <i class="fas fa-trash"></i> 删除所选
+            </button>
+        </div>
+    </div>
+
     <script>
         // 文档分页变量
         let docCurrentPage = 1;
@@ -122,6 +146,11 @@
         let docTotalPages = 1;
         let isSearching = false;
         let currentSearchQuery = '';
+        let lastRenderedDocuments = [];
+        let lastRenderedTotalCount = 0;
+        let batchDeleteMode = false;
+        let batchDeleteBusy = false;
+        const selectedDocuments = new Map();
 
         document.addEventListener('DOMContentLoaded', async function() {
             // 检查登录状态
@@ -432,9 +461,188 @@
             `;
         }
 
+        function getSelectionKey(id, libraryType) {
+            return `${libraryType || 'breakdown'}:${id}`;
+        }
+
+        function escapeCssValue(value) {
+            if (window.CSS && typeof window.CSS.escape === 'function') {
+                return window.CSS.escape(String(value));
+            }
+            return String(value).replace(/["\\]/g, '\\$&');
+        }
+
+        function isBatchDeleteAllowed() {
+            const user = Utils.getCurrentUser();
+            return !!user && Utils.hasRole(user, Utils.ROLE.ADMIN);
+        }
+
+        function toggleBatchDeleteMode() {
+            if (batchDeleteBusy) return;
+            if (!batchDeleteMode && !isBatchDeleteAllowed()) {
+                Utils.showMessage('只有系统管理员可以批量删除文档', 'warning');
+                return;
+            }
+            batchDeleteMode ? exitBatchDeleteMode() : enterBatchDeleteMode();
+        }
+
+        function enterBatchDeleteMode() {
+            batchDeleteMode = true;
+            selectedDocuments.clear();
+            document.body.classList.add('batch-delete-active');
+            updateBatchDeleteControls();
+            displayDocuments(lastRenderedDocuments, lastRenderedTotalCount);
+        }
+
+        function exitBatchDeleteMode() {
+            if (batchDeleteBusy) return;
+            batchDeleteMode = false;
+            selectedDocuments.clear();
+            document.body.classList.remove('batch-delete-active');
+            updateBatchDeleteControls();
+            displayDocuments(lastRenderedDocuments, lastRenderedTotalCount);
+        }
+
+        function updateBatchDeleteControls() {
+            const count = selectedDocuments.size;
+            const bar = document.getElementById('batchDeleteBar');
+            const countEl = document.getElementById('batchSelectedCount');
+            const confirmBtn = document.getElementById('batchDeleteConfirmBtn');
+            const toggleBtn = document.getElementById('batchDeleteBtn');
+
+            if (bar) bar.hidden = !batchDeleteMode;
+            if (countEl) countEl.textContent = count;
+            if (confirmBtn) {
+                confirmBtn.disabled = count === 0 || batchDeleteBusy;
+                confirmBtn.innerHTML = batchDeleteBusy
+                    ? '<i class="fas fa-spinner fa-spin"></i> 删除中'
+                    : '<i class="fas fa-trash"></i> 删除所选';
+            }
+            if (toggleBtn) {
+                toggleBtn.classList.toggle('is-active', batchDeleteMode);
+                toggleBtn.innerHTML = batchDeleteMode
+                    ? '<i class="fas fa-times"></i> 退出批量'
+                    : '<i class="fas fa-check-square"></i> 批量删除';
+            }
+        }
+
+        function handleDocumentCardClick(event, card) {
+            if (!card) return;
+            const id = card.dataset.id;
+            const libraryType = card.dataset.libraryType || 'breakdown';
+            const title = card.dataset.title || '无标题';
+
+            if (batchDeleteMode) {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleDocumentSelection(id, libraryType, title);
+                return;
+            }
+
+            window.location.href = `document-detail.html?id=${encodeURIComponent(id)}&source=${encodeURIComponent(libraryType)}`;
+        }
+
+        function toggleDocumentSelection(id, libraryType, title) {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const key = getSelectionKey(id, libraryType);
+            if (selectedDocuments.has(key)) {
+                selectedDocuments.delete(key);
+            } else {
+                selectedDocuments.set(key, { id, libraryType, title });
+            }
+            syncDocumentSelectionState(id, libraryType);
+            updateBatchDeleteControls();
+        }
+
+        function syncDocumentSelectionState(id, libraryType) {
+            const selector = `.document-item[data-id="${escapeCssValue(id)}"][data-library-type="${escapeCssValue(libraryType || 'breakdown')}"]`;
+            document.querySelectorAll(selector).forEach(card => {
+                const selected = selectedDocuments.has(getSelectionKey(id, libraryType));
+                card.classList.toggle('selected', selected);
+                const check = card.querySelector('.document-select-check');
+                if (check) {
+                    check.classList.toggle('selected', selected);
+                    check.setAttribute('aria-checked', selected ? 'true' : 'false');
+                }
+            });
+        }
+
+        function selectCurrentPageDocuments() {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const docs = Array.isArray(lastRenderedDocuments) ? lastRenderedDocuments : [];
+            const allCurrentSelected = docs.length > 0 && docs.every(doc => {
+                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+                return selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+            });
+
+            docs.forEach(doc => {
+                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+                const key = getSelectionKey(doc.id, libraryType);
+                if (allCurrentSelected) {
+                    selectedDocuments.delete(key);
+                } else {
+                    selectedDocuments.set(key, { id: doc.id, libraryType, title: doc.title || '无标题' });
+                }
+                syncDocumentSelectionState(doc.id, libraryType);
+            });
+            updateBatchDeleteControls();
+        }
+
+        async function refreshCurrentDocumentList() {
+            if (isSearching && currentSearchQuery) {
+                await searchDocuments(currentSearchQuery);
+            } else {
+                await loadDocuments();
+            }
+        }
+
+        async function confirmBatchDelete() {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const items = Array.from(selectedDocuments.values());
+            if (!items.length) {
+                Utils.showMessage('请先选择要删除的文档', 'warning');
+                return;
+            }
+            if (!confirm(`确定删除选中的 ${items.length} 篇文档吗？此操作不可撤销。`)) return;
+
+            batchDeleteBusy = true;
+            updateBatchDeleteControls();
+
+            const results = await Promise.allSettled(
+                items.map(item => documentAPI.deleteDocument(item.id, item.libraryType))
+            );
+            const failed = results
+                .map((result, index) => ({ result, item: items[index] }))
+                .filter(entry => entry.result.status === 'rejected');
+
+            batchDeleteBusy = false;
+            batchDeleteMode = false;
+            selectedDocuments.clear();
+            document.body.classList.remove('batch-delete-active');
+
+            const successCount = items.length - failed.length;
+            if (successCount > 0) {
+                const remainingCount = Math.max(0, lastRenderedTotalCount - successCount);
+                if (remainingCount > 0 && docCurrentPage > 1 && remainingCount <= (docCurrentPage - 1) * docPageSize) {
+                    docCurrentPage -= 1;
+                    localStorage.setItem('docCurrentPage', docCurrentPage);
+                }
+                Utils.showMessage(`已删除 ${successCount} 篇文档`, 'success');
+            }
+            if (failed.length > 0) {
+                Utils.showMessage(`${failed.length} 篇文档删除失败，请稍后重试`, 'error');
+                console.error('批量删除失败:', failed);
+            }
+
+            updateBatchDeleteControls();
+            await refreshCurrentDocumentList();
+        }
+
         // 显示文档列表（现在同时用于普通列表和搜索结果）
         function displayDocuments(documents, totalCount) {
             const container = document.getElementById('documentList');
+            lastRenderedDocuments = Array.isArray(documents) ? documents : [];
+            lastRenderedTotalCount = totalCount || 0;
 
             if (!documents || documents.length === 0) {
                 const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
@@ -479,9 +687,23 @@
                 // 提前生成徽标样式类，让故障库和知识库显示不同颜色。
                 const libraryBadgeClass = getLibraryBadgeClass(libraryType);
                 const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
+                const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
 
                 html += `
-                    <div class="document-item" onclick="window.location.href='document-detail.html?id=${doc.id}&source=${libraryType}'">
+                    <div class="document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
+                         data-id="${escapeHtml(doc.id)}"
+                         data-library-type="${escapeHtml(libraryType)}"
+                         data-title="${escapeHtml(doc.title)}"
+                         onclick="handleDocumentCardClick(event, this)">
+                        ${batchDeleteMode ? `
+                            <button type="button"
+                                    class="document-select-check ${selected ? 'selected' : ''}"
+                                    aria-label="选择 ${escapeHtml(doc.title)}"
+                                    aria-checked="${selected ? 'true' : 'false'}"
+                                    onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
                         <div class="document-item-header">
                             <div class="document-item-title-row">
                                 <div class="document-item-title">${escapeHtml(doc.title)}</div>
@@ -496,11 +718,11 @@
                         <div class="document-item-footer">
                             <div class="document-item-author">
                                 <i class="fas fa-user"></i>
-                                <span>${doc.author}</span>
+                                <span>${escapeHtml(doc.author)}</span>
                                 ${tagHtml}
                             </div>
                             <div class="document-item-date">
-                                ${doc.date}
+                                ${escapeHtml(doc.date)}
                             </div>
                         </div>
                     </div>
@@ -509,6 +731,7 @@
 
             container.innerHTML = html;
             renderDocPagination(totalCount);
+            updateBatchDeleteControls();
         }
 
         // 渲染文档分页控件
@@ -671,6 +894,11 @@
         window.clearSearch = clearSearch;
         window.changeDocPage = changeDocPage;
         window.changeDocPageSize = changeDocPageSize;
+        window.toggleBatchDeleteMode = toggleBatchDeleteMode;
+        window.exitBatchDeleteMode = exitBatchDeleteMode;
+        window.selectCurrentPageDocuments = selectCurrentPageDocuments;
+        window.confirmBatchDelete = confirmBatchDelete;
+        window.handleDocumentCardClick = handleDocumentCardClick;
 
         function setActionButtonDisabled(el, disabled) {
             if (!el) return;
@@ -699,10 +927,12 @@
             const user = Utils.getCurrentUser();
             const addBtn = document.getElementById('addDocumentBtn');
             const importBtn = document.getElementById('importDocumentsBtn');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
             const mySubmissionsNav = document.getElementById('mySubmissionsNav');
             if (!user) {
                 setActionButtonDisabled(addBtn, true);
                 setActionButtonDisabled(importBtn, true);
+                if (batchDeleteBtn) batchDeleteBtn.style.display = 'none';
                 if (mySubmissionsNav) mySubmissionsNav.style.display = 'none';
                 return;
             }
@@ -723,6 +953,9 @@
             }
             setActionButtonDisabled(addBtn, !isAdmin && !isTechnician);
             setActionButtonDisabled(importBtn, !isAdmin && !isTechnician);
+            if (batchDeleteBtn) {
+                batchDeleteBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+            }
             if (mySubmissionsNav) {
                 mySubmissionsNav.style.display = isTechnician ? 'flex' : 'none';
             }

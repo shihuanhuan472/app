@@ -3694,6 +3694,195 @@ body {
     opacity: 1;
 }
 
+/* ===== 知识库批量删除选择模式 ===== */
+.header-actions {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#batchDeleteBtn {
+    margin-left: 0;
+}
+
+#batchDeleteBtn.is-active {
+    background: #7f1d1d;
+    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.22);
+}
+
+.document-grid > .document-item {
+    position: relative;
+}
+
+.document-grid > .document-item.selection-mode {
+    padding-left: 52px;
+    cursor: pointer;
+    user-select: none;
+    border-color: rgba(148, 163, 184, 0.45);
+    transform: none;
+}
+
+.document-grid > .document-item.selection-mode:hover {
+    transform: translateY(-2px);
+    border-color: rgba(74, 158, 255, 0.55);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+}
+
+.document-grid > .document-item.selection-mode.selected {
+    border-color: rgba(74, 158, 255, 0.9);
+    background:
+        linear-gradient(180deg, rgba(74, 158, 255, 0.09), rgba(255, 255, 255, 0.96)),
+        #ffffff;
+    box-shadow: 0 12px 30px rgba(74, 158, 255, 0.16);
+}
+
+.document-select-check {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid rgba(148, 163, 184, 0.7);
+    background: rgba(255, 255, 255, 0.92);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.10);
+    transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    z-index: 2;
+}
+
+.document-select-check i {
+    font-size: 12px;
+    opacity: 0;
+    transform: scale(0.75);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.document-select-check:hover {
+    transform: scale(1.08);
+    border-color: #4a9eff;
+}
+
+.document-select-check.selected {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    box-shadow: 0 8px 18px rgba(74, 158, 255, 0.32);
+}
+
+.document-select-check.selected i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.batch-delete-bar {
+    position: fixed;
+    left: calc(240px + 24px);
+    right: 24px;
+    bottom: 24px;
+    z-index: 30;
+    min-height: 72px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    background: rgba(15, 23, 42, 0.88);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.30);
+    backdrop-filter: blur(18px) saturate(140%);
+}
+
+.batch-delete-bar[hidden] {
+    display: none !important;
+}
+
+.batch-delete-meta,
+.batch-delete-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.batch-delete-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0f172a;
+    background: #ffffff;
+    box-shadow: inset 0 -2px 0 rgba(15, 23, 42, 0.08);
+}
+
+.batch-delete-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.batch-delete-count {
+    margin-top: 2px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.batch-delete-count strong {
+    color: #ffffff;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+.batch-delete-bar .btn {
+    min-height: 36px;
+}
+
+.batch-delete-bar .btn-secondary {
+    background: rgba(255, 255, 255, 0.10);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.batch-delete-bar .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.batch-delete-bar .btn-danger:disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+    transform: none;
+}
+
+body.batch-delete-active .pagination {
+    margin-bottom: 112px;
+}
+
+@media (max-width: 768px) {
+    .batch-delete-bar {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        border-radius: 16px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .batch-delete-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .document-grid > .document-item.selection-mode {
+        padding-left: 50px;
+    }
+}
+
 .image-preview-name {
     font-size: 11px;
     color: #666;
@@ -4593,6 +4782,60 @@ body {
 .message-content.user .message-text code {
     background: rgba(255, 255, 255, 0.6);
     color: #0f172a;
+}
+
+/* 知识库首页文档卡片的最终覆盖：避免 AI 相关文档列表的通用 .document-item 样式串到首页卡片。 */
+.document-grid > .document-item {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+    border: 1px solid #e8e8e8;
+    border-left: 1px solid #e8e8e8;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.document-grid > .document-item:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    border-color: #4a9eff;
+}
+
+.document-grid > .document-item .document-item-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a3a5f;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.document-grid > .document-item.selection-mode {
+    padding-left: 52px;
+    user-select: none;
+}
+
+.document-grid > .document-item.selection-mode.selected {
+    border-color: rgba(74, 158, 255, 0.9);
+    background:
+        linear-gradient(180deg, rgba(74, 158, 255, 0.09), rgba(255, 255, 255, 0.96)),
+        #ffffff;
+    box-shadow: 0 12px 30px rgba(74, 158, 255, 0.16);
+}
+
+@media (max-width: 768px) {
+    .document-grid > .document-item.selection-mode {
+        padding-left: 50px;
+    }
 }
 
 /* ===== 图片预览（用户上传） ===== */
