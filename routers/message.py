@@ -1,4 +1,4 @@
-# routers/message.py
+﻿# routers/message.py
 import asyncio
 import json
 import mimetypes
@@ -18,7 +18,7 @@ from sqlalchemy import func, and_
 # from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, and_, select, desc
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from schemas import Result
 from models import Message, User, Conversation, Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
 from schemas import MessageCreate, MessageResponse
@@ -80,6 +80,22 @@ async def _count_text_tokens(text: str) -> int:
 @lru_cache(maxsize=8192)
 def _count_text_tokens_cached(text: str) -> int:
     return int(get_token_count(text or ""))
+
+
+def _truncate_text_to_token_budget(text: str, token_budget: int) -> str:
+    text = str(text or "").strip()
+    if not text or token_budget <= 0:
+        return ""
+    if _count_text_tokens_cached(text) <= token_budget:
+        return text
+    suffix = "\n[内容因上下文长度限制已截断]"
+    suffix_tokens = _count_text_tokens_cached(suffix)
+    budget = max(1, token_budget - suffix_tokens)
+    approx_chars = max(1, budget * 3)
+    candidate = text[:approx_chars].rstrip()
+    while candidate and _count_text_tokens_cached(candidate) > budget:
+        candidate = candidate[: max(1, int(len(candidate) * 0.8))].rstrip()
+    return f"{candidate}{suffix}" if candidate else ""
 
 
 async def _get_or_update_text_token_count(db: AsyncSession, message: Message) -> int:
@@ -207,6 +223,17 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
     data["reference"] = None if not reference_ids_str else reference_ids_str
     data["reference_docs"] = reference_docs or []
 
+    async def persist_ai_content(content_text: str, with_token_count: bool = False):
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Message).where(Message.id == id))
+            ai_msg = result.scalar_one_or_none()
+            if ai_msg:
+                ai_msg.content_text = content_text
+                await db.commit()
+                if with_token_count:
+                    ai_msg.token_count = await _count_text_tokens(content_text)
+                    await db.commit()
+
     try:
         response = await client.chat.completions.create(
             model=model,
@@ -215,13 +242,6 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
             stream=True
         )
         full_content = ""
-        async def persist_partial_content(content_text: str):
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(select(Message).where(Message.id == id))
-                ai_msg = result.scalar_one_or_none()
-                if ai_msg:
-                    ai_msg.content_text = content_text
-                    await db.commit()
 
         async for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
@@ -229,26 +249,33 @@ async def stream_ai_response(id, messages: list, session_id: int, reference_docs
                 full_content += content
                 data["answer"] = full_content
                 data["code"] = 1
-                await persist_partial_content(full_content)
+                await persist_ai_content(full_content)
                 yield f"data: {json.dumps(data)}\n\n"
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Message).where(Message.id == id))
-            ai_msg = result.scalar_one_or_none()
 
-            if ai_msg:
-                ai_msg.content_text = full_content
-                ai_msg.token_count = await _count_text_tokens(full_content)
-                await db.commit()
+        final_content = full_content.strip()
+        if not final_content:
+            final_content = "已检索到相关文档，但回答生成为空，请稍后重试。"
+            data["answer"] = final_content
+            data["code"] = 1
+            await persist_ai_content(final_content, with_token_count=True)
+            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+        else:
+            await persist_ai_content(final_content, with_token_count=True)
+
         final_data = {"code": 1, "data": "true"}
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
         print(e)
+        fallback_content = "回答生成失败，请稍后重试。"
+        try:
+            await persist_ai_content(fallback_content, with_token_count=True)
+        except Exception as persist_error:
+            print(persist_error)
         error_data = {
             "code": 0,
-            "message": "回答失败"
+            "message": fallback_content
         }
-        yield f"data: {json.dumps(error_data)}\n\n"
-
+        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
 
 @router.post("/ask", summary="提问以获得回答")
 async def ask(message: MessageCreate,
@@ -307,10 +334,11 @@ async def ask(message: MessageCreate,
             db, db_message.content_text, db_message.user_uploaded_images
         )
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
+        ai_reference_prompt_refs = get_ai_reference_prompt_refs(ai_reference_documents)
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
         ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
-        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_document_ids)
+        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_prompt_refs)
 
         conversation.updated_time = datetime.now()
 
@@ -322,7 +350,7 @@ async def ask(message: MessageCreate,
             session_id=message.session_id,
             role=0,
             message_order=max_order + 1,
-            content_text="",
+            content_text="回答生成中，请稍后刷新。",
             ai_reference_doc_ids=ai_reference_document_payload,
             token_count=0,
             created_time=datetime.now()
@@ -518,7 +546,8 @@ async def get_reference_documents(db, question: str, image: str = None):
             "doc_id": int(doc_id),
             "library_type": library_type,
             "title": doc.get("title", ""),
-            "score": round(score, 6)
+            "score": round(score, 6),
+            "chunks": doc.get("chunks") or [],
         })
 
     if not normalized_docs:
@@ -548,6 +577,7 @@ async def get_reference_documents(db, question: str, image: str = None):
             "library_type": library_type,
             "title": active_map.get((library_type, doc_id)) or doc.get("title", ""),
             "score": doc.get("score", 0.0),
+            "chunks": doc.get("chunks") or [],
         })
     return filtered_docs
 
@@ -555,6 +585,133 @@ async def get_reference_documents(db, question: str, image: str = None):
 def get_ai_reference_document_ids(reference_docs: List[Dict[str, Any]]) -> List[str]:
     """从参考文档中提取文档 id 列表（用于拼接提示词）。"""
     return [f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc['doc_id'])}" for doc in reference_docs if doc.get("doc_id") is not None]
+
+def get_ai_reference_prompt_refs(reference_docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """保留命中的 chunk/section 信息，用于组装更精确的 RAG prompt。"""
+    refs = []
+    for doc in reference_docs:
+        if doc.get("doc_id") is None:
+            continue
+        refs.append({
+            "doc_id": int(doc["doc_id"]),
+            "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
+            "chunks": doc.get("chunks") or [],
+        })
+    return refs
+
+def _chunk_metadata(chunk: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = chunk.get("metadata") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except Exception:
+            metadata = {}
+    return metadata if isinstance(metadata, dict) else {}
+
+def _section_has_body(section: KnowledgeDocumentSection) -> bool:
+    return bool(str(section.plain_text or "").strip())
+
+def _section_marker(section: KnowledgeDocumentSection) -> str:
+    return str(section.section_type or "").strip()
+
+def _is_child_or_self_section(candidate: KnowledgeDocumentSection, parent: KnowledgeDocumentSection) -> bool:
+    parent_marker = _section_marker(parent)
+    candidate_marker = _section_marker(candidate)
+    if not parent_marker or not candidate_marker:
+        return False
+    return candidate_marker == parent_marker or candidate_marker.startswith(parent_marker + ".")
+
+def _select_prompt_sections(
+    sections: List[KnowledgeDocumentSection],
+    matched_chunks: List[Dict[str, Any]],
+    max_sections: int = 10,
+) -> List[KnowledgeDocumentSection]:
+    if not sections:
+        return []
+
+    by_id = {section.id: section for section in sections if section.id is not None}
+    by_index = {section.section_index: section for section in sections}
+    selected: List[KnowledgeDocumentSection] = []
+    selected_ids = set()
+
+    def add(section: Optional[KnowledgeDocumentSection]):
+        if not section or section.id in selected_ids:
+            return
+        if not _section_has_body(section):
+            return
+        selected.append(section)
+        selected_ids.add(section.id)
+
+    matched_sections: List[KnowledgeDocumentSection] = []
+    for chunk in matched_chunks or []:
+        metadata = _chunk_metadata(chunk)
+        section = None
+        section_id = metadata.get("section_id")
+        if section_id is not None:
+            try:
+                section = by_id.get(int(section_id))
+            except Exception:
+                section = None
+        if section is None and metadata.get("section_index") is not None:
+            try:
+                section = by_index.get(int(metadata.get("section_index")))
+            except Exception:
+                section = None
+        if section and section not in matched_sections:
+            matched_sections.append(section)
+
+    for section in matched_sections:
+        add(section)
+        current_pos = sections.index(section)
+        if current_pos > 0:
+            add(sections[current_pos - 1])
+        if current_pos + 1 < len(sections):
+            add(sections[current_pos + 1])
+        for candidate in sections:
+            if len(selected) >= max_sections:
+                break
+            if _is_child_or_self_section(candidate, section):
+                add(candidate)
+
+    if not selected:
+        for section in sections:
+            add(section)
+            if len(selected) >= max_sections:
+                break
+
+    return selected[:max_sections]
+
+
+def _matched_chunk_texts(matched_chunks: List[Dict[str, Any]], limit: int = 8) -> List[str]:
+    texts = []
+    seen = set()
+    for chunk in matched_chunks or []:
+        content = str(chunk.get("content") or "").strip()
+        if not content:
+            continue
+        marker = content[:300]
+        if marker in seen:
+            continue
+        seen.add(marker)
+        texts.append(content)
+        if len(texts) >= limit:
+            break
+    return texts
+
+
+def _append_prompt_piece(parts: List[str], text: str, remaining_tokens: int) -> int:
+    text = str(text or "").strip()
+    if not text or remaining_tokens <= 0:
+        return 0
+    token_count = _count_text_tokens_cached(text)
+    if token_count <= remaining_tokens:
+        parts.append(text)
+        return token_count
+    truncated = _truncate_text_to_token_budget(text, remaining_tokens)
+    if truncated:
+        parts.append(truncated)
+        return _count_text_tokens_cached(truncated)
+    return 0
 
 async def get_prompt(db, document_ids, max_tokens):
     """根据检索文档组装提示词，并受 token 上限约束。"""
@@ -565,12 +722,19 @@ async def get_prompt(db, document_ids, max_tokens):
 
     document_refs = []
     for value in document_ids:
-        library_type, _, raw_doc_id = str(value).partition(":")
-        document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type)))
+        if isinstance(value, dict):
+            document_refs.append((
+                _normalize_library_type(value.get("library_type", "breakdown")),
+                int(value.get("doc_id")),
+                value.get("chunks") or [],
+            ))
+        else:
+            library_type, _, raw_doc_id = str(value).partition(":")
+            document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type), []))
 
     documents = []
     for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
-        ids = [doc_id for ref_library_type, doc_id in document_refs if ref_library_type == library_type]
+        ids = [doc_id for ref_library_type, doc_id, _chunks in document_refs if ref_library_type == library_type]
         if not ids:
             continue
         result = await db.execute(
@@ -585,20 +749,44 @@ async def get_prompt(db, document_ids, max_tokens):
         if not document:
             continue
         if _normalize_library_type(getattr(document, "library_type", "breakdown")) == "knowledge":
+            matched_chunks = []
+            for ref_library_type, ref_doc_id, chunks in document_refs:
+                if ref_library_type == "knowledge" and ref_doc_id == document.id:
+                    matched_chunks.extend(chunks or [])
+            print(f"RAG prompt doc={document.id} matched_chunks={len(matched_chunks)} max_tokens={max_tokens}")
             section_result = await db.execute(
                 select(KnowledgeDocumentSection)
                 .where(KnowledgeDocumentSection.document_id == document.id)
                 .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
-                .limit(8)
             )
-            section_text = "\n".join(
-                f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
-                for section in section_result.scalars().all()
-            )
-            doc_prompt = f"""【知识库文档{i + 1}】：{document.title}
-章节内容：
-{section_text}
-        """
+            all_sections = list(section_result.scalars().all())
+            selected_sections = _select_prompt_sections(all_sections, matched_chunks, max_sections=10)
+            doc_parts = [f"【知识库文档{i + 1}】：{document.title}"]
+            remaining = max_tokens - tokens - _count_text_tokens_cached(doc_parts[0])
+
+            matched_texts = _matched_chunk_texts(matched_chunks, limit=8)
+            if matched_texts and remaining > 0:
+                used = _append_prompt_piece(
+                    doc_parts,
+                    "命中的相关片段：\n" + "\n\n".join(
+                        f"片段{index + 1}：\n{text}" for index, text in enumerate(matched_texts)
+                    ),
+                    remaining,
+                )
+                remaining -= used
+
+            if selected_sections and remaining > 0:
+                section_parts = []
+                for section in selected_sections:
+                    section_piece = f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
+                    used = _append_prompt_piece(section_parts, section_piece, remaining)
+                    remaining -= used
+                    if remaining <= 0:
+                        break
+                if section_parts:
+                    doc_parts.append("相关章节内容：\n" + "\n\n".join(section_parts))
+
+            doc_prompt = "\n".join(part for part in doc_parts if part).strip()
         else:
             doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}
@@ -611,15 +799,20 @@ async def get_prompt(db, document_ids, max_tokens):
         token_tmp = _count_text_tokens_cached(doc_prompt)
 
         if tokens + token_tmp >= max_tokens:
-            break
+            remaining = max_tokens - tokens
+            doc_prompt = _truncate_text_to_token_budget(doc_prompt, remaining)
+            token_tmp = _count_text_tokens_cached(doc_prompt)
+            if not doc_prompt or token_tmp <= 0:
+                break
         tokens += token_tmp
         prompts.append(doc_prompt)
+        print(f"RAG prompt appended doc={getattr(document, 'id', '')} tokens={token_tmp} total={tokens}")
 
     # 增加统一指令
     if prompts:
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(prompts)
-        final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
+        final_prompt += "\n\n请只依据上述知识文档回答用户的问题。若上述片段包含可回答的信息，请直接给出答案；只有上述文档确实没有相关信息时，才提示知识库无相关内容。"
         return final_prompt
 
     return ""
@@ -640,11 +833,24 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
     for doc in reference_docs:
         if doc.get("doc_id") is None:
             continue
+        chunks = []
+        for chunk in (doc.get("chunks") or [])[:3]:
+            metadata = _chunk_metadata(chunk)
+            chunks.append({
+                "score": float(chunk.get("score", 0.0)),
+                "content_type": metadata.get("content_type"),
+                "section_title": metadata.get("section_title"),
+                "table_index": metadata.get("table_index"),
+                "row_start": metadata.get("row_start"),
+                "row_end": metadata.get("row_end"),
+                "preview": str(chunk.get("content") or "")[:300],
+            })
         payload.append({
             "doc_id": int(doc["doc_id"]),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
-            "score": float(doc.get("score", 0.0))
+            "score": float(doc.get("score", 0.0)),
+            "chunks": chunks,
         })
     if not payload:
         return ""
@@ -702,5 +908,6 @@ async def get_by_conversation(id: int,
         if isinstance(e, AppException):
             raise
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "获取对话消息失败")
+
 
 

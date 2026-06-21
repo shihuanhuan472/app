@@ -1911,8 +1911,12 @@
                         await this.loadConversation(this.currentConversationId);
                         this.updateConversationTime(this.currentConversationId);
                     },
-                    (error) => {
+                    async (error) => {
                         this.removeStreamingMessage();
+                        this.removeTemporaryElements();
+                        if (this.currentConversationId) {
+                            await this.loadConversation(this.currentConversationId);
+                        }
                         throw error;
                     }
                 );

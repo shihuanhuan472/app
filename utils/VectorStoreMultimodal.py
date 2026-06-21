@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 load_dotenv()
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -527,13 +528,184 @@ class VectorStoreMultimodal:
             content = content[:29000].rstrip() + "\n【提示：该目录章节较长，向量内容已截断，原章节表仍保留完整正文。】"
         return content
 
-    def chunk_knowledge_document(self, document: Document) -> List[Dict]:
-        """知识库按目录章节分块。
+    def _is_markdown_table_line(self, line: str) -> bool:
+        line = str(line or "").strip()
+        return line.startswith("|") and line.endswith("|")
 
-        与故障库不同，知识库不再按图片拆成多个 chunk；每条章节表记录（由
-        文档目录/标题解析得到）就是一个向量 chunk。图片作为正文占位符的一部分
-        保留在 section.plain_text 中，并在 metadata.image_positions/image_urls 中记录，
-        用于前端内联展示和后续定位。
+    def _is_markdown_table_separator(self, line: str) -> bool:
+        return bool(re.match(r"^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$", str(line or "").strip()))
+
+    def _split_markdown_table_row(self, line: str) -> List[str]:
+        return [cell.strip() for cell in str(line or "").strip().strip("|").split("|")]
+
+    def _render_markdown_table(self, rows: List[List[str]]) -> str:
+        rows = [[str(cell or "").replace("|", " ").strip() for cell in row] for row in rows if any(row)]
+        if not rows:
+            return ""
+        max_cols = max(len(row) for row in rows)
+        rows = [row + [""] * (max_cols - len(row)) for row in rows]
+
+        def render(row):
+            return "| " + " | ".join(row) + " |"
+
+        return "\n".join([render(rows[0]), render(["---"] * max_cols)] + [render(row) for row in rows[1:]])
+
+    def _normalize_table_header_key(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", str(value or "").lower())
+
+    def _is_record_table_header(self, header: List[str]) -> bool:
+        keys = {self._normalize_table_header_key(cell) for cell in header if cell}
+        record_markers = {
+            "devicecode",
+            "errorcode",
+            "code",
+            "错误码",
+            "错误代码",
+            "故障码",
+            "报警码",
+            "description",
+            "vendorcode",
+            "workflowstep",
+            "devicename",
+            "position",
+            "设备码",
+            "设备名称",
+            "描述",
+            "处理方法",
+            "原因",
+            "解决方案",
+        }
+        has_code_header = any("code" in key or "\u7801" in key for key in keys)
+        has_name_header = any("name" in key or "\u540d\u79f0" in key for key in keys)
+        return (
+            len(keys & record_markers) >= 2
+            or any("errorcode" in key or "\u9519\u8bef\u7801" in key for key in keys)
+            or (has_code_header and has_name_header)
+        )
+
+    def _table_row_to_field_text(self, header: List[str], row: List[str]) -> str:
+        pairs = []
+        max_cols = max(len(header), len(row))
+        for index in range(max_cols):
+            key = header[index].strip() if index < len(header) and header[index].strip() else f"字段{index + 1}"
+            value = row[index].strip() if index < len(row) else ""
+            if value:
+                pairs.append(f"{key}: {value}")
+        return "\n".join(pairs)
+
+    def _table_row_embedding_text(self, header: List[str], row: List[str]) -> str:
+        field_text = self._table_row_to_field_text(header, row)
+        compact_values = " ".join(str(cell or "").strip() for cell in row if str(cell or "").strip())
+        return "\n".join(part for part in [field_text, compact_values] if part).strip()
+
+    def _strip_markdown_tables(self, text: str) -> str:
+        lines = str(text or "").splitlines()
+        kept = []
+        index = 0
+        while index < len(lines):
+            if not self._is_markdown_table_line(lines[index]):
+                kept.append(lines[index])
+                index += 1
+                continue
+            table_lines = []
+            while index < len(lines) and self._is_markdown_table_line(lines[index]):
+                table_lines.append(lines[index])
+                index += 1
+            if len(table_lines) >= 2 and self._is_markdown_table_separator(table_lines[1]):
+                header = self._split_markdown_table_row(table_lines[0])
+                rows_count = max(0, len(table_lines) - 2)
+                kept.append(f"【表格：{' / '.join(cell for cell in header if cell)}，共{rows_count}行，已按表格记录单独向量化。】")
+            else:
+                kept.extend(table_lines)
+        return "\n".join(line for line in kept if str(line).strip()).strip()
+
+    def _split_text_for_vector(self, text: str, max_tokens: int = 1200) -> List[str]:
+        text = str(text or "").strip()
+        if not text:
+            return []
+        paragraphs = [line.strip() for line in text.splitlines() if line.strip()]
+        chunks = []
+        current = ""
+        for paragraph in paragraphs:
+            candidate = f"{current}\n{paragraph}".strip() if current else paragraph
+            if current and _count_tokens_cached(candidate) > max_tokens:
+                chunks.append(current)
+                current = paragraph
+            else:
+                current = candidate
+        if current:
+            chunks.append(current)
+        final_chunks = []
+        for chunk in chunks:
+            if _count_tokens_cached(chunk) <= max_tokens:
+                final_chunks.append(chunk)
+            else:
+                final_chunks.append(self._truncate_text_by_tokens(chunk, max_tokens))
+        return final_chunks
+
+    def _extract_markdown_tables_for_vector(self, text: str, max_rows: int = 18) -> List[Dict[str, Any]]:
+        lines = str(text or "").splitlines()
+        chunks = []
+        index = 0
+        table_index = 0
+        while index < len(lines):
+            if not self._is_markdown_table_line(lines[index]):
+                index += 1
+                continue
+            start = index
+            table_lines = []
+            while index < len(lines) and self._is_markdown_table_line(lines[index]):
+                table_lines.append(lines[index])
+                index += 1
+            if len(table_lines) < 2 or not self._is_markdown_table_separator(table_lines[1]):
+                continue
+
+            table_index += 1
+            header = self._split_markdown_table_row(table_lines[0])
+            rows = [self._split_markdown_table_row(line) for line in table_lines[2:]]
+            is_record_table = self._is_record_table_header(header)
+            if is_record_table:
+                for row_index, row in enumerate(rows, start=1):
+                    field_text = self._table_row_to_field_text(header, row)
+                    if not field_text:
+                        continue
+                    chunks.append({
+                        "table_index": table_index,
+                        "table_group_index": row_index - 1,
+                        "row_start": row_index,
+                        "row_end": row_index,
+                        "text": field_text,
+                        "embedding_text": self._table_row_embedding_text(header, row),
+                        "line_start": start,
+                        "table_chunk_type": "record_row",
+                        "table_header": header,
+                    })
+                continue
+            for group_index in range(0, len(rows), max_rows):
+                group = rows[group_index: group_index + max_rows]
+                table_text = self._render_markdown_table([header] + group)
+                if not table_text:
+                    continue
+                chunks.append({
+                    "table_index": table_index,
+                    "table_group_index": group_index // max_rows,
+                    "row_start": group_index + 1,
+                    "row_end": group_index + len(group),
+                    "text": table_text,
+                    "embedding_text": table_text,
+                    "line_start": start,
+                    "table_chunk_type": "row_group",
+                    "table_header": header,
+                })
+        return chunks
+
+    def chunk_knowledge_document(self, document: Document) -> List[Dict]:
+        """Build adaptive vector chunks for knowledge documents.
+
+        Display sections stay intact in the database. Vector chunks are derived
+        by content type: section text, record-like table rows, and generic table
+        row groups. This keeps the reader faithful to the Word document while
+        making table lookup precise.
         """
         chunks = []
         library_type = "knowledge"
@@ -553,8 +725,7 @@ class VectorStoreMultimodal:
             if not section_text.strip() and not image_urls:
                 continue
 
-            content = self._knowledge_section_content(document, section, tag_prefix)
-            chunk_metadata = {
+            base_metadata = {
                 "contributor_id": getattr(document, "contributor_id", None),
                 "source_doc_id": getattr(document, "id", None),
                 "library_type": library_type,
@@ -564,25 +735,97 @@ class VectorStoreMultimodal:
                 "section_title": section_title,
                 "section_type": section.get("section_type"),
                 "section_index": section.get("section_index", 0),
-                "subchunk_index": 0,
-                "unit_type": "directory_section",
-                "content_type": "directory_section",
-                "chunk_id": f"knowledge-directory-section-{section_id or section.get('section_index', 0)}",
-                "chunk_size": len(content),
-                "semantic_method": "knowledge_directory_section_v2",
-                "chunk_strategy": metadata.get("chunk_strategy") or "directory_section_v2",
                 "image_urls": image_urls,
                 "image_positions": image_positions,
             }
-            chunks.append({
-                "doc_id": vector_doc_id,
-                "title": getattr(document, "title", "")[:100],
-                "content": content,
-                # 向量库 schema 只能保存单张 image_url；目录 chunk 以第一张可用图片作为多模态代表，
-                # 全部图片仍完整保存在 metadata.image_urls 和章节表中。
-                "image_url": self._first_existing_image_path(image_urls),
-                "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
-            })
+
+            text_without_tables = self._strip_markdown_tables(section_text)
+            text_chunks = self._split_text_for_vector(text_without_tables)
+            if not text_chunks and image_urls:
+                text_chunks = [f"图片所在章节：{section_title}"]
+
+            for text_index, text_chunk in enumerate(text_chunks):
+                content = "\n".join(
+                    part
+                    for part in [
+                        tag_prefix.rstrip() if tag_prefix else "",
+                        f"文档标题：{getattr(document, 'title', '')}",
+                        f"目录编号：{section.get('section_type') or ''}",
+                        f"目录标题：{section_title}",
+                        f"章节正文：{text_chunk}",
+                    ]
+                    if part
+                )
+                chunk_metadata = {
+                    **base_metadata,
+                    "subchunk_index": text_index,
+                    "unit_type": "section_text",
+                    "content_type": "section_text",
+                    "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-text-{text_index}",
+                    "chunk_size": len(content),
+                    "semantic_method": "knowledge_section_text_v3",
+                    "chunk_strategy": metadata.get("chunk_strategy") or "enterprise_docx_adaptive_text_v1",
+                }
+                chunks.append({
+                    "doc_id": vector_doc_id,
+                    "title": getattr(document, "title", ""),
+                    "content": content,
+                    "embedding_content": content,
+                    "image_url": self._first_existing_image_path(image_urls) if text_index == 0 else "",
+                    "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
+                })
+
+            table_chunks = self._extract_markdown_tables_for_vector(section_text)
+            for table_chunk in table_chunks:
+                table_content = "\n".join(
+                    part
+                    for part in [
+                        tag_prefix.rstrip() if tag_prefix else "",
+                        f"文档标题：{getattr(document, 'title', '')}",
+                        f"目录编号：{section.get('section_type') or ''}",
+                        f"目录标题：{section_title}",
+                        f"表格{table_chunk['table_index']} 行 {table_chunk['row_start']}-{table_chunk['row_end']}：",
+                        table_chunk["text"],
+                    ]
+                    if part
+                )
+                table_metadata = {
+                    **base_metadata,
+                    "subchunk_index": table_chunk["table_group_index"],
+                    "unit_type": "table_rows",
+                    "content_type": "table",
+                    "chunk_id": (
+                        f"knowledge-table-section-{section_id or section.get('section_index', 0)}"
+                        f"-t{table_chunk['table_index']}-g{table_chunk['table_group_index']}"
+                    ),
+                    "chunk_size": len(table_content),
+                    "semantic_method": "knowledge_table_rows_v2",
+                    "chunk_strategy": "enterprise_docx_adaptive_table_v2",
+                    "table_index": table_chunk["table_index"],
+                    "table_group_index": table_chunk["table_group_index"],
+                    "row_start": table_chunk["row_start"],
+                    "row_end": table_chunk["row_end"],
+                    "table_chunk_type": table_chunk.get("table_chunk_type"),
+                    "table_header": table_chunk.get("table_header"),
+                }
+                chunks.append({
+                    "doc_id": vector_doc_id,
+                    "title": getattr(document, "title", ""),
+                    "content": table_content,
+                    "embedding_content": "\n".join(
+                        part
+                        for part in [
+                            tag_prefix.rstrip() if tag_prefix else "",
+                            f"文档标题：{getattr(document, 'title', '')}",
+                            f"目录编号：{section.get('section_type') or ''}",
+                            f"目录标题：{section_title}",
+                            table_chunk.get("embedding_text") or table_chunk["text"],
+                        ]
+                        if part
+                    ),
+                    "image_url": self._first_existing_image_path(image_urls),
+                    "metadata": json.dumps(table_metadata, ensure_ascii=False),
+                })
         return chunks
 
     def _truncate_text_by_tokens(self, text: str, token_budget: int) -> str:
@@ -1103,9 +1346,30 @@ class VectorStoreMultimodal:
         with torch.no_grad():
             for chunk in chunks:
                 chunk["image_url"] = None if chunk["image_url"] == "" else chunk["image_url"]
-                encode_result = self.model.encode(text=chunk["content"], image=chunk["image_url"])
+                embedding_text = self._safe_embedding_text(
+                    chunk.get("embedding_content") or chunk.get("content") or ""
+                )
+                encode_result = self.model.encode(text=embedding_text, image=chunk["image_url"])
                 embeds.append(encode_result.cpu().numpy().flatten().tolist())
         return embeds
+
+    def _safe_embedding_text(self, text: str, token_limit: int = 7800) -> str:
+        text = text or ""
+        if _count_tokens_cached(text) <= token_limit:
+            return text
+        suffix = "\n【提示：该内容超过向量模型长度限制，已截断用于向量化。】"
+        budget = max(1, token_limit - _count_tokens_cached(suffix))
+        low, high = 0, len(text)
+        best = ""
+        while low <= high:
+            mid = (low + high) // 2
+            candidate = text[:mid]
+            if _count_tokens_cached(candidate) <= budget:
+                best = candidate
+                low = mid + 1
+            else:
+                high = mid - 1
+        return (best or text[: max(1, budget * 2)]).rstrip() + suffix
 
     def embed_multimodal_query(self, text=None, image=None):
         """查询"""

@@ -1553,6 +1553,9 @@ const messageAPI = {
                                     resolve(); // 流式正常结束
                                     return;
                                 }
+                                if (parsed.code === 0) {
+                                    throw new Error(parsed.message || parsed.msg || '回答生成失败');
+                                }
                                 // 正常流数据
                                 if (parsed.code === 1 && typeof parsed.answer === 'string') {
                                     onChunk && onChunk(parsed);

@@ -644,6 +644,30 @@
             margin-bottom: 8px !important;
             line-height: 1.85 !important;
         }
+        .knowledge-table-wrap {
+            overflow-x: auto !important;
+            margin: 12px 0 22px !important;
+        }
+        .knowledge-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            background: rgba(255, 255, 255, 0.78) !important;
+            font-size: 14px !important;
+            color: var(--kb-text) !important;
+        }
+        .knowledge-table th,
+        .knowledge-table td {
+            border: 1px solid rgba(148, 163, 184, 0.45) !important;
+            padding: 10px 12px !important;
+            vertical-align: top !important;
+            line-height: 1.65 !important;
+            text-align: left !important;
+        }
+        .knowledge-table th {
+            background: rgba(30, 136, 229, 0.08) !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+        }
         .manual-section-placeholder {
             color: var(--kb-muted) !important;
             background: rgba(15, 23, 42, 0.035) !important;
@@ -974,13 +998,152 @@
 
         function renderInlineText(text) {
             return escapeHtml(text)
+                .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
                 .replace(/`([^`]+)`/g, '<code>$1</code>')
                 .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         }
 
+        function isMarkdownTableLine(line) {
+            const value = String(line || '').trim();
+            return value.includes('|') && value.replace(/\|/g, '').trim().length > 0;
+        }
+
+        function isMarkdownTableSeparator(line) {
+            const cells = splitMarkdownTableRow(line);
+            return cells.length > 1 && cells.every(cell => /^:?-{2,}:?$/.test(String(cell || '').trim()));
+        }
+
+        function splitMarkdownTableRow(line) {
+            return String(line || '')
+                .trim()
+                .replace(/^\|/, '')
+                .replace(/\|$/, '')
+                .split('|')
+                .map(cell => cell.trim());
+        }
+
+        function renderKnowledgeMarkdownTable(lines) {
+            const rows = lines
+                .map(splitMarkdownTableRow)
+                .filter(row => row.some(cell => String(cell || '').trim()))
+                .filter(row => !row.every(cell => /^:?-{2,}:?$/.test(String(cell || '').trim())));
+            if (rows.length < 2) {
+                return lines.map(line => `<p class="knowledge-paragraph">${renderInlineText(line)}</p>`).join('');
+            }
+            const maxCols = Math.max(...rows.map(row => row.length));
+            const normalizedRows = rows.map(row => row.concat(Array(Math.max(0, maxCols - row.length)).fill('')));
+            const header = normalizedRows[0];
+            const bodyRows = normalizedRows.slice(1);
+            return `
+                <div class="knowledge-table-wrap">
+                    <table class="knowledge-table">
+                        <thead><tr>${header.map(cell => `<th>${renderInlineText(cell)}</th>`).join('')}</tr></thead>
+                        <tbody>
+                            ${bodyRows.map(row => `<tr>${header.map((_, index) => `<td>${renderInlineText(row[index] || '')}</td>`).join('')}</tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function looksLikeEditorName(value, nextValue) {
+            const text = String(value || '').trim();
+            if (!text || text.length > 8) return false;
+            if (/(内容|方法|标准|操作|步骤|逻辑|错误|配图)$/.test(text)) return false;
+            if (/[，,。；;:：\d]/.test(text)) return false;
+            return /^[\u4e00-\u9fffA-Za-z\s]+$/.test(text) && (!nextValue || /^[A-Za-z]\d+$/.test(String(nextValue).trim()));
+        }
+
+        function normalizeRevisionHistoryText(text) {
+            const raw = String(text || '').trim();
+            if (!raw) return raw;
+            if (raw.includes('|') && raw.includes('---')) return trimRevisionMarkdownTable(raw);
+            const lines = raw.split(/\n+/).map(line => line.trim()).filter(Boolean);
+            if (lines.length < 8) return raw;
+            const headers = ['版本', '日期', '变更说明', '编辑'];
+            const normalized = lines.map(line => line.replace(/\s+/g, ''));
+            const headerPositions = headers.map(header => normalized.slice(0, 8).findIndex(line => line === header));
+            if (headerPositions.some(index => index < 0)) return raw;
+
+            const rows = [];
+            const data = lines.slice(Math.max(...headerPositions) + 1);
+            let index = 0;
+            while (index < data.length) {
+                const version = data[index];
+                if (!/^[A-Za-z]\d+$/.test(version)) {
+                    index += 1;
+                    continue;
+                }
+                if (index + 2 >= data.length) break;
+                const date = data[index + 1];
+                const changes = [];
+                let editor = '';
+                index += 2;
+                while (index < data.length) {
+                    const current = data[index];
+                    const nextValue = data[index + 1] || '';
+                    if (/^[A-Za-z]\d+$/.test(current)) break;
+                    if (looksLikeEditorName(current, nextValue)) {
+                        editor = current;
+                        index += 1;
+                        break;
+                    }
+                    changes.push(current);
+                    index += 1;
+                }
+                rows.push([version, date, changes.join(' '), editor]);
+            }
+            if (!rows.length) return raw;
+            const tableLines = [
+                `| ${headers.join(' | ')} |`,
+                `| ${headers.map(() => '---').join(' | ')} |`,
+                ...rows.map(row => `| ${row.map(cell => String(cell || '').replace(/\|/g, '｜')).join(' | ')} |`)
+            ];
+            return tableLines.join('\n');
+        }
+
+        function markdownTableCells(line) {
+            const value = String(line || '').trim();
+            if (!value.startsWith('|')) return [];
+            return value.replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+        }
+
+        function revisionRowContainsDirectory(cells) {
+            const text = cells.join(' ').replace(/\s+/g, '');
+            return text.includes('目录') || text.includes('一般信息') || text.includes('重要消息框') || text.includes('上电前准备');
+        }
+
+        function stripDirectoryTail(text) {
+            const value = String(text || '');
+            const markers = ['目录', 'I 一般信息', 'I一般信息', '一般信息', '1.1 重要消息框', '重要消息框', '开箱并移至实验室', '上电前准备'];
+            const positions = markers.map(marker => value.indexOf(marker)).filter(index => index >= 0);
+            if (!positions.length) return value.trim();
+            return value.slice(0, Math.min(...positions)).trim();
+        }
+
+        function trimRevisionMarkdownTable(text) {
+            const lines = String(text || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+            if (lines.length < 3) return text;
+            const rows = [];
+            for (const line of lines.slice(2)) {
+                const cells = markdownTableCells(line);
+                if (!cells.length) continue;
+                if (!/^[A-Za-z]\d+$/.test(cells[0] || '')) continue;
+                const normalized = [cells[0] || '', cells[1] || '', cells[2] || '', cells[3] || '']
+                    .map(cell => stripDirectoryTail(cell));
+                rows.push(normalized);
+            }
+            if (!rows.length) return text;
+            return [
+                lines[0],
+                lines[1],
+                ...rows.map(row => `| ${row.map(cell => String(cell || '').replace(/\|/g, '｜')).join(' | ')} |`)
+            ].join('\n');
+        }
+
         function renderKnowledgeTextSegment(segment) {
             const lines = String(segment || '')
-                .split(/\n+/)
+                .split(/\n/)
                 .map(line => line.trim())
                 .filter(Boolean);
 
@@ -995,7 +1158,24 @@
                 ordered = false;
             };
 
-            lines.forEach(line => {
+            const flushTable = (tableBuffer) => {
+                if (!tableBuffer.length) return;
+                flushList();
+                html.push(renderKnowledgeMarkdownTable(tableBuffer));
+            };
+
+            for (let index = 0; index < lines.length; index += 1) {
+                const line = lines[index];
+                if (isMarkdownTableLine(line)) {
+                    const tableBuffer = [];
+                    while (index < lines.length && isMarkdownTableLine(lines[index])) {
+                        tableBuffer.push(lines[index]);
+                        index += 1;
+                    }
+                    index -= 1;
+                    flushTable(tableBuffer);
+                    continue;
+                }
                 const bulletMatch = line.match(/^(?:[-*•])\s+(.+)$/);
                 const orderedMatch = line.match(/^\d+[\.、]\s+(.+)$/);
                 if (bulletMatch || orderedMatch) {
@@ -1003,11 +1183,11 @@
                     if (listBuffer.length && ordered !== isOrdered) flushList();
                     ordered = isOrdered;
                     listBuffer.push(`<li>${renderInlineText((bulletMatch || orderedMatch)[1])}</li>`);
-                    return;
+                    continue;
                 }
                 flushList();
                 html.push(`<p class="knowledge-paragraph">${renderInlineText(line)}</p>`);
-            });
+            }
             flushList();
             return html.join('');
         }
@@ -1025,7 +1205,10 @@
 
         function renderKnowledgeSectionContent(section) {
             const imageUrls = normalizeImageUrls(section.image_urls);
-            const text = section.plain_text || '';
+            const role = getKnowledgeSectionRole(section);
+            const text = role === 'revision_history'
+                ? normalizeRevisionHistoryText(section.plain_text || '')
+                : (section.plain_text || '');
             if (!text && !imageUrls.length) return '<p class="text-muted">无正文内容</p>';
 
             const sectionId = String(section.id || section.section_index || section.section_title || '');
@@ -1134,26 +1317,17 @@
             const level = sectionLevelNumber(section.section_type);
             const title = stripSectionTitleMarker(section.section_title || `章节 ${index + 1}`, section.section_type);
             const sectionNo = section.section_type ? escapeHtml(section.section_type) : String(index + 1);
-            const estimatedHeight = estimateManualArticleHeight(section);
             return `
                 <article class="manual-article level-${level}" id="${manualSectionId(section, index)}" data-section-index="${index}" data-section-id="${manualSectionId(section, index)}">
                     <div class="manual-article-header">
                         <span class="manual-section-number">${sectionNo}</span>
                         <h2>${escapeHtml(title)}</h2>
                     </div>
-                    <div class="manual-article-body manual-article-body-placeholder" style="min-height:${estimatedHeight}px; contain-intrinsic-size:${estimatedHeight}px;">
+                    <div class="manual-article-body manual-article-body-placeholder">
                         <div class="section-loading-skeleton">内容加载中...</div>
                     </div>
                 </article>
             `;
-        }
-
-        function estimateManualArticleHeight(section) {
-            const textLength = String(section.plain_text || '').length;
-            const imageCount = normalizeImageUrls(section.image_urls).length;
-            const textHeight = Math.ceil(textLength / 34) * 32;
-            const imageHeight = imageCount * 620;
-            return Math.min(8000, Math.max(180, textHeight + imageHeight + 160));
         }
 
         function renderManualArticleBody(section, index) {
@@ -1352,6 +1526,8 @@
                 const body = article.querySelector('.manual-article-body');
                 if (!section || !body) return;
                 body.innerHTML = renderManualArticleBody(section, index);
+                body.style.minHeight = '';
+                body.style.containIntrinsicSize = '';
                 body.classList.remove('manual-article-body-placeholder');
                 article.dataset.rendered = '1';
             };
@@ -1438,6 +1614,8 @@
                     }
                     if (section && body) {
                         body.innerHTML = renderManualArticleBody(section, index);
+                        body.style.minHeight = '';
+                        body.style.containIntrinsicSize = '';
                         body.classList.remove('manual-article-body-placeholder');
                         article.dataset.rendered = '1';
                     }

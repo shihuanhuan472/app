@@ -1,4 +1,4 @@
-import csv
+﻿import csv
 import os
 import re
 import shutil
@@ -16,6 +16,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from PIL import Image
 
+from knowledge_parsers.enterprise_word_chunker import EnterpriseWordChunker
 from utils.error_codes import BizCode
 
 try:
@@ -117,6 +118,7 @@ class KnowledgeParser:
     def _build_document(self, file_path: str, blocks: List[Dict]) -> KnowledgeParsedDocument:
         blocks = self._filter_noise_blocks(blocks)
         sections = self._blocks_to_sections(blocks, fallback_title=Path(file_path).stem)
+        sections = self._with_front_matter_sections(blocks, sections)
         content = "\n\n".join(section.plain_text for section in sections if section.plain_text).strip()
         title = self._guess_title(file_path, sections, content)
         summary = self._build_summary(content)
@@ -132,6 +134,91 @@ class KnowledgeParser:
             image_urls=image_urls,
             sections=sections,
         )
+
+    def _with_front_matter_sections(self, blocks: List[Dict], sections: List[KnowledgeSectionData]) -> List[KnowledgeSectionData]:
+        front_sections = self._extract_front_matter_sections(blocks)
+        if not front_sections:
+            return sections
+        existing_roles = {self._section_role(section) for section in sections}
+        front_sections = [section for section in front_sections if self._section_role(section) not in existing_roles]
+        insert_at = 1 if sections and self._section_role(sections[0]) == "title" else 0
+        merged = sections[:insert_at] + front_sections + sections[insert_at:]
+        for index, section in enumerate(merged):
+            section.section_index = index
+        return merged
+
+    def _extract_front_matter_sections(self, blocks: List[Dict]) -> List[KnowledgeSectionData]:
+        lines: List[str] = []
+        front_tables: List[Dict] = []
+        for block in blocks:
+            page = block.get("page") or 1
+            if page > 6:
+                break
+            if block.get("type") == "table":
+                table_text = (block.get("text") or "").strip()
+                if table_text:
+                    front_tables.append(
+                        {
+                            "text": table_text,
+                            "page": page,
+                            "bbox": block.get("bbox") or (0, 0, 0, 0),
+                        }
+                    )
+                continue
+            if block.get("type") != "text":
+                continue
+            for raw_line in str(block.get("text") or "").splitlines():
+                line = raw_line.strip()
+                if line:
+                    lines.append(line)
+
+        if not lines:
+            return []
+
+        declaration_index = self._find_front_line(lines, {"宣言", "声明"})
+        revision_index = self._find_front_line(lines, {"修订记录", "修订历史", "版本记录", "变更记录"})
+        directory_index = self._find_front_line(lines, {"目录", "目 录", "contents"})
+        if directory_index is None:
+            directory_index = len(lines)
+
+        front_sections: List[KnowledgeSectionData] = []
+        if declaration_index is not None and declaration_index < directory_index:
+            end_index = revision_index if revision_index is not None and revision_index > declaration_index else directory_index
+            declaration_text = self._front_text(lines, declaration_index + 1, end_index)
+            if declaration_text:
+                front_sections.append(
+                    KnowledgeSectionData(
+                        section_index=0,
+                        section_title="文档前置信息",
+                        section_type="preface",
+                        plain_text=declaration_text,
+                        char_start=0,
+                        char_end=len(declaration_text),
+                        metadata={"image_positions": [], "section_role": "preface", "chunk_strategy": "front_matter_section_v2"},
+                    )
+                )
+
+        if revision_index is not None and revision_index < directory_index:
+            revision_text = self._front_table_after_heading(blocks, front_tables, {"修订记录", "修订历史", "版本记录", "变更记录"})
+            if not revision_text:
+                revision_text = self._front_text(lines, revision_index + 1, directory_index)
+            revision_text = self._normalize_revision_history_text(revision_text)
+            if revision_text:
+                front_sections.append(
+                    KnowledgeSectionData(
+                        section_index=len(front_sections),
+                        section_title="修订记录",
+                        section_type="revision_history",
+                        plain_text=revision_text,
+                        char_start=0,
+                        char_end=len(revision_text),
+                        metadata={"image_positions": [], "section_role": "revision_history", "chunk_strategy": "front_matter_section_v2"},
+                    )
+                )
+        return front_sections
+
+    def _section_role(self, section: KnowledgeSectionData) -> str:
+        return str((section.metadata or {}).get("section_role") or section.section_type or "").strip().lower()
 
     def _filter_noise_blocks(self, blocks: List[Dict]) -> List[Dict]:
         """过滤页眉页脚、页码、空白和明显导航噪声。
@@ -206,6 +293,448 @@ class KnowledgeParser:
 
     def _normalize_noise_text(self, text: str) -> str:
         return re.sub(r"\s+", "", text or "")
+
+    def _find_front_line(self, lines: List[str], keywords: set) -> Optional[int]:
+        normalized_keywords = {self._normalize_noise_text(keyword).lower() for keyword in keywords}
+        for index, line in enumerate(lines):
+            normalized = self._normalize_noise_text(line).lower()
+            if normalized in normalized_keywords:
+                return index
+        for index, line in enumerate(lines):
+            normalized = self._normalize_noise_text(line).lower()
+            if any(keyword and keyword in normalized for keyword in normalized_keywords):
+                return index
+        return None
+
+    def _front_text(self, lines: List[str], start: int, end: int) -> str:
+        selected = []
+        for line in lines[start:end]:
+            normalized = self._normalize_noise_text(line)
+            if not normalized:
+                continue
+            if normalized in {"目录", "目錄", "contents"}:
+                break
+            selected.append(line)
+        return "\n".join(selected).strip()
+
+    def _front_table_after_heading(self, blocks: List[Dict], tables: List[Dict], heading_keywords: set) -> str:
+        if not tables:
+            return ""
+        heading_markers = {self._normalize_noise_text(keyword).lower() for keyword in heading_keywords}
+        heading_pos = None
+        directory_pos = None
+        for block in blocks:
+            if (block.get("page") or 1) > 6:
+                break
+            if block.get("type") != "text":
+                continue
+            text = str(block.get("text") or "")
+            for raw_line in text.splitlines():
+                normalized = self._normalize_noise_text(raw_line).lower()
+                if normalized in heading_markers or any(keyword and keyword in normalized for keyword in heading_markers):
+                    heading_pos = self._block_position(block)
+                if normalized in {"目录", "目錄", "contents", "tableofcontents"}:
+                    directory_pos = self._block_position(block)
+                    break
+            if heading_pos and directory_pos:
+                break
+        if not heading_pos:
+            return ""
+
+        candidates = []
+        for table in tables:
+            table_pos = self._block_position(table)
+            if table_pos <= heading_pos:
+                continue
+            if directory_pos and table_pos >= directory_pos:
+                continue
+            candidates.append((table_pos, table.get("text") or ""))
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1].strip() if candidates else ""
+
+    def _block_position(self, block: Dict) -> Tuple[int, float, float]:
+        bbox = block.get("bbox") or (0, 0, 0, 0)
+        return (int(block.get("page") or 1), float(bbox[1] if len(bbox) > 1 else 0), float(bbox[0] if bbox else 0))
+
+    def _is_revision_table_text(self, text: str) -> bool:
+        normalized = self._normalize_noise_text(text)
+        return all(keyword in normalized for keyword in ("版本", "日期")) and (
+            "变更说明" in normalized or "修订" in normalized
+        )
+
+    def _table_to_markdown(self, rows: List[List]) -> str:
+        cleaned_rows = []
+        for row in rows or []:
+            cells = [str(cell or "").replace("\n", " ").strip() for cell in row]
+            if any(cells):
+                cleaned_rows.append(cells)
+        if not cleaned_rows:
+            return ""
+        max_cols = max(len(row) for row in cleaned_rows)
+        normalized_rows = [row + [""] * (max_cols - len(row)) for row in cleaned_rows]
+
+        def render_row(row: List[str]) -> str:
+            return "| " + " | ".join(self._strip_directory_tail(str(cell or "").replace("|", " ")) for cell in row) + " |"
+
+        return "\n".join(
+            [render_row(normalized_rows[0]), render_row(["---"] * max_cols)]
+            + [render_row(row) for row in normalized_rows[1:]]
+        ).strip()
+
+    def _extract_pdf_tables(self, page, page_number: int) -> List[Dict]:
+        if not hasattr(page, "find_tables"):
+            return []
+        extracted: List[Dict] = []
+        candidates = []
+        for clip in self._pdf_table_candidate_clips(page):
+            candidates.append(
+                {
+                    "clip": clip,
+                    "vertical_strategy": "text",
+                    "horizontal_strategy": "lines",
+                    "name": "text_columns_in_line_grid",
+                }
+            )
+            candidates.append(
+                {
+                    "clip": clip,
+                    "vertical_strategy": "text",
+                    "horizontal_strategy": "text",
+                    "name": "text_grid_in_line_region",
+                }
+            )
+        candidates.append(
+            {
+                "clip": None,
+                "vertical_strategy": "lines",
+                "horizontal_strategy": "lines",
+                "name": "line_grid",
+            }
+        )
+        for strategy in candidates:
+            try:
+                find_kwargs = {
+                    "vertical_strategy": strategy["vertical_strategy"],
+                    "horizontal_strategy": strategy["horizontal_strategy"],
+                }
+                if strategy.get("clip") is not None:
+                    find_kwargs["clip"] = strategy["clip"]
+                tables = page.find_tables(**find_kwargs)
+            except Exception:
+                continue
+            for table_index, table in enumerate(getattr(tables, "tables", []) or []):
+                rect = tuple(getattr(table, "bbox", None) or (0, 0, 0, 0))
+                rows = self._merge_table_continuation_rows(self._clean_table_rows(table.extract()))
+                if strategy["name"] == "text_columns_in_line_grid":
+                    rows = self._prepend_pdf_table_header_from_clip(page, strategy.get("clip"), rect, rows)
+                if not self._is_valid_table_rows(rows):
+                    continue
+                if any(self._bbox_overlap_ratio(rect, existing.get("bbox")) > 0.85 for existing in extracted):
+                    existing = next((item for item in extracted if self._bbox_overlap_ratio(rect, item.get("bbox")) > 0.85), None)
+                    existing_priority = self._table_strategy_priority(existing.get("table_strategy") if existing else "")
+                    current_priority = self._table_strategy_priority(strategy["name"])
+                    if existing and (
+                        current_priority > existing_priority
+                        or (
+                            current_priority == existing_priority
+                            and self._table_quality_score(rows) > self._table_quality_score(existing.get("rows") or [])
+                        )
+                    ):
+                        existing.update(
+                            {
+                                "text": self._table_to_markdown(rows),
+                                "bbox": rect,
+                                "rows": rows,
+                                "table_strategy": strategy["name"],
+                            }
+                        )
+                    continue
+                table_text = self._table_to_markdown(rows)
+                if not table_text:
+                    continue
+                extracted.append(
+                    {
+                        "type": "table",
+                        "text": table_text,
+                        "page": page_number,
+                        "bbox": rect,
+                        "section_type": "table_text",
+                        "table_index": len(extracted),
+                        "table_strategy": strategy["name"],
+                        "rows": rows,
+                    }
+                )
+        for table in extracted:
+            table.pop("rows", None)
+        return extracted
+
+    def _pdf_table_candidate_clips(self, page) -> List:
+        horizontal_lines = []
+        try:
+            drawings = page.get_drawings()
+        except Exception:
+            return []
+        for drawing in drawings:
+            rect = drawing.get("rect")
+            if not rect:
+                continue
+            width = abs(rect.x1 - rect.x0)
+            height = abs(rect.y1 - rect.y0)
+            if width < max(80.0, page.rect.width * 0.25) or height > 2.0:
+                continue
+            horizontal_lines.append((float(rect.y0), float(rect.x0), float(rect.x1)))
+        if len(horizontal_lines) < 2:
+            return []
+        horizontal_lines.sort(key=lambda item: item[0])
+        groups = []
+        current = [horizontal_lines[0]]
+        for line in horizontal_lines[1:]:
+            previous_y = current[-1][0]
+            if line[0] - previous_y <= 140:
+                current.append(line)
+            else:
+                if len(current) >= 2:
+                    groups.append(current)
+                current = [line]
+        if len(current) >= 2:
+            groups.append(current)
+
+        clips = []
+        for group in groups:
+            x0 = max(0.0, min(line[1] for line in group) - 6.0)
+            x1 = min(float(page.rect.width), max(line[2] for line in group) + 6.0)
+            y0 = max(0.0, min(line[0] for line in group) - 32.0)
+            y1 = min(float(page.rect.height), max(line[0] for line in group) + 16.0)
+            if x1 - x0 >= 80 and y1 - y0 >= 20:
+                clips.append(pymupdf.Rect(x0, y0, x1, y1))
+        return clips
+
+    def _clean_table_rows(self, rows: List[List]) -> List[List[str]]:
+        cleaned_rows: List[List[str]] = []
+        for row in rows or []:
+            cells = [str(cell or "").replace("\n", " ").strip() for cell in row]
+            if any(cells):
+                cleaned_rows.append(cells)
+        if not cleaned_rows:
+            return []
+        max_cols = max(len(row) for row in cleaned_rows)
+        return [row + [""] * (max_cols - len(row)) for row in cleaned_rows]
+
+    def _is_valid_table_rows(self, rows: List[List[str]]) -> bool:
+        if len(rows) < 2:
+            return False
+        max_cols = max(len(row) for row in rows)
+        if max_cols < 2:
+            return False
+        non_empty_cells = sum(1 for row in rows for cell in row if str(cell or "").strip())
+        return non_empty_cells >= 4
+
+    def _table_strategy_priority(self, strategy_name: str) -> int:
+        priorities = {
+            "text_columns_in_line_grid": 3,
+            "line_grid": 2,
+            "text_grid_in_line_region": 1,
+        }
+        return priorities.get(strategy_name or "", 0)
+
+    def _prepend_pdf_table_header_from_clip(self, page, clip, table_bbox, rows: List[List[str]]) -> List[List[str]]:
+        if not clip or not table_bbox or not rows:
+            return rows
+        if self._looks_like_table_header(rows[0]):
+            return rows
+        try:
+            words = page.get_text("words", clip=clip)
+        except Exception:
+            return rows
+        tx0, ty0, tx1, ty1 = table_bbox
+        header_words = []
+        for word in words:
+            x0, y0, x1, y1, text = word[:5]
+            if y1 <= ty0 + 2 and y0 >= max(0.0, ty0 - 40):
+                header_words.append((x0, y0, x1, y1, str(text or "")))
+        if not header_words:
+            return rows
+        header_words.sort(key=lambda item: (item[1], item[0]))
+        line_groups: List[List[Tuple[float, float, float, float, str]]] = []
+        for word in header_words:
+            if not line_groups or abs(line_groups[-1][0][1] - word[1]) > 5:
+                line_groups.append([word])
+            else:
+                line_groups[-1].append(word)
+        if not line_groups:
+            return rows
+        header_line = max(line_groups, key=lambda group: len(group))
+        columns = self._table_column_ranges_from_rows(page, rows, table_bbox)
+        if len(columns) < 2:
+            return rows
+        header = [""] * len(columns)
+        for x0, _y0, x1, _y1, text in header_line:
+            center = (x0 + x1) / 2
+            for index, (col_x0, col_x1) in enumerate(columns):
+                if col_x0 - 4 <= center <= col_x1 + 4:
+                    header[index] = " ".join(part for part in (header[index], text) if part).strip()
+                    break
+        if not self._looks_like_table_header(header):
+            return rows
+        return [header] + rows
+
+    def _table_column_ranges_from_rows(self, page, rows: List[List[str]], table_bbox) -> List[Tuple[float, float]]:
+        try:
+            words = page.get_text("words", clip=pymupdf.Rect(*table_bbox))
+        except Exception:
+            return []
+        column_count = max(len(row) for row in rows)
+        if column_count < 2:
+            return []
+        x_values = sorted({float(word[0]) for word in words} | {float(word[2]) for word in words})
+        if len(x_values) < column_count:
+            x0, _y0, x1, _y1 = table_bbox
+            width = (x1 - x0) / column_count
+            return [(x0 + width * idx, x0 + width * (idx + 1)) for idx in range(column_count)]
+        tx0, _ty0, tx1, _ty1 = table_bbox
+        step = (tx1 - tx0) / column_count
+        return [(tx0 + step * idx, tx0 + step * (idx + 1)) for idx in range(column_count)]
+
+    def _looks_like_table_header(self, row: List[str]) -> bool:
+        cells = [str(cell or "").strip() for cell in row]
+        non_empty = [cell for cell in cells if cell]
+        if len(non_empty) < 2:
+            return False
+        digit_heavy = sum(1 for cell in non_empty if re.search(r"\d", cell))
+        long_cells = sum(1 for cell in non_empty if len(cell) > 30)
+        return digit_heavy == 0 and long_cells <= max(1, len(non_empty) // 2)
+
+    def _merge_table_continuation_rows(self, rows: List[List[str]]) -> List[List[str]]:
+        if not rows:
+            return []
+        merged: List[List[str]] = []
+        for row in rows:
+            cells = [str(cell or "").strip() for cell in row]
+            if not any(cells):
+                continue
+            first_non_empty = next((idx for idx, cell in enumerate(cells) if cell), None)
+            if merged and first_non_empty is not None and first_non_empty > 0 and not cells[0]:
+                target = merged[-1]
+                for idx, cell in enumerate(cells):
+                    if not cell:
+                        continue
+                    target[idx] = " ".join(part for part in (target[idx], cell) if part).strip()
+                continue
+            merged.append(cells)
+        return merged
+
+    def _table_quality_score(self, rows: List[List[str]]) -> int:
+        if not rows:
+            return 0
+        non_empty_cells = sum(1 for row in rows for cell in row if str(cell or "").strip())
+        non_empty_first_col = sum(1 for row in rows if row and str(row[0] or "").strip())
+        return non_empty_cells + non_empty_first_col * 2 + len(rows)
+
+    def _bbox_overlap_ratio(self, first, second) -> float:
+        if not first or not second:
+            return 0.0
+        try:
+            ax0, ay0, ax1, ay1 = first
+            bx0, by0, bx1, by1 = second
+            inter_w = max(0.0, min(ax1, bx1) - max(ax0, bx0))
+            inter_h = max(0.0, min(ay1, by1) - max(ay0, by0))
+            inter_area = inter_w * inter_h
+            first_area = max(0.0, (ax1 - ax0) * (ay1 - ay0))
+            second_area = max(0.0, (bx1 - bx0) * (by1 - by0))
+            base_area = min(first_area, second_area)
+            return inter_area / base_area if base_area else 0.0
+        except Exception:
+            return 0.0
+
+    def _normalize_revision_history_text(self, text: str) -> str:
+        text = str(text or "").strip()
+        if not text:
+            return ""
+        if "|" in text and "---" in text:
+            return self._trim_revision_markdown_table(text)
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if len(lines) < 8:
+            return text
+        normalized = [self._normalize_noise_text(line) for line in lines]
+        headers = ["版本", "日期", "变更说明", "编辑"]
+        header_positions = []
+        for header in headers:
+            header_normalized = self._normalize_noise_text(header)
+            pos = next((idx for idx, value in enumerate(normalized[:8]) if value == header_normalized), None)
+            if pos is None:
+                return text
+            header_positions.append(pos)
+        data = lines[max(header_positions) + 1:]
+        rows = []
+        index = 0
+        while index < len(data):
+            version = data[index].strip()
+            if not re.fullmatch(r"[A-Za-z]\d+", version):
+                index += 1
+                continue
+            if index + 2 >= len(data):
+                break
+            date = data[index + 1].strip()
+            change_parts = []
+            editor = ""
+            index += 2
+            while index < len(data):
+                current = data[index].strip()
+                next_value = data[index + 1].strip() if index + 1 < len(data) else ""
+                if re.fullmatch(r"[A-Za-z]\d+", current):
+                    break
+                if self._looks_like_editor(current, next_value):
+                    editor = current
+                    index += 1
+                    break
+                change_parts.append(current)
+                index += 1
+            rows.append([version, date, " ".join(change_parts).strip(), editor])
+        return self._table_to_markdown([headers] + rows) if rows else text
+
+    def _trim_revision_markdown_table(self, text: str) -> str:
+        lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+        if len(lines) < 3:
+            return text
+        rows = []
+        for line in lines[2:]:
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            if not cells or not re.fullmatch(r"[A-Za-z]\d+", cells[0]):
+                continue
+            row = cells[:4] + [""] * max(0, 4 - len(cells))
+            row = [self._strip_directory_tail(cell) for cell in row[:4]]
+            rows.append(row[:4])
+        return self._table_to_markdown([["版本", "日期", "变更说明", "编辑"]] + rows) if rows else text
+
+    def _revision_row_contains_directory(self, cells: List[str]) -> bool:
+        text = self._normalize_noise_text(" ".join(cells))
+        return any(marker in text for marker in ("目录", "一般信息", "重要消息框", "上电前准备"))
+
+    def _strip_directory_tail(self, text: str) -> str:
+        value = str(text or "")
+        markers = ("目录", "I 一般信息", "I一般信息", "一般信息", "1.1 重要消息框", "重要消息框", "开箱并移至实验室", "上电前准备")
+        positions = [value.find(marker) for marker in markers if value.find(marker) >= 0]
+        return value[: min(positions)].strip() if positions else value.strip()
+
+    def _looks_like_editor(self, value: str, next_value: str = "") -> bool:
+        value = str(value or "").strip()
+        if not value or len(value) > 8:
+            return False
+        if value.endswith(("内容", "方法", "标准", "操作", "步骤", "逻辑", "错误", "配图")):
+            return False
+        if re.search(r"[，,。；;:：\d]", value):
+            return False
+        return bool(re.fullmatch(r"[\u4e00-\u9fffA-Za-z\s]+", value)) and (
+            not next_value or re.fullmatch(r"[A-Za-z]\d+", next_value)
+        )
+
+    def _bbox_inside(self, inner, outer, tolerance: float = 2.0) -> bool:
+        try:
+            ix0, iy0, ix1, iy1 = inner
+            ox0, oy0, ox1, oy1 = outer
+            return ix0 >= ox0 - tolerance and iy0 >= oy0 - tolerance and ix1 <= ox1 + tolerance and iy1 <= oy1 + tolerance
+        except Exception:
+            return False
 
     def _extract_directory_outline(self, blocks: List[Dict]) -> List[Dict]:
         """从文档目录页提取章节顺序。
@@ -517,6 +1046,18 @@ class KnowledgeParser:
                         "nearby_text_after": "",
                     }
                 )
+            elif block.get("type") == "table":
+                if current is None:
+                    continue
+                text = (block.get("text") or "").strip()
+                if not text:
+                    continue
+                if current.char_start is None:
+                    current.char_start = full_offset
+                full_offset = self._append_text_to_section(current, text, full_offset)
+                current.char_end = full_offset
+                previous_text_by_section[current.section_index] = text
+                paragraph_index_by_section[current.section_index] = paragraph_index_by_section.get(current.section_index, 0) + 1
 
         for section in sections:
             if section.char_start is None:
@@ -597,6 +1138,17 @@ class KnowledgeParser:
                         "nearby_text_after": "",
                     }
                 )
+            elif block.get("type") == "table":
+                text = (block.get("text") or "").strip()
+                if not text:
+                    continue
+                if current.plain_text:
+                    current.plain_text += "\n"
+                    full_offset += 1
+                current.plain_text += text
+                full_offset += len(text)
+                previous_text = text
+                paragraph_index += 1
 
         if current and (current.plain_text.strip() or current.image_urls):
             current.char_end = full_offset
@@ -746,30 +1298,40 @@ class KnowledgeParser:
         return text[:500]
 
     def _parse_docx(self, file_path: str) -> KnowledgeParsedDocument:
-        doc = DocxDocument(file_path)
-        blocks: List[Dict] = []
-        for block in self._iter_docx_blocks(doc):
-            if isinstance(block, Paragraph):
-                text = block.text.strip()
-                if text:
-                    style_name = (block.style.name or "").lower() if block.style else ""
-                    heading_level = self._docx_heading_level(style_name)
-                    blocks.append(
-                        {
-                            "type": "text",
-                            "text": text,
-                            "is_heading": heading_level is not None,
-                            "heading_level": heading_level,
-                            "section_type": f"level_{heading_level}" if heading_level is not None else "paragraph",
-                        }
-                    )
-                blocks.extend(self._docx_images_from_element(doc, block._element))
-            elif isinstance(block, Table):
-                table_text = self._docx_table_to_text(block)
-                if table_text:
-                    blocks.append({"type": "text", "text": table_text, "section_type": "table_text"})
-                blocks.extend(self._docx_images_from_element(doc, block._element))
-        return self._build_document(file_path, blocks)
+        chunker = EnterpriseWordChunker(save_image_blob=self._save_image_blob)
+        chunks = chunker.parse(file_path)
+        sections: List[KnowledgeSectionData] = []
+        full_offset = 0
+        image_urls = []
+
+        for index, chunk in enumerate(chunks):
+            plain_text = chunk.plain_text or ""
+            section_image_urls = list(chunk.image_urls or [])
+            for image_url in section_image_urls:
+                if image_url not in image_urls:
+                    image_urls.append(image_url)
+            section = KnowledgeSectionData(
+                section_index=index,
+                section_title=chunk.title or Path(file_path).stem,
+                section_type=chunk.section_type or str(index + 1),
+                plain_text=plain_text,
+                image_urls=section_image_urls,
+                char_start=full_offset,
+                char_end=full_offset + len(plain_text),
+                metadata=chunk.metadata or {},
+            )
+            sections.append(section)
+            full_offset = section.char_end + 1
+
+        content = "\n\n".join(section.plain_text for section in sections if section.plain_text).strip()
+        title = self._guess_title(file_path, sections, content)
+        return KnowledgeParsedDocument(
+            title=title,
+            summary=self._build_summary(content),
+            content=content,
+            image_urls=image_urls,
+            sections=sections,
+        )
 
     def _docx_heading_level(self, style_name: str) -> Optional[int]:
         style_name = style_name or ""
@@ -810,11 +1372,8 @@ class KnowledgeParser:
     def _docx_table_to_text(self, table: Table) -> str:
         rows = []
         for row in table.rows:
-            cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
-            line = " | ".join(cell for cell in cells if cell)
-            if line:
-                rows.append(line)
-        return "\n".join(rows)
+            rows.append([cell.text.strip().replace("\n", " ") for cell in row.cells])
+        return self._table_to_markdown(rows)
 
     def _parse_pdf(self, file_path: str) -> KnowledgeParsedDocument:
         if pymupdf is None:
@@ -824,6 +1383,11 @@ class KnowledgeParser:
         for page_index in range(len(doc)):
             page = doc[page_index]
             page_height = page.rect.height or 1
+            table_blocks = self._extract_pdf_tables(page, page_index + 1)
+            table_bboxes = [table.get("bbox") for table in table_blocks if table.get("bbox")]
+            for table_block in table_blocks:
+                table_block["block_order"] = len(blocks)
+                blocks.append(table_block)
             text_dict = page.get_text("dict")
             for block in text_dict.get("blocks", []):
                 if block.get("type") != 0:
@@ -832,6 +1396,8 @@ class KnowledgeParser:
                 if not text:
                     continue
                 x0, y0, x1, y1 = block.get("bbox", (0, 0, 0, 0))
+                if any(self._bbox_inside((x0, y0, x1, y1), table_bbox) for table_bbox in table_bboxes):
+                    continue
                 region = "body"
                 if y0 < page_height * 0.06:
                     region = "header"
