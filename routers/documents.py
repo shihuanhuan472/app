@@ -1388,6 +1388,11 @@ async def analyze_files(file_list: AnalyzeRequest,
                 created_library_type = "knowledge"
                 await replace_knowledge_document_sections(db, document, parsed.sections)
                 await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
+
+                # 先提交文档和章节，释放 MySQL 锁。
+                # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
+                await db.commit()
+
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(document, commit=False)

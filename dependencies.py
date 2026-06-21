@@ -4,12 +4,19 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from database import get_db
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import User
+from models import RoleGroup, User
 from utils.JwtUtils import jwt_utils
 from utils.api_key import looks_like_api_key
-from utils.roles import UserRole, normalize_role_value, is_role_perm_consistent
+from utils.roles import (
+    ROLE_NAME_TO_PERMISSION,
+    UserRole,
+    get_user_permissions,
+    has_permission,
+    normalize_role_value,
+)
 
 # 定义 HTTP Bearer 认证方案
 security = HTTPBearer(auto_error=False)
@@ -28,7 +35,11 @@ async def _get_api_key_user(db: AsyncSession) -> Optional[User]:
     if not user_id.isdigit():
         return None
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+        .where(User.id == int(user_id))
+    )
     user = result.scalar_one_or_none()
     if user is None or user.status == 0:
         return None
@@ -40,7 +51,9 @@ async def _get_user_by_api_key(api_key: str, db: AsyncSession) -> Optional[User]
         return None
 
     result = await db.execute(
-        select(User).where(
+        select(User)
+        .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+        .where(
             User.api_key == api_key,
             User.status == 1,
         )
@@ -103,7 +116,11 @@ async def get_current_user(
             )
         # user = db.query(User).filter(User.id == user_id).first()
 
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+            .where(User.id == user_id)
+        )
         user = result.scalar_one_or_none()
 
         if user is None:
@@ -160,24 +177,26 @@ def require_roles(*allowed_roles: str):
     """
 
     async def role_checker(current_user: User = Depends(get_current_user)) -> dict:
-        allowed_values = set()
+        permissions = []
         for role in allowed_roles:
+            role_key = str(role).strip().lower()
+            if role_key in ROLE_NAME_TO_PERMISSION:
+                permissions.append(ROLE_NAME_TO_PERMISSION[role_key])
+                continue
             role_value = normalize_role_value(role)
-            if role_value is not None:
-                allowed_values.add(role_value)
+            if role_value == int(UserRole.ADMIN):
+                permissions.append("admin")
+            elif role_value == int(UserRole.TECHNICIAN):
+                permissions.append("read_write")
+            elif role_value == int(UserRole.REVIEWER):
+                permissions.append("review")
+            elif role_value == int(UserRole.MAINTENANCE):
+                permissions.append("read_only")
 
-        # Backward compatibility: if caller passes nothing, default to admin only
-        if not allowed_values:
-            allowed_values = {int(UserRole.ADMIN)}
+        if not permissions:
+            permissions = ["admin"]
 
-        if not is_role_perm_consistent(current_user.role, getattr(current_user, "perm", None)):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Role and permission do not match"
-            )
-
-        current_role = normalize_role_value(current_user.role)
-        if current_role not in allowed_values:
+        if not has_permission(current_user, *permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions"
@@ -185,3 +204,19 @@ def require_roles(*allowed_roles: str):
         return current_user
 
     return role_checker
+
+
+def require_permissions(*permissions: str):
+    async def permission_checker(current_user: User = Depends(get_current_user)) -> User:
+        if not has_permission(current_user, *(permissions or ("admin",))):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return permission_checker
+
+
+def current_user_permissions(user: User) -> list[str]:
+    return sorted(get_user_permissions(user))

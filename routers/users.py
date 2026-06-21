@@ -7,31 +7,40 @@ from database import get_db
 from dependencies import get_current_user, get_current_active_user, require_roles
 from typing import Optional
 from sqlalchemy import select
-from models import User
+from sqlalchemy.orm import selectinload
+from models import RoleGroup, User
 from schemas import Result, UserUpdate, UserResponse, UserChangePassword
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.roles import get_user_permissions
 
 router = APIRouter(prefix="/user", tags=["用户"])
 logger = logging.getLogger(__name__)
 
 
+def _serialize_profile(user: User) -> dict:
+    role_group = getattr(user, "role_group", None)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "phone": user.phone,
+        "email": user.email,
+        "full_name": user.full_name,
+        "department": user.department,
+        "api_key": user.api_key,
+        "last_login": user.last_login,
+        "created_time": user.created_time,
+        "role": user.role,
+        "perm": getattr(user, "perm", None),
+        "role_group_id": getattr(user, "role_group_id", None),
+        "role_group_name": getattr(role_group, "name", None),
+        "permissions": sorted(get_user_permissions(user)),
+    }
+
+
 @router.get("/profile", summary="获取用户详细资料")
 async def get_user_profile(current_user: User = Depends(get_current_active_user)):
-    data = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "phone": current_user.phone,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "department": current_user.department,
-        "api_key": current_user.api_key,
-        "last_login": current_user.last_login,
-        "created_time": current_user.created_time,
-        "role": current_user.role,
-        "permissions": getattr(current_user, "permissions", None)
-    }
-    return Result.success_with_data(data)
+    return Result.success_with_data(_serialize_profile(current_user))
 
 @router.patch("/update", summary="更新用户信息")
 async def update_user(new_user: UserUpdate,
@@ -95,11 +104,15 @@ async def update_user(new_user: UserUpdate,
                 setattr(user, field, value)
 
         await db.commit()
-        await db.refresh(user)
 
-        data = UserResponse.from_orm(user)
+        refreshed_result = await db.execute(
+            select(User)
+            .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+            .where(User.id == user.id)
+        )
+        user = refreshed_result.scalar_one()
 
-        return Result.success_with_data(data)
+        return Result.success_with_data(_serialize_profile(user))
     except AppException:
         raise
     except Exception as e:

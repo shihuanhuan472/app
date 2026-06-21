@@ -927,15 +927,16 @@ const userAPI = {
     client: new APIClient(),
 
     // 登录
-    async login(username, password, role) {
+    async login(username, password, role = null) {
         try {
+            const payload = { username, password };
+            if (role) {
+                payload.role = role;
+            }
+
             const response = await this.client.post(
                 API_CONFIG.ENDPOINTS.LOGIN,
-                {
-                    username,
-                    password,
-                    role: role === 'admin' ? 0 : 1
-                },
+                payload,
                 false
             );
 
@@ -1231,6 +1232,31 @@ const DataManager = {
             console.error('获取所有用户失败:', error);
             throw error;
         }
+    },
+
+    async getRoleGroups() {
+        try {
+            const response = await this.client.get('/admin/role_groups', true);
+            if (response.code === 1) {
+                return response.data || [];
+            }
+            throw new Error(response.msg || '获取角色组失败');
+        } catch (error) {
+            console.error('获取角色组失败:', error);
+            throw error;
+        }
+    },
+
+    async createRoleGroup(roleGroupData) {
+        const response = await this.client.post('/admin/role_groups', roleGroupData, true);
+        if (response.code === 1) return response.data;
+        throw new Error(response.msg || '创建角色组失败');
+    },
+
+    async updateRoleGroup(roleGroupData) {
+        const response = await this.client.patch('/admin/role_groups', roleGroupData, true);
+        if (response.code === 1) return response.data;
+        throw new Error(response.msg || '更新角色组失败');
     },
 
     // 搜索用户（分页）

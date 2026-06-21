@@ -77,17 +77,6 @@
                     <input type="password" class="form-control" id="password" placeholder="请输入密码（初始密码：123456）" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">身份</label>
-                    <select class="form-control" id="role" required>
-                        <option value="">请选择身份</option>
-                        <option value="admin">系统管理员</option>
-                        <option value="technician_rw">技术人员</option>
-                        <option value="reviewer">审核人员</option>
-                        <option value="maintenance_staff">维修人员</option>
-                    </select>
-                </div>
-
                 <div class="loading-spinner" id="loadingSpinner">
                     <i class="fas fa-spinner fa-spin"></i> 登录中...
                 </div>
@@ -123,7 +112,6 @@
 
                 const username = document.getElementById('username').value.trim();
                 const password = document.getElementById('password').value.trim();
-                const role = document.getElementById('role').value;
 
                 // 验证输入
                 if (!username) {
@@ -136,11 +124,6 @@
                     return;
                 }
 
-                if (!role) {
-                    showError('请选择身份');
-                    return;
-                }
-
                 try {
                     // 显示加载状态
                     submitBtn.disabled = true;
@@ -148,7 +131,7 @@
                     loadingSpinner.style.display = 'block';
                     hideError();
 
-                    // 调用后端登录 API，发送三个参数
+                    // 调用后端登录 API，身份由账号绑定的角色组决定
                     const loginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`;
                     const response = await fetch(loginUrl, {
                         method: 'POST',
@@ -157,8 +140,7 @@
                         },
                         body: JSON.stringify({
                             username: username,
-                            password: password,
-                            role: role
+                            password: password
                         })
                     });
 
@@ -192,11 +174,7 @@
                         // 存储用户信息到 sessionStorage
                         if (tokenData.user) {
                             const userInfo = {
-                                id: tokenData.user.id,
-                                username: tokenData.user.username,
-                                role: tokenData.user.role,
-                                phone: tokenData.user.phone,
-                                last_login: tokenData.user.last_login
+                                ...tokenData.user
                             };
                             sessionStorage.setItem('user', JSON.stringify(userInfo));
                             console.log('用户信息已存储:', userInfo);
@@ -231,7 +209,7 @@
             document.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     const focused = document.activeElement;
-                    if (focused && (focused.id === 'username' || focused.id === 'password' || focused.id === 'role')) {
+                    if (focused && (focused.id === 'username' || focused.id === 'password')) {
                         submitBtn.click();
                     }
                 }
@@ -257,8 +235,8 @@
 
             if (code === 40110) return '登录失败：用户名或密码错误';
             if (code === 40311) return '登录失败：账号已被禁用，请联系管理员';
-            if (code === 40111) return '登录失败：请选择正确的登录身份';
-            if (code === 40310) return '登录失败：账号角色与所选身份不匹配';
+            if (code === 40111) return '登录失败：账号身份配置异常，请联系管理员';
+            if (code === 40310) return '登录失败：账号权限配置异常，请联系管理员';
 
             if (rawMsg) return `登录失败：${rawMsg}`;
             return '登录失败：请稍后重试';

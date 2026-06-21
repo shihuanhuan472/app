@@ -5,14 +5,15 @@ from datetime import datetime
 from fastapi import APIRouter, Body, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models import User
+from models import RoleGroup, User
 from schemas import Result, UserLogin
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.JwtUtils import jwt_utils
-from utils.roles import UserRole, normalize_role_value, is_role_perm_consistent
+from utils.roles import PermissionCode, get_user_permissions, has_permission
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 logger = logging.getLogger(__name__)
@@ -51,25 +52,26 @@ def _normalize_role(selected_role: str):
 
 
 def _role_match(user: User, canonical_role: str) -> bool:
-    """Validate both role and perm, and require role/perm mapping consistency."""
-    role_map = {
-        ROLE_ADMIN: int(UserRole.ADMIN),
-        ROLE_TECH_RW: int(UserRole.TECHNICIAN),
-        ROLE_REVIEWER: int(UserRole.REVIEWER),
-        ROLE_MAINTENANCE: int(UserRole.MAINTENANCE),
+    """Keep login role selection compatible, but validate against role-group permissions."""
+    permission_map = {
+        ROLE_ADMIN: PermissionCode.ADMIN,
+        ROLE_TECH_RW: PermissionCode.READ_WRITE,
+        ROLE_REVIEWER: PermissionCode.REVIEW,
+        ROLE_MAINTENANCE: PermissionCode.READ_ONLY,
     }
-    expected_role = role_map.get(canonical_role)
-    if expected_role is None:
+    expected_permission = permission_map.get(canonical_role)
+    if expected_permission is None:
         return False
-    return (
-        normalize_role_value(user.role) == expected_role
-        and is_role_perm_consistent(user.role, getattr(user, "perm", None))
-    )
+    return has_permission(user, expected_permission)
 
 
 @router.post("/login", summary="用户登录")
 async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.username == login_data.username))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+        .where(User.username == login_data.username)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
@@ -83,10 +85,10 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
         raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_INVALID_CREDENTIALS, "用户名或密码错误")
 
     canonical_role = _normalize_role(login_data.role)
-    if not canonical_role:
+    if login_data.role and not canonical_role:
         raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_ROLE_INVALID, "登录身份非法")
 
-    if not _role_match(user, canonical_role):
+    if canonical_role and not _role_match(user, canonical_role):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.AUTH_ROLE_MISMATCH, "所选身份与账号角色/权限配置不匹配")
 
     try:
@@ -97,11 +99,16 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
         await db.rollback()
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"更新登录时间失败：{e}")
 
+    permissions = sorted(get_user_permissions(user))
+    role_group = getattr(user, "role_group", None)
     payload = {
         "username": user.username,
         "phone": user.phone,
         "role": user.role,
         "perm": getattr(user, "perm", None),
+        "role_group_id": getattr(user, "role_group_id", None),
+        "role_group_name": getattr(role_group, "name", None),
+        "permissions": permissions,
         "login_role": canonical_role,
         "user_id": user.id,
     }
@@ -121,6 +128,9 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
                 "phone": user.phone,
                 "role": user.role,
                 "perm": getattr(user, "perm", None),
+                "role_group_id": getattr(user, "role_group_id", None),
+                "role_group_name": getattr(role_group, "name", None),
+                "permissions": permissions,
                 "last_login": user.last_login,
             },
         }
