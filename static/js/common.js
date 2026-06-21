@@ -196,7 +196,29 @@ const Utils = {
         if (!user) return false;
         const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
         if (userPermissions.includes(this.PERMISSION.ADMIN)) return true;
-        return permissions.some(permission => userPermissions.includes(permission));
+        if (permissions.some(permission => userPermissions.includes(permission))) return true;
+
+        const legacyRole = this.normalizeRoleValue(user.role ?? user.role_id);
+        const legacyPerm = user.perm !== undefined && user.perm !== null ? Number(user.perm) : null;
+        const legacyPermissions = new Set();
+        if (legacyRole === this.ROLE.ADMIN || legacyPerm === 0) {
+            legacyPermissions.add(this.PERMISSION.ADMIN);
+            legacyPermissions.add(this.PERMISSION.READ_WRITE);
+            legacyPermissions.add(this.PERMISSION.REVIEW);
+            legacyPermissions.add(this.PERMISSION.READ_ONLY);
+        }
+        if (legacyRole === this.ROLE.TECHNICIAN || legacyPerm === 1) {
+            legacyPermissions.add(this.PERMISSION.READ_WRITE);
+            legacyPermissions.add(this.PERMISSION.READ_ONLY);
+        }
+        if (legacyRole === this.ROLE.REVIEWER || legacyPerm === 2) {
+            legacyPermissions.add(this.PERMISSION.REVIEW);
+            legacyPermissions.add(this.PERMISSION.READ_ONLY);
+        }
+        if (legacyRole === this.ROLE.MAINTENANCE || legacyPerm === 3) {
+            legacyPermissions.add(this.PERMISSION.READ_ONLY);
+        }
+        return permissions.some(permission => legacyPermissions.has(permission));
     },
 
     getRoleDisplay: function(userOrRole) {

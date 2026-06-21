@@ -1729,9 +1729,8 @@
                                 </div>
                                 <div class="file-actions">
                                     ${isPreviewable ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>` : ''}
-                                    <a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeFileName}')" class="btn btn-sm btn-primary"><i class="fas fa-download"></i> 下载</a>
                                 </div>
-                                ${!isPreviewable ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">该格式无法直接预览，请下载后使用本地软件打开。</p>' : ''}
+                                ${!isPreviewable ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">该格式暂不支持在线预览。</p>' : ''}
                             </div>
                         </div>
                     `;
