@@ -563,6 +563,30 @@ const documentAPI = {
         }
     },
 
+     /**
+     * 批量删除文档
+     * @param {Array} documents - 格式: [{id: 1, library_type: 'breakdown'}, ...]
+     */
+    async batchDeleteDocuments(documents) {
+        try {
+            // 使用封装好的 client.post，第三个参数 true 表示需要认证（自动带 Token）
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/deletes`, 
+                { documents: documents }, 
+                true 
+            );
+
+            if (response.code === 1) {
+                return response.data; // 返回后端传来的 deleted_count 等信息
+            } else {
+                throw new Error(response.msg || '批量删除失败');
+            }
+        } catch (error) {
+            console.error('批量删除文档失败:', error);
+            throw error;
+        }
+    },
+
     // 获取所有文档
     async getAllDocuments() {
         try {

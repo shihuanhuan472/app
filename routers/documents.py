@@ -13,13 +13,32 @@ from types import SimpleNamespace
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, status, UploadFile, Body, File
 from sqlalchemy import or_
+
 # from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
 from dependencies import get_current_active_user
-from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentSection, SourceDocument, User
-from schemas import (DocumentCreate, DocumentResponse, Result, DeleteImageRequest, Page,
-                     DocumentQuery, KnowledgeSectionResponse, UploadDocumentResponse, AnalyzeRequest)
+from models import (
+    Document,
+    DocumentBreakdown,
+    DocumentKnowledge,
+    Document_review,
+    KnowledgeDocumentSection,
+    SourceDocument,
+    User,
+)
+from schemas import (
+    DocumentCreate,
+    DocumentResponse,
+    Result,
+    DeleteImageRequest,
+    Page,
+    DocumentQuery,
+    KnowledgeSectionResponse,
+    UploadDocumentResponse,
+    AnalyzeRequest,
+    BatchDeleteRequest,
+)
 from database import get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
@@ -31,7 +50,10 @@ from utils.MarkdownParser import markdown_parser
 from utils.ImageParser import image_parser
 from utils.CsvExcelParser import csv_excel_parser
 from knowledge_parsers import knowledge_parser
-from knowledge_parsers.section_service import get_knowledge_document_sections, replace_knowledge_document_sections
+from knowledge_parsers.section_service import (
+    get_knowledge_document_sections,
+    replace_knowledge_document_sections,
+)
 from utils.file_classifier import (
     ALLOWED_DOCUMENT_EXTENSIONS,
     build_document_storage_path,
@@ -61,12 +83,19 @@ router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+DOCUMENT_LIBRARY_MODELS = {
+    "breakdown": DocumentBreakdown,
+    "knowledge": DocumentKnowledge,
+}
 
 
 def _normalize_library_type(library_type: str) -> str:
     """把前端传入的库类型收敛为两个固定值，避免出现拼写不同导致写错表。"""
-    return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
+    return (
+        "knowledge"
+        if str(library_type or "").strip().lower() == "knowledge"
+        else "breakdown"
+    )
 
 
 def _title_from_source_filename(file_name: str) -> str:
@@ -88,7 +117,11 @@ def _is_all_library_type(library_type: str) -> bool:
 
 def _sort_documents_by_edit_time(documents):
     """按编辑时间倒序合并两张表的数据，避免知识库和故障库混排时顺序不稳定。"""
-    return sorted(documents, key=lambda document: getattr(document, "first_edit_date", None) or datetime.min, reverse=True)
+    return sorted(
+        documents,
+        key=lambda document: getattr(document, "first_edit_date", None) or datetime.min,
+        reverse=True,
+    )
 
 
 def _normalize_tags(tag):
@@ -96,7 +129,9 @@ def _normalize_tags(tag):
     return normalize_tag_values(tag)
 
 
-def _require_admin_document_write(current_user: User, message: str = "技术人员需提交审核，审核通过后才会写入文档库"):
+def _require_admin_document_write(
+    current_user: User, message: str = "技术人员需提交审核，审核通过后才会写入文档库"
+):
     """文档库的直接写入只允许管理员，避免绕过审核流程。"""
     if not has_role(current_user, UserRole.ADMIN):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, message)
@@ -131,9 +166,24 @@ def _filter_model_data(model, data: dict) -> dict:
 
 
 DOCUMENT_COPY_FIELDS = [
-    "title", "contributor_id", "first_edit_date", "problem_intro", "image_urls", "image_urls_problem_intro",
-    "causes", "image_urls_causes", "evaluation", "image_urls_evaluation", "inspection", "image_urls_inspection",
-    "solutions", "image_urls_solutions", "key_points", "image_urls_key_points", "origin_file_name", "origin_file_dir",
+    "title",
+    "contributor_id",
+    "first_edit_date",
+    "problem_intro",
+    "image_urls",
+    "image_urls_problem_intro",
+    "causes",
+    "image_urls_causes",
+    "evaluation",
+    "image_urls_evaluation",
+    "inspection",
+    "image_urls_inspection",
+    "solutions",
+    "image_urls_solutions",
+    "key_points",
+    "image_urls_key_points",
+    "origin_file_name",
+    "origin_file_dir",
 ]
 
 
@@ -146,7 +196,12 @@ def _join_image_urls(image_urls) -> str:
         return None
     if isinstance(image_urls, str):
         return image_urls
-    return ", ".join(str(image_url).strip() for image_url in image_urls if str(image_url).strip()) or None
+    return (
+        ", ".join(
+            str(image_url).strip() for image_url in image_urls if str(image_url).strip()
+        )
+        or None
+    )
 
 
 def _normalize_section_marker(value) -> str:
@@ -184,14 +239,20 @@ def _fill_request_section_markers(sections):
         counters[level - 1] += 1
         for idx in range(level, len(counters)):
             counters[idx] = 0
-        section.section_type = ".".join(str(part) for part in counters[:level] if part > 0) or str(index + 1)
+        section.section_type = ".".join(
+            str(part) for part in counters[:level] if part > 0
+        ) or str(index + 1)
 
 
 def _copy_document_to_library(document: Document, library_type: str, tag=None):
     """把解析器产出的文档对象转换成目标库表对象，避免知识库导入时仍写入故障库表。"""
     document_model = _get_document_model(library_type)
-    copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
-    copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
+    copied_data = {
+        field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS
+    }
+    copied_data["tag"] = _normalize_tags(
+        tag if tag is not None else getattr(document, "tag", [])
+    )
     return document_model(**_filter_model_data(document_model, copied_data))
 
 
@@ -201,9 +262,15 @@ def _knowledge_sections_from_request(sections):
         data = section.model_dump() if hasattr(section, "model_dump") else dict(section)
         result.append(
             SimpleNamespace(
-                section_index=data.get("section_index") if data.get("section_index") is not None else index,
+                section_index=(
+                    data.get("section_index")
+                    if data.get("section_index") is not None
+                    else index
+                ),
                 section_title=data.get("section_title") or f"章节{index + 1}",
-                section_type=_normalize_section_marker(data.get("section_type") or str(index + 1)),
+                section_type=_normalize_section_marker(
+                    data.get("section_type") or str(index + 1)
+                ),
                 plain_text=data.get("plain_text") or "",
                 image_urls=data.get("image_urls") or [],
                 char_start=data.get("char_start"),
@@ -215,7 +282,9 @@ def _knowledge_sections_from_request(sections):
     return result
 
 
-def _knowledge_document_from_parsed(parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags):
+def _knowledge_document_from_parsed(
+    parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags
+):
     return DocumentKnowledge(
         title=parsed.title or file_name,
         contributor_id=contributor_id,
@@ -253,19 +322,34 @@ ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 
 def _normalize_document_for_db(document: Document) -> None:
     text_fields = [
-        "title", "problem_intro", "causes", "evaluation",
-        "inspection", "solutions", "key_points", "origin_file_name", "origin_file_dir"
+        "title",
+        "problem_intro",
+        "causes",
+        "evaluation",
+        "inspection",
+        "solutions",
+        "key_points",
+        "origin_file_name",
+        "origin_file_dir",
     ]
     image_fields = [
-        "image_urls", "image_urls_problem_intro", "image_urls_causes",
-        "image_urls_evaluation", "image_urls_inspection",
-        "image_urls_solutions", "image_urls_key_points"
+        "image_urls",
+        "image_urls_problem_intro",
+        "image_urls_causes",
+        "image_urls_evaluation",
+        "image_urls_inspection",
+        "image_urls_solutions",
+        "image_urls_key_points",
     ]
 
     for field in text_fields:
         value = getattr(document, field, None)
         if isinstance(value, (list, tuple)):
-            setattr(document, field, "\n".join(str(item) for item in value if item is not None))
+            setattr(
+                document,
+                field,
+                "\n".join(str(item) for item in value if item is not None),
+            )
         elif isinstance(value, dict):
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
@@ -274,7 +358,11 @@ def _normalize_document_for_db(document: Document) -> None:
     for field in image_fields:
         value = getattr(document, field, None)
         if isinstance(value, (list, tuple)):
-            text = ", ".join(str(item).strip() for item in value if item is not None and str(item).strip())
+            text = ", ".join(
+                str(item).strip()
+                for item in value
+                if item is not None and str(item).strip()
+            )
             setattr(document, field, text or None)
         elif isinstance(value, dict):
             setattr(document, field, json.dumps(value, ensure_ascii=False))
@@ -311,7 +399,9 @@ def _is_ai_result_effectively_empty(document: Document) -> bool:
     return all(_is_empty_text(getattr(document, field, None)) for field in core_fields)
 
 
-def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
+def _build_create_review_from_document(
+    document: Document, contributor_id: int
+) -> Document_review:
     return Document_review(
         document_id=None,
         document_library_type=getattr(document, "library_type", "breakdown"),
@@ -372,7 +462,9 @@ def _source_document_filter_for_document(document_id: int, library_type: str):
     )
 
 
-async def _delete_source_documents_for_document(db: AsyncSession, document_base_dir: str, document_id: int, library_type: str):
+async def _delete_source_documents_for_document(
+    db: AsyncSession, document_base_dir: str, document_id: int, library_type: str
+):
     result = await db.execute(
         select(SourceDocument).where(
             *_source_document_filter_for_document(document_id, library_type),
@@ -381,7 +473,11 @@ async def _delete_source_documents_for_document(db: AsyncSession, document_base_
     source_documents = result.scalars().all()
     for source_document in source_documents:
         if source_document.stored_file_path:
-            absolute_path = os.path.join(document_base_dir, normalize_upload_path(source_document.stored_file_path) or source_document.stored_file_path)
+            absolute_path = os.path.join(
+                document_base_dir,
+                normalize_upload_path(source_document.stored_file_path)
+                or source_document.stored_file_path,
+            )
             await asyncio.to_thread(delete_file_if_exists, absolute_path)
         source_document.is_deleted = 1
         source_document.status = "deleted"
@@ -391,7 +487,12 @@ async def _delete_source_documents_for_document(db: AsyncSession, document_base_
         source_document.parse_error = None
 
 
-async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str, library_type: str = "breakdown"):
+async def _mark_source_parse_failed(
+    db: AsyncSession,
+    stored_file_path: str,
+    error_message: str,
+    library_type: str = "breakdown",
+):
     source = await _get_source_document_by_path(db, stored_file_path)
     if source:
         source.status = "parse_failed"
@@ -402,13 +503,14 @@ async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, err
         await db.commit()
 
 
-async def _copy_source_to_knowledge_storage(document_base_dir: str, source_relative_path: str, origin_file_name: str) -> str:
+async def _copy_source_to_knowledge_storage(
+    document_base_dir: str, source_relative_path: str, origin_file_name: str
+) -> str:
     return source_relative_path
 
+
 async def document_convert_documentResponse(
-        db: AsyncSession,
-        document: Document,
-        contributor_name: str
+    db: AsyncSession, document: Document, contributor_name: str
 ) -> DocumentResponse:
     """
     document类型转为documentResponse类型
@@ -420,8 +522,16 @@ async def document_convert_documentResponse(
         library_type=getattr(document, "library_type", "breakdown"),
         tag=await get_document_tag_names(db, document),
         title=document.title,
-        section_ids=getattr(document, "section_ids", None) if getattr(document, "library_type", "breakdown") == "knowledge" else None,
-        sections=await _knowledge_sections_to_response(db, document.id) if getattr(document, "library_type", "breakdown") == "knowledge" else None,
+        section_ids=(
+            getattr(document, "section_ids", None)
+            if getattr(document, "library_type", "breakdown") == "knowledge"
+            else None
+        ),
+        sections=(
+            await _knowledge_sections_to_response(db, document.id)
+            if getattr(document, "library_type", "breakdown") == "knowledge"
+            else None
+        ),
         contributor_id=document.contributor_id,
         contributor_name=contributor_name,
         first_edit_date=document.first_edit_date,
@@ -432,22 +542,21 @@ async def document_convert_documentResponse(
         inspection=getattr(document, "inspection", None),
         solutions=getattr(document, "solutions", None),
         key_points=getattr(document, "key_points", None),
-
         origin_file_name=getattr(document, "origin_file_name", None),
-        origin_file_dir=normalize_upload_path(getattr(document, "origin_file_dir", None)),
-
+        origin_file_dir=normalize_upload_path(
+            getattr(document, "origin_file_dir", None)
+        ),
         image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
         image_urls_causes=getattr(document, "image_urls_causes", None),
         image_urls_evaluation=getattr(document, "image_urls_evaluation", None),
         image_urls_inspection=getattr(document, "image_urls_inspection", None),
         image_urls_solutions=getattr(document, "image_urls_solutions", None),
-        image_urls_key_points=getattr(document, "image_urls_key_points", None)
+        image_urls_key_points=getattr(document, "image_urls_key_points", None),
     )
 
 
 async def documents_to_responses(
-        db: AsyncSession,
-        documents: List[Document]
+    db: AsyncSession, documents: List[Document]
 ) -> List[DocumentResponse]:
     """
     将文档列表转换为响应列表（批量查询用户信息）
@@ -456,10 +565,9 @@ async def documents_to_responses(
         return []
 
     # 1. 收集所有用户ID
-    user_ids = list(set(
-        doc.contributor_id for doc in documents
-        if doc.contributor_id is not None
-    ))
+    user_ids = list(
+        set(doc.contributor_id for doc in documents if doc.contributor_id is not None)
+    )
 
     # 2. 批量查询用户信息
     user_map = {}
@@ -478,7 +586,6 @@ async def documents_to_responses(
         )
         users = result.all()
 
-
         user_map = {user.id: user for user in users}
 
     # 3. 转换文档
@@ -494,13 +601,14 @@ async def documents_to_responses(
             else:
                 contributor_name = f"用户{doc.contributor_id}"
 
-        responses.append(await document_convert_documentResponse(
-            db=db,
-            document=doc,
-            contributor_name=contributor_name
-        ))
+        responses.append(
+            await document_convert_documentResponse(
+                db=db, document=doc, contributor_name=contributor_name
+            )
+        )
 
     return responses
+
 
 async def check_image_url(image_urls: str):
     """
@@ -508,7 +616,9 @@ async def check_image_url(image_urls: str):
     """
     if image_urls:
         config = get_image_config()
-        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        base_url = os.path.join(
+            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+        )
         urls = [url.strip() for url in image_urls.split(", ") if url.strip()]
         for url in urls:
             url_check = os.path.basename(url)
@@ -519,20 +629,32 @@ async def check_image_url(image_urls: str):
         return True
     return True
 
+
 @router.post("/add", summary="添加文档")
-async def create_document(document: DocumentCreate,
-                          db: AsyncSession = Depends(get_db),
-                          current_user: User = Depends(get_current_active_user)):
+async def create_document(
+    document: DocumentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     print("添加文档")
     _require_admin_document_write(current_user)
     config = get_image_config()
     try:
-        attrs = ["image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
-                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"]
+        attrs = [
+            "image_urls_problem_intro",
+            "image_urls_causes",
+            "image_urls_evaluation",
+            "image_urls_inspection",
+            "image_urls_solutions",
+            "image_urls_key_points",
+            "image_urls",
+        ]
         for attr in attrs:
             value = getattr(document, attr)
             if not await check_image_url(value):
-                raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "图片未上传")
+                raise AppException(
+                    status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "图片未上传"
+                )
         print("图片校验完成")
         # if document.image_urls:
         #     urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
@@ -554,7 +676,6 @@ async def create_document(document: DocumentCreate,
         #                        .removeprefix("/")
         #                        .removesuffix(", "))
 
-
         """
         解释一下为什么这里我这么复杂地处理字符串
         我最后在数据库存的路径都是相对路径，方便前端预览图片或者文档
@@ -565,7 +686,12 @@ async def create_document(document: DocumentCreate,
         for attr in attrs:
             value = getattr(document, attr)
             if value is not None:
-                value = value.replace("\\", "/").replace(", /", ", ").removeprefix("/").removesuffix(", ")
+                value = (
+                    value.replace("\\", "/")
+                    .replace(", /", ", ")
+                    .removeprefix("/")
+                    .removesuffix(", ")
+                )
             setattr(document, attr, value)
 
         document_model = _get_document_model(document.library_type)
@@ -579,7 +705,9 @@ async def create_document(document: DocumentCreate,
             is_deleted=0,
             first_edit_date=datetime.now(),
         )
-        document_data = document_model(**_filter_model_data(document_model, document_payload))
+        document_data = document_model(
+            **_filter_model_data(document_model, document_payload)
+        )
         db.add(document_data)
         await db.flush()
         await db.refresh(document_data)
@@ -589,13 +717,17 @@ async def create_document(document: DocumentCreate,
                 document_data,
                 _knowledge_sections_from_request(document.sections),
             )
-        await set_document_tag_names(db, document_data, document.tag, created_by=current_user.id)
+        await set_document_tag_names(
+            db, document_data, document.tag, created_by=current_user.id
+        )
         print("数据库插入成功")
         vector_service = VectorService(db)
         await vector_service.add_document_to_vector_store(document_data, commit=False)
         await db.commit()
         print("向量化完成")
-        data = await document_convert_documentResponse(db, document_data, current_user.full_name)
+        data = await document_convert_documentResponse(
+            db, document_data, current_user.full_name
+        )
         return Result.success_with_data(data)
 
     except AppException:
@@ -606,19 +738,25 @@ async def create_document(document: DocumentCreate,
         # 其他异常回滚
         print(e)
         await db.rollback()
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "添加文档失败")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            "添加文档失败",
+        )
+
 
 def get_image_config():
     MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", 20 * 1024 * 1024))
     IMAGE_DIR: str = os.getenv("IMAGE_DIR", "upload/images")
     BASE_DIR: str = os.getenv("BASE_DIR", "/")
-    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
     return {
         "MAX_IMAGE_SIZE": MAX_IMAGE_SIZE,
         "IMAGE_DIR": IMAGE_DIR,
         "BASE_DIR": BASE_DIR,
-        "ALLOWED_EXTENSIONS": ALLOWED_EXTENSIONS
+        "ALLOWED_EXTENSIONS": ALLOWED_EXTENSIONS,
     }
+
 
 @router.post("/upload_images", summary="上传文档图片")
 async def upload_images(images: List[UploadFile]):
@@ -654,12 +792,14 @@ async def upload_images(images: List[UploadFile]):
             # 构建文件信息
             file_url = f"{url}/{unique_filename}"
             relative_url = Path(config["IMAGE_DIR"]) / unique_filename
-            uploaded_images.append({
-                "url": relative_url,
-                # "relative_url": relative_url,
-                "filename": unique_filename,
-                "original_name": image.filename
-            })
+            uploaded_images.append(
+                {
+                    "url": relative_url,
+                    # "relative_url": relative_url,
+                    "filename": unique_filename,
+                    "original_name": image.filename,
+                }
+            )
             # print(uploaded_images)
         except Exception as e:
             # 记录错误但继续处理其他文件
@@ -667,19 +807,28 @@ async def upload_images(images: List[UploadFile]):
 
     return Result.success_with_data(uploaded_images)
 
+
 @router.delete("/delete_image", summary="删除图片")
-async def delete_image(request: DeleteImageRequest = Body(...),
-                       current_user: User = Depends(get_current_active_user)):
+async def delete_image(
+    request: DeleteImageRequest = Body(...),
+    current_user: User = Depends(get_current_active_user),
+):
     image_url = request.image_url
     try:
         filename = os.path.basename(image_url)
         config = get_image_config()
-        url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"), filename.lstrip("/").lstrip("\\"))
+        url = os.path.join(
+            config["BASE_DIR"],
+            config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
+            filename.lstrip("/").lstrip("\\"),
+        )
         # if not os.path.exists(url):
         #     raise HTTPException(status_code=404, detail="未找到图片")
 
         if not await asyncio.to_thread(os.path.exists, url):
-            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "资源未找到")
+            raise AppException(
+                status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "资源未找到"
+            )
 
         # os.remove(url)
         await asyncio.to_thread(delete_file_if_exists, url)
@@ -689,20 +838,30 @@ async def delete_image(request: DeleteImageRequest = Body(...),
     except AppException:
         raise
     except FileNotFoundError:
-        raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, f"文件 {image_url} 不存在")
+        raise AppException(
+            status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, f"文件 {image_url} 不存在"
+        )
     except Exception as e:
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"删除文件时出错: {str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"删除文件时出错: {str(e)}",
+        )
 
 
 @router.put("/update", summary="更新文档")
-async def update_document(id: int,
-                          document: DocumentCreate,
-                          library_type: str = "breakdown",
-                          db: AsyncSession = Depends(get_db),
-                          current_user: User = Depends(get_current_active_user)):
+async def update_document(
+    id: int,
+    document: DocumentCreate,
+    library_type: str = "breakdown",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     try:
         config = get_image_config()
-        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        base_url = os.path.join(
+            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+        )
         # document_now = db.query(Document).filter(Document.id == id).first()
 
         document_model = _get_document_model(library_type or document.library_type)
@@ -717,14 +876,24 @@ async def update_document(id: int,
         document_now = result.scalar_one_or_none()
 
         if not document_now:
-            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在")
-        _require_admin_document_write(current_user, "技术人员需提交修改审核，审核通过后才会更新文档")
+            raise AppException(
+                status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在"
+            )
+        _require_admin_document_write(
+            current_user, "技术人员需提交修改审核，审核通过后才会更新文档"
+        )
 
         image_urls_str = ""
         attrs = [
-            attr for attr in [
-                "image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
-                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"
+            attr
+            for attr in [
+                "image_urls_problem_intro",
+                "image_urls_causes",
+                "image_urls_evaluation",
+                "image_urls_inspection",
+                "image_urls_solutions",
+                "image_urls_key_points",
+                "image_urls",
             ]
             if hasattr(document_now, attr)
         ]
@@ -733,18 +902,28 @@ async def update_document(id: int,
             urls_str = ""
             image_url = getattr(document, attr)
             if image_url:
-                image_urls = [url.strip() for url in image_url.split(", ") if url.strip()]
+                image_urls = [
+                    url.strip() for url in image_url.split(", ") if url.strip()
+                ]
                 for image_url in image_urls:
                     image_name = os.path.basename(image_url)
-                    url_check = os.path.join(base_url, image_name.lstrip("/").lstrip("\\"))
+                    url_check = os.path.join(
+                        base_url, image_name.lstrip("/").lstrip("\\")
+                    )
                     # if not os.path.exists(url_check):
                     #     return Result.error(f"图片未上传，更新失败，请重新上传图片")
 
                     if not await asyncio.to_thread(os.path.exists, url_check):
-                        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.DOC_REQUEST_INVALID, "图片未上传，更新失败，请重新上传图片")
+                        raise AppException(
+                            status.HTTP_400_BAD_REQUEST,
+                            BizCode.DOC_REQUEST_INVALID,
+                            "图片未上传，更新失败，请重新上传图片",
+                        )
 
-                    url_check_str = os.path.join(config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
-                                                 image_name.lstrip("/").lstrip("\\"))
+                    url_check_str = os.path.join(
+                        config["IMAGE_DIR"].lstrip("/").lstrip("\\"),
+                        image_name.lstrip("/").lstrip("\\"),
+                    )
                     url_check_str = url_check_str.lstrip("/").lstrip("\\")
                     url_check_str = url_check_str.replace("\\", "/")
 
@@ -752,7 +931,6 @@ async def update_document(id: int,
                 if len(urls_str) > 0:
                     urls_str = urls_str.removesuffix(", ")
             setattr(document_now, attr, urls_str)
-
 
         # if document.image_urls:
         #     image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
@@ -771,18 +949,26 @@ async def update_document(id: int,
 
         document_data = _filter_model_data(
             document_model,
-            document.dict(exclude_unset=True, exclude={"library_type", "sections", "summary", "content"}),
+            document.dict(
+                exclude_unset=True,
+                exclude={"library_type", "sections", "summary", "content"},
+            ),
         )
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
                 continue
             if key == "tag":
-                await set_document_tag_names(db, document_now, value, created_by=current_user.id)
+                await set_document_tag_names(
+                    db, document_now, value, created_by=current_user.id
+                )
                 continue
             setattr(document_now, key, value)
 
-        if _is_knowledge_library(getattr(document_now, "library_type", library_type)) and document.sections is not None:
+        if (
+            _is_knowledge_library(getattr(document_now, "library_type", library_type))
+            and document.sections is not None
+        ):
             await replace_knowledge_document_sections(
                 db,
                 document_now,
@@ -798,7 +984,9 @@ async def update_document(id: int,
 
         # 更新文档内容的时候，向量需要重新生成
         vector_service = VectorService(db)
-        await vector_service.delete_document_from_vector_store(id, getattr(document_now, "library_type", "breakdown"))
+        await vector_service.delete_document_from_vector_store(
+            id, getattr(document_now, "library_type", "breakdown")
+        )
 
         await db.flush()
 
@@ -809,22 +997,33 @@ async def update_document(id: int,
 
         # full_name = db.query(User.full_name).filter(User.id == document_now.contributor_id).scalar()
 
-        full_name_result = await db.execute(select(User.full_name).where(User.id == document_now.contributor_id))
+        full_name_result = await db.execute(
+            select(User.full_name).where(User.id == document_now.contributor_id)
+        )
         full_name = full_name_result.scalar_one_or_none()
 
-        document_response = await document_convert_documentResponse(db, document_now, full_name)
+        document_response = await document_convert_documentResponse(
+            db, document_now, full_name
+        )
         return Result.success_with_data(document_response)
     except AppException:
         raise
     except Exception as e:
         await db.rollback()
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"更新文档错误：{str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"更新文档错误：{str(e)}",
+        )
+
 
 @router.delete("/dele/{id}", summary="删除文档")
-async def delete(id: int,
-                 library_type: str = "breakdown",
-                 db: AsyncSession = Depends(get_db),
-                 current_user: User = Depends(get_current_active_user)):
+async def delete(
+    id: int,
+    library_type: str = "breakdown",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     try:
         # document = db.query(Document).filter(Document.id == id).first()
 
@@ -840,19 +1039,33 @@ async def delete(id: int,
         document = result.scalar_one_or_none()
 
         if not document:
-            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在")
+            raise AppException(
+                status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在"
+            )
         # 文档表直删仅允许管理员；技术人员必须走删除审核流程
         if not has_role(current_user, UserRole.ADMIN):
-            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "技术人员需提交删除审核，审核通过后才会删除文档")
+            raise AppException(
+                status.HTTP_403_FORBIDDEN,
+                BizCode.FORBIDDEN,
+                "技术人员需提交删除审核，审核通过后才会删除文档",
+            )
         attrs = [
-            attr for attr in [
-                "image_urls_problem_intro", "image_urls_causes", "image_urls_evaluation",
-                "image_urls_inspection", "image_urls_solutions", "image_urls_key_points", "image_urls"
+            attr
+            for attr in [
+                "image_urls_problem_intro",
+                "image_urls_causes",
+                "image_urls_evaluation",
+                "image_urls_inspection",
+                "image_urls_solutions",
+                "image_urls_key_points",
+                "image_urls",
             ]
             if hasattr(document, attr)
         ]
         config = get_image_config()
-        base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
+        base_url = os.path.join(
+            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+        )
 
         # 删除文档的时候，把文档里的图片都删掉
         for attr in attrs:
@@ -883,21 +1096,30 @@ async def delete(id: int,
 
         # 把原始文件也删掉
         if document.origin_file_dir:
-            url = os.path.join(config["BASE_DIR"], normalize_upload_path(document.origin_file_dir) or document.origin_file_dir)
+            url = os.path.join(
+                config["BASE_DIR"],
+                normalize_upload_path(document.origin_file_dir)
+                or document.origin_file_dir,
+            )
             # if os.path.exists(url):
             #     os.remove(url)
             #     print(f"已删除源文件{document.origin_file_dir}")
             await asyncio.to_thread(delete_file_if_exists, url)
             print(f"已删除源文件{document.origin_file_dir}")
 
-        document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
-        await _delete_source_documents_for_document(db, document_base_dir, id, getattr(document, "library_type", "breakdown"))
+        document_base_dir = os.getenv(
+            "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+        )
+        await _delete_source_documents_for_document(
+            db, document_base_dir, id, getattr(document, "library_type", "breakdown")
+        )
 
         # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
         review_refs_result = await db.execute(
             select(Document_review).where(
                 Document_review.document_id == id,
-                Document_review.document_library_type == getattr(document, "library_type", "breakdown"),
+                Document_review.document_library_type
+                == getattr(document, "library_type", "breakdown"),
             )
         )
         review_refs = review_refs_result.scalars().all()
@@ -907,7 +1129,9 @@ async def delete(id: int,
                 review_ref.status = 3
                 auto_msg = "源文档已被管理员删除，系统自动撤回"
                 if review_ref.review_comment and review_ref.review_comment.strip():
-                    review_ref.review_comment = f"{review_ref.review_comment}\n{auto_msg}"
+                    review_ref.review_comment = (
+                        f"{review_ref.review_comment}\n{auto_msg}"
+                    )
                 else:
                     review_ref.review_comment = auto_msg
                 review_ref.reviewed_time = datetime.now()
@@ -917,7 +1141,9 @@ async def delete(id: int,
         # 删掉向量
         vector_service = VectorService(db)
         # vector_service.delete_document_from_vector_store(id)
-        await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))
+        await vector_service.delete_document_from_vector_store(
+            id, getattr(document, "library_type", "breakdown")
+        )
 
         print("成功删除文档")
         document.is_deleted = 1
@@ -929,14 +1155,216 @@ async def delete(id: int,
         # 其他异常回滚
         print(e)
         await db.rollback()
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"删除文档失败：{str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"删除文档失败：{str(e)}",
+        )
+
+
+async def _delete_single_document(db: AsyncSession, document, library_type: str):
+    """
+    内部辅助函数：执行单个文档的物理资源清理和逻辑软删除。
+    包括：图片、原文件、源记录、审核记录撤回、向量删除、数据库标记。
+    """
+    config = get_image_config()
+    base_url = os.path.join(
+        config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+    )
+
+    # 1. 删除关联图片
+    attrs = [
+        attr
+        for attr in [
+            "image_urls_problem_intro",
+            "image_urls_causes",
+            "image_urls_evaluation",
+            "image_urls_inspection",
+            "image_urls_solutions",
+            "image_urls_key_points",
+            "image_urls",
+        ]
+        if hasattr(document, attr)
+    ]
+
+    for attr in attrs:
+        value = getattr(document, attr, None)
+        if value is not None:
+            image_urls = value.split(", ")
+            for image_url in image_urls:
+                filename = os.path.basename(image_url)
+                if filename.strip():
+                    url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+                    await asyncio.to_thread(delete_image_with_variants, url)
+
+    # 2. 删除原始上传文件
+    if document.origin_file_dir:
+        url = os.path.join(
+            config["BASE_DIR"],
+            normalize_upload_path(document.origin_file_dir) or document.origin_file_dir,
+        )
+        await asyncio.to_thread(delete_file_if_exists, url)
+
+    # 3. 删除源文档记录 (SourceDocument)
+    document_base_dir = os.getenv(
+        "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+    )
+    await _delete_source_documents_for_document(
+        db, document_base_dir, document.id, library_type
+    )
+
+    # 4. 处理关联的审核记录 (自动撤回待审核项)
+    review_refs_result = await db.execute(
+        select(Document_review).where(
+            Document_review.document_id == document.id,
+            Document_review.document_library_type == library_type,
+        )
+    )
+    review_refs = review_refs_result.scalars().all()
+    for review_ref in review_refs:
+        if review_ref.status == 0:
+            review_ref.status = 3
+            auto_msg = "源文档已被管理员批量删除，系统自动撤回"
+            review_ref.review_comment = (
+                f"{review_ref.review_comment}\n{auto_msg}"
+                if review_ref.review_comment
+                else auto_msg
+            )
+            review_ref.reviewed_time = datetime.now()
+
+    # 5. 删除向量库索引
+    vector_service = VectorService(db)
+    await vector_service.delete_document_from_vector_store(document.id, library_type)
+
+    # 6. 标记数据库记录为已删除
+    document.is_deleted = 1
+
+
+@router.post("/deletes", summary="批量删除文档")
+async def delete_documents(
+    request: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    批量删除文档接口
+    1. 权限校验：仅管理员可用
+    2. 数据分组：根据 library_type 将请求拆分为故障库和知识库两组
+    3. 并行处理：分别查询并执行删除逻辑
+    """
+    try:
+        # 1. 权限校验
+        if not has_role(current_user, UserRole.ADMIN):
+            raise AppException(
+                status.HTTP_403_FORBIDDEN,
+                BizCode.FORBIDDEN,
+                "只有系统管理员可以批量删除文档",
+            )
+
+        # 2. 验证请求数据
+        if not request.documents or len(request.documents) == 0:
+            raise AppException(
+                status.HTTP_400_BAD_REQUEST,
+                BizCode.DOC_REQUEST_INVALID,
+                "请选择要删除的文档",
+            )
+
+        # 3. 按库类型分组 ID
+        breakdown_ids = []
+        knowledge_ids = []
+
+        for doc_item in request.documents:
+            normalized_type = _normalize_library_type(doc_item.library_type)
+            if normalized_type == "knowledge":
+                knowledge_ids.append(doc_item.id)
+            else:
+                breakdown_ids.append(doc_item.id)
+
+        deleted_count = 0
+        failed_items = []
+
+        # 4. 处理故障库文档
+        if breakdown_ids:
+            result = await db.execute(
+                select(DocumentBreakdown).where(
+                    DocumentBreakdown.id.in_(breakdown_ids),
+                    DocumentBreakdown.is_deleted == 0,
+                )
+            )
+            documents = result.scalars().all()
+
+            for document in documents:
+                try:
+                    await _delete_single_document(db, document, "breakdown")
+                    deleted_count += 1
+                except Exception as e:
+                    logger.exception(f"批量删除故障库文档失败, id={document.id}")
+                    failed_items.append(
+                        {"id": document.id, "library_type": "breakdown"}
+                    )
+
+        # 5. 处理知识库文档
+        if knowledge_ids:
+            result = await db.execute(
+                select(DocumentKnowledge).where(
+                    DocumentKnowledge.id.in_(knowledge_ids),
+                    DocumentKnowledge.is_deleted == 0,
+                )
+            )
+            documents = result.scalars().all()
+
+            for document in documents:
+                try:
+                    await _delete_single_document(db, document, "knowledge")
+                    deleted_count += 1
+                except Exception as e:
+                    logger.exception(f"批量删除知识库文档失败, id={document.id}")
+                    failed_items.append(
+                        {"id": document.id, "library_type": "knowledge"}
+                    )
+
+        # 6. 提交事务
+        await db.commit()
+
+        # 7. 返回结果
+        if failed_items:
+            return Result.success_with_data(
+                {
+                    "deleted_count": deleted_count,
+                    "failed_items": failed_items,
+                    "message": f"成功删除 {deleted_count} 篇文档，{len(failed_items)} 篇删除失败",
+                }
+            )
+        else:
+            return Result.success_with_data(
+                {
+                    "deleted_count": deleted_count,
+                    "message": f"成功删除 {deleted_count} 篇文档",
+                }
+            )
+
+    except AppException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.exception("批量删除文档异常")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"批量删除文档失败：{str(e)}",
+        )
+
 
 @router.get("/", summary="获取所有文档")
-async def get_documents(current_user: User = Depends(get_current_active_user),
-                        db: AsyncSession = Depends(get_db),
-                        library_type: str = "breakdown"):
+async def get_documents(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    library_type: str = "breakdown",
+):
     document_model = _get_document_model(library_type)
-    result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
+    result = await db.execute(
+        select(document_model).where(document_model.is_deleted == 0)
+    )
     documents = result.scalars().all()
 
     # documents = db.query(Document)
@@ -944,11 +1372,14 @@ async def get_documents(current_user: User = Depends(get_current_active_user),
     # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
     return Result.success_with_data(responses)
 
+
 @router.get("/get_by_id/{id}", summary="根据id获得文档内容")
-async def get_document(id: int,
-                       library_type: str = "breakdown",
-                       db: AsyncSession = Depends(get_db),
-                       current_user: User = Depends(get_current_active_user)):
+async def get_document(
+    id: int,
+    library_type: str = "breakdown",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     try:
         document_model = _get_document_model(library_type)
         result = await db.execute(
@@ -963,19 +1394,30 @@ async def get_document(id: int,
         if document:
             # full_name = db.query(User.full_name).filter(User.id == document.contributor_id).scalar()
 
-            full_name_result = await db.execute(select(User.full_name).where(User.id == document.contributor_id))
+            full_name_result = await db.execute(
+                select(User.full_name).where(User.id == document.contributor_id)
+            )
             full_name = full_name_result.scalar_one_or_none()
 
-            document_data = await document_convert_documentResponse(db, document, full_name)
+            document_data = await document_convert_documentResponse(
+                db, document, full_name
+            )
             return Result.success_with_data(document_data)
         return Result.success()
     except Exception as e:
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"根据id获取文档内容失败：{str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"根据id获取文档内容失败：{str(e)}",
+        )
+
 
 @router.post("/page", summary="分页查询文档内容")
-async def get_page(page: Page,
-                   db: AsyncSession = Depends(get_db),
-                   current_user: User = Depends(get_current_active_user)):
+async def get_page(
+    page: Page,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     logger.info("分页查询文档内容")
     try:
         offset = (page.page - 1) * page.size
@@ -996,7 +1438,9 @@ async def get_page(page: Page,
                     where_conditions.append(tag_condition)
 
                 count_result = await db.execute(
-                    select(func.count()).select_from(document_model).where(*where_conditions)
+                    select(func.count())
+                    .select_from(document_model)
+                    .where(*where_conditions)
                 )
                 # 累加每个库的数量，得到列表总数量。
                 total_count += count_result.scalar_one()
@@ -1011,10 +1455,14 @@ async def get_page(page: Page,
                 documents.extend(result.scalars().all())
 
             # 跨库排序后再切片，保证第一页能同时出现最新的故障库和知识库文档。
-            documents = _sort_documents_by_edit_time(documents)[offset:offset + page.size]
+            documents = _sort_documents_by_edit_time(documents)[
+                offset : offset + page.size
+            ]
             # 复用原来的响应转换逻辑，保留每条文档自身的 library_type。
             responses = await documents_to_responses(db, documents)
-            data = build_pagination_payload(total_count, page.page, page.size, responses, "documents")
+            data = build_pagination_payload(
+                total_count, page.page, page.size, responses, "documents"
+            )
             return Result.success_with_data(data)
 
         document_model = _get_document_model(page.library_type)
@@ -1041,15 +1489,24 @@ async def get_page(page: Page,
 
         responses = await documents_to_responses(db, documents)
         # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
-        data = build_pagination_payload(total_count, page.page, page.size, responses, "documents")
+        data = build_pagination_payload(
+            total_count, page.page, page.size, responses, "documents"
+        )
         return Result.success_with_data(data)
     except Exception as e:
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"分页查询文档内容失败：{str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"分页查询文档内容失败：{str(e)}",
+        )
+
 
 @router.post("/query", summary="查询文档信息")
-async def query(query: DocumentQuery,
-                db: AsyncSession = Depends(get_db),
-                current_user: User = Depends(get_current_active_user)):
+async def query(
+    query: DocumentQuery,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     try:
         # 根据文档的标题或问题简介，作者姓名或用户名查询
         offset = (query.page - 1) * query.size
@@ -1087,7 +1544,8 @@ async def query(query: DocumentQuery,
                 total_count += count_result.scalar_one()
 
                 result = await db.execute(
-                    select(document_model).join(User, document_model.contributor_id == User.id)
+                    select(document_model)
+                    .join(User, document_model.contributor_id == User.id)
                     .where(*where_conditions)
                     .order_by(document_model.first_edit_date.desc())
                     .limit(max_needed)
@@ -1096,10 +1554,14 @@ async def query(query: DocumentQuery,
                 documents.extend(result.scalars().all())
 
             # 按编辑时间跨库排序，并只返回当前页需要的数据。
-            documents = _sort_documents_by_edit_time(documents)[offset:offset + query.size]
+            documents = _sort_documents_by_edit_time(documents)[
+                offset : offset + query.size
+            ]
             # 转成统一响应结构，同时保留 library_type 用于前端徽标和详情跳转。
             documents_response = await documents_to_responses(db, documents)
-            data = build_pagination_payload(total_count, query.page, query.size, documents_response, "documents")
+            data = build_pagination_payload(
+                total_count, query.page, query.size, documents_response, "documents"
+            )
             return Result.success_with_data(data)
 
         document_model = _get_document_model(query.library_type)
@@ -1135,7 +1597,6 @@ async def query(query: DocumentQuery,
         #     )
         # ).count()
 
-
         # documents = db.query(Document).join(
         #     User, Document.contributor_id == User.id
         # ).filter(
@@ -1150,7 +1611,8 @@ async def query(query: DocumentQuery,
         # ).offset(offset).limit(query.size).all()
 
         result = await db.execute(
-            select(document_model).join(User, document_model.contributor_id == User.id)
+            select(document_model)
+            .join(User, document_model.contributor_id == User.id)
             .where(*where_conditions)
             .order_by(document_model.first_edit_date.desc())
             .offset(offset)
@@ -1162,16 +1624,25 @@ async def query(query: DocumentQuery,
 
         # documents_response = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
 
-        data = build_pagination_payload(total_count, query.page, query.size, documents_response, "documents")
+        data = build_pagination_payload(
+            total_count, query.page, query.size, documents_response, "documents"
+        )
 
         return Result.success_with_data(data)
     except Exception as e:
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询文档信息失败：{str(e)}")
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"查询文档信息失败：{str(e)}",
+        )
+
 
 @router.post("/upload_files", summary="上传文件")
-async def upload_files(files: List[UploadFile] = File(...),
-                       db: AsyncSession = Depends(get_db),
-                       current_user: User = Depends(get_current_active_user)):
+async def upload_files(
+    files: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     """
     该aoi仅将文档保存至后端服务器，不做任何其他处理
     其实是为了把文档上传和分析分开，让分析过程看起来短一点
@@ -1182,15 +1653,19 @@ async def upload_files(files: List[UploadFile] = File(...),
     has_server_error = False
     has_duplicate_file_error = False
     duplicate_origin_filename = []
-    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    document_base_dir = os.getenv(
+        "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+    )
     source_relative_dir = os.getenv("SOURCE_DOCUMENT_DIR", "upload/source_documents")
     upload_file_names = [file.filename for file in files]
-    duplicate_file_names = sorted({name for name in upload_file_names if upload_file_names.count(name) > 1})
+    duplicate_file_names = sorted(
+        {name for name in upload_file_names if upload_file_names.count(name) > 1}
+    )
     if duplicate_file_names:
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_REQUEST_INVALID,
-            message=f"源文件名称重复：{', '.join(duplicate_file_names)}"
+            message=f"源文件名称重复：{', '.join(duplicate_file_names)}",
         )
 
     for file in files:
@@ -1236,7 +1711,11 @@ async def upload_files(files: List[UploadFile] = File(...),
             )
             db.add(source_document)
             await db.commit()
-            logger.info("uploaded document file classified, filename=%s, category=%s", file.filename, category)
+            logger.info(
+                "uploaded document file classified, filename=%s, category=%s",
+                file.filename,
+                category,
+            )
         except Exception as e:
             print(e)
             await db.rollback()
@@ -1249,26 +1728,27 @@ async def upload_files(files: List[UploadFile] = File(...),
             raise AppException(
                 http_status=status.HTTP_400_BAD_REQUEST,
                 biz_code=BizCode.DOC_REQUEST_INVALID,
-                message=f"源文件已存在，请勿重复上传：{', '.join(duplicate_origin_filename)}"
+                message=f"源文件已存在，请勿重复上传：{', '.join(duplicate_origin_filename)}",
             )
         if has_server_error:
             raise AppException(
                 http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 biz_code=BizCode.INTERNAL_ERROR,
-                message="服务器内部错误"
+                message="服务器内部错误",
             )
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="请求核心参数无效"
+            message="请求核心参数无效",
         )
 
     upload_document_request = UploadDocumentResponse(
         success_file_url=success_file_url,
         success_origin_filename=success_origin_filename,
-        error_origin_filename=error_origin_filename
+        error_origin_filename=error_origin_filename,
     )
     return Result.success_with_data(upload_document_request)
+
 
 @router.post("/analyze_files", summary="解析文件")
 async def analyze_files(file_list: AnalyzeRequest,
@@ -1279,29 +1759,31 @@ async def analyze_files(file_list: AnalyzeRequest,
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="请求核心参数无效"
+            message="请求核心参数无效",
         )
     if len(file_list.file_list) != len(file_list.file_name):
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="请求核心参数无效"
+            message="请求核心参数无效",
         )
     submit_for_review = bool(file_list.submit_for_review)
     if _is_knowledge_library(file_list.library_type) and submit_for_review:
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="知识库导入暂不支持审核流程，请由管理员直接导入"
+            message="知识库导入暂不支持审核流程，请由管理员直接导入",
         )
     if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
         raise AppException(
             http_status=status.HTTP_403_FORBIDDEN,
             biz_code=BizCode.FORBIDDEN,
-            message="仅技术人员可提交审核"
+            message="仅技术人员可提交审核",
         )
     if not submit_for_review:
-        _require_admin_document_write(current_user, "技术人员需提交解析审核，审核通过后才会写入文档库")
+        _require_admin_document_write(
+            current_user, "技术人员需提交解析审核，审核通过后才会写入文档库"
+        )
 
     success_file_url = []
     success_origin_filename = []
@@ -1312,7 +1794,9 @@ async def analyze_files(file_list: AnalyzeRequest,
     parse_error_details = []
     has_token_limit_error = False
     has_ai_service_unavailable_error = False
-    document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
+    document_base_dir = os.getenv(
+        "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+    )
     current_user_id = current_user.id
     request_started = time.perf_counter()
     # AsyncSession.rollback() 会使当前 Session 中已加载的 ORM 对象属性过期。
@@ -1332,13 +1816,17 @@ async def analyze_files(file_list: AnalyzeRequest,
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
-                await _mark_source_parse_failed(db, file, "文件格式不支持", file_list.library_type)
+                await _mark_source_parse_failed(
+                    db, file, "文件格式不支持", file_list.library_type
+                )
                 continue
             url = os.path.join(document_base_dir, file)
             if not os.path.exists(url):
                 error_origin_filename.append(file_name)
                 has_not_found_error = True
-                await _mark_source_parse_failed(db, file, "源文件不存在", file_list.library_type)
+                await _mark_source_parse_failed(
+                    db, file, "源文件不存在", file_list.library_type
+                )
                 continue
 
             if _is_knowledge_library(file_list.library_type):
@@ -1352,11 +1840,20 @@ async def analyze_files(file_list: AnalyzeRequest,
                         {
                             "file_name": file_name,
                             "file_path": file,
-                            "code": int(parser_code) if parser_code is not None else int(BizCode.DOC_PARSE_FAILED),
+                            "code": (
+                                int(parser_code)
+                                if parser_code is not None
+                                else int(BizCode.DOC_PARSE_FAILED)
+                            ),
                             "detail": parser_detail or "知识库解析器未返回文档对象",
                         }
                     )
-                    await _mark_source_parse_failed(db, file, parser_detail or "知识库解析器未返回文档对象", file_list.library_type)
+                    await _mark_source_parse_failed(
+                        db,
+                        file,
+                        parser_detail or "知识库解析器未返回文档对象",
+                        file_list.library_type,
+                    )
                     continue
 
                 if _is_empty_text(parsed.title) and _is_empty_text(parsed.content):
@@ -1370,10 +1867,14 @@ async def analyze_files(file_list: AnalyzeRequest,
                             "detail": "知识库解析结果为空，未能提取有效标题或正文。",
                         }
                     )
-                    await _mark_source_parse_failed(db, file, "知识库解析结果为空。", file_list.library_type)
+                    await _mark_source_parse_failed(
+                        db, file, "知识库解析结果为空。", file_list.library_type
+                    )
                     continue
 
-                knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
+                knowledge_file_path = await _copy_source_to_knowledge_storage(
+                    document_base_dir, file, file_name
+                )
                 document = _knowledge_document_from_parsed(
                     parsed=parsed,
                     contributor_id=current_user_id,
@@ -1469,7 +1970,11 @@ async def analyze_files(file_list: AnalyzeRequest,
                     {
                         "file_name": file_name,
                         "file_path": file,
-                        "code": int(parser_code) if parser_code is not None else int(BizCode.DOC_PARSE_FAILED),
+                        "code": (
+                            int(parser_code)
+                            if parser_code is not None
+                            else int(BizCode.DOC_PARSE_FAILED)
+                        ),
                         "detail": parser_detail or "解析器未返回文档对象",
                     }
                 )
@@ -1479,7 +1984,12 @@ async def analyze_files(file_list: AnalyzeRequest,
                     parser_code,
                     parser_detail,
                 )
-                await _mark_source_parse_failed(db, file, parser_detail or "解析器未返回文档对象", file_list.library_type)
+                await _mark_source_parse_failed(
+                    db,
+                    file,
+                    parser_detail or "解析器未返回文档对象",
+                    file_list.library_type,
+                )
                 if parser_code == int(BizCode.DOC_TOKEN_LIMIT_EXCEEDED):
                     has_token_limit_error = True
                 if parser_code == int(BizCode.AI_SERVICE_UNAVAILABLE):
@@ -1507,7 +2017,9 @@ async def analyze_files(file_list: AnalyzeRequest,
 
             document.contributor_id = current_user_id
             document.origin_file_name = file_name
-            knowledge_file_path = await _copy_source_to_knowledge_storage(document_base_dir, file, file_name)
+            knowledge_file_path = await _copy_source_to_knowledge_storage(
+                document_base_dir, file, file_name
+            )
             document.origin_file_dir = knowledge_file_path
             document.first_edit_date = datetime.now()
             document.tag = _normalize_tags(file_list.tag)
@@ -1527,7 +2039,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                     source.parse_error = None
                     await db.commit()
             else:
-                document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
+                document = _copy_document_to_library(
+                    document, file_list.library_type, file_list.tag
+                )
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
@@ -1536,7 +2050,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
-                await vector_service.add_document_to_vector_store(document, commit=False)
+                await vector_service.add_document_to_vector_store(
+                    document, commit=False
+                )
                 logger.info(
                     "document analyze vectorize done, file=%s, document_id=%s, elapsed=%.2fs",
                     file_name,
@@ -1547,7 +2063,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                 if source:
                     source.status = "vectorized"
                     source.document_id = document.id
-                    source.document_library_type = getattr(document, "library_type", "breakdown")
+                    source.document_library_type = getattr(
+                        document, "library_type", "breakdown"
+                    )
                     source.parse_error = None
                 await db.commit()
 
@@ -1593,38 +2111,38 @@ async def analyze_files(file_list: AnalyzeRequest,
             raise AppException(
                 http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 biz_code=BizCode.INTERNAL_ERROR,
-                message="服务器内部错误"
+                message="服务器内部错误",
             )
         if has_not_found_error and not has_invalid_request_error:
             raise AppException(
                 http_status=status.HTTP_404_NOT_FOUND,
                 biz_code=BizCode.DOC_RESOURCE_NOT_FOUND,
-                message="资源未找到"
+                message="资源未找到",
             )
         if has_ai_service_unavailable_error:
             raise AppException(
                 http_status=status.HTTP_502_BAD_GATEWAY,
                 biz_code=BizCode.AI_SERVICE_UNAVAILABLE,
-                message="AI服务不可用，请稍后重试"
+                message="AI服务不可用，请稍后重试",
             )
         if has_token_limit_error:
             raise AppException(
                 http_status=status.HTTP_400_BAD_REQUEST,
                 biz_code=BizCode.DOC_TOKEN_LIMIT_EXCEEDED,
                 message="文件内容超出可解析长度，请缩短内容后重试",
-                detail={"files": parse_error_details}
+                detail={"files": parse_error_details},
             )
         raise AppException(
             http_status=status.HTTP_400_BAD_REQUEST,
             biz_code=BizCode.DOC_PARSE_FAILED,
             message="文件解析失败",
-            detail={"files": parse_error_details}
+            detail={"files": parse_error_details},
         )
 
     analyze_result = UploadDocumentResponse(
         success_file_url=success_file_url,
         success_origin_filename=success_origin_filename,
-        error_origin_filename=error_origin_filename
+        error_origin_filename=error_origin_filename,
     )
     print(success_file_url)
     print(error_origin_filename)
