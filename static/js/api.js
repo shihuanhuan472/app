@@ -520,7 +520,7 @@ const documentAPI = {
     client: new APIClient(),
 
     // 分页获取文档
-    async getDocumentsPage(page = 1, size = 9) {
+    async getDocumentsPage(page = 1, size = 9, libraryType = 'all', tags = []) {
         try {
             console.log(`POST请求获取第 ${page} 页文档，每页 ${size} 条`);
 
@@ -528,7 +528,8 @@ const documentAPI = {
                 page: page,
                 size: size,
                 // 列表页需要同时展示故障库和知识库，所以明确让后端跨库查询。
-                library_type: 'all'
+                library_type: libraryType || 'all',
+                tag: Array.isArray(tags) ? tags : []
             };
 
             const response = await this.client.post(
@@ -737,7 +738,7 @@ const documentAPI = {
     },
 
     // 搜索文档（分页）
-    async searchDocumentsPage(query, page = 1, size = 9) {
+    async searchDocumentsPage(query, page = 1, size = 9, libraryType = 'all', tags = []) {
         try {
             console.log(`搜索文档: "${query}", 第 ${page} 页，每页 ${size} 条`);
 
@@ -746,7 +747,8 @@ const documentAPI = {
                 page: page,
                 size: size,
                 // 搜索页也需要同时搜索故障库和知识库，否则知识库新增文档搜不到。
-                library_type: 'all'
+                library_type: libraryType || 'all',
+                tag: Array.isArray(tags) ? tags : []
             };
 
             console.log('搜索文档请求数据:', requestData);

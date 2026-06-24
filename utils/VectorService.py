@@ -330,8 +330,8 @@ class VectorService:
             title = str(item.get("title") or "").lower()
             content = str(item.get("content") or "").lower()
 
-            bonus = 0.0
             matched_terms = []
+            title_hit_count = 0
             for term in terms:
                 aliases = DOMAIN_TERM_ALIASES.get(term, [term])
                 title_hit = VectorService._contains_term_alias(title, aliases)
@@ -341,11 +341,17 @@ class VectorService:
 
                 matched_terms.append(term)
                 if title_hit:
-                    bonus += 0.08
-                if content_hit:
-                    bonus += 0.05
+                    title_hit_count += 1
 
-            bonus = min(bonus, 0.15)
+            if matched_terms:
+                coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
+                title_coverage = title_hit_count / max(len(set(terms)), 1)
+                # Short term queries need a stronger exact-hit signal; cap the bonus to avoid score inflation.
+                bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
+                bonus = min(bonus, 0.15)
+            else:
+                bonus = 0.0
+
             missing_penalty = float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.18))
             if matched_terms:
                 adjusted_score = min(1.0, vector_score + bonus)

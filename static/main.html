@@ -73,6 +73,10 @@
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" class="search-input" id="searchInput" placeholder="可搜索标题，作者及问题描述...">
                     </div>
+                    <label class="view-toggle" title="切换为文件列表样式，仅渲染当前分页数据">
+                        <input type="checkbox" id="listViewToggle" onchange="toggleDocumentView(this.checked)">
+                        <span>列式展示</span>
+                    </label>
                     <a href="add-document.html" class="btn btn-primary" id="addDocumentBtn">
                         <i class="fas fa-plus"></i> 添加文档
                     </a>
@@ -148,6 +152,16 @@
         let currentSearchQuery = '';
         let lastRenderedDocuments = [];
         let lastRenderedTotalCount = 0;
+        let documentViewMode = 'card';
+        const LIST_VIEW_PAGE_SIZE = 100;
+        let listViewCurrentPage = 1;
+        let listViewTotalPages = 1;
+        let listViewTotalCount = 0;
+        let listViewLoadingMore = false;
+        let listViewDocuments = [];
+        let listViewLibraryType = 'all';
+        let listViewTag = '';
+        let availableTags = [];
         let batchDeleteMode = false;
         let batchDeleteBusy = false;
         const selectedDocuments = new Map();
@@ -160,6 +174,8 @@
 
             // 恢复分页设置
             restorePageSettings();
+            restoreDocumentViewMode();
+            await loadAvailableTags();
 
             // 显示加载状态
             showLoading();
@@ -191,11 +207,13 @@
                         // 清空搜索时，重置到第一页并重新加载所有文档
                         isSearching = false;
                         docCurrentPage = 1;
+                        resetListViewState();
                         loadDocuments();
                     } else {
                         // 执行搜索
                         isSearching = true;
                         docCurrentPage = 1;
+                        resetListViewState();
                         searchDocuments(query);
                     }
                 };
@@ -213,6 +231,7 @@
                         if (query) {
                             isSearching = true;
                             docCurrentPage = 1;
+                            resetListViewState();
                             searchDocuments(query);
                         }
                     }
@@ -251,6 +270,55 @@
             }
         }
 
+        function restoreDocumentViewMode() {
+            const savedViewMode = localStorage.getItem('documentViewMode');
+            documentViewMode = savedViewMode === 'list' ? 'list' : 'card';
+            const toggle = document.getElementById('listViewToggle');
+            if (toggle) {
+                toggle.checked = documentViewMode === 'list';
+            }
+        }
+
+        function toggleDocumentView(useListView) {
+            documentViewMode = useListView ? 'list' : 'card';
+            localStorage.setItem('documentViewMode', documentViewMode);
+            docCurrentPage = 1;
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+            resetListViewState();
+            refreshCurrentDocumentList();
+        }
+
+        function resetListViewState() {
+            listViewCurrentPage = 1;
+            listViewTotalPages = 1;
+            listViewTotalCount = 0;
+            listViewLoadingMore = false;
+            listViewDocuments = [];
+        }
+
+        function changeListLibraryType(value) {
+            listViewLibraryType = value || 'all';
+            resetListViewState();
+            loadListViewDocuments(false);
+        }
+
+        function changeListTag(value) {
+            listViewTag = value || '';
+            resetListViewState();
+            loadListViewDocuments(false);
+        }
+
+        async function loadAvailableTags() {
+            try {
+                if (typeof tagAPI === 'undefined') return;
+                const tags = await tagAPI.getAllTags();
+                availableTags = Array.isArray(tags) ? tags : [];
+            } catch (error) {
+                console.warn('加载标签筛选失败:', error);
+                availableTags = [];
+            }
+        }
+
         // 隐藏加载状态
         function hideLoading() {
             // 由displayDocuments函数处理
@@ -274,6 +342,11 @@
 
         // 加载普通文档列表
         async function loadDocuments() {
+            if (documentViewMode === 'list') {
+                await loadListViewDocuments(false);
+                return;
+            }
+
             try {
                 console.log(`加载第 ${docCurrentPage} 页，每页 ${docPageSize} 条`);
 
@@ -283,30 +356,7 @@
 
                 if (pageData && pageData.documents) {
                     // 转换数据格式
-                    const currentPageDocuments = pageData.documents.map(doc => {
-                        // 获取当前用户
-                        const currentUser = Utils.getCurrentUser();
-                        const currentUserId = currentUser ? currentUser.id : null;
-
-                        // 判断是否是当前用户创建
-                        let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
-                        if (currentUserId && currentUserId == doc.contributor_id) {
-                            authorName = '我';
-                        }
-
-                        return {
-                            id: doc.id,
-                            title: doc.title || '无标题',
-                            content: doc.library_type === 'knowledge'
-                                ? getKnowledgePreview(doc)
-                                : (doc.problem_intro || ''),
-                            author: authorName,
-                            date: formatDate(doc.first_edit_date),
-                            libraryType: doc.library_type || 'breakdown',
-                            tags: doc.tag || [],
-                            fullData: doc
-                        };
-                    });
+                    const currentPageDocuments = pageData.documents.map(normalizeApiDocument);
 
                     console.log('转换后的当前页文档数据:', currentPageDocuments);
 
@@ -325,6 +375,72 @@
                 console.error('加载文档失败:', error);
                 showError('加载文档失败: ' + error.message);
             }
+        }
+
+        async function loadListViewDocuments(loadMore) {
+            if (listViewLoadingMore) return;
+            if (loadMore && listViewCurrentPage >= listViewTotalPages) return;
+
+            if (!loadMore) {
+                resetListViewState();
+                showLoading();
+            }
+            listViewLoadingMore = true;
+
+            try {
+                const nextPage = loadMore ? listViewCurrentPage + 1 : 1;
+                const selectedTags = listViewTag ? [listViewTag] : [];
+                const result = isSearching && currentSearchQuery
+                    ? await documentAPI.searchDocumentsPage(currentSearchQuery, nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags)
+                    : await documentAPI.getDocumentsPage(nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags);
+
+                const pageDocuments = Array.isArray(result && result.documents)
+                    ? result.documents.map(normalizeApiDocument)
+                    : [];
+
+                listViewCurrentPage = nextPage;
+                listViewTotalPages = result.total_pages || 1;
+                listViewTotalCount = result.total_count || pageDocuments.length;
+                listViewDocuments = loadMore
+                    ? listViewDocuments.concat(pageDocuments)
+                    : pageDocuments;
+
+                docTotalPages = listViewTotalPages;
+                displayDocuments(listViewDocuments, listViewTotalCount);
+            } catch (error) {
+                console.error('加载列式文档失败:', error);
+                if (!loadMore) {
+                    showError('加载文档失败: ' + error.message);
+                } else {
+                    Utils.showMessage('加载更多文档失败，请稍后重试', 'error');
+                }
+            } finally {
+                listViewLoadingMore = false;
+                updateListLoadingState();
+            }
+        }
+
+        function normalizeApiDocument(doc) {
+            const currentUser = Utils.getCurrentUser();
+            const currentUserId = currentUser ? currentUser.id : null;
+
+            let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
+            if (currentUserId && currentUserId == doc.contributor_id) {
+                authorName = '我';
+            }
+
+            return {
+                id: doc.id,
+                title: doc.title || '无标题',
+                content: doc.library_type === 'knowledge'
+                    ? getKnowledgePreview(doc)
+                    : (doc.problem_intro || ''),
+                author: authorName,
+                date: formatDate(doc.first_edit_date),
+                libraryType: doc.library_type || 'breakdown',
+                tags: doc.tag || [],
+                fullData: doc
+            };
         }
 
         // 格式化日期
@@ -348,7 +464,15 @@
                 // 清空搜索时恢复所有文档
                 isSearching = false;
                 docCurrentPage = 1;
+                resetListViewState();
                 await loadDocuments();
+                return;
+            }
+
+            if (documentViewMode === 'list') {
+                isSearching = true;
+                currentSearchQuery = query;
+                await loadListViewDocuments(false);
                 return;
             }
 
@@ -364,28 +488,7 @@
 
                 if (result && result.documents) {
                     // 转换数据格式
-                    const searchResults = result.documents.map(doc => {
-                        const currentUser = Utils.getCurrentUser();
-                        const currentUserId = currentUser ? currentUser.id : null;
-
-                        let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
-                        if (currentUserId && currentUserId == doc.contributor_id) {
-                            authorName = '我';
-                        }
-
-                        return {
-                            id: doc.id,
-                            title: doc.title || '无标题',
-                            content: doc.library_type === 'knowledge'
-                                ? getKnowledgePreview(doc)
-                                : (doc.problem_intro || ''),
-                            author: authorName,
-                            date: formatDate(doc.first_edit_date),
-                            libraryType: doc.library_type || 'breakdown',
-                            tags: doc.tag || [],
-                            fullData: doc
-                        };
-                    });
+                    const searchResults = result.documents.map(normalizeApiDocument);
 
                     // 更新分页信息
                     docTotalPages = result.total_pages || 1;
@@ -457,6 +560,19 @@
             return `
                 <div class="document-item-tags">
                     ${normalizedTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+            `;
+        }
+
+        function renderInlineTags(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            if (!normalizedTags.length) return '<span class="document-list-muted">-</span>';
+            const visibleTags = normalizedTags.slice(0, 3);
+            const extraCount = normalizedTags.length - visibleTags.length;
+            return `
+                <div class="document-list-tags">
+                    ${visibleTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+                    ${extraCount > 0 ? `<span class="document-list-extra">+${extraCount}</span>` : ''}
                 </div>
             `;
         }
@@ -567,6 +683,181 @@
             });
         }
 
+        function renderDocumentCard(doc) {
+            let content = doc.content || '';
+            if (content.length > 100) {
+                content = content.substring(0, 100) + '...';
+            }
+            content = escapeHtml(content);
+
+            const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+            const libraryLabel = getLibraryLabel(libraryType);
+            const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+            const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
+            const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+
+            return `
+                <div class="document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
+                     data-id="${escapeHtml(doc.id)}"
+                     data-library-type="${escapeHtml(libraryType)}"
+                     data-title="${escapeHtml(doc.title)}"
+                     onclick="handleDocumentCardClick(event, this)">
+                    ${batchDeleteMode ? `
+                        <button type="button"
+                                class="document-select-check ${selected ? 'selected' : ''}"
+                                aria-label="选择 ${escapeHtml(doc.title)}"
+                                aria-checked="${selected ? 'true' : 'false'}"
+                                onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    ` : ''}
+                    <div class="document-item-header">
+                        <div class="document-item-title-row">
+                            <div class="document-item-title">${escapeHtml(doc.title)}</div>
+                            <span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span>
+                        </div>
+                    </div>
+
+                    <div class="document-item-content">
+                        ${content}
+                    </div>
+
+                    <div class="document-item-footer">
+                        <div class="document-item-author">
+                            <i class="fas fa-user"></i>
+                            <span>${escapeHtml(doc.author)}</span>
+                            ${tagHtml}
+                        </div>
+                        <div class="document-item-date">
+                            ${escapeHtml(doc.date)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDocumentListRow(doc) {
+            const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+            const libraryLabel = getLibraryLabel(libraryType);
+            const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+            const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+            const iconClass = libraryType === 'knowledge' ? 'fa-file-lines' : 'fa-file-medical';
+
+            return `
+                <div class="document-list-row document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
+                     data-id="${escapeHtml(doc.id)}"
+                     data-library-type="${escapeHtml(libraryType)}"
+                     data-title="${escapeHtml(doc.title)}"
+                     onclick="handleDocumentCardClick(event, this)">
+                    <div class="document-list-check-cell">
+                        ${batchDeleteMode ? `
+                            <button type="button"
+                                    class="document-select-check ${selected ? 'selected' : ''}"
+                                    aria-label="选择 ${escapeHtml(doc.title)}"
+                                    aria-checked="${selected ? 'true' : 'false'}"
+                                    onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="document-list-name">
+                        <i class="fas ${iconClass}"></i>
+                        <div class="document-list-title-wrap">
+                            <div class="document-list-title">${escapeHtml(doc.title)}</div>
+                            <div class="document-list-summary">${escapeHtml(doc.content || '暂无摘要')}</div>
+                        </div>
+                    </div>
+                    <div><span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span></div>
+                    <div>${renderInlineTags(doc.tags || (doc.fullData && doc.fullData.tag))}</div>
+                    <div class="document-list-author">${escapeHtml(doc.author)}</div>
+                    <div class="document-list-date">${escapeHtml(doc.date)}</div>
+                </div>
+            `;
+        }
+
+        function getListViewStatusText(totalCount, visibleCount) {
+            if (totalCount === 0) return '没有符合条件的文档';
+            if (listViewLoadingMore) return '正在加载更多...';
+            if (visibleCount >= totalCount || listViewCurrentPage >= listViewTotalPages) return '已加载全部文档';
+            return '向下滚动加载更多';
+        }
+
+        function renderDocumentList(documents, totalCount) {
+            const visibleCount = Array.isArray(documents) ? documents.length : 0;
+            return `
+                <div class="document-list-table" role="table" aria-label="文档列式列表">
+                    <div class="document-list-meta">
+                        <span>共 ${totalCount} 篇文档，当前显示 ${visibleCount} 篇</span>
+                        <div class="document-list-tools">
+                            <label class="document-list-filter">
+                                <span>类型</span>
+                                <select onclick="event.stopPropagation()" onchange="changeListLibraryType(this.value)">
+                                    <option value="all" ${listViewLibraryType === 'all' ? 'selected' : ''}>全部</option>
+                                    <option value="breakdown" ${listViewLibraryType === 'breakdown' ? 'selected' : ''}>故障库</option>
+                                    <option value="knowledge" ${listViewLibraryType === 'knowledge' ? 'selected' : ''}>知识库</option>
+                                </select>
+                            </label>
+                            <label class="document-list-filter">
+                                <span>标签</span>
+                                <select onclick="event.stopPropagation()" onchange="changeListTag(this.value)">
+                                    <option value="" ${listViewTag === '' ? 'selected' : ''}>全部</option>
+                                    ${availableTags.map(tag => {
+                                        const name = typeof tag === 'string' ? tag : tag.name;
+                                        return `<option value="${escapeHtml(name)}" ${listViewTag === name ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                                    }).join('')}
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="document-list-head" role="row">
+                        <div></div>
+                        <div><i class="far fa-square"></i> 文件名</div>
+                        <div>类型</div>
+                        <div>标签</div>
+                        <div>作者</div>
+                        <div>日期</div>
+                    </div>
+                    <div class="document-list-body">
+                        ${visibleCount === 0 ? `
+                            <div class="document-list-empty">
+                                <i class="fas fa-filter"></i>
+                                <span>没有符合条件的文档</span>
+                            </div>
+                        ` : documents.map(renderDocumentListRow).join('')}
+                        <div class="document-list-loading" id="documentListLoading">
+                            ${getListViewStatusText(totalCount, visibleCount)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function attachListScrollHandler() {
+            if (documentViewMode !== 'list') return;
+            const body = document.querySelector('.document-list-body');
+            if (!body) return;
+            body.addEventListener('scroll', handleListViewScroll, { passive: true });
+        }
+
+        function handleListViewScroll(event) {
+            if (documentViewMode !== 'list' || listViewLoadingMore) return;
+            if (listViewCurrentPage >= listViewTotalPages) return;
+
+            const el = event.currentTarget;
+            const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceToBottom < 120) {
+                loadListViewDocuments(true);
+            }
+        }
+
+        function updateListLoadingState() {
+            if (documentViewMode !== 'list') return;
+            const loadingEl = document.getElementById('documentListLoading');
+            if (!loadingEl) return;
+            const visibleCount = listViewDocuments.length;
+            loadingEl.textContent = getListViewStatusText(listViewTotalCount, visibleCount);
+        }
+
         function selectCurrentPageDocuments() {
             if (!batchDeleteMode || batchDeleteBusy) return;
             const docs = Array.isArray(lastRenderedDocuments) ? lastRenderedDocuments : [];
@@ -660,6 +951,14 @@
             lastRenderedTotalCount = totalCount || 0;
 
             if (!documents || documents.length === 0) {
+                if (documentViewMode === 'list') {
+                    container.innerHTML = renderDocumentList([], totalCount || 0);
+                    attachListScrollHandler();
+                    renderDocPagination(totalCount);
+                    updateBatchDeleteControls();
+                    return;
+                }
+
                 const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
                 const user = Utils.getCurrentUser();
                 const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
@@ -686,65 +985,12 @@
                 return;
             }
 
-            let html = '';
-            documents.forEach(doc => {
-                // 处理内容显示，确保不会太长
-                let content = doc.content || '';
-                if (content.length > 100) {
-                    content = content.substring(0, 100) + '...';
-                }
-                content = escapeHtml(content);
-
-                // 优先使用列表转换出来的库类型，兼容旧数据没有 library_type 时默认按故障库处理。
-                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
-                // 提前生成徽标文案，让卡片标题旁直接显示“故障库/知识库”。
-                const libraryLabel = getLibraryLabel(libraryType);
-                // 提前生成徽标样式类，让故障库和知识库显示不同颜色。
-                const libraryBadgeClass = getLibraryBadgeClass(libraryType);
-                const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
-                const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
-
-                html += `
-                    <div class="document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
-                         data-id="${escapeHtml(doc.id)}"
-                         data-library-type="${escapeHtml(libraryType)}"
-                         data-title="${escapeHtml(doc.title)}"
-                         onclick="handleDocumentCardClick(event, this)">
-                        ${batchDeleteMode ? `
-                            <button type="button"
-                                    class="document-select-check ${selected ? 'selected' : ''}"
-                                    aria-label="选择 ${escapeHtml(doc.title)}"
-                                    aria-checked="${selected ? 'true' : 'false'}"
-                                    onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        ` : ''}
-                        <div class="document-item-header">
-                            <div class="document-item-title-row">
-                                <div class="document-item-title">${escapeHtml(doc.title)}</div>
-                                <span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span>
-                            </div>
-                        </div>
-
-                        <div class="document-item-content">
-                            ${content}
-                        </div>
-
-                        <div class="document-item-footer">
-                            <div class="document-item-author">
-                                <i class="fas fa-user"></i>
-                                <span>${escapeHtml(doc.author)}</span>
-                                ${tagHtml}
-                            </div>
-                            <div class="document-item-date">
-                                ${escapeHtml(doc.date)}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
+            const html = documentViewMode === 'list'
+                ? renderDocumentList(documents, totalCount || documents.length)
+                : documents.map(renderDocumentCard).join('');
 
             container.innerHTML = html;
+            attachListScrollHandler();
             renderDocPagination(totalCount);
             updateBatchDeleteControls();
         }
@@ -757,8 +1003,8 @@
             const pageInfo = document.getElementById('docPageInfo');
             const paginationContainer = document.getElementById('docPagination');
 
-            // 只有当没有数据时才隐藏分页控件
-            if (totalCount === 0) {
+            // 列式展示一次显示当前可加载文档，不再显示分页。
+            if (totalCount === 0 || documentViewMode === 'list') {
                 paginationContainer.style.display = 'none';
             } else {
                 paginationContainer.style.display = 'flex';
@@ -828,6 +1074,7 @@
             currentSearchQuery = '';
             isSearching = false;
             docCurrentPage = 1;
+            resetListViewState();
 
             // 保存到localStorage
             localStorage.setItem('docCurrentPage', docCurrentPage);
@@ -862,7 +1109,7 @@
             }
 
             // 滚动到顶部
-            document.querySelector('.document-grid').scrollIntoView({ behavior: 'smooth' });
+            document.querySelector('.document-container').scrollIntoView({ behavior: 'smooth' });
         }
 
         // 更改每页显示数量
@@ -870,6 +1117,7 @@
             const select = document.getElementById('docPageSizeSelect');
             docPageSize = parseInt(select.value);
             docCurrentPage = 1; // 重置到第一页
+            resetListViewState();
 
             // 保存到localStorage
             localStorage.setItem('docPageSize', docPageSize);
@@ -900,6 +1148,7 @@
             currentSearchQuery = '';
             isSearching = false;
             docCurrentPage = 1;
+            resetListViewState();
             loadDocuments();
         }
 
@@ -914,6 +1163,9 @@
         window.selectCurrentPageDocuments = selectCurrentPageDocuments;
         window.confirmBatchDelete = confirmBatchDelete;
         window.handleDocumentCardClick = handleDocumentCardClick;
+        window.toggleDocumentView = toggleDocumentView;
+        window.changeListLibraryType = changeListLibraryType;
+        window.changeListTag = changeListTag;
 
         function setActionButtonDisabled(el, disabled) {
             if (!el) return;
