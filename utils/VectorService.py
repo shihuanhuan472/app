@@ -4,6 +4,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,13 @@ os.environ["HF_HOME"] = os.getenv(
 logger = logging.getLogger(__name__)
 
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+DOMAIN_TERM_ALIASES = {
+    "FIT": ["FIT", "FIT值", "FIT value"],
+    "Q30": ["Q30"],
+    "G50": ["G50"],
+    "SBC": ["SBC"],
+    "DNQ": ["DNQ"],
+}
 VECTOR_DOCUMENT_FIELDS = [
     "id",
     "title",
@@ -90,6 +98,9 @@ class VectorService:
         self.batch_size = int(os.getenv("BATCH_SIZE", 10))
         self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
+        # self.enable_llm_rerank = True
+        # self.rerank_top_k = 8
+        # self.rerank_low_limit = self.similarity_low_limit
         self.message_image_base_dir = os.getenv(
             "MESSAGE_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
         )
@@ -281,6 +292,101 @@ class VectorService:
         score = sum(float(chunk.get("score", 0.0)) * w for chunk, w in zip(top_chunks, used_weights)) / weight_sum
         return score
 
+    @staticmethod
+    def _extract_domain_terms(query: str) -> List[str]:
+        """Extract technical terms that embedding search may treat too loosely."""
+        if not query:
+            return []
+
+        terms: List[str] = []
+        query_text = query.lower()
+        for canonical, aliases in DOMAIN_TERM_ALIASES.items():
+            for alias in aliases:
+                pattern = re.escape(alias.lower()).replace(r"\ ", r"[\s_-]*")
+                if re.search(pattern, query_text):
+                    terms.append(canonical)
+                    break
+        return terms
+
+    @staticmethod
+    def _contains_term_alias(text: str, aliases: List[str]) -> bool:
+        text = (text or "").lower()
+        for alias in aliases:
+            pattern = re.escape(alias.lower()).replace(r"\ ", r"[\s_-]*")
+            if re.search(pattern, text):
+                return True
+        return False
+
+    @staticmethod
+    def _apply_domain_term_score(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
+        """Re-rank vector candidates with conservative exact-term signals."""
+        terms = VectorService._extract_domain_terms(query)
+        if not terms:
+            return results
+
+        adjusted_results = []
+        for item in results:
+            vector_score = float(item.get("score", 0.0))
+            title = str(item.get("title") or "").lower()
+            content = str(item.get("content") or "").lower()
+
+            bonus = 0.0
+            matched_terms = []
+            for term in terms:
+                aliases = DOMAIN_TERM_ALIASES.get(term, [term])
+                title_hit = VectorService._contains_term_alias(title, aliases)
+                content_hit = VectorService._contains_term_alias(content, aliases)
+                if not title_hit and not content_hit:
+                    continue
+
+                matched_terms.append(term)
+                if title_hit:
+                    bonus += 0.08
+                if content_hit:
+                    bonus += 0.05
+
+            bonus = min(bonus, 0.15)
+            missing_penalty = float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.18))
+            if matched_terms:
+                adjusted_score = min(1.0, vector_score + bonus)
+            else:
+                adjusted_score = max(0.0, vector_score - missing_penalty)
+
+            item["vector_score"] = vector_score
+            item["term_bonus"] = bonus
+            item["matched_terms"] = matched_terms
+            item["score"] = adjusted_score
+            adjusted_results.append(item)
+
+        return adjusted_results
+
+    @staticmethod
+    def _debug_print_search_results(stage: str, results: List[Dict[str, Any]], limit: int = 20):
+        print(f"\n========== RAG DEBUG: {stage} count={len(results or [])} ==========")
+        for index, item in enumerate((results or [])[:limit], start=1):
+            metadata = item.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            content = str(item.get("content") or "").replace("\n", " ").strip()
+            preview = content[:180]
+            print(
+                "[RAG DEBUG] "
+                f"rank={index} "
+                f"doc={item.get('library_type')}:{item.get('doc_id')} "
+                f"title={item.get('title')} "
+                f"score={float(item.get('score', 0.0)):.6f} "
+                f"vector_score={float(item.get('vector_score', item.get('score', 0.0))):.6f} "
+                f"term_bonus={float(item.get('term_bonus', 0.0)):.6f} "
+                f"matched_terms={item.get('matched_terms', [])} "
+                f"content_type={metadata.get('content_type')} "
+                f"section={metadata.get('section_title')} "
+                f"preview={preview}"
+            )
+        print(f"========== RAG DEBUG END: {stage} ==========\n")
+
     async def search_similar_documents(
         self,
         query: str,
@@ -319,6 +425,25 @@ class VectorService:
                 return []
 
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
+            self._debug_print_search_results("raw vector results", all_results)
+            all_results = self._apply_domain_term_score(all_results, query)
+            all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
+            self._debug_print_search_results("after domain term score", all_results)
+            # if self.enable_llm_rerank:
+            #     rerank_candidates = all_results[: max(self.rerank_top_k, 1)]
+            #     reranked_results = []
+            #     for item in rerank_candidates:
+            #         rerank_score = await self.rerank_by_llm(item, query=query, query_image=None)
+            #         if rerank_score is None:
+            #             rerank_score = float(item.get("score", 0.0))
+            #         item["vector_score"] = float(item.get("score", 0.0))
+            #         item["score"] = rerank_score
+            #         item["rerank_score"] = rerank_score
+            #         if rerank_score >= self.rerank_low_limit:
+            #             reranked_results.append(item)
+            #     all_results = sorted(reranked_results, key=lambda x: float(x.get("score", 0.0)), reverse=True)
+            #     if not all_results:
+            #         return []
 
             grouped: Dict[str, Dict[str, Any]] = {}
             for item in all_results:
@@ -358,6 +483,7 @@ class VectorService:
                 docs.append(doc)
 
             docs.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
+            self._debug_print_search_results("grouped docs after threshold", docs)
             return docs[: self.top_k_documents]
 
         except Exception as e:
