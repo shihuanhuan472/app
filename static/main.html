@@ -386,6 +386,7 @@
                 showLoading();
             }
             listViewLoadingMore = true;
+            updateListLoadingState();
 
             try {
                 const nextPage = loadMore ? listViewCurrentPage + 1 : 1;
@@ -406,7 +407,11 @@
                     : pageDocuments;
 
                 docTotalPages = listViewTotalPages;
-                displayDocuments(listViewDocuments, listViewTotalCount);
+                if (loadMore) {
+                    appendDocumentListRows(pageDocuments);
+                } else {
+                    displayDocuments(listViewDocuments, listViewTotalCount);
+                }
             } catch (error) {
                 console.error('加载列式文档失败:', error);
                 if (!loadMore) {
@@ -787,7 +792,7 @@
             return `
                 <div class="document-list-table" role="table" aria-label="文档列式列表">
                     <div class="document-list-meta">
-                        <span>共 ${totalCount} 篇文档，当前显示 ${visibleCount} 篇</span>
+                        <span>共 ${totalCount} 篇文档</span>
                         <div class="document-list-tools">
                             <label class="document-list-filter">
                                 <span>类型</span>
@@ -856,6 +861,23 @@
             if (!loadingEl) return;
             const visibleCount = listViewDocuments.length;
             loadingEl.textContent = getListViewStatusText(listViewTotalCount, visibleCount);
+        }
+
+        function appendDocumentListRows(documents) {
+            const body = document.querySelector('.document-list-body');
+            const loadingEl = document.getElementById('documentListLoading');
+            if (!body || !documents.length) {
+                updateListLoadingState();
+                return;
+            }
+            const html = documents.map(renderDocumentListRow).join('');
+            if (loadingEl) {
+                loadingEl.insertAdjacentHTML('beforebegin', html);
+            } else {
+                body.insertAdjacentHTML('beforeend', html);
+            }
+            updateListLoadingState();
+            updateBatchDeleteControls();
         }
 
         function selectCurrentPageDocuments() {

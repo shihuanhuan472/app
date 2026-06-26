@@ -1,0 +1,1607 @@
+=== Vector Consistency Summary ===
+Milvus rows: 1622
+Milvus grouped docs: 199
+MySQL active docs: 199
+OK docs: 199
+Stale docs: 0
+Title mismatches: 0
+Deleted stale vector groups: 0
+
+=== Stale Items (0) ===
+(none)
+
+=== Title Mismatch Items (0) ===
+(none)
+
+=== OK Items (199) ===
+[1]
+library_type: breakdown
+doc_id: 65
+chunk_count: 8
+mysql_title: T7-AF参数异常（AF SUM/signal/斜率）
+vector_titles: T7-AF参数异常（AF SUM/signal/斜率）
+vector_doc_ids: 65
+
+[2]
+library_type: breakdown
+doc_id: 66
+chunk_count: 9
+mysql_title: T7-BIT入仓问题
+vector_titles: T7-BIT入仓问题
+vector_doc_ids: 66
+
+[3]
+library_type: breakdown
+doc_id: 67
+chunk_count: 7
+mysql_title: 光学chuck不平导致光学质量下降
+vector_titles: 光学chuck不平导致光学质量下降
+vector_doc_ids: 67
+
+[4]
+library_type: breakdown
+doc_id: 68
+chunk_count: 7
+mysql_title: T7-数据传输异常（上传cal异常&数据传输中断）
+vector_titles: T7-数据传输异常（上传cal异常&数据传输中断）
+vector_doc_ids: 68
+
+[5]
+library_type: breakdown
+doc_id: 69
+chunk_count: 5
+mysql_title: 物镜脏污问题分析
+vector_titles: 物镜脏污问题分析
+vector_doc_ids: 69
+
+[6]
+library_type: breakdown
+doc_id: 70
+chunk_count: 10
+mysql_title: 原图信号高导致basecall无法分辨DNB点
+vector_titles: 原图信号高导致basecall无法分辨DNB点
+vector_doc_ids: 70
+
+[7]
+library_type: breakdown
+doc_id: 71
+chunk_count: 8
+mysql_title: 机械臂掉电问题分析
+vector_titles: 机械臂掉电问题分析
+vector_doc_ids: 71
+
+[8]
+library_type: breakdown
+doc_id: 72
+chunk_count: 5
+mysql_title: 流体现场快速检查项
+vector_titles: 流体现场快速检查项
+vector_doc_ids: 72
+
+[9]
+library_type: breakdown
+doc_id: 73
+chunk_count: 5
+mysql_title: 200芯片underloading
+vector_titles: 200芯片underloading
+vector_doc_ids: 73
+
+[10]
+library_type: breakdown
+doc_id: 74
+chunk_count: 2
+mysql_title: EUI压力传感器使用教程
+vector_titles: EUI压力传感器使用教程
+vector_doc_ids: 74
+
+[11]
+library_type: breakdown
+doc_id: 75
+chunk_count: 4
+mysql_title: loader流体检查方法
+vector_titles: loader流体检查方法
+vector_doc_ids: 75
+
+[12]
+library_type: breakdown
+doc_id: 76
+chunk_count: 8
+mysql_title: App-D IP1污染导致App-D试剂盒测序异常
+vector_titles: App-D IP1污染导致App-D试剂盒测序异常
+vector_doc_ids: 76
+
+[13]
+library_type: breakdown
+doc_id: 77
+chunk_count: 7
+mysql_title: CAN服务器无法打开
+vector_titles: CAN服务器无法打开
+vector_doc_ids: 77
+
+[14]
+library_type: breakdown
+doc_id: 78
+chunk_count: 7
+mysql_title: Dolphin - 配准失败
+vector_titles: Dolphin - 配准失败
+vector_doc_ids: 78
+
+[15]
+library_type: breakdown
+doc_id: 79
+chunk_count: 6
+mysql_title: 拍照的流程
+vector_titles: 拍照的流程
+vector_doc_ids: 79
+
+[16]
+library_type: breakdown
+doc_id: 80
+chunk_count: 6
+mysql_title: 拍照丢图
+vector_titles: 拍照丢图
+vector_doc_ids: 80
+
+[17]
+library_type: breakdown
+doc_id: 81
+chunk_count: 8
+mysql_title: T7-结晶
+vector_titles: T7-结晶
+vector_doc_ids: 81
+
+[18]
+library_type: breakdown
+doc_id: 82
+chunk_count: 4
+mysql_title: T7-磁盘性能确认
+vector_titles: T7-磁盘性能确认
+vector_doc_ids: 82
+
+[19]
+library_type: breakdown
+doc_id: 83
+chunk_count: 5
+mysql_title: T7-磁盘性能确认
+vector_titles: T7-磁盘性能确认
+vector_doc_ids: 83
+
+[20]
+library_type: breakdown
+doc_id: 84
+chunk_count: 6
+mysql_title: T7-生化平台升降温超时
+vector_titles: T7-生化平台升降温超时
+vector_doc_ids: 84
+
+[21]
+library_type: breakdown
+doc_id: 85
+chunk_count: 6
+mysql_title: T7-生化chuck高度差变化
+vector_titles: T7-生化chuck高度差变化
+vector_doc_ids: 85
+
+[22]
+library_type: breakdown
+doc_id: 86
+chunk_count: 5
+mysql_title: T7芯片开胶
+vector_titles: T7芯片开胶
+vector_doc_ids: 86
+
+[23]
+library_type: breakdown
+doc_id: 87
+chunk_count: 5
+mysql_title: T7芯片Underloading（DNB吸附不良）
+vector_titles: T7芯片Underloading（DNB吸附不良）
+vector_doc_ids: 87
+
+[24]
+library_type: breakdown
+doc_id: 88
+chunk_count: 7
+mysql_title: T7芯片Overloading（DNB过载）
+vector_titles: T7芯片Overloading（DNB过载）
+vector_doc_ids: 88
+
+[25]
+library_type: breakdown
+doc_id: 89
+chunk_count: 5
+mysql_title: T7芯片NSB（Non-Specific Binding，非特异性吸附）
+vector_titles: T7芯片NSB（Non-Specific Binding，非特异性吸附）
+vector_doc_ids: 89
+
+[26]
+library_type: breakdown
+doc_id: 90
+chunk_count: 6
+mysql_title: T7胶柱亮圈
+vector_titles: T7胶柱亮圈
+vector_doc_ids: 90
+
+[27]
+library_type: breakdown
+doc_id: 91
+chunk_count: 6
+mysql_title: T7电磁阀失效
+vector_titles: T7电磁阀失效
+vector_doc_ids: 91
+
+[28]
+library_type: breakdown
+doc_id: 92
+chunk_count: 10
+mysql_title: 部分区域Q30异常
+vector_titles: 部分区域Q30异常
+vector_doc_ids: 92
+
+[29]
+library_type: breakdown
+doc_id: 93
+chunk_count: 7
+mysql_title: 起始Q30低
+vector_titles: 起始Q30低
+vector_doc_ids: 93
+
+[30]
+library_type: breakdown
+doc_id: 94
+chunk_count: 10
+mysql_title: 物镜脏污导致Q30陡降
+vector_titles: 物镜脏污导致Q30陡降
+vector_doc_ids: 94
+
+[31]
+library_type: breakdown
+doc_id: 95
+chunk_count: 8
+mysql_title: 二链Q30下降快
+vector_titles: 二链Q30下降快
+vector_doc_ids: 95
+
+[32]
+library_type: knowledge
+doc_id: 40
+chunk_count: 78
+mysql_title: SOP-016-A18-009
+vector_titles: SOP-016-A18-009
+vector_doc_ids: 1000000040
+
+[33]
+library_type: breakdown
+doc_id: 96
+chunk_count: 7
+mysql_title: 雅特生3000W电源OVP和OCP失效
+vector_titles: 雅特生3000W电源OVP和OCP失效
+vector_doc_ids: 96
+
+[34]
+library_type: breakdown
+doc_id: 97
+chunk_count: 10
+mysql_title: 长草
+vector_titles: 长草
+vector_doc_ids: 97
+
+[35]
+library_type: breakdown
+doc_id: 98
+chunk_count: 10
+mysql_title: 链偏
+vector_titles: 链偏
+vector_doc_ids: 98
+
+[36]
+library_type: breakdown
+doc_id: 99
+chunk_count: 7
+mysql_title: 部分lane报pressure low警告
+vector_titles: 部分lane报pressure low警告
+vector_doc_ids: 99
+
+[37]
+library_type: breakdown
+doc_id: 100
+chunk_count: 7
+mysql_title: 起始点和配准失败
+vector_titles: 起始点和配准失败
+vector_doc_ids: 100
+
+[38]
+library_type: breakdown
+doc_id: 101
+chunk_count: 7
+mysql_title: 试剂槽合成试剂忘记按压混匀导致芯片几乎无信号
+vector_titles: 试剂槽合成试剂忘记按压混匀导致芯片几乎无信号
+vector_doc_ids: 101
+
+[39]
+library_type: breakdown
+doc_id: 102
+chunk_count: 7
+mysql_title: 覆盖度
+vector_titles: 覆盖度
+vector_doc_ids: 102
+
+[40]
+library_type: breakdown
+doc_id: 103
+chunk_count: 3
+mysql_title: 芯片脏污
+vector_titles: 芯片脏污
+vector_doc_ids: 103
+
+[41]
+library_type: breakdown
+doc_id: 104
+chunk_count: 3
+mysql_title: 芯片破损
+vector_titles: 芯片破损
+vector_doc_ids: 104
+
+[42]
+library_type: breakdown
+doc_id: 105
+chunk_count: 1
+mysql_title: 芯片白斑
+vector_titles: 芯片白斑
+vector_doc_ids: 105
+
+[43]
+library_type: breakdown
+doc_id: 106
+chunk_count: 7
+mysql_title: 芯片烧边框
+vector_titles: 芯片烧边框
+vector_doc_ids: 106
+
+[44]
+library_type: breakdown
+doc_id: 107
+chunk_count: 7
+mysql_title: 芯片吸附异常或装配问题
+vector_titles: 芯片吸附异常或装配问题
+vector_doc_ids: 107
+
+[45]
+library_type: breakdown
+doc_id: 108
+chunk_count: 8
+mysql_title: 芯片出入口流道堵塞导致callN
+vector_titles: 芯片出入口流道堵塞导致callN
+vector_doc_ids: 108
+
+[46]
+library_type: breakdown
+doc_id: 109
+chunk_count: 8
+mysql_title: 芯片入口端抛物线形状黑区call N
+vector_titles: 芯片入口端抛物线形状黑区call N
+vector_doc_ids: 109
+
+[47]
+library_type: breakdown
+doc_id: 110
+chunk_count: 3
+mysql_title: 结晶
+vector_titles: 结晶
+vector_doc_ids: 110
+
+[48]
+library_type: breakdown
+doc_id: 111
+chunk_count: 16
+mysql_title: 碱基分离问题排查
+vector_titles: 碱基分离问题排查
+vector_doc_ids: 111
+
+[49]
+library_type: breakdown
+doc_id: 112
+chunk_count: 23
+mysql_title: 碱基分离
+vector_titles: 碱基分离
+vector_doc_ids: 112
+
+[50]
+library_type: breakdown
+doc_id: 113
+chunk_count: 6
+mysql_title: 相机换向异常
+vector_titles: 相机换向异常
+vector_doc_ids: 113
+
+[51]
+library_type: breakdown
+doc_id: 114
+chunk_count: 7
+mysql_title: 相机丢图
+vector_titles: 相机丢图
+vector_doc_ids: 114
+
+[52]
+library_type: breakdown
+doc_id: 115
+chunk_count: 8
+mysql_title: 相机一致性异常
+vector_titles: 相机一致性异常
+vector_doc_ids: 115
+
+[53]
+library_type: breakdown
+doc_id: 116
+chunk_count: 8
+mysql_title: 电源
+vector_titles: 电源
+vector_doc_ids: 116
+
+[54]
+library_type: breakdown
+doc_id: 117
+chunk_count: 8
+mysql_title: 电源
+vector_titles: 电源
+vector_doc_ids: 117
+
+[55]
+library_type: breakdown
+doc_id: 118
+chunk_count: 7
+mysql_title: 电子历史问题汇总与分析
+vector_titles: 电子历史问题汇总与分析
+vector_doc_ids: 118
+
+[56]
+library_type: breakdown
+doc_id: 119
+chunk_count: 11
+mysql_title: 滑台闭环扫频
+vector_titles: 滑台闭环扫频
+vector_doc_ids: 119
+
+[57]
+library_type: breakdown
+doc_id: 120
+chunk_count: 11
+mysql_title: 滑台闭环扫频
+vector_titles: 滑台闭环扫频
+vector_doc_ids: 120
+
+[58]
+library_type: breakdown
+doc_id: 121
+chunk_count: 7
+mysql_title: 滑台共振
+vector_titles: 滑台共振
+vector_doc_ids: 121
+
+[59]
+library_type: breakdown
+doc_id: 122
+chunk_count: 12
+mysql_title: 温控板温度掉为0
+vector_titles: 温控板温度掉为0
+vector_doc_ids: 122
+
+[60]
+library_type: breakdown
+doc_id: 123
+chunk_count: 8
+mysql_title: 温度均匀性异常
+vector_titles: 温度均匀性异常
+vector_doc_ids: 123
+
+[61]
+library_type: breakdown
+doc_id: 124
+chunk_count: 6
+mysql_title: 测序试剂包装盒破裂
+vector_titles: 测序试剂包装盒破裂
+vector_doc_ids: 124
+
+[62]
+library_type: breakdown
+doc_id: 125
+chunk_count: 9
+mysql_title: 测序拍照时间异常排查
+vector_titles: 测序拍照时间异常排查
+vector_doc_ids: 125
+
+[63]
+library_type: breakdown
+doc_id: 126
+chunk_count: 12
+mysql_title: 流体调试FTAT板的实验拓扑和编译环境搭建
+vector_titles: 流体调试FTAT板的实验拓扑和编译环境搭建
+vector_doc_ids: 126
+
+[64]
+library_type: breakdown
+doc_id: 127
+chunk_count: 6
+mysql_title: 注液头清洗无法正常抽液
+vector_titles: 注液头清洗无法正常抽液
+vector_doc_ids: 127
+
+[65]
+library_type: breakdown
+doc_id: 128
+chunk_count: 6
+mysql_title: 注射器定位销脱落
+vector_titles: 注射器定位销脱落
+vector_doc_ids: 128
+
+[66]
+library_type: breakdown
+doc_id: 129
+chunk_count: 6
+mysql_title: 水冷测序过程中报错液位异常
+vector_titles: 水冷测序过程中报错液位异常
+vector_doc_ids: 129
+
+[67]
+library_type: breakdown
+doc_id: 130
+chunk_count: 4
+mysql_title: 次氯酸钠沉淀问题
+vector_titles: 次氯酸钠沉淀问题
+vector_doc_ids: 130
+
+[68]
+library_type: breakdown
+doc_id: 131
+chunk_count: 5
+mysql_title: 条纹虚焦
+vector_titles: 条纹虚焦
+vector_doc_ids: 131
+
+[69]
+library_type: breakdown
+doc_id: 132
+chunk_count: 7
+mysql_title: 机械臂转移失败
+vector_titles: 机械臂转移失败
+vector_doc_ids: 132
+
+[70]
+library_type: breakdown
+doc_id: 133
+chunk_count: 7
+mysql_title: 机械臂掉电
+vector_titles: 机械臂掉电
+vector_doc_ids: 133
+
+[71]
+library_type: breakdown
+doc_id: 134
+chunk_count: 8
+mysql_title: 机械臂掉电&损坏
+vector_titles: 机械臂掉电&损坏
+vector_doc_ids: 134
+
+[72]
+library_type: breakdown
+doc_id: 135
+chunk_count: 7
+mysql_title: 旋转阀串液
+vector_titles: 旋转阀串液
+vector_doc_ids: 135
+
+[73]
+library_type: breakdown
+doc_id: 136
+chunk_count: 2
+mysql_title: 数据产量低
+vector_titles: 数据产量低
+vector_doc_ids: 136
+
+[74]
+library_type: breakdown
+doc_id: 137
+chunk_count: 1
+mysql_title: 故障排查流程
+vector_titles: 故障排查流程
+vector_doc_ids: 137
+
+[75]
+library_type: breakdown
+doc_id: 138
+chunk_count: 11
+mysql_title: 拼图错误
+vector_titles: 拼图错误
+vector_doc_ids: 138
+
+[76]
+library_type: breakdown
+doc_id: 139
+chunk_count: 6
+mysql_title: 拍照Offset问题简述
+vector_titles: 拍照Offset问题简述
+vector_doc_ids: 139
+
+[77]
+library_type: breakdown
+doc_id: 140
+chunk_count: 7
+mysql_title: 拍照Offset问题简述
+vector_titles: 拍照Offset问题简述
+vector_doc_ids: 140
+
+[78]
+library_type: breakdown
+doc_id: 141
+chunk_count: 6
+mysql_title: 强制类型转换带来的海森堡风险
+vector_titles: 强制类型转换带来的海森堡风险
+vector_doc_ids: 141
+
+[79]
+library_type: breakdown
+doc_id: 142
+chunk_count: 7
+mysql_title: 对焦差——机器内部振动
+vector_titles: 对焦差——机器内部振动
+vector_doc_ids: 142
+
+[80]
+library_type: breakdown
+doc_id: 143
+chunk_count: 6
+mysql_title: DNBSEQ-T7RS PE150测序流程关键注意事项（上机部分）
+vector_titles: DNBSEQ-T7RS PE150测序流程关键注意事项（上机部分）
+vector_doc_ids: 143
+
+[81]
+library_type: breakdown
+doc_id: 144
+chunk_count: 8
+mysql_title: 图像清晰度不一致
+vector_titles: 图像清晰度不一致
+vector_doc_ids: 144
+
+[82]
+library_type: breakdown
+doc_id: 145
+chunk_count: 6
+mysql_title: 图像拖影、模糊、变形、噪点等异常
+vector_titles: 图像拖影、模糊、变形、噪点等异常
+vector_doc_ids: 145
+
+[83]
+library_type: breakdown
+doc_id: 146
+chunk_count: 7
+mysql_title: 图像拉长
+vector_titles: 图像拉长
+vector_doc_ids: 146
+
+[84]
+library_type: breakdown
+doc_id: 147
+chunk_count: 6
+mysql_title: 四联针戳到清洗池导致堵塞
+vector_titles: 四联针戳到清洗池导致堵塞
+vector_doc_ids: 147
+
+[85]
+library_type: breakdown
+doc_id: 148
+chunk_count: 7
+mysql_title: 四联排注射泵I口闭合异常导致孵育时压力下降报错
+vector_titles: 四联排注射泵I口闭合异常导致孵育时压力下降报错
+vector_doc_ids: 148
+
+[86]
+library_type: breakdown
+doc_id: 149
+chunk_count: 7
+mysql_title: 单双扫Q值差异大
+vector_titles: 单双扫Q值差异大
+vector_doc_ids: 149
+
+[87]
+library_type: breakdown
+doc_id: 150
+chunk_count: 8
+mysql_title: 升降温超时
+vector_titles: 升降温超时
+vector_doc_ids: 150
+
+[88]
+library_type: breakdown
+doc_id: 151
+chunk_count: 7
+mysql_title: 出口电磁阀过热导致lane2、lane3黑影和测序质量差
+vector_titles: 出口电磁阀过热导致lane2、lane3黑影和测序质量差
+vector_doc_ids: 151
+
+[89]
+library_type: breakdown
+doc_id: 152
+chunk_count: 6
+mysql_title: 出口电磁阀端子脱落导致抽液异常
+vector_titles: 出口电磁阀端子脱落导致抽液异常
+vector_doc_ids: 152
+
+[90]
+library_type: breakdown
+doc_id: 153
+chunk_count: 6
+mysql_title: 冰箱冷凝水
+vector_titles: 冰箱冷凝水
+vector_doc_ids: 153
+
+[91]
+library_type: breakdown
+doc_id: 154
+chunk_count: 5
+mysql_title: 光电液位传感器通道间干扰
+vector_titles: 光电液位传感器通道间干扰
+vector_doc_ids: 154
+
+[92]
+library_type: breakdown
+doc_id: 155
+chunk_count: 10
+mysql_title: 储液池假True导致泵空和Q30下降
+vector_titles: 储液池假True导致泵空和Q30下降
+vector_doc_ids: 155
+
+[93]
+library_type: breakdown
+doc_id: 156
+chunk_count: 6
+mysql_title: 偶发多个cycle callN
+vector_titles: 偶发多个cycle callN
+vector_doc_ids: 156
+
+[94]
+library_type: breakdown
+doc_id: 157
+chunk_count: 12
+mysql_title: 偶发丢FQ文件
+vector_titles: 偶发丢FQ文件
+vector_doc_ids: 157
+
+[95]
+library_type: breakdown
+doc_id: 158
+chunk_count: 13
+mysql_title: 二链不抬升
+vector_titles: 二链不抬升
+vector_doc_ids: 158
+
+[96]
+library_type: breakdown
+doc_id: 159
+chunk_count: 5
+mysql_title: 与测序载片相关的配准失败
+vector_titles: 与测序载片相关的配准失败
+vector_doc_ids: 159
+
+[97]
+library_type: breakdown
+doc_id: 160
+chunk_count: 9
+mysql_title: WFQ失败
+vector_titles: WFQ失败
+vector_doc_ids: 160
+
+[98]
+library_type: breakdown
+doc_id: 161
+chunk_count: 7
+mysql_title: underloading-PM4500
+vector_titles: underloading-PM4500
+vector_doc_ids: 161
+
+[99]
+library_type: breakdown
+doc_id: 162
+chunk_count: 8
+mysql_title: Ti/Tv值偏低问题分析
+vector_titles: Ti/Tv值偏低问题分析
+vector_doc_ids: 162
+
+[100]
+library_type: breakdown
+doc_id: 163
+chunk_count: 23
+mysql_title: TECAN泵通讯异常
+vector_titles: TECAN泵通讯异常
+vector_doc_ids: 163
+
+[101]
+library_type: breakdown
+doc_id: 164
+chunk_count: 7
+mysql_title: TDI系统图像拉长
+vector_titles: TDI系统图像拉长
+vector_doc_ids: 164
+
+[102]
+library_type: breakdown
+doc_id: 165
+chunk_count: 9
+mysql_title: T>A错误率问题排查
+vector_titles: T>A错误率问题排查
+vector_doc_ids: 165
+
+[103]
+library_type: breakdown
+doc_id: 166
+chunk_count: 7
+mysql_title: T7黑线
+vector_titles: T7黑线
+vector_doc_ids: 166
+
+[104]
+library_type: breakdown
+doc_id: 167
+chunk_count: 15
+mysql_title: T7起始Q30低（综合性）
+vector_titles: T7起始Q30低（综合性）
+vector_doc_ids: 167
+
+[105]
+library_type: breakdown
+doc_id: 168
+chunk_count: 14
+mysql_title: T7起始Q30低（日本案例）
+vector_titles: T7起始Q30低（日本案例）
+vector_doc_ids: 168
+
+[106]
+library_type: breakdown
+doc_id: 169
+chunk_count: 6
+mysql_title: T7芯驱电容式接近开关无反应
+vector_titles: T7芯驱电容式接近开关无反应
+vector_doc_ids: 169
+
+[107]
+library_type: breakdown
+doc_id: 170
+chunk_count: 4
+mysql_title: T7芯片脱框
+vector_titles: T7芯片脱框
+vector_doc_ids: 170
+
+[108]
+library_type: breakdown
+doc_id: 171
+chunk_count: 5
+mysql_title: T7芯片空腔
+vector_titles: T7芯片空腔
+vector_doc_ids: 171
+
+[109]
+library_type: breakdown
+doc_id: 172
+chunk_count: 6
+mysql_title: T7玻璃门铰链松脱
+vector_titles: T7玻璃门铰链松脱
+vector_doc_ids: 172
+
+[110]
+library_type: breakdown
+doc_id: 173
+chunk_count: 6
+mysql_title: T7温控板上电无电压输出
+vector_titles: T7温控板上电无电压输出
+vector_doc_ids: 173
+
+[111]
+library_type: breakdown
+doc_id: 174
+chunk_count: 15
+mysql_title: T7流体异常排查
+vector_titles: T7流体异常排查
+vector_doc_ids: 174
+
+[112]
+library_type: breakdown
+doc_id: 175
+chunk_count: 6
+mysql_title: T7废液缓存箱背板腐蚀
+vector_titles: T7废液缓存箱背板腐蚀
+vector_doc_ids: 175
+
+[113]
+library_type: breakdown
+doc_id: 176
+chunk_count: 12
+mysql_title: T7使用客户自有集群WFQ启动失败问题
+vector_titles: T7使用客户自有集群WFQ启动失败问题
+vector_doc_ids: 176
+
+[114]
+library_type: breakdown
+doc_id: 177
+chunk_count: 6
+mysql_title: T7二链不抬
+vector_titles: T7二链不抬
+vector_doc_ids: 177
+
+[115]
+library_type: breakdown
+doc_id: 178
+chunk_count: 5
+mysql_title: T7串口通讯异常，同时出现2个com1
+vector_titles: T7串口通讯异常，同时出现2个com1
+vector_doc_ids: 178
+
+[116]
+library_type: breakdown
+doc_id: 179
+chunk_count: 24
+mysql_title: T7-芯片胶点开胶
+vector_titles: T7-芯片胶点开胶
+vector_doc_ids: 179
+
+[117]
+library_type: breakdown
+doc_id: 180
+chunk_count: 9
+mysql_title: T7-生化chuck老化
+vector_titles: T7-生化chuck老化
+vector_doc_ids: 180
+
+[118]
+library_type: breakdown
+doc_id: 181
+chunk_count: 14
+mysql_title: FOV图片黑边问题分析与解决方案
+vector_titles: FOV图片黑边问题分析与解决方案
+vector_doc_ids: 181
+
+[119]
+library_type: breakdown
+doc_id: 182
+chunk_count: 10
+mysql_title: 测序仪研发中心Sequencing Product R&D Center – T7-激光器偶发不亮&信号衰减
+vector_titles: 测序仪研发中心Sequencing Product R&D Center – T7-激光器偶发不亮&信号衰减
+vector_doc_ids: 182
+
+[120]
+library_type: breakdown
+doc_id: 183
+chunk_count: 7
+mysql_title: T7-测序时间长（第三方软件）
+vector_titles: T7-测序时间长（第三方软件）
+vector_doc_ids: 183
+
+[121]
+library_type: breakdown
+doc_id: 184
+chunk_count: 7
+mysql_title: T7-平台平整度异常
+vector_titles: T7-平台平整度异常
+vector_doc_ids: 184
+
+[122]
+library_type: breakdown
+doc_id: 185
+chunk_count: 12
+mysql_title: T7-单双扫Q值差异大
+vector_titles: T7-单双扫Q值差异大
+vector_doc_ids: 185
+
+[123]
+library_type: breakdown
+doc_id: 186
+chunk_count: 8
+mysql_title: T7-单双扫问题分析与解决方案
+vector_titles: T7-单双扫问题分析与解决方案
+vector_doc_ids: 186
+
+[124]
+library_type: breakdown
+doc_id: 187
+chunk_count: 11
+mysql_title: T7-Processor 自动重启
+vector_titles: T7-Processor 自动重启
+vector_doc_ids: 187
+
+[125]
+library_type: breakdown
+doc_id: 188
+chunk_count: 7
+mysql_title: T7-oring 脱落
+vector_titles: T7-oring 脱落
+vector_doc_ids: 188
+
+[126]
+library_type: breakdown
+doc_id: 189
+chunk_count: 15
+mysql_title: T7-CallN问题
+vector_titles: T7-CallN问题
+vector_doc_ids: 189
+
+[127]
+library_type: breakdown
+doc_id: 190
+chunk_count: 7
+mysql_title: T7+显示屏闪屏
+vector_titles: T7+显示屏闪屏
+vector_doc_ids: 190
+
+[128]
+library_type: breakdown
+doc_id: 191
+chunk_count: 6
+mysql_title: T7+ 整机耐压测试报警
+vector_titles: T7+ 整机耐压测试报警
+vector_doc_ids: 191
+
+[129]
+library_type: breakdown
+doc_id: 192
+chunk_count: 9
+mysql_title: T7 芯片泛白，200、2000、FTAT光晕
+vector_titles: T7 芯片泛白，200、2000、FTAT光晕
+vector_doc_ids: 192
+
+[130]
+library_type: breakdown
+doc_id: 193
+chunk_count: 6
+mysql_title: T7 单向阀止回异常
+vector_titles: T7 单向阀止回异常
+vector_doc_ids: 193
+
+[131]
+library_type: breakdown
+doc_id: 194
+chunk_count: 5
+mysql_title: T7 SBC无法启动，需要恢复BIOS为出厂才可以
+vector_titles: T7 SBC无法启动，需要恢复BIOS为出厂才可以
+vector_doc_ids: 194
+
+[132]
+library_type: breakdown
+doc_id: 195
+chunk_count: 5
+mysql_title: T7 SBC操作系统错误
+vector_titles: T7 SBC操作系统错误
+vector_doc_ids: 195
+
+[133]
+library_type: breakdown
+doc_id: 196
+chunk_count: 5
+mysql_title: T7 SBC丢BIOS
+vector_titles: T7 SBC丢BIOS
+vector_doc_ids: 196
+
+[134]
+library_type: breakdown
+doc_id: 197
+chunk_count: 5
+mysql_title: T7 SBC 出现串口叹号
+vector_titles: T7 SBC 出现串口叹号
+vector_doc_ids: 197
+
+[135]
+library_type: breakdown
+doc_id: 198
+chunk_count: 9
+mysql_title: T7 offset callN问题分析
+vector_titles: T7 offset callN问题分析
+vector_doc_ids: 198
+
+[136]
+library_type: breakdown
+doc_id: 199
+chunk_count: 8
+mysql_title: T7 barcode曲线异常
+vector_titles: T7 barcode曲线异常
+vector_doc_ids: 199
+
+[137]
+library_type: breakdown
+doc_id: 200
+chunk_count: 6
+mysql_title: T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象
+vector_titles: T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象
+vector_doc_ids: 200
+
+[138]
+library_type: breakdown
+doc_id: 201
+chunk_count: 4
+mysql_title: T100 5# 内存分配失败
+vector_titles: T100 5# 内存分配失败
+vector_doc_ids: 201
+
+[139]
+library_type: breakdown
+doc_id: 202
+chunk_count: 5
+mysql_title: T1+makeDNB失败（从环化开始）
+vector_titles: T1+makeDNB失败（从环化开始）
+vector_doc_ids: 202
+
+[140]
+library_type: breakdown
+doc_id: 203
+chunk_count: 11
+mysql_title: T1+lane间差异大
+vector_titles: T1+lane间差异大
+vector_doc_ids: 203
+
+[141]
+library_type: breakdown
+doc_id: 204
+chunk_count: 7
+mysql_title: T1+ 仪器电源管理板卡程序升级后，电源无法启动
+vector_titles: T1+ 仪器电源管理板卡程序升级后，电源无法启动
+vector_doc_ids: 204
+
+[142]
+library_type: breakdown
+doc_id: 205
+chunk_count: 11
+mysql_title: T1+ dup高问题排查
+vector_titles: T1+ dup高问题排查
+vector_doc_ids: 205
+
+[143]
+library_type: breakdown
+doc_id: 206
+chunk_count: 5
+mysql_title: SNR曲线差异原因
+vector_titles: SNR曲线差异原因
+vector_doc_ids: 206
+
+[144]
+library_type: breakdown
+doc_id: 207
+chunk_count: 4
+mysql_title: SBC串口通信异常
+vector_titles: SBC串口通信异常
+vector_doc_ids: 207
+
+[145]
+library_type: breakdown
+doc_id: 208
+chunk_count: 6
+mysql_title: Q30下降快，Runon高
+vector_titles: Q30下降快，Runon高
+vector_doc_ids: 208
+
+[146]
+library_type: breakdown
+doc_id: 209
+chunk_count: 7
+mysql_title: polyT导致Q30陡降，数据量不达标
+vector_titles: polyT导致Q30陡降，数据量不达标
+vector_doc_ids: 209
+
+[147]
+library_type: breakdown
+doc_id: 210
+chunk_count: 7
+mysql_title: MM试剂仓板无心跳指示
+vector_titles: MM试剂仓板无心跳指示
+vector_doc_ids: 210
+
+[148]
+library_type: breakdown
+doc_id: 211
+chunk_count: 7
+mysql_title: MM电源PM板卡报错
+vector_titles: MM电源PM板卡报错
+vector_doc_ids: 211
+
+[149]
+library_type: breakdown
+doc_id: 212
+chunk_count: 5
+mysql_title: Mammoth浪潮服务器采集卡识别异常
+vector_titles: Mammoth浪潮服务器采集卡识别异常
+vector_doc_ids: 212
+
+[150]
+library_type: breakdown
+doc_id: 213
+chunk_count: 7
+mysql_title: Mammoth废液模块称重传感器校准功能验证
+vector_titles: Mammoth废液模块称重传感器校准功能验证
+vector_doc_ids: 213
+
+[151]
+library_type: breakdown
+doc_id: 214
+chunk_count: 6
+mysql_title: Mammoth外设初始化异常
+vector_titles: Mammoth外设初始化异常
+vector_doc_ids: 214
+
+[152]
+library_type: breakdown
+doc_id: 215
+chunk_count: 8
+mysql_title: MammothChuck板电机堵转现象的测试验证
+vector_titles: MammothChuck板电机堵转现象的测试验证
+vector_doc_ids: 215
+
+[153]
+library_type: breakdown
+doc_id: 216
+chunk_count: 8
+mysql_title: Mammoth 试剂舱固件上报温控状态数据错误
+vector_titles: Mammoth 试剂舱固件上报温控状态数据错误
+vector_doc_ids: 216
+
+[154]
+library_type: breakdown
+doc_id: 217
+chunk_count: 7
+mysql_title: Mammoth 试剂仓RFID识别优化
+vector_titles: Mammoth 试剂仓RFID识别优化
+vector_doc_ids: 217
+
+[155]
+library_type: breakdown
+doc_id: 218
+chunk_count: 5
+mysql_title: Mammoth 冠冷TEC损坏
+vector_titles: Mammoth 冠冷TEC损坏
+vector_doc_ids: 218
+
+[156]
+library_type: breakdown
+doc_id: 219
+chunk_count: 6
+mysql_title: mammoth chuck模块温控速度不达标
+vector_titles: mammoth chuck模块温控速度不达标
+vector_doc_ids: 219
+
+[157]
+library_type: breakdown
+doc_id: 220
+chunk_count: 9
+mysql_title: Mammoth Chuck控温过程中TEC自动关停问题排查
+vector_titles: Mammoth Chuck控温过程中TEC自动关停问题排查
+vector_doc_ids: 220
+
+[158]
+library_type: breakdown
+doc_id: 221
+chunk_count: 7
+mysql_title: Mammoth Beta4# 出图慢问题分析
+vector_titles: Mammoth Beta4# 出图慢问题分析
+vector_doc_ids: 221
+
+[159]
+library_type: breakdown
+doc_id: 222
+chunk_count: 6
+mysql_title: Mammoth 48V台达电源保护
+vector_titles: Mammoth 48V台达电源保护
+vector_doc_ids: 222
+
+[160]
+library_type: breakdown
+doc_id: 223
+chunk_count: 5
+mysql_title: MakeDNB失败
+vector_titles: MakeDNB失败
+vector_doc_ids: 223
+
+[161]
+library_type: breakdown
+doc_id: 224
+chunk_count: 6
+mysql_title: LT板报错
+vector_titles: LT板报错
+vector_doc_ids: 224
+
+[162]
+library_type: breakdown
+doc_id: 225
+chunk_count: 7
+mysql_title: LT板心跳灯灭
+vector_titles: LT板心跳灯灭
+vector_doc_ids: 225
+
+[163]
+library_type: breakdown
+doc_id: 226
+chunk_count: 4
+mysql_title: Live画面黑屏
+vector_titles: Live画面黑屏
+vector_doc_ids: 226
+
+[164]
+library_type: breakdown
+doc_id: 227
+chunk_count: 6
+mysql_title: Lane内Q30不均匀
+vector_titles: Lane内Q30不均匀
+vector_doc_ids: 227
+
+[165]
+library_type: breakdown
+doc_id: 228
+chunk_count: 7
+mysql_title: IO端口通讯异常
+vector_titles: IO端口通讯异常
+vector_doc_ids: 228
+
+[166]
+library_type: breakdown
+doc_id: 229
+chunk_count: 12
+mysql_title: Index hopping
+vector_titles: Index hopping
+vector_doc_ids: 229
+
+[167]
+library_type: breakdown
+doc_id: 230
+chunk_count: 7
+mysql_title: IIC 通信异常恢复和时钟拉伸问题
+vector_titles: IIC 通信异常恢复和时钟拉伸问题
+vector_doc_ids: 230
+
+[168]
+library_type: breakdown
+doc_id: 231
+chunk_count: 16
+mysql_title: i7 Barcode陡降
+vector_titles: i7 Barcode陡降
+vector_doc_ids: 231
+
+[169]
+library_type: breakdown
+doc_id: 232
+chunk_count: 7
+mysql_title: heatmap分布呈现上下分层式不均匀
+vector_titles: heatmap分布呈现上下分层式不均匀
+vector_doc_ids: 232
+
+[170]
+library_type: breakdown
+doc_id: 233
+chunk_count: 10
+mysql_title: GBG T7-2#本地个别cycle calN问题分析
+vector_titles: GBG T7-2#本地个别cycle calN问题分析
+vector_doc_ids: 233
+
+[171]
+library_type: breakdown
+doc_id: 234
+chunk_count: 7
+mysql_title: G99黑线/黑影
+vector_titles: G99黑线/黑影
+vector_doc_ids: 234
+
+[172]
+library_type: breakdown
+doc_id: 235
+chunk_count: 7
+mysql_title: G99起始Q30低
+vector_titles: G99起始Q30低
+vector_doc_ids: 235
+
+[173]
+library_type: breakdown
+doc_id: 236
+chunk_count: 8
+mysql_title: G99-查找起始点失败
+vector_titles: G99-查找起始点失败
+vector_doc_ids: 236
+
+[174]
+library_type: breakdown
+doc_id: 237
+chunk_count: 12
+mysql_title: G99 barcode曲线陡降
+vector_titles: G99 barcode曲线陡降
+vector_doc_ids: 237
+
+[175]
+library_type: breakdown
+doc_id: 238
+chunk_count: 11
+mysql_title: G50起始Q30下降快（原因二）
+vector_titles: G50起始Q30下降快（原因二）
+vector_doc_ids: 238
+
+[176]
+library_type: breakdown
+doc_id: 239
+chunk_count: 11
+mysql_title: G50起始Q30下降快（原因二）
+vector_titles: G50起始Q30下降快（原因二）
+vector_doc_ids: 239
+
+[177]
+library_type: breakdown
+doc_id: 240
+chunk_count: 6
+mysql_title: G50起始Q30下降快（原因一）
+vector_titles: G50起始Q30下降快（原因一）
+vector_doc_ids: 240
+
+[178]
+library_type: breakdown
+doc_id: 241
+chunk_count: 14
+mysql_title: G50 拆分率偏低（运控相关）
+vector_titles: G50 拆分率偏低（运控相关）
+vector_doc_ids: 241
+
+[179]
+library_type: breakdown
+doc_id: 242
+chunk_count: 9
+mysql_title: G50 barcode黑线
+vector_titles: G50 barcode黑线
+vector_doc_ids: 242
+
+[180]
+library_type: breakdown
+doc_id: 243
+chunk_count: 15
+mysql_title: G400黑线
+vector_titles: G400黑线
+vector_doc_ids: 243
+
+[181]
+library_type: breakdown
+doc_id: 244
+chunk_count: 10
+mysql_title: FTRR V3.0试剂化冻后沉淀问题
+vector_titles: FTRR V3.0试剂化冻后沉淀问题
+vector_doc_ids: 244
+
+[182]
+library_type: breakdown
+doc_id: 245
+chunk_count: 5
+mysql_title: FTAT 电源启动保护
+vector_titles: FTAT 电源启动保护
+vector_doc_ids: 245
+
+[183]
+library_type: breakdown
+doc_id: 246
+chunk_count: 5
+mysql_title: FTAT SBC 运行自动重启
+vector_titles: FTAT SBC 运行自动重启
+vector_doc_ids: 246
+
+[184]
+library_type: breakdown
+doc_id: 247
+chunk_count: 4
+mysql_title: FTAT SBC 网口物理断开，重新插入无法识别
+vector_titles: FTAT SBC 网口物理断开，重新插入无法识别
+vector_doc_ids: 247
+
+[185]
+library_type: breakdown
+doc_id: 248
+chunk_count: 5
+mysql_title: FTAT SBC 待机过程中纯蓝色屏幕
+vector_titles: FTAT SBC 待机过程中纯蓝色屏幕
+vector_doc_ids: 248
+
+[186]
+library_type: breakdown
+doc_id: 249
+chunk_count: 5
+mysql_title: FTAT SBC com口通信校验错误
+vector_titles: FTAT SBC com口通信校验错误
+vector_doc_ids: 249
+
+[187]
+library_type: breakdown
+doc_id: 250
+chunk_count: 2
+mysql_title: E25流体气泡问题
+vector_titles: E25流体气泡问题
+vector_doc_ids: 250
+
+[188]
+library_type: breakdown
+doc_id: 251
+chunk_count: 39
+mysql_title: E25设备die白图异常问题分析
+vector_titles: E25设备die白图异常问题分析
+vector_doc_ids: 251
+
+[189]
+library_type: breakdown
+doc_id: 252
+chunk_count: 7
+mysql_title: Dophin智微智能SBC无法进入系统
+vector_titles: Dophin智微智能SBC无法进入系统
+vector_doc_ids: 252
+
+[190]
+library_type: breakdown
+doc_id: 253
+chunk_count: 8
+mysql_title: Dolphin气体压力传感器传送数据串扰问题
+vector_titles: Dolphin气体压力传感器传送数据串扰问题
+vector_doc_ids: 253
+
+[191]
+library_type: breakdown
+doc_id: 254
+chunk_count: 10
+mysql_title: Dolphin ML试剂盒模组RFID标签读取成功率低
+vector_titles: Dolphin ML试剂盒模组RFID标签读取成功率低
+vector_doc_ids: 254
+
+[192]
+library_type: breakdown
+doc_id: 255
+chunk_count: 9
+mysql_title: Dolphin A11#国鑫JBOD拓展柜阵列无法访问
+vector_titles: Dolphin A11#国鑫JBOD拓展柜阵列无法访问
+vector_doc_ids: 255
+
+[193]
+library_type: breakdown
+doc_id: 256
+chunk_count: 9
+mysql_title: Dolphin A11#国鑫BCS RAID数据丢失
+vector_titles: Dolphin A11#国鑫BCS RAID数据丢失
+vector_doc_ids: 256
+
+[194]
+library_type: breakdown
+doc_id: 257
+chunk_count: 7
+mysql_title: ALK融合基因突变检测异常
+vector_titles: ALK融合基因突变检测异常
+vector_doc_ids: 257
+
+[195]
+library_type: breakdown
+doc_id: 258
+chunk_count: 6
+mysql_title: ADC 连续采样时电压测量值误差
+vector_titles: ADC 连续采样时电压测量值误差
+vector_doc_ids: 258
+
+[196]
+library_type: breakdown
+doc_id: 259
+chunk_count: 7
+mysql_title: 通过压力曲线评估流体状态
+vector_titles: 通过压力曲线评估流体状态
+vector_doc_ids: 259
+
+[197]
+library_type: breakdown
+doc_id: 260
+chunk_count: 6
+mysql_title: 16S/18S/ITS扩增子测序问题分析
+vector_titles: 16S/18S/ITS扩增子测序问题分析
+vector_doc_ids: 260
+
+[198]
+library_type: breakdown
+doc_id: 261
+chunk_count: 13
+mysql_title: 爪勾异常问题分析
+vector_titles: 爪勾异常问题分析
+vector_doc_ids: 261
+
+[199]
+library_type: breakdown
+doc_id: 262
+chunk_count: 10
+mysql_title: 激光器偶发不亮导致FOV图片无信号问题分析
+vector_titles: 激光器偶发不亮导致FOV图片无信号问题分析
+vector_doc_ids: 262

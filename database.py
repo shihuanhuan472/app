@@ -13,7 +13,7 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
-    echo=True,
+    echo=os.getenv("SQLALCHEMY_ECHO", "0").strip().lower() in {"1", "true", "yes", "on"},
     pool_size=10,
     max_overflow=20,
 )

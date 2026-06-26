@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
@@ -97,6 +97,9 @@ class VectorService:
         self.top_k = int(os.getenv("TOP_K", 10))
         self.batch_size = int(os.getenv("BATCH_SIZE", 10))
         self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
+        self.keyword_recall_seed_score = float(
+            os.getenv("KEYWORD_RECALL_SEED_SCORE", max(0.0, self.similarity_low_limit - 0.08))
+        )
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
         # self.enable_llm_rerank = True
         # self.rerank_top_k = 8
@@ -327,6 +330,12 @@ class VectorService:
         adjusted_results = []
         for item in results:
             vector_score = float(item.get("score", 0.0))
+            metadata = item.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
             title = str(item.get("title") or "").lower()
             content = str(item.get("content") or "").lower()
 
@@ -347,13 +356,18 @@ class VectorService:
                 coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
                 title_coverage = title_hit_count / max(len(set(terms)), 1)
                 # Short term queries need a stronger exact-hit signal; cap the bonus to avoid score inflation.
-                bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
-                bonus = min(bonus, 0.15)
+                if metadata.get("retrieval_source") == "keyword":
+                    bonus = float(item.get("term_bonus", 0.0))
+                else:
+                    bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
+                    bonus = min(bonus, 0.15)
             else:
                 bonus = 0.0
 
             missing_penalty = float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.18))
-            if matched_terms:
+            if metadata.get("retrieval_source") == "keyword":
+                adjusted_score = vector_score
+            elif matched_terms:
                 adjusted_score = min(1.0, vector_score + bonus)
             else:
                 adjusted_score = max(0.0, vector_score - missing_penalty)
@@ -365,6 +379,229 @@ class VectorService:
             adjusted_results.append(item)
 
         return adjusted_results
+
+    @staticmethod
+    def _term_alias_patterns(terms: List[str]) -> List[str]:
+        patterns: List[str] = []
+        seen = set()
+        for term in terms:
+            for alias in DOMAIN_TERM_ALIASES.get(term, [term]):
+                alias = str(alias or "").strip()
+                if not alias:
+                    continue
+                key = alias.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                patterns.append(f"%{alias}%")
+        return patterns
+
+    @staticmethod
+    def _keyword_hit_score(
+        title: str,
+        content: str,
+        terms: List[str],
+        base_bonus: float,
+    ) -> Dict[str, Any]:
+        matched_terms = []
+        title_hit_count = 0
+        for term in terms:
+            aliases = DOMAIN_TERM_ALIASES.get(term, [term])
+            title_hit = VectorService._contains_term_alias(title, aliases)
+            content_hit = VectorService._contains_term_alias(content, aliases)
+            if not title_hit and not content_hit:
+                continue
+            matched_terms.append(term)
+            if title_hit:
+                title_hit_count += 1
+
+        if not matched_terms:
+            return {"bonus": 0.0, "matched_terms": []}
+
+        coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
+        title_coverage = title_hit_count / max(len(set(terms)), 1)
+        bonus = base_bonus + (0.05 * coverage) + (0.02 * title_coverage)
+        return {
+            "bonus": min(bonus, 0.15),
+            "matched_terms": matched_terms,
+        }
+
+    @staticmethod
+    def _first_image_url(value: Any) -> str:
+        if isinstance(value, list):
+            return str(value[0]) if value else ""
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return str(parsed[0]) if parsed else ""
+            except Exception:
+                pass
+            return value.split(",")[0].strip() if value.strip() else ""
+        return ""
+
+    async def _search_by_domain_terms(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
+        terms = self._extract_domain_terms(query)
+        if not terms:
+            return []
+
+        patterns = self._term_alias_patterns(terms)
+        if not patterns:
+            return []
+
+        candidates: List[Dict[str, Any]] = []
+
+        breakdown_fields = [
+            DocumentBreakdown.title,
+            DocumentBreakdown.problem_intro,
+            DocumentBreakdown.causes,
+            DocumentBreakdown.evaluation,
+            DocumentBreakdown.inspection,
+            DocumentBreakdown.solutions,
+            DocumentBreakdown.key_points,
+        ]
+        breakdown_conditions = [
+            field.like(pattern)
+            for field in breakdown_fields
+            for pattern in patterns
+        ]
+        breakdown_result = await self.db.execute(
+            select(DocumentBreakdown)
+            .where(DocumentBreakdown.is_deleted == 0, or_(*breakdown_conditions))
+            .order_by(DocumentBreakdown.first_edit_date.desc())
+            .limit(limit)
+        )
+
+        for doc in breakdown_result.scalars().all():
+            parts = [
+                getattr(doc, "problem_intro", "") or "",
+                getattr(doc, "causes", "") or "",
+                getattr(doc, "evaluation", "") or "",
+                getattr(doc, "inspection", "") or "",
+                getattr(doc, "solutions", "") or "",
+                getattr(doc, "key_points", "") or "",
+            ]
+            content = "\n".join(part for part in parts if part).strip()
+            score_info = self._keyword_hit_score(doc.title or "", content, terms, 0.04)
+            if not score_info["matched_terms"]:
+                continue
+            keyword_bonus = float(score_info["bonus"])
+            candidates.append({
+                "doc_id": doc.id,
+                "library_type": "breakdown",
+                "title": doc.title or "",
+                "content": content,
+                "image_url": self._first_image_url(doc.image_urls),
+                "score": min(1.0, self.keyword_recall_seed_score + keyword_bonus),
+                "vector_score": 0.0,
+                "term_bonus": keyword_bonus,
+                "matched_terms": score_info["matched_terms"],
+                "metadata": {
+                    "content_type": "keyword_document",
+                    "retrieval_source": "keyword",
+                },
+            })
+
+        knowledge_conditions = [
+            field.like(pattern)
+            for field in (
+                DocumentKnowledge.title,
+                KnowledgeDocumentSection.section_title,
+                KnowledgeDocumentSection.plain_text,
+            )
+            for pattern in patterns
+        ]
+        knowledge_result = await self.db.execute(
+            select(DocumentKnowledge, KnowledgeDocumentSection)
+            .join(KnowledgeDocumentSection, KnowledgeDocumentSection.document_id == DocumentKnowledge.id)
+            .where(
+                DocumentKnowledge.is_deleted == 0,
+                KnowledgeDocumentSection.document_library_type == "knowledge",
+                or_(*knowledge_conditions),
+            )
+            .order_by(DocumentKnowledge.first_edit_date.desc(), KnowledgeDocumentSection.section_index.asc())
+            .limit(limit)
+        )
+
+        for doc, section in knowledge_result.all():
+            section_title = section.section_title or ""
+            content = "\n".join(part for part in [section_title, section.plain_text or ""] if part).strip()
+            title_hit = self._keyword_hit_score(doc.title or "", content, terms, 0.08)
+            section_hit = self._keyword_hit_score(section_title, content, terms, 0.06)
+            body_hit = self._keyword_hit_score(doc.title or "", content, terms, 0.04)
+            score_info = max([title_hit, section_hit, body_hit], key=lambda item: float(item["bonus"]))
+            if not score_info["matched_terms"]:
+                continue
+            keyword_bonus = float(score_info["bonus"])
+            metadata = dict(section.section_metadata or {})
+            metadata.update({
+                "content_type": "keyword_section",
+                "retrieval_source": "keyword",
+                "section_title": section_title,
+                "section_index": section.section_index,
+            })
+            candidates.append({
+                "doc_id": doc.id,
+                "library_type": "knowledge",
+                "title": doc.title or "",
+                "content": content,
+                "image_url": self._first_image_url(section.image_urls),
+                "score": min(1.0, self.keyword_recall_seed_score + keyword_bonus),
+                "vector_score": 0.0,
+                "term_bonus": keyword_bonus,
+                "matched_terms": score_info["matched_terms"],
+                "metadata": metadata,
+            })
+
+        candidates.sort(key=lambda item: float(item.get("score", 0.0)), reverse=True)
+        return candidates[:limit]
+
+    @staticmethod
+    def _merge_retrieval_candidates(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        merged: Dict[str, Dict[str, Any]] = {}
+        for item in results:
+            metadata = item.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            key = "|".join([
+                str(item.get("library_type") or "breakdown"),
+                str(item.get("doc_id") or ""),
+                str(metadata.get("section_index") or metadata.get("section_title") or ""),
+            ])
+            existing = merged.get(key)
+            if not existing:
+                merged[key] = item
+                continue
+
+            existing_score = float(existing.get("score", 0.0))
+            item_score = float(item.get("score", 0.0))
+            existing_source = (existing.get("metadata") or {}).get("retrieval_source") if isinstance(existing.get("metadata"), dict) else ""
+            item_source = (item.get("metadata") or {}).get("retrieval_source") if isinstance(item.get("metadata"), dict) else ""
+            existing_bonus = float(existing.get("term_bonus", 0.0))
+            item_bonus = float(item.get("term_bonus", 0.0))
+
+            if existing_source == "keyword" and item_source != "keyword":
+                item["score"] = min(1.0, item_score + existing_bonus)
+                item["term_bonus"] = max(float(item.get("term_bonus", 0.0)), existing_bonus)
+                item["matched_terms"] = existing.get("matched_terms") or item.get("matched_terms") or []
+                merged[key] = item
+                continue
+
+            if item_source == "keyword" and existing_source != "keyword":
+                existing["score"] = min(1.0, existing_score + item_bonus)
+                existing["term_bonus"] = max(existing_bonus, item_bonus)
+                existing["matched_terms"] = item.get("matched_terms") or existing.get("matched_terms") or []
+                continue
+
+            if item_score > existing_score:
+                merged[key] = item
+            else:
+                existing["score"] = existing_score
+
+        return list(merged.values())
 
     @staticmethod
     def _debug_print_search_results(stage: str, results: List[Dict[str, Any]], limit: int = 20):
@@ -427,9 +664,15 @@ class VectorService:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
                 all_results.extend(results)
 
+            keyword_results = await self._search_by_domain_terms(query)
+            if keyword_results:
+                self._debug_print_search_results("keyword term results", keyword_results)
+                all_results.extend(keyword_results)
+
             if not all_results:
                 return []
 
+            all_results = self._merge_retrieval_candidates(all_results)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("raw vector results", all_results)
             all_results = self._apply_domain_term_score(all_results, query)
