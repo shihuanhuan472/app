@@ -1,0 +1,3952 @@
+[
+  {
+    "id": "db-breakdown-c38eecb60460",
+    "source_key": "db-breakdown-eb75957060e3",
+    "question": "AF模块斜率异常的判断标准是什么？",
+    "ground_truth": "AF模块斜率异常的判断标准是超出5±0.25。",
+    "source_title": "T7-AF参数异常（AF SUM/signal/斜率）",
+    "source_file": "upload/source_documents/word/T7-AF参数异常（AF SUMsignal斜率）.docx",
+    "source_doc_id": 65,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-036934f9753f",
+    "source_key": "db-breakdown-eb75957060e3",
+    "question": "当相对焦面上移10um时，signal值应调整至什么范围？",
+    "ground_truth": "相对焦面上移10um时，signal值应调整至45~55之间。",
+    "source_title": "T7-AF参数异常（AF SUM/signal/斜率）",
+    "source_file": "upload/source_documents/word/T7-AF参数异常（AF SUMsignal斜率）.docx",
+    "source_doc_id": 65,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f04eeee0fdd4",
+    "source_key": "db-breakdown-7b72f1e1ebf8",
+    "question": "ZTRON LITE入仓耗时从2小时变为4小时可能由哪些原因导致",
+    "ground_truth": "客户存储容量超过80%、硬件异常（如光纤破损或光口松动）、客户集群高io任务与入仓同时发生",
+    "source_title": "T7-BIT入仓问题",
+    "source_file": "upload/source_documents/word/T7-BIT入仓问题.docx",
+    "source_doc_id": 66,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a7e6bdb0bda5",
+    "source_key": "db-breakdown-df77660f1185",
+    "question": "光学chuck平整度的合格标准是什么？",
+    "ground_truth": "光学chuck的平整度≤0.01mm",
+    "source_title": "光学chuck不平导致光学质量下降",
+    "source_file": "upload/source_documents/word/T7-光学chuck平整度不平.docx",
+    "source_doc_id": 67,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-07043d8057f6",
+    "source_key": "db-breakdown-df77660f1185",
+    "question": "如何通过FOV图片判断光学chuck是否不平整？",
+    "ground_truth": "若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整",
+    "source_title": "光学chuck不平导致光学质量下降",
+    "source_file": "upload/source_documents/word/T7-光学chuck平整度不平.docx",
+    "source_doc_id": 67,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-bba967648405",
+    "source_key": "db-breakdown-15656e2ffb03",
+    "question": "T7写cal失败导致cal文件丢失的主要原因是什么",
+    "ground_truth": "ztron lite上入仓和T7写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动",
+    "source_title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+    "source_file": "upload/source_documents/word/T7-数据传输异常（上传cal异常&数据传输中断）.docx",
+    "source_doc_id": 68,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0c26395d8fd4",
+    "source_key": "db-breakdown-15656e2ffb03",
+    "question": "如何通过ganglia界面判断是否因IO wait过高导致T7写cal失败",
+    "ground_truth": "打开ganglia界面（ztronip:9999/ganglia），查看对应时间段资源使用情况，若IO wait超过7%则可能导致问题",
+    "source_title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+    "source_file": "upload/source_documents/word/T7-数据传输异常（上传cal异常&数据传输中断）.docx",
+    "source_doc_id": 68,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c26c79d2f717",
+    "source_key": "db-breakdown-d685d76dad82",
+    "question": "物镜脏污会导致FOV图片出现哪些异常现象",
+    "ground_truth": "黑点、亮点、不清晰、虚焦",
+    "source_title": "物镜脏污问题分析",
+    "source_file": "upload/source_documents/word/T7-物镜脏污.docx",
+    "source_doc_id": 69,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8b422da7b23a",
+    "source_key": "db-breakdown-d685d76dad82",
+    "question": "解决物镜脏污问题时应使用什么工具取下物镜",
+    "ground_truth": "专门用来夹取物镜的夹子",
+    "source_title": "物镜脏污问题分析",
+    "source_file": "upload/source_documents/word/T7-物镜脏污.docx",
+    "source_doc_id": 69,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-71b776698efa",
+    "source_key": "db-breakdown-e008add6aea9",
+    "question": "当原图信号过高导致basecall无法分辨DNB点时，表现为哪些具体现象？",
+    "ground_truth": "单个fov basecall配准失败call N、胶点附近光晕、整张芯片泛白",
+    "source_title": "原图信号高导致basecall无法分辨DNB点",
+    "source_file": "upload/source_documents/word/T7-过曝问题.docx",
+    "source_doc_id": 70,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-67da8194b921",
+    "source_key": "db-breakdown-e008add6aea9",
+    "question": "在二链调gain配置中，临时方案要求将调gain cycle修改为哪个值？",
+    "ground_truth": "[1,2]",
+    "source_title": "原图信号高导致basecall无法分辨DNB点",
+    "source_file": "upload/source_documents/word/T7-过曝问题.docx",
+    "source_doc_id": 70,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-94749f641f7f",
+    "source_key": "db-breakdown-22dc41df7051",
+    "question": "PA机械臂掉电后，除J1轴外其他轴的状态是什么？",
+    "ground_truth": "其他轴都可手动随意推动",
+    "source_title": "机械臂掉电问题分析",
+    "source_file": "upload/source_documents/word/机械臂掉电.docx",
+    "source_doc_id": 71,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a16b124bc9f4",
+    "source_key": "db-breakdown-22dc41df7051",
+    "question": "大族机械臂掉电后，哪些部分可以手动滑动？",
+    "ground_truth": "夹爪可以手动滑动",
+    "source_title": "机械臂掉电问题分析",
+    "source_file": "upload/source_documents/word/机械臂掉电.docx",
+    "source_doc_id": 71,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f02ea91d79af",
+    "source_key": "db-breakdown-afe4bd72d7d0",
+    "question": "检查注射器时需要进行哪三个动作",
+    "ground_truth": "检查活塞水痕、检查固定螺丝、轻压注射器",
+    "source_title": "流体现场快速检查项",
+    "source_file": "upload/source_documents/pdf/1、流体现场快速检查项.pdf",
+    "source_doc_id": 72,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ff9079034ded",
+    "source_key": "db-breakdown-afe4bd72d7d0",
+    "question": "对于高度差不足的机器，为何需要勤换oring",
+    "ground_truth": "否则容易结晶",
+    "source_title": "流体现场快速检查项",
+    "source_file": "upload/source_documents/pdf/1、流体现场快速检查项.pdf",
+    "source_doc_id": 72,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cf05b365eb45",
+    "source_key": "db-breakdown-3effbae62cab",
+    "question": "200芯片underloading问题中，导致黑影污染的主要试剂是什么？",
+    "ground_truth": "IPA（异丙醇）",
+    "source_title": "200芯片underloading",
+    "source_file": "upload/source_documents/pdf/200芯片underloading.pdf",
+    "source_doc_id": 73,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-49cf2b059753",
+    "source_key": "db-breakdown-3effbae62cab",
+    "question": "解决200芯片underloading问题时，纯水溢流时间从多少分钟调整到多少分钟？",
+    "ground_truth": "从2分钟调整到5分钟",
+    "source_title": "200芯片underloading",
+    "source_file": "upload/source_documents/pdf/200芯片underloading.pdf",
+    "source_doc_id": 73,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e30234b42f4c",
+    "source_key": "db-breakdown-e01d672d6f53",
+    "question": "T7ECR4.3版本中集成了什么功能用于判断流体状态？",
+    "ground_truth": "压力采集和显示压力曲线的功能",
+    "source_title": "EUI压力传感器使用教程",
+    "source_file": "upload/source_documents/pdf/2、EUI压力传感器使用教程.pdf",
+    "source_doc_id": 74,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f5bf89b9a484",
+    "source_key": "db-breakdown-e01d672d6f53",
+    "question": "在T7ECR4.3版本中如何查看压力曲线？",
+    "ground_truth": "开始压力采集后，正常跑脚本，切换到PressureSensor界面即可看到压力曲线",
+    "source_title": "EUI压力传感器使用教程",
+    "source_file": "upload/source_documents/pdf/2、EUI压力传感器使用教程.pdf",
+    "source_doc_id": 74,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9b660126830b",
+    "source_key": "db-breakdown-b376db915b47",
+    "question": "如何通过脚本测试loader电磁阀的开闭状态？",
+    "ground_truth": "运行SolenoidValve_off_on_test.py脚本，每个电磁阀开闭3次，靠近听电磁阀是否响。",
+    "source_title": "loader流体检查方法",
+    "source_file": "upload/source_documents/pdf/4、loader流体检查方法.pdf",
+    "source_doc_id": 75,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-bee05b59dacb",
+    "source_key": "db-breakdown-b376db915b47",
+    "question": "检查loader电磁阀时需要观察哪些关键点？",
+    "ground_truth": "听电磁阀声音是否正常，看针是否弯折，看压力曲线是否异常。",
+    "source_title": "loader流体检查方法",
+    "source_file": "upload/source_documents/pdf/4、loader流体检查方法.pdf",
+    "source_doc_id": 75,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-66748b829679",
+    "source_key": "db-breakdown-e878dd7f69e6",
+    "question": "App-D IP1污染导致测序异常时，一链前60bp的信号及Q30出现什么现象？",
+    "ground_truth": "一链前60bp的信号及Q30出现抖动",
+    "source_title": "App-D IP1污染导致App-D试剂盒测序异常",
+    "source_file": "upload/source_documents/pdf/App-D IP1污染导致App-D试剂盒测序异常.pdf",
+    "source_doc_id": 76,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-faaa5340f0af",
+    "source_key": "db-breakdown-e878dd7f69e6",
+    "question": "在App-D IP1引物配液过程中，污染是如何发生的？",
+    "ground_truth": "QC人员在取样App-ARCA引物或App-A Splint oligo引物时发生倒吸，污染了移液器，该移液器随后被用于配制App-D IP1引物储存液",
+    "source_title": "App-D IP1污染导致App-D试剂盒测序异常",
+    "source_file": "upload/source_documents/pdf/App-D IP1污染导致App-D试剂盒测序异常.pdf",
+    "source_doc_id": 76,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b29b4339a24b",
+    "source_key": "db-breakdown-1cb4f4735981",
+    "question": "CAN服务器2无法打开的原因是什么",
+    "ground_truth": "CAN设备IP地址冲突",
+    "source_title": "CAN服务器无法打开",
+    "source_file": "upload/source_documents/pdf/CAN服务器无法打开.pdf",
+    "source_doc_id": 77,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e1de4a4b6e18",
+    "source_key": "db-breakdown-1cb4f4735981",
+    "question": "更改CAN服务器2的IP地址后是否可以打开设备",
+    "ground_truth": "将IP地址由192.168.1.179更改为192.168.1.180后可以打开设备",
+    "source_title": "CAN服务器无法打开",
+    "source_file": "upload/source_documents/pdf/CAN服务器无法打开.pdf",
+    "source_doc_id": 77,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4ebaccff9a88",
+    "source_key": "db-breakdown-e735f62d37c9",
+    "question": "Dolphin系统配准过程中需要先进行哪个步骤，再进行FineAlign？",
+    "ground_truth": "CroaseTheta",
+    "source_title": "Dolphin - 配准失败",
+    "source_file": "upload/source_documents/pdf/Dolphin - 配准失败.pdf",
+    "source_doc_id": 78,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d0fceb416a1d",
+    "source_key": "db-breakdown-e735f62d37c9",
+    "question": "当相机不出图时，应检查哪些方面以排查问题？",
+    "ground_truth": "litecall是否被模拟、控制软件连接状态、相机打开情况及trigger链路",
+    "source_title": "Dolphin - 配准失败",
+    "source_file": "upload/source_documents/pdf/Dolphin - 配准失败.pdf",
+    "source_doc_id": 78,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4a4198901626",
+    "source_key": "db-breakdown-253520048452",
+    "question": "Y轴在匀速运动阶段相机的拍照频率是多少？",
+    "ground_truth": "每325nm拍照一次",
+    "source_title": "拍照的流程",
+    "source_file": "upload/source_documents/pdf/拍照的流程.pdf",
+    "source_doc_id": 79,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-01dbe9158072",
+    "source_key": "db-breakdown-253520048452",
+    "question": "Z轴跟随性能的判断标准是什么？",
+    "ground_truth": "DIV波动是否在±1.5以内",
+    "source_title": "拍照的流程",
+    "source_file": "upload/source_documents/pdf/拍照的流程.pdf",
+    "source_doc_id": 79,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-85ced3b3a66c",
+    "source_key": "db-breakdown-f90a4cb49661",
+    "question": "拍照过程中出现丢图现象，可能与哪些因素有关？",
+    "ground_truth": "走线问题或环境温度过高等因素",
+    "source_title": "拍照丢图",
+    "source_file": "upload/source_documents/pdf/拍照丢图.pdf",
+    "source_doc_id": 80,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4a73a8883980",
+    "source_key": "db-breakdown-f90a4cb49661",
+    "question": "trigger信号丢失可能导致什么问题？",
+    "ground_truth": "导致丢图",
+    "source_title": "拍照丢图",
+    "source_file": "upload/source_documents/pdf/拍照丢图.pdf",
+    "source_doc_id": 80,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1cf8992e7ec6",
+    "source_key": "db-breakdown-fd306a261f6b",
+    "question": "T7-Oring结晶在哪些位置会发生？",
+    "ground_truth": "T7的ABCD四边都会发生结晶，Chuck上四个孔位都会发生结晶。",
+    "source_title": "T7-结晶",
+    "source_file": "upload/source_documents/pdf/T7-结晶.pdf",
+    "source_doc_id": 81,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-76667a3fe33b",
+    "source_key": "db-breakdown-fd306a261f6b",
+    "question": "ECR4.1版本后采取了哪些措施来改善Oring结晶问题？",
+    "ground_truth": "实施防止结晶的操作，包括泄压、取消Cycle间清洗、改进Oring结构等。",
+    "source_title": "T7-结晶",
+    "source_file": "upload/source_documents/pdf/T7-结晶.pdf",
+    "source_doc_id": 81,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-326b0a028635",
+    "source_key": "db-breakdown-7a2290381a52",
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "ground_truth": "9",
+    "source_title": "T7-磁盘性能确认",
+    "source_file": "upload/source_documents/pdf/T7-磁盘性能确认.pdf",
+    "source_doc_id": 82,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0c5bfa5d8571",
+    "source_key": "db-breakdown-402757ce45dd",
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "ground_truth": "9",
+    "source_title": "T7-磁盘性能确认",
+    "source_file": "upload/source_documents/pdf/T7-磁盘性能确认(1).pdf",
+    "source_doc_id": 83,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b5211cf83c9e",
+    "source_key": "db-breakdown-25db92b160f3",
+    "question": "生化平台升降温超时故障中，PT100测温探头异常或硅脂干涸会导致什么现象",
+    "ground_truth": "PT100检测到的温度与温控工装实际测量温度存在差异",
+    "source_title": "T7-生化平台升降温超时",
+    "source_file": "upload/source_documents/pdf/T7-生化平台升降温超时.pdf",
+    "source_doc_id": 84,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7669d8cd475a",
+    "source_key": "db-breakdown-25db92b160f3",
+    "question": "当生化chuck散热风扇损坏或散热片积尘时，应采取什么措施",
+    "ground_truth": "清洁灰尘，检查外部环境",
+    "source_title": "T7-生化平台升降温超时",
+    "source_file": "upload/source_documents/pdf/T7-生化平台升降温超时.pdf",
+    "source_doc_id": 84,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-44a471594182",
+    "source_key": "db-breakdown-9648e66d2160",
+    "question": "新版生化chuck的结构件厚度相比旧版提升了多少？",
+    "ground_truth": "0.15mm",
+    "source_title": "T7-生化chuck高度差变化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck高度差变化.pdf",
+    "source_doc_id": 85,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-efe537794b8c",
+    "source_key": "db-breakdown-0146aa4b4438",
+    "question": "T7芯片开胶现象在DNB Loading或测序过程中表现为载片中心出现什么异常？",
+    "ground_truth": "载片中心有气泡",
+    "source_title": "T7芯片开胶",
+    "source_file": "upload/source_documents/pdf/T7芯片开胶.pdf",
+    "source_doc_id": 86,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b2a804e02b3c",
+    "source_key": "db-breakdown-0146aa4b4438",
+    "question": "T7芯片开胶导致的故障会污染哪些部件？",
+    "ground_truth": "chuck、结晶",
+    "source_title": "T7芯片开胶",
+    "source_file": "upload/source_documents/pdf/T7芯片开胶.pdf",
+    "source_doc_id": 86,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-532cfc40eacd",
+    "source_key": "db-breakdown-27844131cf21",
+    "question": "T7芯片Underloading故障中，载片缩略图部分区域发黑的直接表现是什么？",
+    "ground_truth": "载片缩略图部分区域发黑，其发黑区域Q30异常",
+    "source_title": "T7芯片Underloading（DNB吸附不良）",
+    "source_file": "upload/source_documents/pdf/T7芯片Underloading（DNB吸附不良）.pdf",
+    "source_doc_id": 87,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7cf31dae022e",
+    "source_key": "db-breakdown-27844131cf21",
+    "question": "在T7-FCL载片定位检查步骤中，首Cycle QC metrics中的Signal A值应不低于正常值的多少百分比？",
+    "ground_truth": "60%",
+    "source_title": "T7芯片Underloading（DNB吸附不良）",
+    "source_file": "upload/source_documents/pdf/T7芯片Underloading（DNB吸附不良）.pdf",
+    "source_doc_id": 87,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4cbfa7897ccd",
+    "source_key": "db-breakdown-df9e07fb95dd",
+    "question": "T7芯片Overloading现象中，工程区3个FOV的荧光亮度呈现什么变化趋势？",
+    "ground_truth": "从左到右荧光亮度逐渐增强",
+    "source_title": "T7芯片Overloading（DNB过载）",
+    "source_file": "upload/source_documents/pdf/T7芯片Overloading（DNB过载）.pdf",
+    "source_doc_id": 88,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-20a3393482f6",
+    "source_key": "db-breakdown-df9e07fb95dd",
+    "question": "T7-FCL载片定位检查步骤中，首Cycle FIT值低于多少时可判定为异常？",
+    "ground_truth": "0.66",
+    "source_title": "T7芯片Overloading（DNB过载）",
+    "source_file": "upload/source_documents/pdf/T7芯片Overloading（DNB过载）.pdf",
+    "source_doc_id": 88,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-57c7c08a06cb",
+    "source_key": "db-breakdown-2d457178c302",
+    "question": "T7芯片在去胶后出现非特异性吸附（NSB）时，缩略图标志区的荧光亮点特征是什么？",
+    "ground_truth": "标志区存在显著荧光亮点",
+    "source_title": "T7芯片NSB（Non-Specific Binding，非特异性吸附）",
+    "source_file": "upload/source_documents/pdf/T7芯片NSB（Non-Specific Binding，非特异性吸附）.pdf",
+    "source_doc_id": 89,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-39a6251c5b88",
+    "source_key": "db-breakdown-2d457178c302",
+    "question": "使用4楼去胶用溶液混合瓶在7楼进行去胶操作时是否复现了NSB现象？",
+    "ground_truth": "复现NSB",
+    "source_title": "T7芯片NSB（Non-Specific Binding，非特异性吸附）",
+    "source_file": "upload/source_documents/pdf/T7芯片NSB（Non-Specific Binding，非特异性吸附）.pdf",
+    "source_doc_id": 89,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4094d27e597b",
+    "source_key": "db-breakdown-13c9669a89f1",
+    "question": "T7 E2芯片在测序过程中出现的亮圈现象随着什么因素增加而变得显著且变大",
+    "ground_truth": "测序Cycle增加",
+    "source_title": "T7胶柱亮圈",
+    "source_file": "upload/source_documents/pdf/T7胶柱亮圈.pdf",
+    "source_doc_id": 90,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-25656cc08bf5",
+    "source_key": "db-breakdown-d0a3f7315fa3",
+    "question": "T7 β5#样机chuck D在20200214至20200218期间，有多少个电磁阀发生失效？",
+    "ground_truth": "4个",
+    "source_title": "T7电磁阀失效",
+    "source_file": "upload/source_documents/pdf/T7电磁阀失效.pdf",
+    "source_doc_id": 91,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3d77a66789c1",
+    "source_key": "db-breakdown-d0a3f7315fa3",
+    "question": "T7电磁阀失效的原因是什么？",
+    "ground_truth": "电磁阀无密封设计，导致试剂流入内部，引发腐蚀和结晶现象",
+    "source_title": "T7电磁阀失效",
+    "source_file": "upload/source_documents/pdf/T7电磁阀失效.pdf",
+    "source_doc_id": 91,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-012feb7adf2d",
+    "source_key": "db-breakdown-54c73dfa6719",
+    "question": "在部分区域Q30异常现象中，当Z值曲线显示异常波动尖峰且signal值从10降至9.04时，可能的原因是什么？",
+    "ground_truth": "芯片背面存在污物导致面型变化引发Q30波动",
+    "source_title": "部分区域Q30异常",
+    "source_file": "upload/source_documents/pdf/部分区域Q30异常.pdf",
+    "source_doc_id": 92,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f775e7a0c0f0",
+    "source_key": "db-breakdown-54c73dfa6719",
+    "question": "当Z值曲线稳定平滑但signal值随Z值减小而下降至8.55，且Gain2设置为0.025时，应如何解决？",
+    "ground_truth": "调整Gain2参数至合适值以提升对焦响应速度",
+    "source_title": "部分区域Q30异常",
+    "source_file": "upload/source_documents/pdf/部分区域Q30异常.pdf",
+    "source_doc_id": 92,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ce43c03ce20b",
+    "source_key": "db-breakdown-5b5ae96f5c69",
+    "question": "起始Q30低时，文库定量浓度应至少达到多少？",
+    "ground_truth": "8ng/ul",
+    "source_title": "起始Q30低",
+    "source_file": "upload/source_documents/pdf/起始Q30低.pdf",
+    "source_doc_id": 93,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2da17c0a446d",
+    "source_key": "db-breakdown-5b5ae96f5c69",
+    "question": "DNB存在长草现象可能导致什么问题？",
+    "ground_truth": "引物杂交不完全",
+    "source_title": "起始Q30低",
+    "source_file": "upload/source_documents/pdf/起始Q30低.pdf",
+    "source_doc_id": 93,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-aa202f6bc4f2",
+    "source_key": "db-breakdown-b10627da82bd",
+    "question": "物镜脏污导致Q30陡降的故障现象是什么",
+    "ground_truth": "Q30在某个cycle陡降，后续可以恢复；原图有黑线，芯片表面脏污，擦拭物镜发现有杂质",
+    "source_title": "物镜脏污导致Q30陡降",
+    "source_file": "upload/source_documents/pdf/物镜脏污导致Q30陡降.pdf",
+    "source_doc_id": 94,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d1584ce9cd20",
+    "source_key": "db-breakdown-b10627da82bd",
+    "question": "解决物镜脏污导致Q30陡降的方法是什么",
+    "ground_truth": "在算法中增加判断黑线的逻辑，当检测到黑线时自动触发物镜清洗流程，并重新拍摄图像",
+    "source_title": "物镜脏污导致Q30陡降",
+    "source_file": "upload/source_documents/pdf/物镜脏污导致Q30陡降.pdf",
+    "source_doc_id": 94,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-24c315768d42",
+    "source_key": "db-breakdown-4be6bd5db744",
+    "question": "二链Q30下降快的界定标准是什么",
+    "ground_truth": "R2 declining低于质检标准（同一版本同一样本的经验值）",
+    "source_title": "二链Q30下降快",
+    "source_file": "upload/source_documents/pdf/二链Q30下降快.pdf",
+    "source_doc_id": 95,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-728b49405992",
+    "source_key": "db-breakdown-4be6bd5db744",
+    "question": "MDA试剂批次问题包括哪些具体成分批次异常",
+    "ground_truth": "MDA酶批次和MDA buffer批次",
+    "source_title": "二链Q30下降快",
+    "source_file": "upload/source_documents/pdf/二链Q30下降快.pdf",
+    "source_doc_id": 95,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8d0002b65556",
+    "source_key": "db-breakdown-40d3ea44e6c2",
+    "question": "雅特生3000W电源在T7设备上出现OVP和OCP失效的具体原因是什么",
+    "ground_truth": "电源模块设计存在缺陷，OVP和OCP电路设计不合理，未能有效响应过压或过流信号；选型时未充分评估供应商的设计能力与品控水平，导致可靠性不足的模块被采用",
+    "source_title": "雅特生3000W电源OVP和OCP失效",
+    "source_file": "upload/source_documents/pdf/雅特生3000W电源OVP和OCP失效.pdf",
+    "source_doc_id": 96,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6a049db1c83a",
+    "source_key": "db-breakdown-40d3ea44e6c2",
+    "question": "针对雅特生3000W电源OVP和OCP失效问题，解决方案中建议如何选择电源模块",
+    "ground_truth": "优先选择可靠性好、出货量大的通用模块，功率不足时可采用多台并用",
+    "source_title": "雅特生3000W电源OVP和OCP失效",
+    "source_file": "upload/source_documents/pdf/雅特生3000W电源OVP和OCP失效.pdf",
+    "source_doc_id": 96,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e6d9cdc95f73",
+    "source_key": "db-breakdown-499335a905c9",
+    "question": "4500和G400在使用手持Loader上机时出现的长草现象中，长草区域的DNB呈现什么形态？",
+    "ground_truth": "长草区域DNB呈放射状",
+    "source_title": "长草",
+    "source_file": "upload/source_documents/pdf/长草.pdf",
+    "source_doc_id": 97,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-378a22a74b66",
+    "source_key": "db-breakdown-499335a905c9",
+    "question": "解决长草问题的方案中，芯片加载好DNB后应先降温至多少摄氏度？",
+    "ground_truth": "10℃",
+    "source_title": "长草",
+    "source_file": "upload/source_documents/pdf/长草.pdf",
+    "source_doc_id": 97,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-439acd7a7cb0",
+    "source_key": "db-breakdown-65b34a76c0b1",
+    "question": "在PCRFree HG001数据测试中，不使用VQSR时SNP Precision和SNP Sensitivity的正常比例是多少？",
+    "ground_truth": "通常都能达到99%以上",
+    "source_title": "链偏",
+    "source_file": "upload/source_documents/pdf/链偏.pdf",
+    "source_doc_id": 98,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a12ec924bcd0",
+    "source_key": "db-breakdown-65b34a76c0b1",
+    "question": "GATK中用于评估链偏的两个判定指标是什么？",
+    "ground_truth": "FisherStrand（FS）和StrandOddsRatio（SOR）",
+    "source_title": "链偏",
+    "source_file": "upload/source_documents/pdf/链偏.pdf",
+    "source_doc_id": 98,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-895ef6585386",
+    "source_key": "db-breakdown-a7e2af80b7c3",
+    "question": "当部分lane报pressure low警告时，压力曲线中异常lane的压力值通常表现为怎样的特征？",
+    "ground_truth": "压力值为一个恒定的值，在整个跑run过程中没有波动，最常见的是-100kpa，偶尔也会出现随机值。",
+    "source_title": "部分lane报pressure low警告",
+    "source_file": "upload/source_documents/pdf/部分lane报pressure low警告.pdf",
+    "source_doc_id": 99,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7cbfe58e12ca",
+    "source_key": "db-breakdown-a7e2af80b7c3",
+    "question": "导致部分lane报pressure low警告的根本原因是什么？",
+    "ground_truth": "液体压力传感器损坏，其芯体为硅胶材质，在持续受正压或反复施加正负压时易受损。",
+    "source_title": "部分lane报pressure low警告",
+    "source_file": "upload/source_documents/pdf/部分lane报pressure low警告.pdf",
+    "source_doc_id": 99,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-64a497c9fac7",
+    "source_key": "db-breakdown-7c317d9a2c72",
+    "question": "配准过程中coarse theta步骤的作用是什么",
+    "ground_truth": "计算图片上track线的旋转角度，若有T轴则移动相应角度",
+    "source_title": "起始点和配准失败",
+    "source_file": "upload/source_documents/pdf/起始点和配准失败.pdf",
+    "source_doc_id": 100,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4acacff40b4e",
+    "source_key": "db-breakdown-7c317d9a2c72",
+    "question": "导致配准失败的图像质量问题有哪些",
+    "ground_truth": "丢图、无信号、虚焦、无track线",
+    "source_title": "起始点和配准失败",
+    "source_file": "upload/source_documents/pdf/起始点和配准失败.pdf",
+    "source_doc_id": 100,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b4c8d81a0708",
+    "source_key": "db-breakdown-d1853d9eae9b",
+    "question": "试剂槽合成试剂SR1和CR未按压混匀会导致芯片在cycle1出现什么报错？",
+    "ground_truth": "对焦失败报错",
+    "source_title": "试剂槽合成试剂忘记按压混匀导致芯片几乎无信号",
+    "source_file": "upload/source_documents/pdf/试剂槽合成试剂忘记按压混匀导致芯片几乎无信号.pdf",
+    "source_doc_id": 101,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1c6038e1e574",
+    "source_key": "db-breakdown-d1853d9eae9b",
+    "question": "如何通过流体压力曲线判断试剂槽合成试剂未按压混匀的问题？",
+    "ground_truth": "从make DNB到cycle1均无异常",
+    "source_title": "试剂槽合成试剂忘记按压混匀导致芯片几乎无信号",
+    "source_file": "upload/source_documents/pdf/试剂槽合成试剂忘记按压混匀导致芯片几乎无信号.pdf",
+    "source_doc_id": 101,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6493e9f8c635",
+    "source_key": "db-breakdown-e80c457f5d5d",
+    "question": "T7平台在2023年8月韩国客户反馈中，哪些基因的覆盖出现缺失？",
+    "ground_truth": "TP53、KRAS和HPDL",
+    "source_title": "覆盖度",
+    "source_file": "upload/source_documents/pdf/覆盖度.pdf",
+    "source_doc_id": 102,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cc1372784664",
+    "source_key": "db-breakdown-e80c457f5d5d",
+    "question": "使用SM v1.0测序试剂的T7客户更换为SM v2.0后，覆盖度有何变化？",
+    "ground_truth": "覆盖度会有显著提升",
+    "source_title": "覆盖度",
+    "source_file": "upload/source_documents/pdf/覆盖度.pdf",
+    "source_doc_id": 102,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3fe462c6b883",
+    "source_key": "db-breakdown-531ca65bb9fd",
+    "question": "载片外部杂质无法通过压缩空气罐吹拭去除时，应如何处理",
+    "ground_truth": "建议直接更换载片",
+    "source_title": "芯片脏污",
+    "source_file": "upload/source_documents/pdf/芯片脏污.pdf",
+    "source_doc_id": 103,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ca12526aba32",
+    "source_key": "db-breakdown-531ca65bb9fd",
+    "question": "芯片脏污影响测序区域且影响面积大于1 cm时，应收集哪些信息",
+    "ground_truth": "载片REF、SN、生产型号、生产批号、有效期等信息以及故障载片照片",
+    "source_title": "芯片脏污",
+    "source_file": "upload/source_documents/pdf/芯片脏污.pdf",
+    "source_doc_id": 103,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3b602b21b378",
+    "source_key": "db-breakdown-d312471253cf",
+    "question": "载片破损的判定标准中，破损影响的最小长度是多少",
+    "ground_truth": "大于1 cm",
+    "source_title": "芯片破损",
+    "source_file": "upload/source_documents/pdf/芯片破损.pdf",
+    "source_doc_id": 104,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3ca17dc9e244",
+    "source_key": "db-breakdown-d312471253cf",
+    "question": "载片破损包含哪些具体现象",
+    "ground_truth": "载片破损、破裂、裂痕、裂纹、划痕、缺口",
+    "source_title": "芯片破损",
+    "source_file": "upload/source_documents/pdf/芯片破损.pdf",
+    "source_doc_id": 104,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8324ff3b59f7",
+    "source_key": "db-breakdown-1df6ac149922",
+    "question": "芯片表面出现边缘清晰显著的不均匀现象属于什么问题？",
+    "ground_truth": "芯片白斑",
+    "source_title": "芯片白斑",
+    "source_file": "upload/source_documents/pdf/芯片白斑.pdf",
+    "source_doc_id": 105,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9b561fcd5b31",
+    "source_key": "db-breakdown-1df6ac149922",
+    "question": "T7早期开发历史中是否多次发生芯片表面出现边缘清晰显著的不均匀现象？",
+    "ground_truth": "是",
+    "source_title": "芯片白斑",
+    "source_file": "upload/source_documents/pdf/芯片白斑.pdf",
+    "source_doc_id": 105,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-076444c26bb0",
+    "source_key": "db-breakdown-673922b137a6",
+    "question": "芯片边框出现烧灼痕迹的原因是什么",
+    "ground_truth": "由于运控和激光控制板卡通信延迟，在先打开激光后滑台未及时加速导致激光光点长时间照射芯片点胶胶边，胶边受灼烧气化后留下烧灼痕迹",
+    "source_title": "芯片烧边框",
+    "source_file": "upload/source_documents/pdf/芯片烧边框.pdf",
+    "source_doc_id": 106,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c2c4d54cb5a5",
+    "source_key": "db-breakdown-673922b137a6",
+    "question": "解决芯片边框烧灼问题的长期方案是什么",
+    "ground_truth": "更新激光和滑台运控逻辑，通过硬件升级减少通信延迟",
+    "source_title": "芯片烧边框",
+    "source_file": "upload/source_documents/pdf/芯片烧边框.pdf",
+    "source_doc_id": 106,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8db7e88374bf",
+    "source_key": "db-breakdown-0f37f9f939b6",
+    "question": "载片无法吸附上载片平台时，应首先排查哪个系统？",
+    "ground_truth": "设备负压系统",
+    "source_title": "芯片吸附异常或装配问题",
+    "source_file": "upload/source_documents/pdf/芯片吸附异常或装配问题.pdf",
+    "source_doc_id": 107,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4552ea3b38c8",
+    "source_key": "db-breakdown-0f37f9f939b6",
+    "question": "清洁载片平台和载片背面后仍无法吸附，下一步应如何操作？",
+    "ground_truth": "更换其他批次的载片测试",
+    "source_title": "芯片吸附异常或装配问题",
+    "source_file": "upload/source_documents/pdf/芯片吸附异常或装配问题.pdf",
+    "source_doc_id": 107,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cee13dda29f4",
+    "source_key": "db-breakdown-862aa1669a67",
+    "question": "芯片lane4出口端流道堵塞导致callN的具体原因是什么",
+    "ground_truth": "二次注塑oring时硅胶溢出到芯片框流道内造成",
+    "source_title": "芯片出入口流道堵塞导致callN",
+    "source_file": "upload/source_documents/pdf/芯片出入口流道堵塞导致callN.pdf",
+    "source_doc_id": 108,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-83531d342e4b",
+    "source_key": "db-breakdown-862aa1669a67",
+    "question": "在芯片lane4流道堵塞的情况下，测序阶段的压力曲线异常表现是什么",
+    "ground_truth": "lane4负压接近-100kpa",
+    "source_title": "芯片出入口流道堵塞导致callN",
+    "source_file": "upload/source_documents/pdf/芯片出入口流道堵塞导致callN.pdf",
+    "source_doc_id": 108,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-804a933aab32",
+    "source_key": "db-breakdown-bbe7509b455a",
+    "question": "芯片入口端出现抛物线形状黑区且四条lane起始Q值低的原因是什么",
+    "ground_truth": "primetube阶段负压过大导致芯片入口端的管道在灌注时空气或上一轮清洗后残留的水进入芯片入口，导致部分DNB被冲刷走",
+    "source_title": "芯片入口端抛物线形状黑区call N",
+    "source_file": "upload/source_documents/pdf/芯片入口端抛物线形状黑区call N.pdf",
+    "source_doc_id": 109,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b689836c1f68",
+    "source_key": "db-breakdown-bbe7509b455a",
+    "question": "如何通过压力曲线判断芯片入口端抛物线黑区问题",
+    "ground_truth": "查看primetube阶段的压力曲线，若存在较大的负压峰值，则可确认问题",
+    "source_title": "芯片入口端抛物线形状黑区call N",
+    "source_file": "upload/source_documents/pdf/芯片入口端抛物线形状黑区call N.pdf",
+    "source_doc_id": 109,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f01385ed5ec1",
+    "source_key": "db-breakdown-c52bedee96dd",
+    "question": "测序过程中反应区或拍照区出现颗粒状物质会导致什么后果",
+    "ground_truth": "会导致测序中断或影响测序结果",
+    "source_title": "结晶",
+    "source_file": "upload/source_documents/pdf/结晶.pdf",
+    "source_doc_id": 110,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-58b7d0758570",
+    "source_key": "db-breakdown-c52bedee96dd",
+    "question": "反应区或拍照区的颗粒状物质是由什么形成的",
+    "ground_truth": "由测序试剂残留挥发后形成",
+    "source_title": "结晶",
+    "source_file": "upload/source_documents/pdf/结晶.pdf",
+    "source_doc_id": 110,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ff9cbc571b5c",
+    "source_key": "db-breakdown-7fbae25d2500",
+    "question": "T1+ 1.0试剂中试期间V4文库环化数据出现AT分离>1%的现象与哪种环化方式相关？",
+    "ground_truth": "机器环化条件下出现明显AT分离现象，而手动环化未观察到该问题。",
+    "source_title": "碱基分离问题排查",
+    "source_file": "upload/source_documents/pdf/碱基分离问题排查.pdf",
+    "source_doc_id": 111,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b4d271951c6f",
+    "source_key": "db-breakdown-7fbae25d2500",
+    "question": "碱基分离问题的根本原因是什么？",
+    "ground_truth": "机器环化过程中Splint buffer和Ligase加入PCR管后混匀不充分，导致连接酶分布不均，影响环化效率。",
+    "source_title": "碱基分离问题排查",
+    "source_file": "upload/source_documents/pdf/碱基分离问题排查.pdf",
+    "source_doc_id": 111,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ecb78e60279c",
+    "source_key": "db-breakdown-955ca2cdf317",
+    "question": "纯WGBS文库在重亚硫酸盐处理后，未甲基化的C会转化为哪种碱基？",
+    "ground_truth": "U",
+    "source_title": "碱基分离",
+    "source_file": "upload/source_documents/pdf/碱基分离.pdf",
+    "source_doc_id": 112,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8af8a4752be8",
+    "source_key": "db-breakdown-955ca2cdf317",
+    "question": "TDI相机gain过高可能导致哪种碱基分离现象？",
+    "ground_truth": "AT分离",
+    "source_title": "碱基分离",
+    "source_file": "upload/source_documents/pdf/碱基分离.pdf",
+    "source_doc_id": 112,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-39d8388119b3",
+    "source_key": "db-breakdown-06e9b3d8b2ed",
+    "question": "当相机在reverse区域图片发生异常且持续异常的图超过6条row时，最可能的原因是什么？",
+    "ground_truth": "触发信号异常，特别是接触不良或无换向信号",
+    "source_title": "相机换向异常",
+    "source_file": "upload/source_documents/pdf/相机换向异常.pdf",
+    "source_doc_id": 113,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6c8716e73e71",
+    "source_key": "db-breakdown-06e9b3d8b2ed",
+    "question": "若所有图片都出现换向异常，应优先检查什么问题？",
+    "ground_truth": "平台Y轴正负方向是否符合规定，并确认脚本配置中的scandirection是否与运动方向一致",
+    "source_title": "相机换向异常",
+    "source_file": "upload/source_documents/pdf/相机换向异常.pdf",
+    "source_doc_id": 113,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-50dbe8459f2b",
+    "source_key": "db-breakdown-293053bf82b2",
+    "question": "相机丢图问题中，固件判断第二张图不拍或曝光时间不满足要求导致丢图的原因是什么",
+    "ground_truth": "拍照过程中不满足时序过程判断，固件可能导致第二张图不拍，或者第二张图拍了但判断曝光时间不满足要求，直接导致丢图",
+    "source_title": "相机丢图",
+    "source_file": "upload/source_documents/pdf/相机丢图（严正、张海洲、杨斌）.pdf",
+    "source_doc_id": 114,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b76d4eccc206",
+    "source_key": "db-breakdown-293053bf82b2",
+    "question": "解决相机丢图问题的固件优化措施有哪些",
+    "ground_truth": "对相机的输入信号进行消抖处理，检测真正的相机输出信号后再判断；将脉冲信号延时禁止调度；重构固件简化拍照逻辑流程，去除冗余部分",
+    "source_title": "相机丢图",
+    "source_file": "upload/source_documents/pdf/相机丢图（严正、张海洲、杨斌）.pdf",
+    "source_doc_id": 114,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-64c2c48f8ce9",
+    "source_key": "db-breakdown-55c253b5eaff",
+    "question": "Z一致性异常会导致什么后果",
+    "ground_truth": "不同通道的图像不能在相同的工作距离上得到清晰度一致的图像",
+    "source_title": "相机一致性异常",
+    "source_file": "upload/source_documents/pdf/相机一致性异常.pdf",
+    "source_doc_id": 115,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c8d4c53eee70",
+    "source_key": "db-breakdown-55c253b5eaff",
+    "question": "XY一致性异常的检查方法是什么",
+    "ground_truth": "查看和记录同一个特征点在不同通道的坐标",
+    "source_title": "相机一致性异常",
+    "source_file": "upload/source_documents/pdf/相机一致性异常.pdf",
+    "source_doc_id": 115,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9295fcc29db8",
+    "source_key": "db-breakdown-c8c080104e83",
+    "question": "mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常的具体原因是什么？",
+    "ground_truth": "电机线圈产生的泄放高压达到59V，触发48V电源过压保护，导致电源停止输出",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源.pdf",
+    "source_doc_id": 116,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d323044f6aaa",
+    "source_key": "db-breakdown-c8c080104e83",
+    "question": "使用示波器测试α样机转移模组启动瞬间冲击电流时，触发电流点应设置为多少安培？",
+    "ground_truth": "3.5A",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源.pdf",
+    "source_doc_id": 116,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1f91cc414ee8",
+    "source_key": "db-breakdown-3206994a3857",
+    "question": "mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常的具体原因是什么？",
+    "ground_truth": "电机线圈产生的泄放高压达到59V，超过48V电源的过压保护点，导致电源启动过压保护并停止输出",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源(1).pdf",
+    "source_doc_id": 117,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-df12640f2ae8",
+    "source_key": "db-breakdown-3206994a3857",
+    "question": "在测试α样机转移模组启动瞬间冲击电流时，示波器触发电流点应设置为多少安培？",
+    "ground_truth": "3.5A",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源(1).pdf",
+    "source_doc_id": 117,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e9da57036316",
+    "source_key": "db-breakdown-88dd63a2d0a1",
+    "question": "AGND连接方式错误属于哪一类根本原因",
+    "ground_truth": "硬件设计缺陷",
+    "source_title": "电子历史问题汇总与分析",
+    "source_file": "upload/source_documents/pdf/电子历史问题list.pdf",
+    "source_doc_id": 118,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ee014492cbcd",
+    "source_key": "db-breakdown-88dd63a2d0a1",
+    "question": "拍照时序不匹配属于哪一类根本原因",
+    "ground_truth": "固件与软件逻辑问题",
+    "source_title": "电子历史问题汇总与分析",
+    "source_file": "upload/source_documents/pdf/电子历史问题list.pdf",
+    "source_doc_id": 118,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5e9014b8376c",
+    "source_key": "db-breakdown-3d90cdc2a01d",
+    "question": "在滑台闭环扫频操作中，X轴的Excitation Current参数应设置为多少？",
+    "ground_truth": "4.5",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频.pdf",
+    "source_doc_id": 119,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e725c0b8889c",
+    "source_key": "db-breakdown-3d90cdc2a01d",
+    "question": "进行滑台闭环扫频时，FRF Analyzer中X轴的Min Frequency和Max Frequency分别应设置为多少？",
+    "ground_truth": "Min Frequency为15，Max Frequency为3000",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频.pdf",
+    "source_doc_id": 119,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a2101f018154",
+    "source_key": "db-breakdown-f84ed9759de3",
+    "question": "在滑台闭环扫频过程中，X轴的Excitation Current参数应设置为多少？",
+    "ground_truth": "4.5",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频(1).pdf",
+    "source_doc_id": 120,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e7be551989e3",
+    "source_key": "db-breakdown-f84ed9759de3",
+    "question": "扫频完成后，如何判断滑台是否合格？",
+    "ground_truth": "在表格最后一行'Result'栏结果为'Pass'则为合格",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频(1).pdf",
+    "source_doc_id": 120,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d01c0fc85569",
+    "source_key": "db-breakdown-be1db3bdbe32",
+    "question": "滑台在某频率点出现震动异常和位置误差过大的原因是什么",
+    "ground_truth": "运动平台上负载有变化且未重新调节合适的轴参数，或单轴调节后多轴同动时相互影响导致",
+    "source_title": "滑台共振",
+    "source_file": "upload/source_documents/pdf/滑台共振.pdf",
+    "source_doc_id": 121,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7b9861ee33b9",
+    "source_key": "db-breakdown-be1db3bdbe32",
+    "question": "如何通过示波器检测滑台共振的频率点",
+    "ground_truth": "用示波器监控轴的PE，若PE明显异常，则将示波器模式切换到FFT模式查看共振频率点",
+    "source_title": "滑台共振",
+    "source_file": "upload/source_documents/pdf/滑台共振.pdf",
+    "source_doc_id": 121,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d44775412fc5",
+    "source_key": "db-breakdown-1d3821b81503",
+    "question": "T20 alpha机温控板055-000013-00的1#、3#温度显示为0的原因是什么",
+    "ground_truth": "ADC异常导致温度值被赋值为0，错误码为1201，根本原因是SCLK时钟频率达到18MHz，超出ADC规格要求的5MHz上限",
+    "source_title": "温控板温度掉为0",
+    "source_file": "upload/source_documents/pdf/温控板温度掉为0.pdf",
+    "source_doc_id": 122,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c5f476ac968a",
+    "source_key": "db-breakdown-1d3821b81503",
+    "question": "如何解决温控板055-000013-00因SPI时钟频率过高导致的温度读数为0问题",
+    "ground_truth": "升级固件，将SPI时钟频率修改为4.5MHz，确保在ADC允许的时钟范围内运行",
+    "source_title": "温控板温度掉为0",
+    "source_file": "upload/source_documents/pdf/温控板温度掉为0.pdf",
+    "source_doc_id": 122,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-65c2f49eebcb",
+    "source_key": "db-breakdown-d89d1c4469e9",
+    "question": "A1口附近及B2口附近出现区域性Q30差，其根本原因是什么？",
+    "ground_truth": "A1口TEC损坏，该损坏TEC靠近PT100导致PT100区域温度上升慢，其他区域要用更大功率补偿整个chuck升温，导致对角区域的温度过高，MDA后发生损坏TEC对角区域也质量变差情况",
+    "source_title": "温度均匀性异常",
+    "source_file": "upload/source_documents/pdf/温度均匀性异常.pdf",
+    "source_doc_id": 123,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9bf71a7a3804",
+    "source_key": "db-breakdown-d89d1c4469e9",
+    "question": "B1B2中间位置区域质量异常的原因是什么？",
+    "ground_truth": "该位置的TEC损坏，由于该片TEC远离PT100测温点，损坏后不影响PT100对温度的判断，故影响范围仅限该片TEC覆盖区域",
+    "source_title": "温度均匀性异常",
+    "source_file": "upload/source_documents/pdf/温度均匀性异常.pdf",
+    "source_doc_id": 123,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-14555c5adbbf",
+    "source_key": "db-breakdown-311fad9187dd",
+    "question": "MGISEQ-2000测序试剂包装盒破裂的原因是什么？",
+    "ground_truth": "包装盒内无填充，存在较大的空隙，长时间低温冻存后材质变脆，结合长时间的重力挤压，导致局部受力。",
+    "source_title": "测序试剂包装盒破裂",
+    "source_file": "upload/source_documents/pdf/测序试剂包装盒破裂.pdf",
+    "source_doc_id": 124,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9c8167eb9c69",
+    "source_key": "db-breakdown-311fad9187dd",
+    "question": "针对MGISEQ-2000测序试剂包装盒破裂问题的解决方案是什么？",
+    "ground_truth": "对试剂盒内空隙用泡沫材料进行充分填充，并加厚原有的泡沫盖。",
+    "source_title": "测序试剂包装盒破裂",
+    "source_file": "upload/source_documents/pdf/测序试剂包装盒破裂.pdf",
+    "source_doc_id": 124,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-968e2ee9f6d1",
+    "source_key": "db-breakdown-dee52a88db0a",
+    "question": "滑台在行扫完成后到芯片被抓走的过程中出现时间异常增长的原因是什么",
+    "ground_truth": "滑台运动路径与模组线材发生干涉，导致运动受阻并触发回零流程",
+    "source_title": "测序拍照时间异常排查",
+    "source_file": "upload/source_documents/pdf/测序拍照时间异常排查.pdf",
+    "source_doc_id": 125,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-edd7be306b9a",
+    "source_key": "db-breakdown-dee52a88db0a",
+    "question": "如何通过日志判断滑台是否发生了异常回零操作",
+    "ground_truth": "查看滑台运动日志，识别XYT轴是否出现Homing现象",
+    "source_title": "测序拍照时间异常排查",
+    "source_file": "upload/source_documents/pdf/测序拍照时间异常排查.pdf",
+    "source_doc_id": 125,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2ca3e6ebc094",
+    "source_key": "db-breakdown-adf54428a062",
+    "question": "使用USBTinyISP烧录boot引导程序时，需要在Arduino IDE中选择哪个功能选项？",
+    "ground_truth": "烧录引导程序",
+    "source_title": "流体调试FTAT板的实验拓扑和编译环境搭建",
+    "source_file": "upload/source_documents/pdf/流体调试FTAT板的实验拓扑和编译环境搭建.pdf",
+    "source_doc_id": 126,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-55f8a13b81b6",
+    "source_key": "db-breakdown-adf54428a062",
+    "question": "在设备管理器中，FTAT板卡被正确识别的标志是什么？",
+    "ground_truth": "在'usb-win32 devices'下出现对应设备，并在'端口(COM和LPT)'中显示对应的COM端口",
+    "source_title": "流体调试FTAT板的实验拓扑和编译环境搭建",
+    "source_file": "upload/source_documents/pdf/流体调试FTAT板的实验拓扑和编译环境搭建.pdf",
+    "source_doc_id": 126,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-40ab71e76499",
+    "source_key": "db-breakdown-1a4b23617292",
+    "question": "在注液头清洗过程中，清洗液无法正常抽走且液体在注液头周围累积溢出，可能的原因是什么？",
+    "ground_truth": "电磁阀体内部堵塞、oring废液泵损坏或供电异常导致oring废液泵工作状态异常。",
+    "source_title": "注液头清洗无法正常抽液",
+    "source_file": "upload/source_documents/pdf/注液头清洗无法正常抽液.pdf",
+    "source_doc_id": 127,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c7440ddad7a8",
+    "source_key": "db-breakdown-1a4b23617292",
+    "question": "如何判断cleanoring支路阻断电磁阀是否内部堵塞？",
+    "ground_truth": "在电磁阀处于常开状态下使用气罐向内部吹气，若无气流通过则确认为内部堵塞。",
+    "source_title": "注液头清洗无法正常抽液",
+    "source_file": "upload/source_documents/pdf/注液头清洗无法正常抽液.pdf",
+    "source_doc_id": 127,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a950570e538b",
+    "source_key": "db-breakdown-dcde8181c685",
+    "question": "T7用Tecan Cavro XLP注射泵在运行过程中出现注射器定位销脱落的原因是什么",
+    "ground_truth": "定位销螺纹长度太短，反复运行后出现松脱；定位销无法锁紧；锁紧螺丝在运动方向上，反复受力",
+    "source_title": "注射器定位销脱落",
+    "source_file": "upload/source_documents/pdf/注射器定位销脱落.pdf",
+    "source_doc_id": 128,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8cb4001a4501",
+    "source_key": "db-breakdown-dcde8181c685",
+    "question": "针对T7用Tecan Cavro XLP注射泵注射器定位销脱落问题的解决方案有哪些",
+    "ground_truth": "固定销工艺改良以及螺纹加长；增加一字螺丝刀锁紧口",
+    "source_title": "注射器定位销脱落",
+    "source_file": "upload/source_documents/pdf/注射器定位销脱落.pdf",
+    "source_doc_id": 128,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0600f07f7a8a",
+    "source_key": "db-breakdown-aa8f5d2a04da",
+    "question": "水冷测序过程中报错液位异常的根本原因是什么",
+    "ground_truth": "静止加液时水冷板位置较高，导致水泵启动后液面下降14mm，使传感器失去信号",
+    "source_title": "水冷测序过程中报错液位异常",
+    "source_file": "upload/source_documents/pdf/水冷测序过程中报错液位异常.pdf",
+    "source_doc_id": 129,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b4f64a50f68f",
+    "source_key": "db-breakdown-aa8f5d2a04da",
+    "question": "补液时应将冷却液加至哪个位置",
+    "ground_truth": "水箱POM与亚克力连接线处",
+    "source_title": "水冷测序过程中报错液位异常",
+    "source_file": "upload/source_documents/pdf/水冷测序过程中报错液位异常.pdf",
+    "source_doc_id": 129,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-64519b85eef0",
+    "source_key": "db-breakdown-efbde7618b5f",
+    "question": "使用生工品牌的次氯酸钠配置溶液时是否会出现沉淀",
+    "ground_truth": "会",
+    "source_title": "次氯酸钠沉淀问题",
+    "source_file": "upload/source_documents/pdf/次氯酸钠沉淀问题.pdf",
+    "source_doc_id": 130,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-65225de6403d",
+    "source_key": "db-breakdown-efbde7618b5f",
+    "question": "配置1%浓度的次氯酸钠溶液时沉淀情况如何",
+    "ground_truth": "沉淀多",
+    "source_title": "次氯酸钠沉淀问题",
+    "source_file": "upload/source_documents/pdf/次氯酸钠沉淀问题.pdf",
+    "source_doc_id": 130,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3ceef28e91cb",
+    "source_key": "db-breakdown-7c46b6e2ac88",
+    "question": "TDI系统中图片在扫描方向上出现一段清晰一段模糊的现象，其模糊段可能呈现何种形态？",
+    "ground_truth": "X方向拉长，或Y方向拉长，或者混合情况",
+    "source_title": "条纹虚焦",
+    "source_file": "upload/source_documents/pdf/条纹虚焦.pdf",
+    "source_doc_id": 131,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-dfcbf3c66e87",
+    "source_key": "db-breakdown-7c46b6e2ac88",
+    "question": "条纹虚焦问题的判定标准中，sigma,sigmaX或SigmaY的波动量（峰谷差）需大于多少？",
+    "ground_truth": "0.2",
+    "source_title": "条纹虚焦",
+    "source_file": "upload/source_documents/pdf/条纹虚焦.pdf",
+    "source_doc_id": 131,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f8038a7cefc4",
+    "source_key": "db-breakdown-af55ada087fc",
+    "question": "T7芯片转移至Chuck过程中出现位置漂移的原因是什么",
+    "ground_truth": "T7芯片转移至Chuck过程中存在较大下压力，导致夹持结构变形，引起位置漂移；点位通过人眼学习存在误差；皮带结构机械臂因皮带张力松弛导致位置漂移",
+    "source_title": "机械臂转移失败",
+    "source_file": "upload/source_documents/pdf/机械臂转移失败.pdf",
+    "source_doc_id": 132,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6ef35e18c37e",
+    "source_key": "db-breakdown-af55ada087fc",
+    "question": "电动夹爪开合失败的可能原因是什么",
+    "ground_truth": "电爪开合距离/推压力设置不合理",
+    "source_title": "机械臂转移失败",
+    "source_file": "upload/source_documents/pdf/机械臂转移失败.pdf",
+    "source_doc_id": 132,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0f1180b200f4",
+    "source_key": "db-breakdown-4dd9fb936074",
+    "question": "T7四轴机械臂在运行中出现掉电现象的原因之一是什么？",
+    "ground_truth": "D边或转移至image位置处皮带张力不足，导致电动抖动引发掉电",
+    "source_title": "机械臂掉电",
+    "source_file": "upload/source_documents/pdf/机械臂掉电.pdf",
+    "source_doc_id": 133,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-83ae3c6f309a",
+    "source_key": "db-breakdown-4dd9fb936074",
+    "question": "六轴机械臂因24V电源电压降至多少伏时会触发安全保护机制导致掉电？",
+    "ground_truth": "19V",
+    "source_title": "机械臂掉电",
+    "source_file": "upload/source_documents/pdf/机械臂掉电.pdf",
+    "source_doc_id": 133,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b01a4cb82d90",
+    "source_key": "db-breakdown-24cdf4d9a7b3",
+    "question": "PA机械臂掉电后，除了J1轴有抱闸保护外，其他轴是否可以手动推动？",
+    "ground_truth": "可以手动随意推动",
+    "source_title": "机械臂掉电&损坏",
+    "source_file": "upload/source_documents/pdf/机械臂掉电&损坏.pdf",
+    "source_doc_id": 134,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7e6e16c50640",
+    "source_key": "db-breakdown-24cdf4d9a7b3",
+    "question": "大族机械臂掉电后，其运动轴处于什么状态？",
+    "ground_truth": "保持状态",
+    "source_title": "机械臂掉电&损坏",
+    "source_file": "upload/source_documents/pdf/机械臂掉电&损坏.pdf",
+    "source_doc_id": 134,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-831bb0b0b175",
+    "source_key": "db-breakdown-94f7d6515cf2",
+    "question": "进口旋转阀和国产AB的旋转阀定转子材质是什么，长期使用容易出现什么问题？",
+    "ground_truth": "进口旋转阀和国产AB的旋转阀定转子是塑料的，在长期使用过程中容易被结晶或其他杂质划伤，导致旋转阀的定子孔位之间产生划痕。",
+    "source_title": "旋转阀串液",
+    "source_file": "upload/source_documents/pdf/旋转阀串液.pdf",
+    "source_doc_id": 135,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5e9c81229262",
+    "source_key": "db-breakdown-94f7d6515cf2",
+    "question": "垦拓旋转阀的定转子采用什么材质，若杂质进入接触面会导致什么后果？",
+    "ground_truth": "垦拓的旋转阀采用陶瓷和蓝宝石材质，长期使用不会产生划痕，但若有杂质进入定转子接触面，仍会导致气密性异常，且多个孔位同时出现异常，窜液会非常严重。",
+    "source_title": "旋转阀串液",
+    "source_file": "upload/source_documents/pdf/旋转阀串液.pdf",
+    "source_doc_id": 135,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-53792e9d1252",
+    "source_key": "db-breakdown-bfc48ee3e44e",
+    "question": "数据产量低可能影响哪些方面",
+    "ground_truth": "整体生产效率和数据分析的准确性",
+    "source_title": "数据产量低",
+    "source_file": "upload/source_documents/pdf/数据产量低.pdf",
+    "source_doc_id": 136,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-dfa90ae3785b",
+    "source_key": "db-breakdown-bfc48ee3e44e",
+    "question": "解决数据产量低问题需要采取什么方法",
+    "ground_truth": "通过系统性分析找出根本原因",
+    "source_title": "数据产量低",
+    "source_file": "upload/source_documents/pdf/数据产量低.pdf",
+    "source_doc_id": 136,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f3c506c004d2",
+    "source_key": "db-breakdown-78d95ef3e2f6",
+    "question": "机械臂设备出现运动异常时应遵循的故障排查流程是什么",
+    "ground_truth": "从问题识别到最终解决的完整步骤，通过系统化的流程图指导技术人员快速定位并处理常见故障",
+    "source_title": "故障排查流程",
+    "source_file": "upload/source_documents/pdf/故障排查流程.pdf",
+    "source_doc_id": 137,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5ff4f6d0f36b",
+    "source_key": "db-breakdown-78d95ef3e2f6",
+    "question": "在进行机械臂故障排查时，文档中提到的关键要点有哪些",
+    "ground_truth": "涵盖从问题识别到最终解决的完整步骤",
+    "source_title": "故障排查流程",
+    "source_file": "upload/source_documents/pdf/故障排查流程.pdf",
+    "source_doc_id": 137,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d317a1477094",
+    "source_key": "db-breakdown-91f641cf623f",
+    "question": "ECR4.0-4.2版本中拼图错误的表现是什么？",
+    "ground_truth": "图像被分为4份，胶点图像尤为明显；部分客户出现错位2个像素的情况，图像同样分为4份，肉眼难以察觉，需放大track线观察1/4处像素是否上移或下移2个像素。",
+    "source_title": "拼图错误",
+    "source_file": "upload/source_documents/pdf/拼图错误.pdf",
+    "source_doc_id": 138,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c29673dc5103",
+    "source_key": "db-breakdown-91f641cf623f",
+    "question": "天津诺和案例中出现的拼图错误现象及恢复情况如何？",
+    "ground_truth": "图像分为两份、左右镜像，通过reset arbiter和reset buffer均无法恢复。",
+    "source_title": "拼图错误",
+    "source_file": "upload/source_documents/pdf/拼图错误.pdf",
+    "source_doc_id": 138,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-fb1f07a7582d",
+    "source_key": "db-breakdown-e1fc2d18e5ab",
+    "question": "拍照Offset问题中，芯片1个pixel对应的物理尺寸是多少？",
+    "ground_truth": "325nm",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析.pdf",
+    "source_doc_id": 139,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-beb16888855c",
+    "source_key": "db-breakdown-e1fc2d18e5ab",
+    "question": "在解决拍照Offset问题时，现场调试的优先级中，第三项是什么？",
+    "ground_truth": "芯片平整度",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析.pdf",
+    "source_doc_id": 139,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2b6c59305620",
+    "source_key": "db-breakdown-dd510055555a",
+    "question": "拍照Offset问题中，芯片的1个像素对应多少纳米？",
+    "ground_truth": "325nm",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析(1).pdf",
+    "source_doc_id": 140,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e28068ea93ef",
+    "source_key": "db-breakdown-dd510055555a",
+    "question": "在解决拍照Offset问题时，现场调试的优先级中，第三项是什么？",
+    "ground_truth": "芯片平整度",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析(1).pdf",
+    "source_doc_id": 140,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e2988d505b23",
+    "source_key": "db-breakdown-654e78c15986",
+    "question": "在STM32G4系列MCU上，将uint8*指针ptr+1强制转换为float*并解引用会导致什么异常？",
+    "ground_truth": "可能触发UsageFault或BusFault",
+    "source_title": "强制类型转换带来的海森堡风险",
+    "source_file": "upload/source_documents/pdf/强制类型转换带来的海森堡风险.pdf",
+    "source_doc_id": 141,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9c7a6bafc41d",
+    "source_key": "db-breakdown-654e78c15986",
+    "question": "为何通过(float*)(ptr+1)访问数据会违反严格别名规则？",
+    "ground_truth": "因为将char*类型指针别名为float*访问，违反了编译器的严格别名规则",
+    "source_title": "强制类型转换带来的海森堡风险",
+    "source_file": "upload/source_documents/pdf/强制类型转换带来的海森堡风险.pdf",
+    "source_doc_id": 141,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-84a97866fa04",
+    "source_key": "db-breakdown-1057302d1ecc",
+    "question": "Z轴静止位置误差呈周期性波动的频率约为多少Hz？",
+    "ground_truth": "50Hz",
+    "source_title": "对焦差——机器内部振动",
+    "source_file": "upload/source_documents/pdf/对焦差——机器内部振动.pdf",
+    "source_doc_id": 142,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-615430539380",
+    "source_key": "db-breakdown-1057302d1ecc",
+    "question": "真空泵固定件未解开导致的振动问题通过什么操作解决？",
+    "ground_truth": "松开固定螺丝",
+    "source_title": "对焦差——机器内部振动",
+    "source_file": "upload/source_documents/pdf/对焦差——机器内部振动.pdf",
+    "source_doc_id": 142,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3c0194ceb724",
+    "source_key": "db-breakdown-e877d18ee670",
+    "question": "DNBSEQ-T7RS PE150测序中，MDA聚合酶混合液未轻弹混匀而剧烈震荡会导致什么后果",
+    "ground_truth": "MDA聚合酶混合液活性下降",
+    "source_title": "DNBSEQ-T7RS PE150测序流程关键注意事项（上机部分）",
+    "source_file": "upload/source_documents/pdf/客户操作问题.pdf",
+    "source_doc_id": 143,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a92fb584e946",
+    "source_key": "db-breakdown-e877d18ee670",
+    "question": "在DNB制备过程中，终止缓冲液加入量不准确会影响哪些指标",
+    "ground_truth": "RCA扩增时间、起始Q30和数据产出",
+    "source_title": "DNBSEQ-T7RS PE150测序流程关键注意事项（上机部分）",
+    "source_file": "upload/source_documents/pdf/客户操作问题.pdf",
+    "source_doc_id": 143,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cc642bd534b1",
+    "source_key": "db-breakdown-2a2c95c88f79",
+    "question": "FOV内部图像清晰度不一致的主要原因是什么",
+    "ground_truth": "光轴与所拍FOV不垂直",
+    "source_title": "图像清晰度不一致",
+    "source_file": "upload/source_documents/pdf/图像清晰度不一致.pdf",
+    "source_doc_id": 144,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3261bdcc3e3e",
+    "source_key": "db-breakdown-2a2c95c88f79",
+    "question": "解决图像清晰度不一致问题的关键措施是什么",
+    "ground_truth": "先调整和确认平面度达标，再调节物镜使得FOV内不同区域焦面偏差在一定范围内",
+    "source_title": "图像清晰度不一致",
+    "source_file": "upload/source_documents/pdf/图像清晰度不一致.pdf",
+    "source_doc_id": 144,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-81be22180472",
+    "source_key": "db-breakdown-d8f93bc1cc5e",
+    "question": "相机行频设置错误会导致图像出现什么异常现象",
+    "ground_truth": "拖影、模糊、变形、噪声",
+    "source_title": "图像拖影、模糊、变形、噪点等异常",
+    "source_file": "upload/source_documents/pdf/图像拖影、模糊、变形、噪点等异常.pdf",
+    "source_doc_id": 145,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6075b8518059",
+    "source_key": "db-breakdown-d8f93bc1cc5e",
+    "question": "如何确认相机查找表功能是否被开启",
+    "ground_truth": "检查【LUTEnable】是否被勾选",
+    "source_title": "图像拖影、模糊、变形、噪点等异常",
+    "source_file": "upload/source_documents/pdf/图像拖影、模糊、变形、噪点等异常.pdf",
+    "source_doc_id": 145,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a0b2cec57071",
+    "source_key": "db-breakdown-0d5b487ec146",
+    "question": "TDI系统中图像拉长的常见表现是什么",
+    "ground_truth": "DNB点在某一方向拖尾，常见于Y方向",
+    "source_title": "图像拉长",
+    "source_file": "upload/source_documents/pdf/图像拉长.pdf",
+    "source_doc_id": 146,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5ac99b1575c5",
+    "source_key": "db-breakdown-0d5b487ec146",
+    "question": "检查TDI系统图像拉长问题时，应评估SigmaY与SigmaX的什么指标",
+    "ground_truth": "差值",
+    "source_title": "图像拉长",
+    "source_file": "upload/source_documents/pdf/图像拉长.pdf",
+    "source_doc_id": 146,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-88bd29e46cd0",
+    "source_key": "db-breakdown-d63cdd982219",
+    "question": "四联针戳到清洗池的PEI材料后，导致什么物质卡在针内造成堵塞？",
+    "ground_truth": "圆柱状的PEI颗粒",
+    "source_title": "四联针戳到清洗池导致堵塞",
+    "source_file": "upload/source_documents/pdf/四联针戳到清洗池导致堵塞.pdf",
+    "source_doc_id": 147,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1d372202a29d",
+    "source_key": "db-breakdown-d63cdd982219",
+    "question": "如何通过流体压力曲线判断四联针问题？",
+    "ground_truth": "异常lane在loading阶段IP1步骤有压力偏大现象，测序阶段四条lane压力基本重合",
+    "source_title": "四联针戳到清洗池导致堵塞",
+    "source_file": "upload/source_documents/pdf/四联针戳到清洗池导致堵塞.pdf",
+    "source_doc_id": 147,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-35bbeeb442f7",
+    "source_key": "db-breakdown-83e8116412dd",
+    "question": "四联排注射泵I口闭合异常导致孵育时压力下降报错的具体原因是什么",
+    "ground_truth": "四联排注射泵在排废液时切换到O口，I口的阀未能关闭，导致与I口相连的芯片和O口的大气连通，芯片内的正压发生泄漏",
+    "source_title": "四联排注射泵I口闭合异常导致孵育时压力下降报错",
+    "source_file": "upload/source_documents/pdf/四联排注射泵I口闭合异常导致孵育时压力下降报错.pdf",
+    "source_doc_id": 148,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a7d79a50a059",
+    "source_key": "db-breakdown-83e8116412dd",
+    "question": "如何通过流体压力曲线判断四联排注射泵I口闭合异常问题",
+    "ground_truth": "打开对应run的流体压力曲线，若观察到CR/RR孵育阶段和拍照阶段正压急剧下降至大气压水平，即可定位此问题",
+    "source_title": "四联排注射泵I口闭合异常导致孵育时压力下降报错",
+    "source_file": "upload/source_documents/pdf/四联排注射泵I口闭合异常导致孵育时压力下降报错.pdf",
+    "source_doc_id": 148,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-efd36e0ec563",
+    "source_key": "db-breakdown-dfbca5f77c15",
+    "question": "T7系统中单双扫Q值差异的典型表现是什么",
+    "ground_truth": "T7及Dolphin系统的row平均Q30变化曲线呈现非对称性差异",
+    "source_title": "单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/单双扫Q值差异大.pdf",
+    "source_doc_id": 149,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cdcdd081c8c4",
+    "source_key": "db-breakdown-dfbca5f77c15",
+    "question": "排查单双扫Q值差异时，若相邻row同col原图信号差异超过300应如何处理",
+    "ground_truth": "需检查仪器杂散光及相机固件版本",
+    "source_title": "单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/单双扫Q值差异大.pdf",
+    "source_doc_id": 149,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-93208eb117ac",
+    "source_key": "db-breakdown-eb178a4b971b",
+    "question": "测序前自检报错升降温超时，可能的原因包括哪些？",
+    "ground_truth": "水冷系统硬件异常，如风扇、水冷泵未正常工作；TEC模块故障导致温控失效；液位传感器状态异常导致水冷系统无法运行；冷却液循环不畅或管道连接问题；冷面温度过高（超过60℃）触发保护机制；热面温度曲线存在过冲或斜率异常；PT100传感器损坏或导热不良导致温度反馈错误。",
+    "source_title": "升降温超时",
+    "source_file": "upload/source_documents/pdf/升降温超时.pdf",
+    "source_doc_id": 150,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f49250212fc8",
+    "source_key": "db-breakdown-eb178a4b971b",
+    "question": "若发现TEC损坏，应采取什么措施？",
+    "ground_truth": "需更换整个生化chuck模块",
+    "source_title": "升降温超时",
+    "source_file": "upload/source_documents/pdf/升降温超时.pdf",
+    "source_doc_id": 150,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-76a57aead4b1",
+    "source_key": "db-breakdown-eac445083975",
+    "question": "出口电磁阀过热导致lane2、lane3出现黑影的具体原因是什么",
+    "ground_truth": "散热风扇转速过低导致散热效果不好，位于芯片出口的三通电磁阀组中中间两个阀散热最差，发热严重，使中间两条lane的DNB被烫伤，造成loading质量差和起始Q30低",
+    "source_title": "出口电磁阀过热导致lane2、lane3黑影和测序质量差",
+    "source_file": "upload/source_documents/pdf/出口电磁阀过热导致lane2、lane3黑影和测序质量差.pdf",
+    "source_doc_id": 151,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-813040adfb4d",
+    "source_key": "db-breakdown-eac445083975",
+    "question": "在排查出口电磁阀过热问题时，哪些检测措施未发现异常",
+    "ground_truth": "流体气密性检测、流体压力曲线检查、DNB浓度确认、漏液结晶确认、电磁阀开启闭合确认",
+    "source_title": "出口电磁阀过热导致lane2、lane3黑影和测序质量差",
+    "source_file": "upload/source_documents/pdf/出口电磁阀过热导致lane2、lane3黑影和测序质量差.pdf",
+    "source_doc_id": 151,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1cdf1378cf05",
+    "source_key": "db-breakdown-2a35f672ce7c",
+    "question": "出口电磁阀端子脱落会导致哪些具体故障现象？",
+    "ground_truth": "四联泵抽液异常、流阻测试异常，可能导致make DNB失败、loading失败等系统级异常",
+    "source_title": "出口电磁阀端子脱落导致抽液异常",
+    "source_file": "upload/source_documents/pdf/出口电磁阀端子脱落导致抽液异常.pdf",
+    "source_doc_id": 152,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8ca31c1c6c19",
+    "source_key": "db-breakdown-2a35f672ce7c",
+    "question": "如何通过EUI手动开关按钮检查出口电磁阀是否正常工作？",
+    "ground_truth": "使用EUI的电磁阀手动开关按钮，手动开启异常lane对应的出口电磁阀，仔细听是否有开启阀的响声",
+    "source_title": "出口电磁阀端子脱落导致抽液异常",
+    "source_file": "upload/source_documents/pdf/出口电磁阀端子脱落导致抽液异常.pdf",
+    "source_doc_id": 152,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-88ba1b934c7c",
+    "source_key": "db-breakdown-db8d9929261f",
+    "question": "T7冰箱底部冷凝水不能完全排出的原因是什么",
+    "ground_truth": "冰箱底部是平的，冷凝水不能聚集到抽取口",
+    "source_title": "冰箱冷凝水",
+    "source_file": "upload/source_documents/pdf/冰箱冷凝水.pdf",
+    "source_doc_id": 153,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cea2c2de0a5a",
+    "source_key": "db-breakdown-db8d9929261f",
+    "question": "解决T7冰箱冷凝水无法完全排出的方案有哪些",
+    "ground_truth": "冰箱底部改用倾斜的引流板；底板可拆卸",
+    "source_title": "冰箱冷凝水",
+    "source_file": "upload/source_documents/pdf/冰箱冷凝水.pdf",
+    "source_doc_id": 153,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-183a32714b51",
+    "source_key": "db-breakdown-c5a80077f66c",
+    "question": "光电液位传感器在储液池通道通光孔较大时，为何相邻通道会产生采样值变化？",
+    "ground_truth": "发光二极管发出的光线经过凹透镜发散、凸透镜汇聚（液体折射率大于空气导致发散变小）、再经凹透镜发散到达接收端，光路在内壁圆形和外壁方形的储液池上传播呈发散状态，发散光影响相邻通道。",
+    "source_title": "光电液位传感器通道间干扰",
+    "source_file": "upload/source_documents/pdf/光电液位传感器通道间干扰.pdf",
+    "source_doc_id": 154,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-acfde9d71706",
+    "source_key": "db-breakdown-c5a80077f66c",
+    "question": "如何通过设置通光孔长度来减少光电液位传感器通道间的干扰？",
+    "ground_truth": "接收端通光孔长度在5mm以上时，能有效屏蔽其他通道的光干扰。",
+    "source_title": "光电液位传感器通道间干扰",
+    "source_file": "upload/source_documents/pdf/光电液位传感器通道间干扰.pdf",
+    "source_doc_id": 154,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8c1b9ed72d23",
+    "source_key": "db-breakdown-1750259a7f95",
+    "question": "储液池液位传感器假True导致泵空时，Q30曲线会出现什么现象？",
+    "ground_truth": "Q30曲线陡降，无报错，过若干个cycle后可能恢复，但一般无法回到陡降前水平",
+    "source_title": "储液池假True导致泵空和Q30下降",
+    "source_file": "upload/source_documents/pdf/储液池假True导致泵空和Q30下降.pdf",
+    "source_doc_id": 155,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b8e6a7ff0d08",
+    "source_key": "db-breakdown-1750259a7f95",
+    "question": "如何通过补液日志判断储液池液位传感器是否出现假True？",
+    "ground_truth": "如果发现补液瞬间完成，正常应至少耗时6秒",
+    "source_title": "储液池假True导致泵空和Q30下降",
+    "source_file": "upload/source_documents/pdf/储液池假True导致泵空和Q30下降.pdf",
+    "source_doc_id": 155,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f4221c4d65ac",
+    "source_key": "db-breakdown-90deae3c69e0",
+    "question": "E250041943设备在下机报告中出现多个cycle callN现象的原因是什么",
+    "ground_truth": "传输cal文件时异常导致远程cal文件不完整",
+    "source_title": "偶发多个cycle callN",
+    "source_file": "upload/source_documents/pdf/偶发多个cycle callN.pdf",
+    "source_doc_id": 156,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b6368f8beaf6",
+    "source_key": "db-breakdown-90deae3c69e0",
+    "question": "为何在metrics中QC信息正常但fq文件中仍出现多个cycle的callN",
+    "ground_truth": "算法软件未正常将call base信息写入cal文件，导致对应cycle默认全部为N",
+    "source_title": "偶发多个cycle callN",
+    "source_file": "upload/source_documents/pdf/偶发多个cycle callN.pdf",
+    "source_doc_id": 156,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c1ac6afc4920",
+    "source_key": "db-breakdown-bf8f76fccf2b",
+    "question": "仪器电脑病毒和威胁防护应用升级后，为何会导致FQ文件丢失？",
+    "ground_truth": "在Quarantined过程中由于未知原因将随机fq.gz文件识别为木马并进行防御删除，导致FQ文件丢失。",
+    "source_title": "偶发丢FQ文件",
+    "source_file": "upload/source_documents/pdf/偶发丢FQ文件.pdf",
+    "source_doc_id": 157,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4fe12311c976",
+    "source_key": "db-breakdown-bf8f76fccf2b",
+    "question": "如何防止D:\\Result\\OutputFq文件夹中的FQ文件被病毒防护软件误删？",
+    "ground_truth": "在Virus&threat protection settings中Exclusion新增文件夹D:\\Result\\OutputFq，将其加入排除列表以保护FQ文件不被扫描破坏。",
+    "source_title": "偶发丢FQ文件",
+    "source_file": "upload/source_documents/pdf/偶发丢FQ文件.pdf",
+    "source_doc_id": 157,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f63b2f0a0a0e",
+    "source_key": "db-breakdown-1ae3c7a58411",
+    "question": "G400平台在2022年出现二链不回升现象的频率是多少？",
+    "ground_truth": "接近10%的数据出现二链不回升",
+    "source_title": "二链不抬升",
+    "source_file": "upload/source_documents/pdf/二链不抬升.pdf",
+    "source_doc_id": 158,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a48f5eb68e61",
+    "source_key": "db-breakdown-1ae3c7a58411",
+    "question": "二链不回升导致的直接后果是什么？",
+    "ground_truth": "二链Q30%下降快，影响二链测序质量和错误率，最终导致整体数据产出偏低，测序质量差",
+    "source_title": "二链不抬升",
+    "source_file": "upload/source_documents/pdf/二链不抬升.pdf",
+    "source_doc_id": 158,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1978f199a04e",
+    "source_key": "db-breakdown-0cad31c82938",
+    "question": "T7四边形芯片在二链1Cycle配准失败时，其CoarseTheta图出现什么现象？",
+    "ground_truth": "二链1Cycle CoarseTheta图发生过曝，导致无法识别起始位点",
+    "source_title": "与测序载片相关的配准失败",
+    "source_file": "upload/source_documents/pdf/与测序载片相关的配准失败.pdf",
+    "source_doc_id": 159,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7fc951702422",
+    "source_key": "db-breakdown-0cad31c82938",
+    "question": "E100076264芯片在解码过程中出现配准不过的故障，可能的原因是什么？",
+    "ground_truth": "芯片泛白导致二链1Cycle配准不过",
+    "source_title": "与测序载片相关的配准失败",
+    "source_file": "upload/source_documents/pdf/与测序载片相关的配准失败.pdf",
+    "source_doc_id": 159,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-767fc7c28753",
+    "source_key": "db-breakdown-3e34567d98c1",
+    "question": "WFQ失败时，若cal文件全部生成但未生成fq文件，可采取什么临时措施？",
+    "ground_truth": "可尝试重新执行WriteFq",
+    "source_title": "WFQ失败",
+    "source_file": "upload/source_documents/pdf/WFQ失败.pdf",
+    "source_doc_id": 160,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4d6fc8b190b6",
+    "source_key": "db-breakdown-3e34567d98c1",
+    "question": "WFQ失败的常见原因中，哪些与系统配置相关？",
+    "ground_truth": "文件句柄数不够、服务器内存配置异常、配置文件错误、autoWriteFq程序版本过旧",
+    "source_title": "WFQ失败",
+    "source_file": "upload/source_documents/pdf/WFQ失败.pdf",
+    "source_doc_id": 160,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-689581e0c8a3",
+    "source_key": "db-breakdown-8550497842d9",
+    "question": "PMSEQ-4500平台在使用SE50试剂盒测序时，cycle11出现Q30骤降的现象，该现象对应的zebracall算法和litecall算法分别表现为哪些指标异常？",
+    "ground_truth": "zebracall算法表现在cycle11_Q30，litecall算法表现在cycle11_BIC",
+    "source_title": "underloading-PM4500",
+    "source_file": "upload/source_documents/pdf/underloading-PM4500.pdf",
+    "source_doc_id": 161,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a0959202f55c",
+    "source_key": "db-breakdown-8550497842d9",
+    "question": "针对PMSEQ-4500平台DNB underloading问题的根本解决方案是什么？",
+    "ground_truth": "升级变更4500 make试剂中的OS酶I和OS酶II，升级为OSA酶I和OSA酶II（ECR-00-23083）",
+    "source_title": "underloading-PM4500",
+    "source_file": "upload/source_documents/pdf/underloading-PM4500.pdf",
+    "source_doc_id": 161,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a0b0b95f46b8",
+    "source_key": "db-breakdown-986cd5b50dfb",
+    "question": "HG001 WGS数据中200平台的Ti/Tv值为何低于2000和500平台",
+    "ground_truth": "因为SNP位点中存在较多低质量的A>C,T>G假阳位点，这些假阳位点来自测序错误",
+    "source_title": "Ti/Tv值偏低问题分析",
+    "source_file": "upload/source_documents/pdf/TiTv.pdf",
+    "source_doc_id": 162,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c6390c776bc9",
+    "source_key": "db-breakdown-986cd5b50dfb",
+    "question": "GATK3.8与GATK4.1版本对Ti/Tv值的影响是什么",
+    "ground_truth": "GATK3.8检出SNP更少，假阳性更少，Ti/Tv略高于GATK4.1",
+    "source_title": "Ti/Tv值偏低问题分析",
+    "source_file": "upload/source_documents/pdf/TiTv.pdf",
+    "source_doc_id": 162,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3641ee9e5734",
+    "source_key": "db-breakdown-19ba1eebe3aa",
+    "question": "DNBSEQ-E5RS设备在运行过程中出现TECAN泵反馈数据异常（0x1801608）的故障，其根本原因是什么？",
+    "ground_truth": "试剂产生的结晶导致陶瓷阀头转动阻尼过大，无法正常转动，从而引发阀过载报警。",
+    "source_title": "TECAN泵通讯异常",
+    "source_file": "upload/source_documents/pdf/TECAN泵通讯异常.pdf",
+    "source_doc_id": 163,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-1922324a7379",
+    "source_key": "db-breakdown-19ba1eebe3aa",
+    "question": "针对TECAN泵通讯异常问题，解决方案中提到的永久纠正措施包括哪些内容？",
+    "ground_truth": "1. 在每个RUN运行完成后增加对液路系统的清洗；2. 在TECAN初始化后增加复位操作，对连续3次以上启动不成功的实例增加报警提示；3. 根据系统产生的维护报警对TECAN的陶瓷阀头进行拆解、清洗、重新安装。",
+    "source_title": "TECAN泵通讯异常",
+    "source_file": "upload/source_documents/pdf/TECAN泵通讯异常.pdf",
+    "source_doc_id": 163,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b80ca53648f7",
+    "source_key": "db-breakdown-872f50187819",
+    "question": "TDI系统图像中DNB点出现朝某一方向拖尾的现象，其常见拉长方向是什么？",
+    "ground_truth": "Y方向",
+    "source_title": "TDI系统图像拉长",
+    "source_file": "upload/source_documents/pdf/TDI系统图像拉长.pdf",
+    "source_doc_id": 164,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c5a77706cc26",
+    "source_key": "db-breakdown-872f50187819",
+    "question": "解决TDI系统图像拉长问题时，需要检查相机的哪个参数以确认积分方向与平台运动方向是否一致？",
+    "ground_truth": "相机是否有旋转",
+    "source_title": "TDI系统图像拉长",
+    "source_file": "upload/source_documents/pdf/TDI系统图像拉长.pdf",
+    "source_doc_id": 164,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c02bd0a3d82e",
+    "source_key": "db-breakdown-190175b9b979",
+    "question": "A11更换JX激光器后T>A错误率的变化情况是什么",
+    "ground_truth": "T>A的错误率明显降低，与A8接近",
+    "source_title": "T>A错误率问题排查",
+    "source_file": "upload/source_documents/pdf/TA错误率问题排查.pdf",
+    "source_doc_id": 165,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-bf570543f333",
+    "source_key": "db-breakdown-190175b9b979",
+    "question": "GY激光器相比JX激光器在波段和红光特性上的差异是什么",
+    "ground_truth": "GY的波段比JX宽，红光存在多个旁瓣现象，且GY红绿斜率偏差大",
+    "source_title": "T>A错误率问题排查",
+    "source_file": "upload/source_documents/pdf/TA错误率问题排查.pdf",
+    "source_doc_id": 165,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ed6647aec46e",
+    "source_key": "db-breakdown-d9a6fc632e54",
+    "question": "T7平台载片下机缩略图中靠近Trench区域出现的黑线现象与哪个生化试剂相关？",
+    "ground_truth": "CMR（切除试剂）",
+    "source_title": "T7黑线",
+    "source_file": "upload/source_documents/pdf/T7黑线.pdf",
+    "source_doc_id": 166,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e0183fd76783",
+    "source_key": "db-breakdown-d9a6fc632e54",
+    "question": "T7流体槽表面的微孔尺寸范围是多少？",
+    "ground_truth": "1~50 μm",
+    "source_title": "T7黑线",
+    "source_file": "upload/source_documents/pdf/T7黑线.pdf",
+    "source_doc_id": 166,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-399ff48c3600",
+    "source_key": "db-breakdown-91e473310dfd",
+    "question": "T7起始Q30低的定义是什么？",
+    "ground_truth": "R1_firstQ30指Unfilter Q30中一链cycle1的Q30，反映一链Q值起始情况。",
+    "source_title": "T7起始Q30低（综合性）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（综合性）王雅.pdf",
+    "source_doc_id": 167,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e31aa50316c5",
+    "source_key": "db-breakdown-91e473310dfd",
+    "question": "导致T7起始Q30低的文库相关原因有哪些？",
+    "ground_truth": "样本特殊、碱基不平衡、投入量不足、PCR产物浓度低、杂带多、DNB浓度低",
+    "source_title": "T7起始Q30低（综合性）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（综合性）王雅.pdf",
+    "source_doc_id": 167,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5ba1f26a3e2f",
+    "source_key": "db-breakdown-806cbd087c20",
+    "question": "客户在运行T7 PE150时出现碱基分离现象，分析发现该问题与测序过程中的错误无关，而是由哪个环节引起？",
+    "ground_truth": "测序前的make和load环节",
+    "source_title": "T7起始Q30低（日本案例）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（日本案例）.pdf",
+    "source_doc_id": 168,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8482014373c5",
+    "source_key": "db-breakdown-806cbd087c20",
+    "question": "实验三中将日本阔口枪头的滤棉取出浸入DNB mix中30秒左右，结果表明该操作对DNB制备和加载有何影响？",
+    "ground_truth": "对DNB的制备和加载有严重影响",
+    "source_title": "T7起始Q30低（日本案例）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（日本案例）.pdf",
+    "source_doc_id": 168,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4916fdd5fb64",
+    "source_key": "db-breakdown-d156ce646406",
+    "question": "T7芯驱电容式接近开关在长时间使用后出现按压无反应的原因是什么",
+    "ground_truth": "现有前门及导光板感应距离约10mm，超过开关规格书最大感应距离5mm，且开关电容在长时间使用后出现漂移导致灵敏度异常",
+    "source_title": "T7芯驱电容式接近开关无反应",
+    "source_file": "upload/source_documents/pdf/T7芯驱电容式接近开关无反应.pdf",
+    "source_doc_id": 169,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9cf92230ba20",
+    "source_key": "db-breakdown-d156ce646406",
+    "question": "解决T7芯驱电容式接近开关无反应问题的方案是什么",
+    "ground_truth": "更换为劳易测LCS-1Q54P-F10NNO-K020P型号接近开关",
+    "source_title": "T7芯驱电容式接近开关无反应",
+    "source_file": "upload/source_documents/pdf/T7芯驱电容式接近开关无反应.pdf",
+    "source_doc_id": 169,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d9837562e95e",
+    "source_key": "db-breakdown-e6a070c14c37",
+    "question": "T7测序仪器中载片脱框的直接原因是什么",
+    "ground_truth": "T7测序仪器机械臂抓手在转移载片时出现异常导致载片脱框",
+    "source_title": "T7芯片脱框",
+    "source_file": "upload/source_documents/pdf/T7芯片脱框.pdf",
+    "source_doc_id": 170,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d80183e6ab0d",
+    "source_key": "db-breakdown-e6a070c14c37",
+    "question": "当发生载片脱框故障时，可能观察到哪些现象",
+    "ground_truth": "漏液、测序中断，并提示负压出现异常",
+    "source_title": "T7芯片脱框",
+    "source_file": "upload/source_documents/pdf/T7芯片脱框.pdf",
+    "source_doc_id": 170,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c3b2fcd8a9f7",
+    "source_key": "db-breakdown-bb4542fe9bd1",
+    "question": "T7芯片空腔问题中，气泡导致的总空腔率大于等于多少时需要进行信息收集？",
+    "ground_truth": "1%",
+    "source_title": "T7芯片空腔",
+    "source_file": "upload/source_documents/pdf/T7芯片空腔.pdf",
+    "source_doc_id": 171,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3c0d44ab8c94",
+    "source_key": "db-breakdown-bb4542fe9bd1",
+    "question": "在T7-FCL载片定位检查步骤中，若气泡导致的总空腔率大于总FOV的1%，应如何处理？",
+    "ground_truth": "按照顺利下机故障载片进行信息收集",
+    "source_title": "T7芯片空腔",
+    "source_file": "upload/source_documents/pdf/T7芯片空腔.pdf",
+    "source_doc_id": 171,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ec5d790355f3",
+    "source_key": "db-breakdown-fdcacf59726f",
+    "question": "T7 α阶段前玻璃门隐形铰链出现松脱、变形的原因是什么？",
+    "ground_truth": "H230-26/26T型号强度不够，使用过程中出现松脱、变形。",
+    "source_title": "T7玻璃门铰链松脱",
+    "source_file": "upload/source_documents/pdf/T7玻璃门铰链松脱.pdf",
+    "source_doc_id": 172,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f0d7c0dcce61",
+    "source_key": "db-breakdown-fdcacf59726f",
+    "question": "针对T7玻璃门铰链松脱问题的解决方案是什么？",
+    "ground_truth": "更换为H360-26/26T铰链，加大了负重。",
+    "source_title": "T7玻璃门铰链松脱",
+    "source_file": "upload/source_documents/pdf/T7玻璃门铰链松脱.pdf",
+    "source_doc_id": 172,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2fd1147324ae",
+    "source_key": "db-breakdown-ec41c05bed1f",
+    "question": "T7温控板上电无电压输出时，哪个器件更换后电路恢复正常？",
+    "ground_truth": "TPS54335",
+    "source_title": "T7温控板上电无电压输出",
+    "source_file": "upload/source_documents/pdf/T7温控板上电无电压输出.pdf",
+    "source_doc_id": 173,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-42bad8a40c0f",
+    "source_key": "db-breakdown-ec41c05bed1f",
+    "question": "T7温控板TPS54335失效的可能原因是什么？",
+    "ground_truth": "VIN/PH脚过流/过压或静电击穿",
+    "source_title": "T7温控板上电无电压输出",
+    "source_file": "upload/source_documents/pdf/T7温控板上电无电压输出.pdf",
+    "source_doc_id": 173,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-08d4e9a90711",
+    "source_key": "db-breakdown-046d7f0c38da",
+    "question": "T7设备中过芯片压力的正常范围是多少",
+    "ground_truth": "1900-2500mbar",
+    "source_title": "T7流体异常排查",
+    "source_file": "upload/source_documents/pdf/T7流体异常排查.pdf",
+    "source_doc_id": 174,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a3119cecf04a",
+    "source_key": "db-breakdown-046d7f0c38da",
+    "question": "当抽液负压异常时应检查哪些可能原因",
+    "ground_truth": "纯水是否充足、管道是否漏气、试剂是否抽空或试剂针是否堵塞",
+    "source_title": "T7流体异常排查",
+    "source_file": "upload/source_documents/pdf/T7流体异常排查.pdf",
+    "source_doc_id": 174,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3741bc1851d5",
+    "source_key": "db-breakdown-c46e8cfa9327",
+    "question": "T7 15#机废液缓存箱液位计管堵塞的原因是什么？",
+    "ground_truth": "废液缓存箱铝合金背板发生腐蚀，产生灰白色物质堵塞液位计管。",
+    "source_title": "T7废液缓存箱背板腐蚀",
+    "source_file": "upload/source_documents/pdf/T7废液缓存箱背板腐蚀.pdf",
+    "source_doc_id": 175,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6cb5f46606f2",
+    "source_key": "db-breakdown-c46e8cfa9327",
+    "question": "T7废液缓存箱背板腐蚀的附着物主要成分是什么？",
+    "ground_truth": "附着物主要成分是氢氧化铝，且混有少量有机质。",
+    "source_title": "T7废液缓存箱背板腐蚀",
+    "source_file": "upload/source_documents/pdf/T7废液缓存箱背板腐蚀.pdf",
+    "source_doc_id": 175,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cacddd317753",
+    "source_key": "db-breakdown-a2518166f1f0",
+    "question": "T7用户在使用自有集群进行autoWriteFq时，出现'Address already in use'错误的原因是什么？",
+    "ground_truth": "autoWriteFq启动任务时会生成30000~60000范围内的随机端口并配置在settings.config中，用于processor和client通信，而用户的WFQ节点上存在大量该范围内的端口占用，造成端口冲突。",
+    "source_title": "T7使用客户自有集群WFQ启动失败问题",
+    "source_file": "upload/source_documents/pdf/T7使用客户自有集群WFQ启动失败问题.pdf",
+    "source_doc_id": 176,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-16386faa3ea8",
+    "source_key": "db-breakdown-a2518166f1f0",
+    "question": "解决'No such file or directory'错误的方案是什么？",
+    "ground_truth": "将用户wfq的basecall文件夹下的log文件夹删除或重命名（如改为old_log），确保每次生成的日志可通过新建log目录创建，避免日志被误删导致的问题。",
+    "source_title": "T7使用客户自有集群WFQ启动失败问题",
+    "source_file": "upload/source_documents/pdf/T7使用客户自有集群WFQ启动失败问题.pdf",
+    "source_doc_id": 176,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-64eacae10a98",
+    "source_key": "db-breakdown-4063e24b20f8",
+    "question": "二链不抬现象中，一链Q30%正常，二链第一个cycle的Q30%不抬升但下降趋势正常属于哪种情况？",
+    "ground_truth": "一链Q30%正常，二链第一个cycle的Q30%不抬升但下降趋势正常是二链不抬的一种现象",
+    "source_title": "T7二链不抬",
+    "source_file": "upload/source_documents/pdf/T7二链不抬.pdf",
+    "source_doc_id": 177,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f67084a76075",
+    "source_key": "db-breakdown-4063e24b20f8",
+    "question": "2024年Q2国内客户端62例数据异常中，二链不抬占比多少？",
+    "ground_truth": "13%",
+    "source_title": "T7二链不抬",
+    "source_file": "upload/source_documents/pdf/T7二链不抬.pdf",
+    "source_doc_id": 177,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-27da7393dd4c",
+    "source_key": "db-breakdown-3c5bcfa96765",
+    "question": "T7设备出现两个COM1端口的原因是什么",
+    "ground_truth": "系统通过克隆方式安装或系统盘更换至另一台设备上导致硬件识别信息不匹配",
+    "source_title": "T7串口通讯异常，同时出现2个com1",
+    "source_file": "upload/source_documents/pdf/T7串口通讯异常，同时出现2个com1.pdf",
+    "source_doc_id": 178,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-00e5443a0b7b",
+    "source_key": "db-breakdown-3c5bcfa96765",
+    "question": "如何避免T7设备出现双COM1现象",
+    "ground_truth": "禁止使用克隆方式安装系统，禁止将系统盘更换到不同SBC设备上",
+    "source_title": "T7串口通讯异常，同时出现2个com1",
+    "source_file": "upload/source_documents/pdf/T7串口通讯异常，同时出现2个com1.pdf",
+    "source_doc_id": 178,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f6e16df6ccad",
+    "source_key": "db-breakdown-ce37036f3811",
+    "question": "T7芯片在测序后半段出现开胶时应重点关注哪些压力曲线？",
+    "ground_truth": "应重点关注oring结晶及测序压力曲线，次要关注loading压力曲线。",
+    "source_title": "T7-芯片胶点开胶",
+    "source_file": "upload/source_documents/pdf/T7-芯片胶点开胶.pdf",
+    "source_doc_id": 179,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-71c324132a63",
+    "source_key": "db-breakdown-ce37036f3811",
+    "question": "若发现过芯片动作持续超压，应直接检查哪个部件？",
+    "ground_truth": "应直接检查对应电磁阀。",
+    "source_title": "T7-芯片胶点开胶",
+    "source_file": "upload/source_documents/pdf/T7-芯片胶点开胶.pdf",
+    "source_doc_id": 179,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4aadfe348431",
+    "source_key": "db-breakdown-261197f7783e",
+    "question": "使用3年以上的生化chuck在高温切除时可能出现什么温度问题",
+    "ground_truth": "温度过冲",
+    "source_title": "T7-生化chuck老化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck老化.pdf",
+    "source_doc_id": 180,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-522d18323654",
+    "source_key": "db-breakdown-261197f7783e",
+    "question": "判断生化chuck老化是否存在的关键检查指标是什么",
+    "ground_truth": "切除阶段温度过冲大于1.5℃",
+    "source_title": "T7-生化chuck老化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck老化.pdf",
+    "source_doc_id": 180,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-22cf708f5abe",
+    "source_key": "db-breakdown-03b066ea89b5",
+    "question": "FOV图片出现黑边现象时，使用ImageJ软件查看背景曲线会呈现什么特征",
+    "ground_truth": "曲线不平整，两边比中间低",
+    "source_title": "FOV图片黑边问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-照明黑边.pdf",
+    "source_doc_id": 181,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-da4d99ce7226",
+    "source_key": "db-breakdown-03b066ea89b5",
+    "question": "当照明模块未调好导致FOV图片黑边严重时，应如何调节光阑位置以解决照明长度过长或过短的问题",
+    "ground_truth": "轻微松开光阑固定螺钉并移动光阑，调节光阑大小，使照明长度恰好与成像区域相同，然后锁紧光阑固定螺钉",
+    "source_title": "FOV图片黑边问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-照明黑边.pdf",
+    "source_doc_id": 181,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f9a5d38d837c",
+    "source_key": "db-breakdown-a1fc62097cbc",
+    "question": "当使用激光功率计测试物镜端的红绿激光功率时，若透过率低于多少百分比说明激光器功率衰减",
+    "ground_truth": "68%",
+    "source_title": "测序仪研发中心Sequencing Product R&D Center – T7-激光器偶发不亮&信号衰减",
+    "source_file": "upload/source_documents/pdf/T7-激光器偶发不亮&信号衰减.pdf",
+    "source_doc_id": 182,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-98ec097cd599",
+    "source_key": "db-breakdown-a1fc62097cbc",
+    "question": "在检查激光器是否故障时，若外接工装输入5V电压后功率小于等于5W，说明什么问题",
+    "ground_truth": "激光功率衰减",
+    "source_title": "测序仪研发中心Sequencing Product R&D Center – T7-激光器偶发不亮&信号衰减",
+    "source_file": "upload/source_documents/pdf/T7-激光器偶发不亮&信号衰减.pdf",
+    "source_doc_id": 182,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2ea9789fd077",
+    "source_key": "db-breakdown-5ba82583c83e",
+    "question": "T7测序仪在四边同时跑RUN时测序时间变长的原因之一是什么",
+    "ground_truth": "系统配置有误",
+    "source_title": "T7-测序时间长（第三方软件）",
+    "source_file": "upload/source_documents/pdf/T7-测序时间长（第三方软件）.pdf",
+    "source_doc_id": 183,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9171916ff8d7",
+    "source_key": "db-breakdown-5ba82583c83e",
+    "question": "导致T7测序过程中磁盘读写IO占用过大的原因是什么",
+    "ground_truth": "测序过程中copy文件",
+    "source_title": "T7-测序时间长（第三方软件）",
+    "source_file": "upload/source_documents/pdf/T7-测序时间长（第三方软件）.pdf",
+    "source_doc_id": 183,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cdabf68a6c97",
+    "source_key": "db-breakdown-b4e1dc6c0a57",
+    "question": "T7平台平整度异常时，部分区域Q30偏低的表现是什么？",
+    "ground_truth": "表现为单双行分布的虚焦，Q30偏低或CallN",
+    "source_title": "T7-平台平整度异常",
+    "source_file": "upload/source_documents/pdf/T7-平台平整度异常.pdf",
+    "source_doc_id": 184,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-72a152de2aa5",
+    "source_key": "db-breakdown-b4e1dc6c0a57",
+    "question": "T7平台平整度异常的可能原因中，哪些与imager相关？",
+    "ground_truth": "imager平整度自身发生变化，精密螺纹副产生移位；imagerchuck表面存在脏污（结晶或灰尘）；imager未固定牢固",
+    "source_title": "T7-平台平整度异常",
+    "source_file": "upload/source_documents/pdf/T7-平台平整度异常.pdf",
+    "source_doc_id": 184,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-019025583533",
+    "source_key": "db-breakdown-2c38b92d6f6b",
+    "question": "在T7设备中，当1*1扫描时发现当前cycle的Q值heatmap分布不均，其可能原因是什么？",
+    "ground_truth": "对焦参数设置不合适，带宽不合适（即存在谐振点）",
+    "source_title": "T7-单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/T7-单双扫Q值差异大.pdf",
+    "source_doc_id": 185,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7229b44f2550",
+    "source_key": "db-breakdown-2c38b92d6f6b",
+    "question": "针对T7设备单双扫Q值差异大的问题，调节AF模块光斑位置的具体操作步骤有哪些？",
+    "ground_truth": "将G相机曝光时间调大至10000-100000us，缩小G相机成像画面，在图像中心附近找到AF光斑；若看不到，大幅度摆动AF模块直至光斑出现在视场内；微调Z轴使光斑边缘清晰、中心明亮；检查光斑是否为基本完整的圆形且位于4640*256像素图像的中间位置；通过调节AF反射棱镜微调光斑形状，通过调节AF模块位置或AF反射镜顶丝移动光斑",
+    "source_title": "T7-单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/T7-单双扫Q值差异大.pdf",
+    "source_doc_id": 185,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9e3145e06db6",
+    "source_key": "db-breakdown-5cfee2adf03c",
+    "question": "T7系统中单双扫信号Q值差异显著的原因有哪些？",
+    "ground_truth": "Y轴往返运动导致AF signal差异超过±1；光学相机焦面一致性或倾斜调试不合格；信号单双行差异大（DSNU异常）；相机DSNU异常；杂散光干扰；固件版本不匹配。",
+    "source_title": "T7-单双扫问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-单双扫.pdf",
+    "source_doc_id": 186,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d4026cd2afa9",
+    "source_key": "db-breakdown-5cfee2adf03c",
+    "question": "在T7系统中如何通过1*1 Q30标准页评估单双扫差异程度？",
+    "ground_truth": "取所有正扫方向FOV（除去cal0）的Q30平均值，与所有反扫方向FOV（除去cal0）的Q30平均值做差值，以判断单双扫差异程度。",
+    "source_title": "T7-单双扫问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-单双扫.pdf",
+    "source_doc_id": 186,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-10d3b4e6d670",
+    "source_key": "db-breakdown-2b05164b960f",
+    "question": "T7-Processor在测序过程中自动重启会导致什么后果",
+    "ground_truth": "Q30曲线有一个cycle丢失，导致下机数据无法使用，影响后续生信分析",
+    "source_title": "T7-Processor 自动重启",
+    "source_file": "upload/source_documents/pdf/T7-Processor 自动重启.pdf",
+    "source_doc_id": 187,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8d464390a95e",
+    "source_key": "db-breakdown-2b05164b960f",
+    "question": "Dell驱动异常导致T7-Processor自动重启的解决方案是什么",
+    "ground_truth": "升级驱动（可通过百度方法或联系dell供应商）",
+    "source_title": "T7-Processor 自动重启",
+    "source_file": "upload/source_documents/pdf/T7-Processor 自动重启.pdf",
+    "source_doc_id": 187,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-08726baa068a",
+    "source_key": "db-breakdown-094dda7126f2",
+    "question": "一体化manifold固定o-ring的高度比旧版本低多少毫米",
+    "ground_truth": "0.3mm",
+    "source_title": "T7-oring 脱落",
+    "source_file": "upload/source_documents/pdf/T7-oring 脱落.pdf",
+    "source_doc_id": 188,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-85fbba32c4a1",
+    "source_key": "db-breakdown-094dda7126f2",
+    "question": "高度差小于0.1的chuck应如何处理",
+    "ground_truth": "建议更换整个chuck或进行返修",
+    "source_title": "T7-oring 脱落",
+    "source_file": "upload/source_documents/pdf/T7-oring 脱落.pdf",
+    "source_doc_id": 188,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9e0a16f2e2ec",
+    "source_key": "db-breakdown-3b0db92c897c",
+    "question": "相机丢图或拼图异常可能导致单cycle或连续cycle中所有或大部分FOV出现callN现象吗",
+    "ground_truth": "是",
+    "source_title": "T7-CallN问题",
+    "source_file": "upload/source_documents/pdf/T7-CallN问题.pdf",
+    "source_doc_id": 189,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a1eb48c9cece",
+    "source_key": "db-breakdown-3b0db92c897c",
+    "question": "PEG信号触发异常导致的CallN可能引起什么现象",
+    "ground_truth": "offset在Y方向上逐渐变大",
+    "source_title": "T7-CallN问题",
+    "source_file": "upload/source_documents/pdf/T7-CallN问题.pdf",
+    "source_doc_id": 189,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f8b68b0899ef",
+    "source_key": "db-breakdown-b5792d50f930",
+    "question": "T7+显示屏在哪些样机上出现了闪屏现象",
+    "ground_truth": "betaⅡ样机及武汉JD样机",
+    "source_title": "T7+显示屏闪屏",
+    "source_file": "upload/source_documents/pdf/T7+显示屏闪屏.pdf",
+    "source_doc_id": 190,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cd35da077e09",
+    "source_key": "db-breakdown-b5792d50f930",
+    "question": "T7+显示屏闪屏的根本解决方案是什么",
+    "ground_truth": "供应商端安装完后对排线进行二次确认",
+    "source_title": "T7+显示屏闪屏",
+    "source_file": "upload/source_documents/pdf/T7+显示屏闪屏.pdf",
+    "source_doc_id": 190,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ae3aba9ead64",
+    "source_key": "db-breakdown-9646c3a49706",
+    "question": "T7+设备在整机耐压测试时报警的原因是什么",
+    "ground_truth": "接线错误，特别是交流输入端的N线与PE线发生交换",
+    "source_title": "T7+ 整机耐压测试报警",
+    "source_file": "upload/source_documents/pdf/T7+ 整机耐压测试报警.pdf",
+    "source_doc_id": 191,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b9e8946fb009",
+    "source_key": "db-breakdown-9646c3a49706",
+    "question": "T7+设备耐压测试的标准电压和测试方式是什么",
+    "ground_truth": "1.5KV/AC，交流输入对地测试",
+    "source_title": "T7+ 整机耐压测试报警",
+    "source_file": "upload/source_documents/pdf/T7+ 整机耐压测试报警.pdf",
+    "source_doc_id": 191,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a79aadf6c870",
+    "source_key": "db-breakdown-c071e09f8148",
+    "question": "T7芯片载片泛白现象中，P99参数的定义是什么？",
+    "ground_truth": "P99是每FOV的A通道背景值/信号值，所有FOV值的99分位数。",
+    "source_title": "T7 芯片泛白，200、2000、FTAT光晕",
+    "source_file": "upload/source_documents/pdf/T7 芯片泛白，200、2000、FTAT光晕.pdf",
+    "source_doc_id": 192,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-523f143e2436",
+    "source_key": "db-breakdown-c071e09f8148",
+    "question": "在检查T7-FCL载片定位时，标志区亮度异常的标准是什么？",
+    "ground_truth": "标志区亮度比正常值高50%，且标志区是均匀亮白",
+    "source_title": "T7 芯片泛白，200、2000、FTAT光晕",
+    "source_file": "upload/source_documents/pdf/T7 芯片泛白，200、2000、FTAT光晕.pdf",
+    "source_doc_id": 192,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3e9104eb290a",
+    "source_key": "db-breakdown-3bd55d1a0e18",
+    "question": "T7设备中单向阀止回失效会导致什么现象",
+    "ground_truth": "一侧泵液时另一侧出现压力波动，串液量增大，可能影响测序质量",
+    "source_title": "T7 单向阀止回异常",
+    "source_file": "upload/source_documents/pdf/T7 单向阀止回异常.pdf",
+    "source_doc_id": 193,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9440fffefa0f",
+    "source_key": "db-breakdown-3bd55d1a0e18",
+    "question": "T7设备中单向阀止回失效的原因是什么",
+    "ground_truth": "原进口单向阀为弹簧结构，密封圈吸附杂质后出现间隙，影响密封",
+    "source_title": "T7 单向阀止回异常",
+    "source_file": "upload/source_documents/pdf/T7 单向阀止回异常.pdf",
+    "source_doc_id": 193,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7e861c61d015",
+    "source_key": "db-breakdown-09bd91617730",
+    "question": "T7 SBC设备无法启动的原因是什么",
+    "ground_truth": "LT板存在漏电流，该电流通过USB DATA线路反冲至主板，导致主板检测到异常并触发保护机制，从而阻止计算机启动",
+    "source_title": "T7 SBC无法启动，需要恢复BIOS为出厂才可以",
+    "source_file": "upload/source_documents/pdf/T7 SBC无法启动，需要恢复BIOS为出厂才可以.pdf",
+    "source_doc_id": 194,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-216aa84e75f5",
+    "source_key": "db-breakdown-09bd91617730",
+    "question": "解决T7 SBC无法启动问题的方案是什么",
+    "ground_truth": "对LT板的USB配置进行修改，在主机未启动时使设备进入挂起状态，以防止漏电流反冲影响主板",
+    "source_title": "T7 SBC无法启动，需要恢复BIOS为出厂才可以",
+    "source_file": "upload/source_documents/pdf/T7 SBC无法启动，需要恢复BIOS为出厂才可以.pdf",
+    "source_doc_id": 194,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3d1b3f4005cb",
+    "source_key": "db-breakdown-eb0dd5b783c9",
+    "question": "T7 SBC设备出现操作系统错误的主要原因是什么",
+    "ground_truth": "设备经常进行非法关机操作，如直接切断电源，导致操作系统关键驱动文件丢失或损坏",
+    "source_title": "T7 SBC操作系统错误",
+    "source_file": "upload/source_documents/pdf/T7 SBC操作系统错误.pdf",
+    "source_doc_id": 195,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-aecc91f5c3d0",
+    "source_key": "db-breakdown-eb0dd5b783c9",
+    "question": "解决T7 SBC操作系统错误的建议措施有哪些",
+    "ground_truth": "避免非法关机，确保通过系统正常流程关机；将系统盘升级为工业级存储设备",
+    "source_title": "T7 SBC操作系统错误",
+    "source_file": "upload/source_documents/pdf/T7 SBC操作系统错误.pdf",
+    "source_doc_id": 195,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-38b5662c341c",
+    "source_key": "db-breakdown-35915052dab4",
+    "question": "T7 SBC无法启动时，通过什么方式可以解决？",
+    "ground_truth": "拆主板纽扣电池放电",
+    "source_title": "T7 SBC丢BIOS",
+    "source_file": "upload/source_documents/pdf/T7 SBC丢BIOS.pdf",
+    "source_doc_id": 196,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a3d8a8fbb9f9",
+    "source_key": "db-breakdown-35915052dab4",
+    "question": "LT板USB DATA+信号在SBC上电前的电压范围是多少？",
+    "ground_truth": "1.3V~1.5V",
+    "source_title": "T7 SBC丢BIOS",
+    "source_file": "upload/source_documents/pdf/T7 SBC丢BIOS.pdf",
+    "source_doc_id": 196,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d4af64b7b1cd",
+    "source_key": "db-breakdown-206329d29909",
+    "question": "T7 SBC设备串口出现叹号的原因是什么",
+    "ground_truth": "T7 LT板配置软件捆绑了SUSI API，导致系统响应异常，从而引发串口叹号问题",
+    "source_title": "T7 SBC 出现串口叹号",
+    "source_file": "upload/source_documents/pdf/T7 SBC 出现串口叹号.pdf",
+    "source_doc_id": 197,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-89fa8b702bce",
+    "source_key": "db-breakdown-206329d29909",
+    "question": "如何解决T7 SBC设备串口显示叹号的问题",
+    "ground_truth": "在T7 LT配置软件中将SUSI设置为模拟模式",
+    "source_title": "T7 SBC 出现串口叹号",
+    "source_file": "upload/source_documents/pdf/T7 SBC 出现串口叹号.pdf",
+    "source_doc_id": 197,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-258bb95799ce",
+    "source_key": "db-breakdown-470f84315c68",
+    "question": "T7机器在11月24日出现MLG后，上机测序发现Q值曲线部分cycle无点，其对应的allcycleheatmap显示什么现象？",
+    "ground_truth": "cycle严重callN",
+    "source_title": "T7 offset callN问题分析",
+    "source_file": "upload/source_documents/pdf/T7 offset callN.pdf",
+    "source_doc_id": 198,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-216a1f815126",
+    "source_key": "db-breakdown-470f84315c68",
+    "question": "美国A客户机器的offset在X方向和Y方向跳动超出正常范围，具体是哪些参数表现出显著波动？",
+    "ground_truth": "A_X、A_Y、T_X、T_Y",
+    "source_title": "T7 offset callN问题分析",
+    "source_file": "upload/source_documents/pdf/T7 offset callN.pdf",
+    "source_doc_id": 198,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e293367e54a7",
+    "source_key": "db-breakdown-f0d5b2cbbd64",
+    "question": "T7测序中barcode Q30曲线异常抖动会导致哪些具体后果",
+    "ground_truth": "影响二链测序质量和错误率及拆分率，最终导致整体的数据产出偏低，测序质量差",
+    "source_title": "T7 barcode曲线异常",
+    "source_file": "upload/source_documents/pdf/T7 barcode曲线异常.pdf",
+    "source_doc_id": 199,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-cd5c719a480c",
+    "source_key": "db-breakdown-f0d5b2cbbd64",
+    "question": "当T7仪器的缩略图出现黑线、黑影或杂质时应采取什么措施",
+    "ground_truth": "更换试剂针、旋转阀、密封圈等，建议客户进行深度清洗",
+    "source_title": "T7 barcode曲线异常",
+    "source_file": "upload/source_documents/pdf/T7 barcode曲线异常.pdf",
+    "source_doc_id": 199,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-49a70f734b1e",
+    "source_key": "db-breakdown-206be01cb67f",
+    "question": "T100样机5#2控制板在5ms时间间隔测试条件下，冲水时长配置指令的响应报文丢包率是多少？",
+    "ground_truth": "3.086%",
+    "source_title": "T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象",
+    "source_file": "upload/source_documents/pdf/T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象.pdf",
+    "source_doc_id": 200,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9269b57cfcbc",
+    "source_key": "db-breakdown-206be01cb67f",
+    "question": "读取快速温控冲水表条目、读取快速温控冲水表条目数量、设置快速温控冲水表这3个CANFD指令接口为何会偶发丢包？",
+    "ground_truth": "因固件中该类接口优先级低于上报和其余设置/读取指令，导致在高频率通信下被抢占资源，响应超时",
+    "source_title": "T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象",
+    "source_file": "upload/source_documents/pdf/T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象.pdf",
+    "source_doc_id": 200,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7ad46e7d4d86",
+    "source_key": "db-breakdown-c907b9161d35",
+    "question": "T100 5#设备在加载第二张芯片时为何提示内存不足",
+    "ground_truth": "系统配置为NPS1模式且启用两个NUMA节点，同时存在多个软件开启额外占用超过200G内存，导致内存资源不足",
+    "source_title": "T100 5# 内存分配失败",
+    "source_file": "upload/source_documents/pdf/T100 5# 内存分配失败.pdf",
+    "source_doc_id": 201,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2b42b37cf9bc",
+    "source_key": "db-breakdown-c907b9161d35",
+    "question": "T100 5#设备的FOV范围是多少",
+    "ground_truth": "FOV范围可达84*84至92*92",
+    "source_title": "T100 5# 内存分配失败",
+    "source_file": "upload/source_documents/pdf/T100 5# 内存分配失败.pdf",
+    "source_doc_id": 201,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-fef30b65304f",
+    "source_key": "db-breakdown-0d6a43c77f25",
+    "question": "在T1+从dsDNA开始进行make DNB过程中，若产物浓度低于8 ng/ul且5号单管（连接酶/Ligase）试剂接近空，4号单管（环化缓冲液/Splint Buffer）残留量大于30 uL，应检查哪个部件的加样异常？",
+    "ground_truth": "对应的单泵加样异常",
+    "source_title": "T1+makeDNB失败（从环化开始）",
+    "source_file": "upload/source_documents/pdf/T1+makeDNB失败（从环化开始）.pdf",
+    "source_doc_id": 202,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-ade894972e14",
+    "source_key": "db-breakdown-0d6a43c77f25",
+    "question": "在T1+从dsDNA开始进行make DNB时，若执行子脚本Loader_AddSample0.py过程中95℃降温到4℃耗时超过60秒，应检查哪个模块的装配与散热？",
+    "ground_truth": "PCR模块TEC的装配与散热",
+    "source_title": "T1+makeDNB失败（从环化开始）",
+    "source_file": "upload/source_documents/pdf/T1+makeDNB失败（从环化开始）.pdf",
+    "source_doc_id": 202,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c05e319f9526",
+    "source_key": "db-breakdown-3026020d95c8",
+    "question": "Lane 04的Q30值比前三条Lane低多少个点",
+    "ground_truth": "低约3~5个点",
+    "source_title": "T1+lane间差异大",
+    "source_file": "upload/source_documents/pdf/T1+lane间差异大.pdf",
+    "source_doc_id": 203,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-01c63bb9b727",
+    "source_key": "db-breakdown-3026020d95c8",
+    "question": "导致lane4数据量偏低的主要原因是什么",
+    "ground_truth": "酶I+II混匀不充分以及分液顺序和airgap设置不当，导致lane间试剂浓度不均",
+    "source_title": "T1+lane间差异大",
+    "source_file": "upload/source_documents/pdf/T1+lane间差异大.pdf",
+    "source_doc_id": 203,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a8e48c86099d",
+    "source_key": "db-breakdown-1aa32baff451",
+    "question": "T1+仪器电源管理板卡程序升级后电源无法启动的原因是什么",
+    "ground_truth": "程序升级失败可能导致板卡程序被完全擦除，使得电源管理板卡无法正常工作，进而导致电源无法启动",
+    "source_title": "T1+ 仪器电源管理板卡程序升级后，电源无法启动",
+    "source_file": "upload/source_documents/pdf/T1+ 仪器电源管理板卡程序升级后，电源无法启动.pdf",
+    "source_doc_id": 204,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-feafe955cb0a",
+    "source_key": "db-breakdown-1aa32baff451",
+    "question": "如何判断T1+仪器电源管理板卡程序是否成功烧录",
+    "ground_truth": "通过观察板卡上的呼吸灯状态，若呼吸灯正常闪烁，说明程序已成功烧录并运行",
+    "source_title": "T1+ 仪器电源管理板卡程序升级后，电源无法启动",
+    "source_file": "upload/source_documents/pdf/T1+ 仪器电源管理板卡程序升级后，电源无法启动.pdf",
+    "source_doc_id": 204,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a3c4002107a1",
+    "source_key": "db-breakdown-bc5482f3b81b",
+    "question": "T1+测序中dup偏高的根本原因是什么",
+    "ground_truth": "DNB落在两个spot点之间，导致相邻区域信号重叠，使系统误判为同一来源的信号",
+    "source_title": "T1+ dup高问题排查",
+    "source_file": "upload/source_documents/pdf/T1+ dup高问题排查.pdf",
+    "source_doc_id": 205,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-75f7fd17ea66",
+    "source_key": "db-breakdown-bc5482f3b81b",
+    "question": "采用三合一buffer结合OS方案对dsDNA和ssDNA的dup有何影响",
+    "ground_truth": "能显著改善dup，不仅适用于dsDNA，对ssDNA同样有效",
+    "source_title": "T1+ dup高问题排查",
+    "source_file": "upload/source_documents/pdf/T1+ dup高问题排查.pdf",
+    "source_doc_id": 205,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0bb4a4df3024",
+    "source_key": "db-breakdown-2fab947d8272",
+    "question": "SNR-A在某个cycle陡降的可能原因是什么",
+    "ground_truth": "功率偏高，对A的损失较大",
+    "source_title": "SNR曲线差异原因",
+    "source_file": "upload/source_documents/pdf/SNR曲线差异原因.pdf",
+    "source_doc_id": 206,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9a4b523139ff",
+    "source_key": "db-breakdown-2fab947d8272",
+    "question": "如何解决SNR-A陡降的问题",
+    "ground_truth": "降低功率，避免A的信号低，将A的gain太高",
+    "source_title": "SNR曲线差异原因",
+    "source_file": "upload/source_documents/pdf/SNR曲线差异原因.pdf",
+    "source_doc_id": 206,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7793633ca16e",
+    "source_key": "db-breakdown-09c0952ad67e",
+    "question": "T7 SBC在更换硬盘后出现COM口丢失的原因是什么",
+    "ground_truth": "SBC更换硬盘后没有删除原前的信息，造成冲突",
+    "source_title": "SBC串口通信异常",
+    "source_file": "upload/source_documents/pdf/SBC串口通信异常.pdf",
+    "source_doc_id": 207,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-90054e0f9f97",
+    "source_key": "db-breakdown-09c0952ad67e",
+    "question": "针对T7 SBC串口通信异常的解决方案中，操作系统安装方式应如何调整",
+    "ground_truth": "操作系统安装方式由镜像安装改为正常安装",
+    "source_title": "SBC串口通信异常",
+    "source_file": "upload/source_documents/pdf/SBC串口通信异常.pdf",
+    "source_doc_id": 207,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b3f29e52bf6f",
+    "source_key": "db-breakdown-81a61c25c226",
+    "question": "Q30下降速度在1链和2链分别下降了多少个点",
+    "ground_truth": "1链下降7个点，2链下降14个点",
+    "source_title": "Q30下降快，Runon高",
+    "source_file": "upload/source_documents/pdf/Q30下降快，Runon高.pdf",
+    "source_doc_id": 208,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-83310dd4d323",
+    "source_key": "db-breakdown-81a61c25c226",
+    "question": "Runon值异常偏高的表现是什么",
+    "ground_truth": "热图显示Runon分布存在区域异常",
+    "source_title": "Q30下降快，Runon高",
+    "source_file": "upload/source_documents/pdf/Q30下降快，Runon高.pdf",
+    "source_doc_id": 208,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7a55430494d7",
+    "source_key": "db-breakdown-11f11b22191f",
+    "question": "polyT区域在测序过程中导致了什么现象？",
+    "ground_truth": "Q30陡降，信号异常下降，错误率增加，被过滤掉",
+    "source_title": "polyT导致Q30陡降，数据量不达标",
+    "source_file": "upload/source_documents/pdf/polyT导致Q30陡降，数据量不达标.pdf",
+    "source_doc_id": 209,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5206b22bda81",
+    "source_key": "db-breakdown-11f11b22191f",
+    "question": "针对polyT导致Q30陡降的问题，解决方案是什么？",
+    "ground_truth": "更改过滤参数，将全局过滤改为局部过滤",
+    "source_title": "polyT导致Q30陡降，数据量不达标",
+    "source_file": "upload/source_documents/pdf/polyT导致Q30陡降，数据量不达标.pdf",
+    "source_doc_id": 209,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-91e2f8d271f4",
+    "source_key": "db-breakdown-d1ec400cf26d",
+    "question": "B1测序过程中试剂仓板无MCU心跳指示灯且无数据上报，按板卡复位无法恢复，可能的原因是什么？",
+    "ground_truth": "5V供电被拉低，进一步定位到测序试剂盒到位传感器漏液导致短路",
+    "source_title": "MM试剂仓板无心跳指示",
+    "source_file": "upload/source_documents/pdf/MM试剂仓板无心跳指示.pdf",
+    "source_doc_id": 210,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-127fdb9439c6",
+    "source_key": "db-breakdown-d1ec400cf26d",
+    "question": "针对试剂仓板无心跳指示灯且总线进入BUS OFF模式的问题，解决方案中提到的长久措施有哪些？",
+    "ground_truth": "机械调整传感器及外设位置，避免被漏液损坏；电子板卡对独立外设增加过流保护",
+    "source_title": "MM试剂仓板无心跳指示",
+    "source_file": "upload/source_documents/pdf/MM试剂仓板无心跳指示.pdf",
+    "source_doc_id": 210,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3f2c9c75fc4a",
+    "source_key": "db-breakdown-9638074ec723",
+    "question": "MM电源模块上电自检不通过且所有受控供电模块支路控制不动作的原因是什么",
+    "ground_truth": "5V Standby供电接口接错，接到24V standby供电接口",
+    "source_title": "MM电源PM板卡报错",
+    "source_file": "upload/source_documents/pdf/MM电源PM板卡报错.pdf",
+    "source_doc_id": 211,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-464952d7859e",
+    "source_key": "db-breakdown-9638074ec723",
+    "question": "3个12V/24V/48V台达3000W电源模块的5V Standby接口存在什么问题",
+    "ground_truth": "封装相同，未严格按照接线工艺要求，出现控制逻辑错误",
+    "source_title": "MM电源PM板卡报错",
+    "source_file": "upload/source_documents/pdf/MM电源PM板卡报错.pdf",
+    "source_doc_id": 211,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6d0e3383d45c",
+    "source_key": "db-breakdown-71385d291f37",
+    "question": "Mammoth浪潮服务器在alpha和betaⅠ阶段出现的采集卡识别异常问题中，导致故障的原因有哪些？",
+    "ground_truth": "采集卡和服务器信号兼容性问题；Pcie排线接触不良",
+    "source_title": "Mammoth浪潮服务器采集卡识别异常",
+    "source_file": "upload/source_documents/pdf/Mammoth浪潮服务器采集卡识别异常.pdf",
+    "source_doc_id": 212,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5f4a69638494",
+    "source_key": "db-breakdown-71385d291f37",
+    "question": "针对Mammoth浪潮服务器采集卡识别异常问题，解决方案是什么？",
+    "ground_truth": "推动供应商进行适配，由于涉及到主板改动，供应商无法配合，放弃该方案",
+    "source_title": "Mammoth浪潮服务器采集卡识别异常",
+    "source_file": "upload/source_documents/pdf/Mammoth浪潮服务器采集卡识别异常.pdf",
+    "source_doc_id": 212,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d4bd84f27a12",
+    "source_key": "db-breakdown-b97c4dad6802",
+    "question": "Mammoth废液模块称重传感器校准过程中，零点校准时废液仓的状态是什么？",
+    "ground_truth": "废液仓为空",
+    "source_title": "Mammoth废液模块称重传感器校准功能验证",
+    "source_file": "upload/source_documents/pdf/Mammoth废液模块称重传感器校准功能验证.pdf",
+    "source_doc_id": 213,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3d88da1223f8",
+    "source_key": "db-breakdown-b97c4dad6802",
+    "question": "Mammoth废液模块称重传感器校准后，通过哪个CAN通讯协议指令将斜率k和截距b发送至固件？",
+    "ground_truth": "3.4指令",
+    "source_title": "Mammoth废液模块称重传感器校准功能验证",
+    "source_file": "upload/source_documents/pdf/Mammoth废液模块称重传感器校准功能验证.pdf",
+    "source_doc_id": 213,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8499113d9287",
+    "source_key": "db-breakdown-37c2f7860825",
+    "question": "A5旋转阀通讯超时导致初始化失败的原因是什么",
+    "ground_truth": "旋转阀光电开关干扰",
+    "source_title": "Mammoth外设初始化异常",
+    "source_file": "upload/source_documents/pdf/Mammoth外设初始化异常.pdf",
+    "source_doc_id": 214,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2301a20e6ef1",
+    "source_key": "db-breakdown-37c2f7860825",
+    "question": "CANFD服务器IP设置冲突会导致什么现象",
+    "ground_truth": "上电后第一次某个通道打开失败",
+    "source_title": "Mammoth外设初始化异常",
+    "source_file": "upload/source_documents/pdf/Mammoth外设初始化异常.pdf",
+    "source_doc_id": 214,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c343e59b9820",
+    "source_key": "db-breakdown-d2a6b085f869",
+    "question": "MammothChuck板卡在相对运动模式下，当设置的脉冲数小于多少时会导致电机堵转？",
+    "ground_truth": "320",
+    "source_title": "MammothChuck板电机堵转现象的测试验证",
+    "source_file": "upload/source_documents/pdf/MammothChuck板电机堵转现象的测试验证.pdf",
+    "source_doc_id": 215,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-aed27a18acbb",
+    "source_key": "db-breakdown-d2a6b085f869",
+    "question": "当MammothChuck板卡电机发生堵转后，如何通过指令恢复其正常状态？",
+    "ground_truth": "发送回原点指令或设定反向运动且脉冲数大于320",
+    "source_title": "MammothChuck板电机堵转现象的测试验证",
+    "source_file": "upload/source_documents/pdf/MammothChuck板电机堵转现象的测试验证.pdf",
+    "source_doc_id": 215,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4565dca5435a",
+    "source_key": "db-breakdown-91d722586bcb",
+    "question": "Mammoth试剂舱在温度从25°C降至16°C过程中，TEC状态码应如何变化？",
+    "ground_truth": "TEC状态码变化为0x02制冷→0x04恒温制冷",
+    "source_title": "Mammoth 试剂舱固件上报温控状态数据错误",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂舱固件上报温控状态数据错误.pdf",
+    "source_doc_id": 216,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6f8cc4c11b36",
+    "source_key": "db-breakdown-91d722586bcb",
+    "question": "Mammoth试剂舱固件上报温控状态错误的原因是什么？",
+    "ground_truth": "当温差大于0时，系统进入制冷状态，但实际制冷和加热状态均依据温差计算PWM驱动占空比，导致状态判断错误",
+    "source_title": "Mammoth 试剂舱固件上报温控状态数据错误",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂舱固件上报温控状态数据错误.pdf",
+    "source_doc_id": 216,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7e3e26282492",
+    "source_key": "db-breakdown-607417cca3ec",
+    "question": "Mammoth试剂仓在beta1-4阶段出现RFID识别率低的原因有哪些？",
+    "ground_truth": "距离远；MDA控温风扇干扰；RFID馈线折弯角度；线材干扰；金属避空不够",
+    "source_title": "Mammoth 试剂仓RFID识别优化",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂仓RFID识别优化.pdf",
+    "source_doc_id": 217,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a285fcf89403",
+    "source_key": "db-breakdown-607417cca3ec",
+    "question": "Mammoth试剂仓优化后测试的结论是什么？",
+    "ground_truth": "1台10W次识别率100%，3台5000次识别率100%",
+    "source_title": "Mammoth 试剂仓RFID识别优化",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂仓RFID识别优化.pdf",
+    "source_doc_id": 217,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0fe3f0172d1f",
+    "source_key": "db-breakdown-aa543a10ce69",
+    "question": "Mammoth冠冷TEC在alpha样机阶段存在什么问题？",
+    "ground_truth": "冠冷TEC存在易损坏问题",
+    "source_title": "Mammoth 冠冷TEC损坏",
+    "source_file": "upload/source_documents/pdf/Mammoth 冠冷TEC损坏.pdf",
+    "source_doc_id": 218,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-bebd9796d270",
+    "source_key": "db-breakdown-aa543a10ce69",
+    "question": "Mammoth冠冷TEC焊盘脆弱的原因是什么？",
+    "ground_truth": "线材制作环节或生产安装环节拉扯焊盘导致焊盘破裂",
+    "source_title": "Mammoth 冠冷TEC损坏",
+    "source_file": "upload/source_documents/pdf/Mammoth 冠冷TEC损坏.pdf",
+    "source_doc_id": 218,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-dc39e06a148a",
+    "source_key": "db-breakdown-77f125f42a3e",
+    "question": "chuck模块在温度性能测试中降温速度超时多少秒？",
+    "ground_truth": "18S",
+    "source_title": "mammoth chuck模块温控速度不达标",
+    "source_file": "upload/source_documents/pdf/mammoth chuck模块温控速度不达标.pdf",
+    "source_doc_id": 219,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9cb9177fb464",
+    "source_key": "db-breakdown-77f125f42a3e",
+    "question": "水冷液气泡过多导致温控速度不达标的原因是什么？",
+    "ground_truth": "比热容减小，对热面积累的热无法快速转移，导致积热进而引起制冷性能差",
+    "source_title": "mammoth chuck模块温控速度不达标",
+    "source_file": "upload/source_documents/pdf/mammoth chuck模块温控速度不达标.pdf",
+    "source_doc_id": 219,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7aa4fe442eae",
+    "source_key": "db-breakdown-66041f06b44f",
+    "question": "Mammoth Chuck控温过程中TEC自动关停的直接原因有哪些",
+    "ground_truth": "RTD开路或短路、热面温度过高、温度超过设定上限或下限、TEC电流监控异常",
+    "source_title": "Mammoth Chuck控温过程中TEC自动关停问题排查",
+    "source_file": "upload/source_documents/pdf/Mammoth Chuck控温过程中TEC自动关停问题排查.pdf",
+    "source_doc_id": 220,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-45b1369767e9",
+    "source_key": "db-breakdown-66041f06b44f",
+    "question": "当RTD2 Temp数值超过65°C时会发生什么情况",
+    "ground_truth": "TEC会自动关停",
+    "source_title": "Mammoth Chuck控温过程中TEC自动关停问题排查",
+    "source_file": "upload/source_documents/pdf/Mammoth Chuck控温过程中TEC自动关停问题排查.pdf",
+    "source_doc_id": 220,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d37299e4ff4f",
+    "source_key": "db-breakdown-8a89ee2e3ae4",
+    "question": "Mammoth Beta4#中相机通道1出图慢的主要诱因是什么",
+    "ground_truth": "采集卡PCIe带宽由X8降为X1，导致相机带宽下降",
+    "source_title": "Mammoth Beta4# 出图慢问题分析",
+    "source_file": "upload/source_documents/pdf/Mammoth Beta4# 出图慢问题分析.pdf",
+    "source_doc_id": 221,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6a4e6d55fe25",
+    "source_key": "db-breakdown-8a89ee2e3ae4",
+    "question": "在Mammoth Beta4#问题排查中，如何确认通道1相机带宽异常",
+    "ground_truth": "通过软触发方式测试，发现通道1对应相机带宽从正常的3000MB/s下降至905MB/s",
+    "source_title": "Mammoth Beta4# 出图慢问题分析",
+    "source_file": "upload/source_documents/pdf/Mammoth Beta4# 出图慢问题分析.pdf",
+    "source_doc_id": 221,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6334f8cb7e77",
+    "source_key": "db-breakdown-4a5978fc3d4f",
+    "question": "伺服驱动器产生的倒灌电压最大值是多少？",
+    "ground_truth": "59V",
+    "source_title": "Mammoth 48V台达电源保护",
+    "source_file": "upload/source_documents/pdf/Mammoth 48V台达电源保护.pdf",
+    "source_doc_id": 222,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d05b3d76d9bf",
+    "source_key": "db-breakdown-4a5978fc3d4f",
+    "question": "48V电源过压保护的电压区间范围是什么？",
+    "ground_truth": "52.8V∽62.4V",
+    "source_title": "Mammoth 48V台达电源保护",
+    "source_file": "upload/source_documents/pdf/Mammoth 48V台达电源保护.pdf",
+    "source_doc_id": 222,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9e0653b17855",
+    "source_key": "db-breakdown-be76fb904996",
+    "question": "在T1+从ssDNA开始进行make过程中，若产物总量少于预期10ul且浓度小于2ng/ul，同时ligas buffer剩余量远大于预期，应检查哪个部件？",
+    "ground_truth": "单泵加样异常，需更换对应的泵",
+    "source_title": "MakeDNB失败",
+    "source_file": "upload/source_documents/pdf/MakeDNB失败.pdf",
+    "source_doc_id": 223,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6d7143afb50f",
+    "source_key": "db-breakdown-be76fb904996",
+    "question": "从ssDNA开始进行make时，若不同lane1的试剂剩余量少于预期，且注射泵内部存在气密性问题，应如何处理？",
+    "ground_truth": "使用气罐吹净注射泵，再次尝试make",
+    "source_title": "MakeDNB失败",
+    "source_file": "upload/source_documents/pdf/MakeDNB失败.pdf",
+    "source_doc_id": 223,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-94b56c3fb038",
+    "source_key": "db-breakdown-eaec9fbe1737",
+    "question": "LT板使用的是哪种主控芯片，其最高主频是多少？",
+    "ground_truth": "LT板使用的是STM32F407的主控芯片，其芯片最高主频168M",
+    "source_title": "LT板报错",
+    "source_file": "upload/source_documents/pdf/LT板报错.pdf",
+    "source_doc_id": 224,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-65bf5dc7edf7",
+    "source_key": "db-breakdown-eaec9fbe1737",
+    "question": "LT板固件通信模式从单工改为哪种模式，通信效率提升了多少倍？",
+    "ground_truth": "LT板固件通信模式从单工改为半双工通信方式，通信效率比原来提升50倍",
+    "source_title": "LT板报错",
+    "source_file": "upload/source_documents/pdf/LT板报错.pdf",
+    "source_doc_id": 224,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3dee02e14c20",
+    "source_key": "db-breakdown-766768f95c33",
+    "question": "LT板心跳灯灭的根因是什么",
+    "ground_truth": "固件中系统时钟来源设置为12Mhz，而实际硬件使用的是8Mhz物料，导致配置不匹配",
+    "source_title": "LT板心跳灯灭",
+    "source_file": "upload/source_documents/pdf/LT 板心跳灯灭.pdf",
+    "source_doc_id": 225,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-382bf9199bcc",
+    "source_key": "db-breakdown-766768f95c33",
+    "question": "LT板固件未同步修改的原因是什么",
+    "ground_truth": "第一版软硬件由CG设计，FW来源于游戏手柄；后续CG调整硬件配置和代码并移交深圳，硬件同步升级但固件未同步修改",
+    "source_title": "LT板心跳灯灭",
+    "source_file": "upload/source_documents/pdf/LT 板心跳灯灭.pdf",
+    "source_doc_id": 225,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3f3cf829127b",
+    "source_key": "db-breakdown-14139c1decee",
+    "question": "相机防尘盖未打开会导致Live画面出现黑屏吗",
+    "ground_truth": "是",
+    "source_title": "Live画面黑屏",
+    "source_file": "upload/source_documents/pdf/Live画面黑屏.pdf",
+    "source_doc_id": 226,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-17596b6d40fb",
+    "source_key": "db-breakdown-14139c1decee",
+    "question": "解决Live画面黑屏问题时需要检查哪些软件参数",
+    "ground_truth": "增益、曝光时间",
+    "source_title": "Live画面黑屏",
+    "source_file": "upload/source_documents/pdf/Live画面黑屏.pdf",
+    "source_doc_id": 226,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-960a0ea297de",
+    "source_key": "db-breakdown-bd89ec3c465a",
+    "question": "Lane内Q30不均匀现象的主要原因有哪些",
+    "ground_truth": "流体过液导致的胶边或其他趋势性的不均匀现象；平台或光学拍照导致的不同方向扫描的趋势性的Q30不均匀",
+    "source_title": "Lane内Q30不均匀",
+    "source_file": "upload/source_documents/pdf/Lane内Q30不均匀.pdf",
+    "source_doc_id": 227,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e262287d0c2d",
+    "source_key": "db-breakdown-bd89ec3c465a",
+    "question": "如何确认Lane内Q30不均匀问题的现场定位",
+    "ground_truth": "通过检查步骤中的描述进行现场定位确认",
+    "source_title": "Lane内Q30不均匀",
+    "source_file": "upload/source_documents/pdf/Lane内Q30不均匀.pdf",
+    "source_doc_id": 227,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e49db4746871",
+    "source_key": "db-breakdown-41914f4535cb",
+    "question": "STM32F429芯片在IO板中的固件重构后，通信效率提升了多少倍",
+    "ground_truth": "通信效率比原来快了近5倍",
+    "source_title": "IO端口通讯异常",
+    "source_file": "upload/source_documents/pdf/IO端口通讯异常.pdf",
+    "source_doc_id": 228,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-798ccd6ae162",
+    "source_key": "db-breakdown-41914f4535cb",
+    "question": "当上位机发送获取固件版本号指令后无回复时，说明什么问题",
+    "ground_truth": "说明TX端已经异常",
+    "source_title": "IO端口通讯异常",
+    "source_file": "upload/source_documents/pdf/IO端口通讯异常.pdf",
+    "source_doc_id": 228,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-596509cfc00d",
+    "source_key": "db-breakdown-692f6a0f4cb0",
+    "question": "在混样测序中，样本A中检出样本B的物种Reads的主要原因是什么",
+    "ground_truth": "Insert太短、R1R2不匹配、建库引入污染、Barcode设计问题（如汉明距离较小、双端不唯一）",
+    "source_title": "Index hopping",
+    "source_file": "upload/source_documents/pdf/Index hopping.pdf",
+    "source_doc_id": 229,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e7bfabe0d3da",
+    "source_key": "db-breakdown-692f6a0f4cb0",
+    "question": "针对Index hopping问题，根本解决方案包括哪些措施",
+    "ground_truth": "优化Barcode设计，增加汉明距离，确保双端唯一；改进建库流程，避免样本交叉污染；使用Dual barcode测序库选择双barcode拆分策略",
+    "source_title": "Index hopping",
+    "source_file": "upload/source_documents/pdf/Index hopping.pdf",
+    "source_doc_id": 229,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b91cc2849b28",
+    "source_key": "db-breakdown-414bcad0d189",
+    "question": "当MCU作为IIC主机异常复位时，若从机未复位且SDA保持低电平，会导致什么现象？",
+    "ground_truth": "IIC总线锁死",
+    "source_title": "IIC 通信异常恢复和时钟拉伸问题",
+    "source_file": "upload/source_documents/pdf/IIC 通信异常恢复和时钟拉伸问题.pdf",
+    "source_doc_id": 230,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0645a8fa279b",
+    "source_key": "db-breakdown-414bcad0d189",
+    "question": "外购液体压力传感器在IIC通信中，从机拉伸SCL信号的时间不得超过多少微秒？",
+    "ground_truth": "10微秒",
+    "source_title": "IIC 通信异常恢复和时钟拉伸问题",
+    "source_file": "upload/source_documents/pdf/IIC 通信异常恢复和时钟拉伸问题.pdf",
+    "source_doc_id": 230,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d30258899c22",
+    "source_key": "db-breakdown-b0bd55cff967",
+    "question": "i7 barcode出现陡降的原因是什么？",
+    "ground_truth": "是lag导致的，进一步分析发现是因为IP2引物导致空间位阻影响了barcode的合成切除",
+    "source_title": "i7 Barcode陡降",
+    "source_file": "upload/source_documents/pdf/i7 Barcode陡降.pdf",
+    "source_doc_id": 231,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d5de910a398b",
+    "source_key": "db-breakdown-b0bd55cff967",
+    "question": "如何通过修改IP2引物解决i7 barcode陡降问题？",
+    "ground_truth": "去掉IP2引物的linker并减少2bp长度，可以改善barcode陡降且不影响二链回升",
+    "source_title": "i7 Barcode陡降",
+    "source_file": "upload/source_documents/pdf/i7 Barcode陡降.pdf",
+    "source_doc_id": 231,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d410049d7959",
+    "source_key": "db-breakdown-ed9a85cf3dfc",
+    "question": "96孔板在上机前摇晃会导致什么故障现象",
+    "ground_truth": "TotalReads低，heatmap呈现上下分层式不均匀",
+    "source_title": "heatmap分布呈现上下分层式不均匀",
+    "source_file": "upload/source_documents/pdf/heatmap分布呈现上下分层式不均匀.pdf",
+    "source_doc_id": 232,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d17c114b9613",
+    "source_key": "db-breakdown-ed9a85cf3dfc",
+    "question": "为何四联针抽液会异常导致loading异常",
+    "ground_truth": "因为摇晃96孔板导致试剂出现泡沫或离开孔底，四联针抽进了泡沫或空气",
+    "source_title": "heatmap分布呈现上下分层式不均匀",
+    "source_file": "upload/source_documents/pdf/heatmap分布呈现上下分层式不均匀.pdf",
+    "source_doc_id": 232,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-43a7c6c0d255",
+    "source_key": "db-breakdown-771b5a51f520",
+    "question": "E250041938芯片号cycle95出现本地cal缺失的原因是什么",
+    "ground_truth": "BIS本地内存累积至80%以上导致数据丢失并触发getQc超时，且未收到完整cal文件，但收到Last cal包，未触发续测，最终导致cycle95本地cal缺失",
+    "source_title": "GBG T7-2#本地个别cycle calN问题分析",
+    "source_file": "upload/source_documents/pdf/GBG T7-2#本地个别cycle calN.pdf",
+    "source_doc_id": 233,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e4f21079ed07",
+    "source_key": "db-breakdown-771b5a51f520",
+    "question": "ztronLite凌晨入仓操作如何影响BIS的cal文件落盘",
+    "ground_truth": "ztronLite凌晨执行入仓操作造成IO Wait升高，影响BIS向ztronLite传输cal文件的效率，导致远程落盘延迟",
+    "source_title": "GBG T7-2#本地个别cycle calN问题分析",
+    "source_file": "upload/source_documents/pdf/GBG T7-2#本地个别cycle calN.pdf",
+    "source_doc_id": 233,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9651237e9d8f",
+    "source_key": "db-breakdown-528322c40f68",
+    "question": "G99黑线现象在多少cycle后开始出现",
+    "ground_truth": "70cycle后出现",
+    "source_title": "G99黑线/黑影",
+    "source_file": "upload/source_documents/pdf/G99黑线黑影.pdf",
+    "source_doc_id": 234,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9961c111f96f",
+    "source_key": "db-breakdown-528322c40f68",
+    "question": "G99黑线问题的根本解决方案是什么",
+    "ground_truth": "变更manifold孔位排布，从硬件上将cold和ddNTP孔位隔开",
+    "source_title": "G99黑线/黑影",
+    "source_file": "upload/source_documents/pdf/G99黑线黑影.pdf",
+    "source_doc_id": 234,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-997ee9e1026e",
+    "source_key": "db-breakdown-32ae662d18ae",
+    "question": "G99平台起始Q30低的主要原因是什么",
+    "ground_truth": "AB边流体差异、postload气泡、DNB加载空腔及杂质引起",
+    "source_title": "G99起始Q30低",
+    "source_file": "upload/source_documents/pdf/G99起始Q30低.pdf",
+    "source_doc_id": 235,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d54a57ca2e25",
+    "source_key": "db-breakdown-32ae662d18ae",
+    "question": "postload过程中出现黑影且二链不可恢复的原因是什么",
+    "ground_truth": "该区域无DNB，一般是DNB加载问题，如DNB加载时芯片内出现空腔",
+    "source_title": "G99起始Q30低",
+    "source_file": "upload/source_documents/pdf/G99起始Q30低.pdf",
+    "source_doc_id": 235,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e3c4fd30613d",
+    "source_key": "db-breakdown-00ca81fc2ace",
+    "question": "在G99故障中，查找起始点失败时，如果location图片清晰但offset大于50，可能的原因是什么？",
+    "ground_truth": "芯片过于倾斜导致移动出错或平台重复定位精度问题",
+    "source_title": "G99-查找起始点失败",
+    "source_file": "upload/source_documents/pdf/G99-查找起始点失败.pdf",
+    "source_doc_id": 236,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0fe46cc16d4c",
+    "source_key": "db-breakdown-00ca81fc2ace",
+    "question": "G99故障中，查找起始点的流程包括哪些关键步骤？",
+    "ground_truth": "到default位置拍一次，计算此图的中心偏差即offset，根据offset移动平台拍第二次，判断x和y的offset是否小于50，若不满足则尝试下一个fov",
+    "source_title": "G99-查找起始点失败",
+    "source_file": "upload/source_documents/pdf/G99-查找起始点失败.pdf",
+    "source_doc_id": 236,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2ca9759512c3",
+    "source_key": "db-breakdown-acdaa1f6c2f3",
+    "question": "使用ECR1.1及以前版本时，APP-C 75+1+8+8读长下barcode段测序质量差的原因是什么",
+    "ground_truth": "Read2测的长度太短，导致barcode段质量不好；怀疑barcode段反应不充分；算法未加wgbs优化",
+    "source_title": "G99 barcode曲线陡降",
+    "source_file": "upload/source_documents/pdf/G99 barcode曲线陡降.pdf",
+    "source_doc_id": 237,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-3c952275dde7",
+    "source_key": "db-breakdown-acdaa1f6c2f3",
+    "question": "针对G99 barcode曲线陡降问题，解决方案中提到的关键措施有哪些",
+    "ground_truth": "Read2测的长度不能太短；barcode端增加体积；算法加wgbs优化",
+    "source_title": "G99 barcode曲线陡降",
+    "source_file": "upload/source_documents/pdf/G99 barcode曲线陡降.pdf",
+    "source_doc_id": 237,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d1750c158e92",
+    "source_key": "db-breakdown-32980268cdbb",
+    "question": "仪器A和C出现起始Q30下降快的原因是什么？",
+    "ground_truth": "芯片非特异性吸附（NSB）导致Overloading，进而引起ESR偏低和数据量异常",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）.pdf",
+    "source_doc_id": 238,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f400c7a193cf",
+    "source_key": "db-breakdown-32980268cdbb",
+    "question": "哪些芯片号属于WH2320SN02批次且存在高风险？",
+    "ground_truth": "S250058953、S250058954、S250058963、S250058975",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）.pdf",
+    "source_doc_id": 238,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-48f376bce39e",
+    "source_key": "db-breakdown-a88a914a0ec2",
+    "question": "仪器A出现起始Q30下降快的原因是什么？",
+    "ground_truth": "仪器A存在明显芯片非特异性吸附（NSB）导致起始Q30下降快",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）(1).pdf",
+    "source_doc_id": 239,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0e74deca8dbf",
+    "source_key": "db-breakdown-a88a914a0ec2",
+    "question": "哪些芯片号属于WH2320SN02批次且存在高风险？",
+    "ground_truth": "S250058953/S250058954/S250058963/S250058975",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）(1).pdf",
+    "source_doc_id": 239,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e51fb734c476",
+    "source_key": "db-breakdown-81be02ca9368",
+    "question": "G50设备在2023年7月200冲量期间，武汉FQC的4台机器出现起始Q30下降快的原因是什么？",
+    "ground_truth": "DNB在加载过程中被破坏，导致起始Q值低。",
+    "source_title": "G50起始Q30下降快（原因一）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因一）.pdf",
+    "source_doc_id": 240,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-29c73aaeb8bb",
+    "source_key": "db-breakdown-81be02ca9368",
+    "question": "针对G50设备DNB管路残留试剂问题，采取了什么解决方案？",
+    "ground_truth": "每次上机前增加气瓶吹干公共管路和DNB管路的动作，后续更换公共管路和DNB管路并增加吹气动作。",
+    "source_title": "G50起始Q30下降快（原因一）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因一）.pdf",
+    "source_doc_id": 240,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e8af5524e372",
+    "source_key": "db-breakdown-28146e546cbb",
+    "question": "G50平台在升级ECR5.0后第四次测序的拆分率是多少？",
+    "ground_truth": "90%",
+    "source_title": "G50 拆分率偏低（运控相关）",
+    "source_file": "upload/source_documents/pdf/G50 拆分率偏低（运控相关）.pdf",
+    "source_doc_id": 241,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-206a191cc0ff",
+    "source_key": "db-breakdown-28146e546cbb",
+    "question": "G50平台S103 barcode阶段出现虚焦的主要原因是什么？",
+    "ground_truth": "Barcode阶段与R1测序曝光条件不一致，导致运控对焦时机变化",
+    "source_title": "G50 拆分率偏低（运控相关）",
+    "source_file": "upload/source_documents/pdf/G50 拆分率偏低（运控相关）.pdf",
+    "source_doc_id": 241,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-8b8fd0c59644",
+    "source_key": "db-breakdown-8e784ccb5738",
+    "question": "G50 barcode黑线在测序过程中具体表现为从哪个阶段开始出现黑影？",
+    "ground_truth": "从barcode 1cycle开始一直到barcode测序结束，靠近进液口出现黑影",
+    "source_title": "G50 barcode黑线",
+    "source_file": "upload/source_documents/pdf/G50 barcode黑线.pdf",
+    "source_doc_id": 242,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-45d36d541cd0",
+    "source_key": "db-breakdown-8e784ccb5738",
+    "question": "为避免BR试剂窜入导致barcode黑线，泵入BP1后应使用哪个孔位的空气进行隔离？",
+    "ground_truth": "22号孔位的Air1",
+    "source_title": "G50 barcode黑线",
+    "source_file": "upload/source_documents/pdf/G50 barcode黑线.pdf",
+    "source_doc_id": 242,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f1ec3401e5c7",
+    "source_key": "db-breakdown-14272b8b7843",
+    "question": "G400平台二链第1cycle出现异常黑线时，哪些指标受到显著影响？",
+    "ground_truth": "Q30和ESR指标",
+    "source_title": "G400黑线",
+    "source_file": "upload/source_documents/pdf/G400黑线.pdf",
+    "source_doc_id": 243,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-dc2a181c4373",
+    "source_key": "db-breakdown-14272b8b7843",
+    "question": "使用H0050批次试剂更换MDA酶后，测试#178 A边的黑线现象是否消失？",
+    "ground_truth": "未提及黑线是否消失，仅说明进行了更换测试",
+    "source_title": "G400黑线",
+    "source_file": "upload/source_documents/pdf/G400黑线.pdf",
+    "source_doc_id": 243,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-e55e9d51b84b",
+    "source_key": "db-breakdown-c938121b5a5f",
+    "question": "FTRR V3.0试剂在化冻后是否可能出现沉淀问题？",
+    "ground_truth": "FTRR V3.0试剂在化冻后可能存在沉淀问题，无论室温或水浴化冻，充分化冻后仍存在沉淀。",
+    "source_title": "FTRR V3.0试剂化冻后沉淀问题",
+    "source_file": "upload/source_documents/pdf/FTRR V3.0试剂化冻后沉淀问题.pdf",
+    "source_doc_id": 244,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-323b9c72999f",
+    "source_key": "db-breakdown-c938121b5a5f",
+    "question": "RR试剂瓶底部出现结晶会导致什么后果？",
+    "ground_truth": "RR试剂瓶底部存在明显结晶，导致试剂均匀性受影响，是造成lag异常的主要原因。",
+    "source_title": "FTRR V3.0试剂化冻后沉淀问题",
+    "source_file": "upload/source_documents/pdf/FTRR V3.0试剂化冻后沉淀问题.pdf",
+    "source_doc_id": 244,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b79be02258e7",
+    "source_key": "db-breakdown-a3cea1c302db",
+    "question": "FTAT电源在启动过程中触发保护机制的原因是什么",
+    "ground_truth": "设计负载电容超过电源要求值，导致电源在启动时电流冲击过大，触发保护机制",
+    "source_title": "FTAT 电源启动保护",
+    "source_file": "upload/source_documents/pdf/FTAT 电源启动保护.pdf",
+    "source_doc_id": 245,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-9fb81747a8ea",
+    "source_key": "db-breakdown-a3cea1c302db",
+    "question": "解决FTAT电源启动保护问题的方案有哪些",
+    "ground_truth": "1、做好电源管理，开机启动采用电源管理时序对大负载错峰上电；2、前期设计阶段可提前进行评估",
+    "source_title": "FTAT 电源启动保护",
+    "source_file": "upload/source_documents/pdf/FTAT 电源启动保护.pdf",
+    "source_doc_id": 245,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d32cc8bcab57",
+    "source_key": "db-breakdown-5b5a85963e11",
+    "question": "FTAT SBC在运行过程中自动重启的主要原因是什么",
+    "ground_truth": "内存条接触不良导致系统不稳定，从而引发自动重启",
+    "source_title": "FTAT SBC 运行自动重启",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 运行自动重启.pdf",
+    "source_doc_id": 246,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c491c5a138b4",
+    "source_key": "db-breakdown-5b5a85963e11",
+    "question": "如何预防FTAT SBC因内存条接触不良导致的自动重启问题",
+    "ground_truth": "在产品出厂前进行振动测试，以筛选出存在接触不良问题的内存条",
+    "source_title": "FTAT SBC 运行自动重启",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 运行自动重启.pdf",
+    "source_doc_id": 246,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-911e62a56942",
+    "source_key": "db-breakdown-1820f339b1cc",
+    "question": "FTAT SBC设备在网口物理断开后重新插入无法识别的原因是什么",
+    "ground_truth": "网卡处于低功耗模式，在物理连接恢复后未能自动重连，导致系统无法检测到网络接口的存在",
+    "source_title": "FTAT SBC 网口物理断开，重新插入无法识别",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 网口物理断开，重新插入无法识别.pdf",
+    "source_doc_id": 247,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-66373d6319fc",
+    "source_key": "db-breakdown-1820f339b1cc",
+    "question": "如何解决FTAT SBC网口重新插入后无法识别的问题",
+    "ground_truth": "关闭网卡的低功耗模式，确保在网口重新插入时能够正常识别并建立连接",
+    "source_title": "FTAT SBC 网口物理断开，重新插入无法识别",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 网口物理断开，重新插入无法识别.pdf",
+    "source_doc_id": 247,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6d75869c166b",
+    "source_key": "db-breakdown-5613c23ec2db",
+    "question": "FTAT SBC在待机过程中出现纯蓝色屏幕的原因是什么",
+    "ground_truth": "系统休眠模式设置问题导致设备在待机时显示异常，表现为纯蓝色屏幕",
+    "source_title": "FTAT SBC 待机过程中纯蓝色屏幕",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 待机过程中纯蓝色屏幕.pdf",
+    "source_doc_id": 248,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d15ffe9ae2d9",
+    "source_key": "db-breakdown-5613c23ec2db",
+    "question": "如何解决FTAT SBC待机时出现纯蓝色屏幕的问题",
+    "ground_truth": "关闭系统休眠模式",
+    "source_title": "FTAT SBC 待机过程中纯蓝色屏幕",
+    "source_file": "upload/source_documents/pdf/FTAT SBC 待机过程中纯蓝色屏幕.pdf",
+    "source_doc_id": 248,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-20ee4e3855ad",
+    "source_key": "db-breakdown-66eb4446348b",
+    "question": "FTAT SBC设备com口通信校验错误的原因是什么",
+    "ground_truth": "由超微主板与图像采集卡之间的兼容性问题引起，导致供电异常，进而干扰串口信号的稳定性",
+    "source_title": "FTAT SBC com口通信校验错误",
+    "source_file": "upload/source_documents/pdf/FTAT SBC com口通信校验错误.pdf",
+    "source_doc_id": 249,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-29b51ab8da93",
+    "source_key": "db-breakdown-66eb4446348b",
+    "question": "解决FTAT SBC设备com口通信校验错误的方法是什么",
+    "ground_truth": "更换为兼容性更好的图像采集卡",
+    "source_title": "FTAT SBC com口通信校验错误",
+    "source_file": "upload/source_documents/pdf/FTAT SBC com口通信校验错误.pdf",
+    "source_doc_id": 249,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-6fe5404cc905",
+    "source_key": "db-breakdown-ec783a6aad49",
+    "question": "E25设备在换液过程中出现的较小气泡会如何流动",
+    "ground_truth": "随着流体流动流出芯片区",
+    "source_title": "E25流体气泡问题",
+    "source_file": "upload/source_documents/pdf/E25流体气泡问题.pdf",
+    "source_doc_id": 250,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-066ffc8142ef",
+    "source_key": "db-breakdown-ec783a6aad49",
+    "question": "E25设备中停留在芯片反应区的气泡需要经过多少次换液才能被冲走",
+    "ground_truth": "经过多次换液才能使气泡冲走",
+    "source_title": "E25流体气泡问题",
+    "source_file": "upload/source_documents/pdf/E25流体气泡问题.pdf",
+    "source_doc_id": 250,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-190b0d96093a",
+    "source_key": "db-breakdown-a7a26dd45c29",
+    "question": "E25设备出现die白图异常时，MPI信号传输路径中导致问题的主要原因是什么？",
+    "ground_truth": "POGOPIN接触不良导致信号中断",
+    "source_title": "E25设备die白图异常问题分析",
+    "source_file": "upload/source_documents/pdf/E25.pdf",
+    "source_doc_id": 251,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-acfead8eadcb",
+    "source_key": "db-breakdown-a7a26dd45c29",
+    "question": "在检查E25设备die白图异常时，应如何检测pogopin通路的阻抗是否正常？",
+    "ground_truth": "使用探针测试pogopin通路阻抗，对比正常与异常通道",
+    "source_title": "E25设备die白图异常问题分析",
+    "source_file": "upload/source_documents/pdf/E25.pdf",
+    "source_doc_id": 251,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7f6e342c4153",
+    "source_key": "db-breakdown-9d8a9cce09e5",
+    "question": "智微智能SBC在高温高湿测试后无法进入系统，卡在加载界面的原因是什么",
+    "ground_truth": "重启前的错误操作导致C盘系统启动文件损坏；硬盘因为高温高湿测试损坏",
+    "source_title": "Dophin智微智能SBC无法进入系统",
+    "source_file": "upload/source_documents/pdf/Dophin智微智能SBC无法进入系统.pdf",
+    "source_doc_id": 252,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-773391a656cb",
+    "source_key": "db-breakdown-9d8a9cce09e5",
+    "question": "使用PE系统检查C盘时发现什么问题，最终确认了什么故障",
+    "ground_truth": "发现C盘有大量故障的块，确认硬盘硬件故障",
+    "source_title": "Dophin智微智能SBC无法进入系统",
+    "source_file": "upload/source_documents/pdf/Dophin智微智能SBC无法进入系统.pdf",
+    "source_doc_id": 252,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a29f608021e8",
+    "source_key": "db-breakdown-c69ad7ba754f",
+    "question": "Festo SPAN-B2R-M5F-PNLK-PNVBA-L1传感器在EUI控制软件中显示数值在45.6kpa、-91.5kpa和58.6kpa之间交替变化的原因是什么",
+    "ground_truth": "ADC内部电容C的放电时间大于通道切换时间，导致上一通道数据残留影响下一通道采集",
+    "source_title": "Dolphin气体压力传感器传送数据串扰问题",
+    "source_file": "upload/source_documents/pdf/Dolphin气体压力传感器传送数据串扰问题.pdf",
+    "source_doc_id": 253,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c4056e8f829b",
+    "source_key": "db-breakdown-c69ad7ba754f",
+    "question": "如何解决Dolphin气体压力传感器中ADC1和ADC2共用通道出现的-86kpa、10kpa、76kpa固定数值串扰问题",
+    "ground_truth": "将MCU的ADC基础时钟分频系数从4分频调整为16分频，降低采样频率，延长通道切换时间，确保内部电容C充分放电",
+    "source_title": "Dolphin气体压力传感器传送数据串扰问题",
+    "source_file": "upload/source_documents/pdf/Dolphin气体压力传感器传送数据串扰问题.pdf",
+    "source_doc_id": 253,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-adfc0209f96b",
+    "source_key": "db-breakdown-d908970054fe",
+    "question": "Dolphin ML试剂盒模组A模组RFID读取成功率低的原因是什么",
+    "ground_truth": "RFID天线辐射面与实际使用场景相反，且风扇线缆与射频馈线走在一起造成干扰",
+    "source_title": "Dolphin ML试剂盒模组RFID标签读取成功率低",
+    "source_file": "upload/source_documents/pdf/Dolphin ML试剂盒模组RFID标签读取成功率低.pdf",
+    "source_doc_id": 254,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-48c1cdaa2f50",
+    "source_key": "db-breakdown-d908970054fe",
+    "question": "EC-UHF-A-2 RFID模块固件升级到哪个版本以改善读取性能",
+    "ground_truth": "V1.17",
+    "source_title": "Dolphin ML试剂盒模组RFID标签读取成功率低",
+    "source_file": "upload/source_documents/pdf/Dolphin ML试剂盒模组RFID标签读取成功率低.pdf",
+    "source_doc_id": 254,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c8ee6155558c",
+    "source_key": "db-breakdown-bde0e3b9ef22",
+    "question": "Dolphin A11型号DST401-S24RJ的JBOD拓展柜中，哪两块硬盘的故障灯点亮？",
+    "ground_truth": "两块硬盘的故障灯点亮，状态为Unconfigured Bad",
+    "source_title": "Dolphin A11#国鑫JBOD拓展柜阵列无法访问",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫JBOD拓展柜阵列无法访问.pdf",
+    "source_doc_id": 255,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-f2c64f8626d6",
+    "source_key": "db-breakdown-bde0e3b9ef22",
+    "question": "国鑫售后人员在排查Dolphin A11#国鑫JBOD拓展柜阵列无法访问问题时，最终判断的故障原因是什么？",
+    "ground_truth": "服务器异常掉电时，因RAID无超级电容，RAID卡相关信息无法及时保存，导致RAID阵列数据损坏",
+    "source_title": "Dolphin A11#国鑫JBOD拓展柜阵列无法访问",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫JBOD拓展柜阵列无法访问.pdf",
+    "source_doc_id": 255,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7c53ef3eb904",
+    "source_key": "db-breakdown-ee7aff7f375b",
+    "question": "MSR201-D06R服务器的RAID卡走线从哪个位置穿过导致轻微变形？",
+    "ground_truth": "CPU散热器侧边",
+    "source_title": "Dolphin A11#国鑫BCS RAID数据丢失",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫BCS RAID数据丢失.pdf",
+    "source_doc_id": 256,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-05ac1f32015a",
+    "source_key": "db-breakdown-ee7aff7f375b",
+    "question": "LSI9361+LSI9560 RAID卡在异常掉电时为何无法及时保存数据？",
+    "ground_truth": "RAID卡无超级电容",
+    "source_title": "Dolphin A11#国鑫BCS RAID数据丢失",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫BCS RAID数据丢失.pdf",
+    "source_doc_id": 256,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-48f473641524",
+    "source_key": "db-breakdown-85b4c433d6d5",
+    "question": "ALK融合基因突变检测中，环化消化后纯化步骤导致什么问题？",
+    "ground_truth": "部分小片段DNA被丢失，导致ALK融合基因突变信号减弱",
+    "source_title": "ALK融合基因突变检测异常",
+    "source_file": "upload/source_documents/pdf/ALK融合基因突变检测异常.pdf",
+    "source_doc_id": 257,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-0c9b846facc0",
+    "source_key": "db-breakdown-85b4c433d6d5",
+    "question": "使用哪种磁珠可以显著提高小片段文库的回收率？",
+    "ground_truth": "PEG32磁珠",
+    "source_title": "ALK融合基因突变检测异常",
+    "source_file": "upload/source_documents/pdf/ALK融合基因突变检测异常.pdf",
+    "source_doc_id": 257,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c685927665a5",
+    "source_key": "db-breakdown-b6e47b86534d",
+    "question": "Dolphin气路控制模块中测量6路气压传感器时出现压力测试值不准确的原因是什么",
+    "ground_truth": "ADC连续采样时电压测量值不准确的主要原因是采样保持电容Csh上的残余电荷未完全放电，导致测量误差。该问题源于ADC内部结构的寄生电容和采样开关的电荷注入效应。",
+    "source_title": "ADC 连续采样时电压测量值误差",
+    "source_file": "upload/source_documents/pdf/ADC 连续采样时电压测量值误差.pdf",
+    "source_doc_id": 258,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-2a2695d4d412",
+    "source_key": "db-breakdown-b6e47b86534d",
+    "question": "如何解决Dolphin储液池模块中12路液位传感器测量值不准确的问题",
+    "ground_truth": "通过在MCU固件中配置ADC设置来增加采样时间，确保采样保持电容Csh能够完全充电并稳定，并在两个采样周期之间设置适当的延迟，避免前一个通道的残余电荷影响当前测量。",
+    "source_title": "ADC 连续采样时电压测量值误差",
+    "source_file": "upload/source_documents/pdf/ADC 连续采样时电压测量值误差.pdf",
+    "source_doc_id": 258,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-c5b766a119ad",
+    "source_key": "db-breakdown-1817ea1010bb",
+    "question": "运行CheckFluidic_1_RotaryValveAndCheckValve脚本时，若发现泵液压力值过大且两侧压力不一致，可能的原因是什么？",
+    "ground_truth": "阀瓣变形、旋转阀对孔不准、电磁阀性能下降或漏液",
+    "source_title": "通过压力曲线评估流体状态",
+    "source_file": "upload/source_documents/pdf/3、通过压力曲线评估流体状态.pdf",
+    "source_doc_id": 259,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-099ce40c7f7f",
+    "source_key": "db-breakdown-1817ea1010bb",
+    "question": "当电磁阀性能下降导致压力曲线异常时，应检查哪些具体部件？",
+    "ground_truth": "A1或BP电磁阀",
+    "source_title": "通过压力曲线评估流体状态",
+    "source_file": "upload/source_documents/pdf/3、通过压力曲线评估流体状态.pdf",
+    "source_doc_id": 259,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-d863266d9336",
+    "source_key": "db-breakdown-5b36d49b49aa",
+    "question": "G99平台16S降噪后拼接数据量低的主要原因是什么",
+    "ground_truth": "末端质量下降导致Dada2过滤比例高，大量低质量Reads被分析软件过滤，未能参与拼接；测序过程中引入气泡导致callN，fq文件中呈现固定cycle的CallN现象，且部分FOV的Q30为0，影响数据完整性",
+    "source_title": "16S/18S/ITS扩增子测序问题分析",
+    "source_file": "upload/source_documents/pdf/16S18SITS扩增子测序.pdf",
+    "source_doc_id": 260,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-01596da7fe75",
+    "source_key": "db-breakdown-5b36d49b49aa",
+    "question": "针对G99平台因气泡导致callN的问题，推荐的解决方案是什么",
+    "ground_truth": "采取重测数据的方式解决",
+    "source_title": "16S/18S/ITS扩增子测序问题分析",
+    "source_file": "upload/source_documents/pdf/16S18SITS扩增子测序.pdf",
+    "source_doc_id": 260,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5a8faa6858fd",
+    "source_key": "db-breakdown-c338cd21f66e",
+    "question": "PA机械臂夹爪在检查时若发现前端两个勾子均比后端高或低，应如何处理？",
+    "ground_truth": "可以通过重新固定的方式进行调节。",
+    "source_title": "爪勾异常问题分析",
+    "source_file": "upload/source_documents/word/爪勾异常.docx",
+    "source_doc_id": 261,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-5535edb1cd99",
+    "source_key": "db-breakdown-c338cd21f66e",
+    "question": "大族机械臂夹爪若L1与L2宽度相差超过1mm，应采取什么措施？",
+    "ground_truth": "需要进行调节，可使用爪勾固定处增加垫片的方式进行调节。",
+    "source_title": "爪勾异常问题分析",
+    "source_file": "upload/source_documents/word/爪勾异常.docx",
+    "source_doc_id": 261,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-7b198d618597",
+    "source_key": "db-breakdown-388820f2394d",
+    "question": "激光器偶发不亮导致FOV图片无信号时，若背景光mean值低于多少说明没有激光照射到芯片上",
+    "ground_truth": "3300",
+    "source_title": "激光器偶发不亮导致FOV图片无信号问题分析",
+    "source_file": "upload/source_documents/word/T7-激光器偶发不亮&信号衰减-v6-20260507_095138.docx",
+    "source_doc_id": 262,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-60d4f20e02f2",
+    "source_key": "db-breakdown-388820f2394d",
+    "question": "使用激光功率计测试物镜端功率时，若透过率低于多少说明激光器功率衰减",
+    "ground_truth": "68%",
+    "source_title": "激光器偶发不亮导致FOV图片无信号问题分析",
+    "source_file": "upload/source_documents/word/T7-激光器偶发不亮&信号衰减-v6-20260507_095138.docx",
+    "source_doc_id": 262,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-4485b90ed127",
+    "source_key": "db-breakdown-3b0ec0decb43",
+    "question": "当所有lane以及R1和R2的Lag/Runon数值均很大时，可能的原因包括哪些？",
+    "ground_truth": "文库碱基不平衡、Caps试剂变质、试剂在流体管道上堆积或结晶、芯片平台温度异常、冰箱温度过高、流体系统堵塞或漏气、流体部件故障等",
+    "source_title": "lag/runon曲线异常",
+    "source_file": "upload/source_documents/pdf/lagrunon曲线异常.pdf",
+    "source_doc_id": 263,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-a3c6136d8fd4",
+    "source_key": "db-breakdown-3b0ec0decb43",
+    "question": "针对某些lane的runon高而lag正常的情况，应采取哪些对策？",
+    "ground_truth": "使用另一条lane作为对照组进行QC结果对比分析；对受影响的流道进行称重测试，加强清洗",
+    "source_title": "lag/runon曲线异常",
+    "source_file": "upload/source_documents/pdf/lagrunon曲线异常.pdf",
+    "source_doc_id": 263,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-knowledge-87be1e792453",
+    "source_key": "db-knowledge-0b2aac7c589b",
+    "question": "在DNBSEQ-T7系列基因测序仪的安装调试中，如何确认ACS滑台Y轴时域检查的位置误差是否合格？",
+    "ground_truth": "在Y轴时域检查中，需确保匀速段位置误差全程在±0.25um以内，且CNT3在匀速段一直为0；同时CNT2的上升沿需在CNT3的下降沿之后。",
+    "source_title": "SOP-016-A18-009",
+    "source_file": "upload/source_documents/pdf/SOP-016-A18-009-A4 DNBSEQ-T7 系列基因测序仪安装调试指南- 编辑中无PA版 (已自动恢复) (1).pdf",
+    "source_doc_id": 40,
+    "source_library_type": "knowledge"
+  },
+  {
+    "id": "db-knowledge-9428e3a74c23",
+    "source_key": "db-knowledge-0b2aac7c589b",
+    "question": "执行流体调度验证时，需要满足哪些前提条件？",
+    "ground_truth": "执行流体调度验证前，需确保4个生化Chuck上未吸附芯片，纯水桶中至少有20L纯水，试剂冰箱和清洗试剂槽中都放入装满纯水的测序试剂盒和清洗试剂盒，且试剂盒中的小孔必须灌满，大孔的注水量必须超过2/3。",
+    "source_title": "SOP-016-A18-009",
+    "source_file": "upload/source_documents/pdf/SOP-016-A18-009-A4 DNBSEQ-T7 系列基因测序仪安装调试指南- 编辑中无PA版 (已自动恢复) (1).pdf",
+    "source_doc_id": 40,
+    "source_library_type": "knowledge"
+  }
+]

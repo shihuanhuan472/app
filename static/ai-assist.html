@@ -1404,9 +1404,7 @@
                             // 检查图片URL是否有效
                             if (!imageUrl) return;
 
-                            // 判断是否为base64图片（临时消息）
-                            const isBase64 = imageUrl.startsWith('data:image');
-                            const fullImageUrl = isBase64 ? imageUrl : `${API_CONFIG.BASE_URL}/${imageUrl}`;
+                            const fullImageUrl = API_CONFIG.getAssetUrl(imageUrl);
                             const fileName = imageUrl.split('/').pop() || '图片';
 
                             html += `
@@ -1591,7 +1589,7 @@
         previewImage(imageUrl) {
             // 判断是否为base64图片
             const isBase64 = imageUrl.startsWith('data:image');
-            const imageSrc = isBase64 ? imageUrl : `${API_CONFIG.BASE_URL}/${imageUrl}`;
+            const imageSrc = API_CONFIG.getAssetUrl(imageUrl);
             const fileName = isBase64 ? '预览图片' : imageUrl.split('/').pop();
 
             // 创建模态框

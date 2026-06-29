@@ -225,6 +225,184 @@
             color: #ef4444;
             margin-left: 4px;
         }
+
+        .knowledge-edit-container {
+            max-width: 1180px;
+        }
+
+        .knowledge-edit-intro {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            background: #f8fbff;
+            color: #24415f;
+            margin-bottom: 24px;
+        }
+
+        .knowledge-edit-intro i {
+            color: #2b7de9;
+            margin-top: 3px;
+        }
+
+        .knowledge-editor-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin: 8px 0 18px;
+        }
+
+        .knowledge-editor-toolbar h3 {
+            margin: 0;
+            color: #1a3a5f;
+            font-size: 18px;
+        }
+
+        .knowledge-section-card {
+            border: 1px solid #d9e3f0;
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: #fff;
+        }
+
+        .knowledge-section-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .knowledge-section-card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1a3a5f;
+            font-weight: 700;
+        }
+
+        .knowledge-section-card-title .section-order {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e8f2ff;
+            color: #1f6ed4;
+            font-size: 13px;
+        }
+
+        .knowledge-section-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .knowledge-section-grid {
+            display: grid;
+            grid-template-columns: 160px minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .knowledge-section-text {
+            min-height: 220px;
+            font-family: Consolas, "Microsoft YaHei", monospace;
+        }
+
+        .knowledge-section-images {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #edf2f7;
+        }
+
+        .knowledge-image-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .knowledge-image-thumb {
+            position: relative;
+            width: 86px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .knowledge-image-thumb img {
+            width: 86px;
+            height: 64px;
+            display: block;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .knowledge-image-thumb span {
+            display: block;
+            padding: 4px 6px;
+            font-size: 12px;
+            color: #52677a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .knowledge-image-thumb button {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.92);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .knowledge-image-upload-area {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px dashed #b8c8dc;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #48637d;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .knowledge-empty-sections {
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .knowledge-section-grid {
+                grid-template-columns: 1fr;
+            }
+            .knowledge-section-card-header,
+            .knowledge-editor-toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -279,10 +457,11 @@
 
         function getFullImageUrl(relativeUrl) {
             if (!relativeUrl) return '';
-            if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
-            const base = (API_CONFIG.BASE_URL || '').replace(/\/$/, '');
+            if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(relativeUrl)) return relativeUrl;
+            if (API_CONFIG.getAssetUrl) return API_CONFIG.getAssetUrl(relativeUrl);
+            const base = (API_CONFIG.STATIC_BASE_URL || API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') || '').replace(/\/$/, '');
             const cleanPath = String(relativeUrl).replace(/^\/+/, '');
-            return `${base}/${cleanPath}`;
+            return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
         }
 
         function isAdminUser(user) {
@@ -300,6 +479,28 @@
             const isTechnician = Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
             const isAuthor = currentUser.id == doc.contributor_id;
             return isReviewMode && isTechnician && isAuthor;
+        }
+
+        function normalizeLibraryType(value) {
+            return String(value || '').trim().toLowerCase() === 'knowledge' ? 'knowledge' : 'breakdown';
+        }
+
+        function isKnowledgeDocument(doc) {
+            const source = new URLSearchParams(window.location.search).get('source');
+            return normalizeLibraryType(doc && (doc.library_type || source)) === 'knowledge' || Array.isArray(doc && doc.sections);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replace(/\n/g, '&#10;');
         }
 
         function getReturnUrl(docId) {
@@ -333,6 +534,10 @@
         };
 
         let imagesToDelete = [];
+        let currentEditingDocument = null;
+        let knowledgeSectionsState = [];
+        let knowledgeNewImagesBySection = {};
+        let knowledgeRemovedImages = [];
 
         const fieldToBackendImage = {
             problemIntro: 'image_urls_problem_intro',
@@ -381,18 +586,34 @@
                     return;
                 }
 
-                document.getElementById('loadingState').style.display = 'none';
+                currentEditingDocument = doc;
 
-                const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
-                fields.forEach(field => {
-                    const backendField = fieldToBackendImage[field];
-                    const urlsStr = doc[backendField];
-                    if (urlsStr && urlsStr.trim() && urlsStr !== 'null') {
-                        existingImageUrlsByField[field] = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
-                    } else {
-                        existingImageUrlsByField[field] = [];
-                    }
-                });
+                if (isKnowledgeDocument(doc) && !isAdminUser(Utils.getCurrentUser())) {
+                    document.getElementById('editFormContainer').innerHTML = `
+                        <div class="document-error">
+                            <i class="fas fa-lock" style="font-size:48px; color:#f59e0b; margin-bottom:20px;"></i>
+                            <p style="color:#334155; margin-bottom:20px;">知识库文档编辑暂需管理员处理。</p>
+                            <div><a href="${getReturnUrl(docId)}" class="btn btn-secondary">返回详情</a></div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const loadingState = document.getElementById('loadingState');
+                if (loadingState) loadingState.style.display = 'none';
+
+                if (!isKnowledgeDocument(doc)) {
+                    const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
+                    fields.forEach(field => {
+                        const backendField = fieldToBackendImage[field];
+                        const urlsStr = doc[backendField];
+                        if (urlsStr && urlsStr.trim() && urlsStr !== 'null') {
+                            existingImageUrlsByField[field] = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
+                        } else {
+                            existingImageUrlsByField[field] = [];
+                        }
+                    });
+                }
 
                 renderEditForm(doc);
             } catch (error) {
@@ -417,6 +638,11 @@
         }
 
         function renderEditForm(doc) {
+            if (isKnowledgeDocument(doc)) {
+                renderKnowledgeEditForm(doc);
+                return;
+            }
+
             const fields = [
                 { id: 'problem_intro', label: '问题描述', fieldKey: 'problemIntro', value: doc.problem_intro || '', large: true },
                 { id: 'causes', label: '原因分析', fieldKey: 'causes', value: doc.causes || '', large: true },
@@ -485,6 +711,242 @@
             if (submitBtn && currentUser) {
                 submitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${getSubmitButtonLabel(isAdminUser(currentUser))}`;
             }
+        }
+
+        function normalizeSectionImages(imageUrls) {
+            if (Array.isArray(imageUrls)) {
+                return imageUrls.map(url => String(url || '').trim()).filter(Boolean);
+            }
+            if (typeof imageUrls === 'string' && imageUrls.trim()) {
+                try {
+                    const parsed = JSON.parse(imageUrls);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(url => String(url || '').trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return imageUrls.split(',').map(url => url.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function cloneKnowledgeSection(section, index) {
+            return {
+                section_index: Number.isInteger(section.section_index) ? section.section_index : index,
+                section_title: section.section_title || `章节${index + 1}`,
+                section_type: section.section_type || String(index + 1),
+                plain_text: section.plain_text || '',
+                image_urls: normalizeSectionImages(section.image_urls),
+                char_start: section.char_start ?? null,
+                char_end: section.char_end ?? null,
+                metadata: section.metadata && typeof section.metadata === 'object' ? JSON.parse(JSON.stringify(section.metadata)) : {}
+            };
+        }
+
+        function initializeKnowledgeState(doc) {
+            knowledgeSectionsState = (Array.isArray(doc.sections) ? doc.sections : []).map(cloneKnowledgeSection);
+            knowledgeNewImagesBySection = {};
+            knowledgeRemovedImages = [];
+        }
+
+        function renderKnowledgeEditForm(doc) {
+            initializeKnowledgeState(doc);
+            document.getElementById('editFormContainer').classList.add('knowledge-edit-container');
+            document.getElementById('editFormContainer').innerHTML = `
+                <form id="editDocumentForm" onsubmit="updateDocument(event)">
+                    <div class="knowledge-edit-intro">
+                        <i class="fas fa-circle-info"></i>
+                        <div>当前为知识库文档编辑。正文按解析后的章节保存，保存后会自动重建向量。</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="title" class="required">文档标题</label>
+                        <input type="text" id="title" name="title" value="${escapeAttribute(doc.title || '')}" required placeholder="请输入文档标题">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentTags">标签</label>
+                        <div id="documentTags" class="tag-select"></div>
+                    </div>
+                    <div class="knowledge-editor-toolbar">
+                        <h3><i class="fas fa-layer-group"></i> 章节内容</h3>
+                        <button type="button" class="btn btn-secondary" onclick="addKnowledgeSection()"><i class="fas fa-plus"></i> 添加章节</button>
+                    </div>
+                    <div id="knowledgeSectionsEditor"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="cancelEdit('${doc.id}')"><i class="fas fa-times"></i> 取消</button>
+                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-save"></i> 保存修改</button>
+                    </div>
+                </form>
+            `;
+
+            TagSelector.init('documentTags', {
+                selected: normalizeDocumentTags(doc.tag),
+                placeholder: '请选择标签'
+            });
+            renderKnowledgeSectionsEditor();
+        }
+
+        function renderKnowledgeSectionsEditor() {
+            const container = document.getElementById('knowledgeSectionsEditor');
+            if (!container) return;
+            if (!knowledgeSectionsState.length) {
+                container.innerHTML = `
+                    <div class="knowledge-empty-sections">
+                        暂无章节。可以点击“添加章节”创建知识库正文。
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = knowledgeSectionsState.map((section, index) => `
+                <div class="knowledge-section-card" data-section-index="${index}">
+                    <div class="knowledge-section-card-header">
+                        <div class="knowledge-section-card-title">
+                            <span class="section-order">${index + 1}</span>
+                            <span>${escapeHtml(section.section_title || `章节${index + 1}`)}</span>
+                        </div>
+                        <div class="knowledge-section-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="moveKnowledgeSection(${index}, -1)" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="moveKnowledgeSection(${index}, 1)" ${index === knowledgeSectionsState.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeKnowledgeSection(${index})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="knowledge-section-grid">
+                        <div class="form-group">
+                            <label for="section_type_${index}">章节编号</label>
+                            <input type="text" id="section_type_${index}" value="${escapeAttribute(section.section_type || '')}" oninput="updateKnowledgeSectionField(${index}, 'section_type', this.value)" placeholder="如 1.2">
+                        </div>
+                        <div class="form-group">
+                            <label for="section_title_${index}">章节标题</label>
+                            <input type="text" id="section_title_${index}" value="${escapeAttribute(section.section_title || '')}" oninput="updateKnowledgeSectionField(${index}, 'section_title', this.value)" placeholder="请输入章节标题">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="section_text_${index}">章节正文</label>
+                        <textarea id="section_text_${index}" class="knowledge-section-text" oninput="updateKnowledgeSectionField(${index}, 'plain_text', this.value)" placeholder="请输入章节正文">${escapeHtml(section.plain_text || '')}</textarea>
+                    </div>
+                    <div class="knowledge-section-images">
+                        <label>章节图片</label>
+                        <div class="knowledge-image-row" id="knowledgeImages_${index}">
+                            ${renderKnowledgeSectionImages(section, index)}
+                        </div>
+                        <label class="knowledge-image-upload-area">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>上传图片到本章节</span>
+                            <input type="file" accept="image/*" multiple style="display:none" onchange="handleKnowledgeSectionFiles(${index}, this.files); this.value = '';">
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderKnowledgeSectionImages(section, sectionIndex) {
+            const existing = (section.image_urls || []).map((url, index) => {
+                const displayUrl = getFullImageUrl(url);
+                return `
+                    <div class="knowledge-image-thumb">
+                        <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" onclick="window.open(this.src, '_blank')" onerror="this.onerror=null; this.src='https://via.placeholder.com/86x64?text=加载失败'">
+                        <button type="button" title="删除图片" onclick="removeKnowledgeSectionImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
+                        <span title="${escapeAttribute(url)}">图片${index + 1}</span>
+                    </div>
+                `;
+            });
+            const pending = (knowledgeNewImagesBySection[sectionIndex] || []).map((file, index) => `
+                <div class="knowledge-image-thumb">
+                    <img src="${escapeAttribute(file.previewUrl || '')}" alt="待上传图片">
+                    <button type="button" title="移除待上传图片" onclick="removePendingKnowledgeImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
+                    <span title="${escapeAttribute(file.name)}">待上传</span>
+                </div>
+            `);
+            return existing.concat(pending).join('') || '<span style="color:#64748b;">暂无图片</span>';
+        }
+
+        function updateKnowledgeSectionField(index, field, value) {
+            if (!knowledgeSectionsState[index]) return;
+            knowledgeSectionsState[index][field] = value;
+            if (field === 'section_title') {
+                const title = document.querySelector(`.knowledge-section-card[data-section-index="${index}"] .knowledge-section-card-title span:last-child`);
+                if (title) title.textContent = value || `章节${index + 1}`;
+            }
+        }
+
+        function addKnowledgeSection() {
+            knowledgeSectionsState.push({
+                section_index: knowledgeSectionsState.length,
+                section_title: `新章节${knowledgeSectionsState.length + 1}`,
+                section_type: String(knowledgeSectionsState.length + 1),
+                plain_text: '',
+                image_urls: [],
+                char_start: null,
+                char_end: null,
+                metadata: { image_positions: [] }
+            });
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removeKnowledgeSection(index) {
+            if (!knowledgeSectionsState[index]) return;
+            const section = knowledgeSectionsState[index];
+            (section.image_urls || []).forEach(url => knowledgeRemovedImages.push(url));
+            knowledgeSectionsState.splice(index, 1);
+            reindexKnowledgePendingImages(index);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function moveKnowledgeSection(index, direction) {
+            const target = index + direction;
+            if (target < 0 || target >= knowledgeSectionsState.length) return;
+            const [section] = knowledgeSectionsState.splice(index, 1);
+            knowledgeSectionsState.splice(target, 0, section);
+            const pendingCurrent = knowledgeNewImagesBySection[index] || [];
+            const pendingTarget = knowledgeNewImagesBySection[target] || [];
+            knowledgeNewImagesBySection[index] = pendingTarget;
+            knowledgeNewImagesBySection[target] = pendingCurrent;
+            renderKnowledgeSectionsEditor();
+        }
+
+        function reindexKnowledgePendingImages(removedIndex) {
+            const next = {};
+            Object.keys(knowledgeNewImagesBySection).forEach(key => {
+                const index = Number(key);
+                if (index < removedIndex) next[index] = knowledgeNewImagesBySection[key];
+                if (index > removedIndex) next[index - 1] = knowledgeNewImagesBySection[key];
+            });
+            knowledgeNewImagesBySection = next;
+        }
+
+        function handleKnowledgeSectionFiles(sectionIndex, files) {
+            if (!knowledgeSectionsState[sectionIndex]) return;
+            const selected = Array.from(files || []).filter(file => {
+                if (!file.type.startsWith('image/')) {
+                    Utils.showMessage(`文件 "${file.name}" 不是图片`, 'warning');
+                    return false;
+                }
+                if (file.size > 20 * 1024 * 1024) {
+                    Utils.showMessage(`图片 "${file.name}" 超过20MB`, 'warning');
+                    return false;
+                }
+                file.previewUrl = URL.createObjectURL(file);
+                return true;
+            });
+            if (!selected.length) return;
+            knowledgeNewImagesBySection[sectionIndex] = (knowledgeNewImagesBySection[sectionIndex] || []).concat(selected);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removeKnowledgeSectionImage(sectionIndex, imageIndex) {
+            const section = knowledgeSectionsState[sectionIndex];
+            if (!section || !section.image_urls[imageIndex]) return;
+            knowledgeRemovedImages.push(section.image_urls[imageIndex]);
+            section.image_urls.splice(imageIndex, 1);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removePendingKnowledgeImage(sectionIndex, imageIndex) {
+            const pending = knowledgeNewImagesBySection[sectionIndex] || [];
+            const [removed] = pending.splice(imageIndex, 1);
+            if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+            knowledgeNewImagesBySection[sectionIndex] = pending;
+            renderKnowledgeSectionsEditor();
         }
 
         function initAllImageUploads() {
@@ -632,9 +1094,90 @@
         function resetSubmitButton(submitBtn) {
             if (!submitBtn) return;
             const user = Utils.getCurrentUser();
-            submitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${getSubmitButtonLabel(isAdminUser(user))}`;
+            const isKnowledge = isKnowledgeDocument(currentEditingDocument);
+            const icon = isKnowledge && isAdminUser(user) ? 'fa-save' : 'fa-paper-plane';
+            const label = isKnowledge && isAdminUser(user) ? '保存修改' : getSubmitButtonLabel(isAdminUser(user));
+            submitBtn.innerHTML = `<i class="fas ${icon}"></i> ${label}`;
             submitBtn.disabled = false;
             isSubmitting = false;
+        }
+
+        async function buildKnowledgeSectionsPayload() {
+            const sections = [];
+            let fullOffset = 0;
+            for (let index = 0; index < knowledgeSectionsState.length; index += 1) {
+                const section = knowledgeSectionsState[index];
+                const pendingFiles = knowledgeNewImagesBySection[index] || [];
+                let uploadedUrls = [];
+                if (pendingFiles.length) {
+                    const result = await documentAPI.uploadImages(pendingFiles);
+                    uploadedUrls = result.map(item => String(item.url || '').replace(/\\/g, '/')).filter(Boolean);
+                }
+                const imageUrls = [...normalizeSectionImages(section.image_urls), ...uploadedUrls];
+                const plainText = String(section.plain_text || '');
+                const metadata = section.metadata && typeof section.metadata === 'object'
+                    ? JSON.parse(JSON.stringify(section.metadata))
+                    : {};
+                metadata.image_positions = Array.isArray(metadata.image_positions)
+                    ? metadata.image_positions.filter(position => imageUrls.includes(position.image_url))
+                    : [];
+                const charStart = fullOffset;
+                const charEnd = charStart + plainText.length;
+                sections.push({
+                    section_index: index,
+                    section_title: String(section.section_title || `章节${index + 1}`).trim(),
+                    section_type: String(section.section_type || index + 1).trim(),
+                    plain_text: plainText,
+                    image_urls: imageUrls,
+                    char_start: charStart,
+                    char_end: charEnd,
+                    metadata
+                });
+                fullOffset = charEnd + 1;
+            }
+            return sections;
+        }
+
+        async function updateKnowledgeDocument(event, submitBtn) {
+            const docId = getDocumentIdFromUrl();
+            const title = document.getElementById('title').value.trim();
+            if (!title) {
+                Utils.showMessage('标题不能为空', 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                Utils.showMessage('知识库文档编辑暂需管理员处理', 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+
+            const sections = await buildKnowledgeSectionsPayload();
+            const imageUrls = [];
+            sections.forEach(section => {
+                (section.image_urls || []).forEach(url => {
+                    if (url && !imageUrls.includes(url)) imageUrls.push(url);
+                });
+            });
+
+            const finalData = {
+                library_type: 'knowledge',
+                title,
+                tag: parseDocumentTags(),
+                image_urls: imageUrls.join(', '),
+                sections
+            };
+            const result = await documentAPI.updateDocument(docId, finalData, 'knowledge');
+            if (!result) throw new Error('更新失败');
+
+            const deleteTargets = [...new Set(knowledgeRemovedImages)].filter(url => !imageUrls.includes(url));
+            if (deleteTargets.length > 0) {
+                await Promise.all(deleteTargets.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
+            }
+
+            Utils.showMessage('知识库文档已保存', 'success');
+            setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=knowledge', 1200);
         }
 
         async function updateDocument(event) {
@@ -646,6 +1189,23 @@
 
             const docId = getDocumentIdFromUrl();
             if (!docId) return;
+
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+            submitBtn.disabled = true;
+            isSubmitting = true;
+
+            if (isKnowledgeDocument(currentEditingDocument)) {
+                try {
+                    await updateKnowledgeDocument(event, submitBtn);
+                    return;
+                } catch (error) {
+                    console.error('Knowledge update failed:', error);
+                    Utils.showMessage('操作失败: ' + (error.message || '未知错误'), 'error');
+                    resetSubmitButton(submitBtn);
+                    return;
+                }
+            }
 
             const formData = {
                 title: document.getElementById('title').value.trim(),
@@ -660,16 +1220,12 @@
 
             if (!formData.title) {
                 Utils.showMessage('标题不能为空', 'error');
+                resetSubmitButton(submitBtn);
                 return;
             }
 
-            const submitBtn = event.target.querySelector('button[type="submit"]');
             const currentUser = Utils.getCurrentUser();
             const isAdmin = isAdminUser(currentUser);
-
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
-            submitBtn.disabled = true;
-            isSubmitting = true;
 
             try {
                 const uploadedUrlsByField = {};
@@ -723,6 +1279,13 @@
 
         window.cancelEdit = cancelEdit;
         window.updateDocument = updateDocument;
+        window.addKnowledgeSection = addKnowledgeSection;
+        window.moveKnowledgeSection = moveKnowledgeSection;
+        window.removeKnowledgeSection = removeKnowledgeSection;
+        window.updateKnowledgeSectionField = updateKnowledgeSectionField;
+        window.handleKnowledgeSectionFiles = handleKnowledgeSectionFiles;
+        window.removeKnowledgeSectionImage = removeKnowledgeSectionImage;
+        window.removePendingKnowledgeImage = removePendingKnowledgeImage;
 
         function normalizeDocumentTags(tags) {
             if (Array.isArray(tags)) {
