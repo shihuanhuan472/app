@@ -53,6 +53,7 @@ from knowledge_parsers import knowledge_parser
 from knowledge_parsers.section_service import (
     get_knowledge_document_sections,
     replace_knowledge_document_sections,
+    delete_section_images_for_document,
 )
 from utils.file_classifier import (
     ALLOWED_DOCUMENT_EXTENSIONS,
@@ -189,6 +190,13 @@ DOCUMENT_COPY_FIELDS = [
 
 def _is_knowledge_library(library_type: str) -> bool:
     return _normalize_library_type(library_type) == "knowledge"
+
+
+def _parse_image_urls_to_set(value) -> set:
+    """将逗号分隔的图片 URL 字符串解析为去重集合。"""
+    if not value:
+        return set()
+    return set(url.strip() for url in str(value).split(", ") if url.strip())
 
 
 def _join_image_urls(image_urls) -> str:
@@ -898,6 +906,13 @@ async def update_document(
             if hasattr(document_now, attr)
         ]
 
+        # 更新前：记录旧图片 URL 集合，用于差异删除
+        old_urls_by_attr = {}
+        for attr in attrs:
+            old_urls_by_attr[attr] = _parse_image_urls_to_set(
+                getattr(document_now, attr, None)
+            )
+
         for attr in attrs:
             urls_str = ""
             image_url = getattr(document, attr)
@@ -931,6 +946,21 @@ async def update_document(
                 if len(urls_str) > 0:
                     urls_str = urls_str.removesuffix(", ")
             setattr(document_now, attr, urls_str)
+
+        # 更新后：删除旧版本中有、新版本中没有的图片
+        for attr in attrs:
+            new_urls = _parse_image_urls_to_set(
+                getattr(document_now, attr, None)
+            )
+            old_urls = old_urls_by_attr.get(attr, set())
+            removed = old_urls - new_urls
+            for url in removed:
+                filename = os.path.basename(url)
+                if filename.strip():
+                    file_path = os.path.join(
+                        base_url, filename.lstrip("/").lstrip("\\")
+                    )
+                    await asyncio.to_thread(delete_image_with_variants, file_path)
 
         # if document.image_urls:
         #     image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
@@ -1082,6 +1112,10 @@ async def delete(
 
                         await asyncio.to_thread(delete_image_with_variants, url)
 
+        # 删除知识库文档的章节图片（KnowledgeDocumentSection.image_urls）
+        if _is_knowledge_library(getattr(document, "library_type", library_type)):
+            await delete_section_images_for_document(db, id, base_url)
+
         # if document.image_urls:
         #     config = get_image_config()
         #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
@@ -1196,6 +1230,10 @@ async def _delete_single_document(db: AsyncSession, document, library_type: str)
                 if filename.strip():
                     url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
                     await asyncio.to_thread(delete_image_with_variants, url)
+
+    # 1.1 删除知识库文档的章节图片（KnowledgeDocumentSection.image_urls）
+    if library_type == "knowledge":
+        await delete_section_images_for_document(db, document.id, base_url)
 
     # 2. 删除原始上传文件
     if document.origin_file_dir:
