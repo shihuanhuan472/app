@@ -1,3 +1,10 @@
+"""
+旧对话接口
+旧对话接口，已弃用，请使用新接口。message.py
+"""
+
+
+
 import asyncio
 import base64
 import json
@@ -350,8 +357,49 @@ async def generate_messages(db, id, message_now, documents_id, search_results=No
     tokens_tmp = tokens_max - tokens
     prompt = await get_prompt(db, documents_id, tokens_tmp, search_results)
 
+    # 收集文档中匹配到的图片，使 AI 能"看到"参考文档中的图片内容
+    doc_image_urls = []
+    if search_results:
+        for sr in search_results:
+            for chunk in sr.get("chunks", []):
+                img = chunk.get("image_url")
+                if img and img not in doc_image_urls:
+                    doc_image_urls.append(img)
+            for img in sr.get("matched_image_urls", []):
+                if img and img not in doc_image_urls:
+                    doc_image_urls.append(img)
+    max_doc_images = int(os.getenv("MAX_DOC_IMAGES", 5))
+    doc_image_urls = [url for url in doc_image_urls if url][:max_doc_images]
 
+    # 构建消息内容：文本在最前，然后是文档参考图片，最后是用户上传图片
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
+
+    # 添加文档中的图片，让 AI 能结合图片理解文档内容
+    for image_url in doc_image_urls:
+        image_path = os.path.join(config["MESSAGE_BASE_DIR"], image_url)
+        if not await asyncio.to_thread(os.path.exists, image_path):
+            continue
+        try:
+            image_compressed = await compress_image(image_path, max_size=512)
+            mime_type, _ = mimetypes.guess_type(image_compressed)
+            if mime_type is None:
+                ext = os.path.splitext(image_compressed)[1].lower()
+                mime_type = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.webp': 'image/webp',
+                    '.bmp': 'image/bmp'
+                }.get(ext, 'image/jpeg')
+            image_base64 = await asyncio.to_thread(image_to_base64, image_compressed)
+            msg_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
+            })
+        except Exception as e:
+            print(f"添加文档图片失败 {image_url}: {e}")
+
+    # 添加用户上传的图片
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = message_now.user_uploaded_images.split(", ")
 
@@ -569,7 +617,11 @@ async def get_prompt(db, document_ids, max_tokens, search_results=None):
                     if section_id in seen_section_ids:
                         continue
                     seen_section_ids.add(section_id)
-                section_texts.append(chunk.get("content", ""))
+                chunk_content = chunk.get("content", "")
+                chunk_img = chunk.get("image_url", "")
+                if chunk_img:
+                    chunk_content += f"\n[本文配图路径：{chunk_img}]"
+                section_texts.append(chunk_content)
                 if len(section_texts) >= 8:
                     break
             if section_texts:
@@ -624,6 +676,26 @@ async def get_prompt(db, document_ids, max_tokens, search_results=None):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
+            # 附加故障库文档中的配图路径，让 AI 可以引用
+            breakdown_image_fields = [
+                document.image_urls,
+                document.image_urls_problem_intro,
+                document.image_urls_causes,
+                document.image_urls_evaluation,
+                document.image_urls_inspection,
+                document.image_urls_solutions,
+                document.image_urls_key_points,
+            ]
+            breakdown_images = []
+            for field_val in breakdown_image_fields:
+                if not field_val:
+                    continue
+                if isinstance(field_val, str):
+                    breakdown_images.extend([u.strip() for u in field_val.split(",") if u.strip()])
+                elif isinstance(field_val, list):
+                    breakdown_images.extend([str(u).strip() for u in field_val if str(u).strip()])
+            if breakdown_images:
+                doc_prompt += "文档配图路径：" + ", ".join(breakdown_images) + "\n"
         # token_tmp = get_token_count(doc_prompt)
         token_tmp = await asyncio.to_thread(get_token_count, doc_prompt)
         if tokens + token_tmp >= max_tokens:
@@ -636,9 +708,69 @@ async def get_prompt(db, document_ids, max_tokens, search_results=None):
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(prompts)
         final_prompt += "\n\n请参考上述文档，并结合你自己的知识库，回答用户的问题。"
+        final_prompt += "\n回答中如需引用文档配图，请严格使用格式：![图片描述](配图路径)，不要使用【图片N】这样的占位符。"
         return final_prompt
 
     return ""
+
+def _path_to_web_url(image_path: str) -> str:
+    """将本地绝对/相对图片路径转换为 Web 可访问的 URL（如 /upload/images/xxx.png）。"""
+    import re
+    normalized = str(image_path).replace('\\', '/')
+    match = re.search(r'(?:^|/)upload/(.+)$', normalized, re.IGNORECASE)
+    if match:
+        return f'/upload/{match.group(1)}'
+    filename = os.path.basename(normalized)
+    return f'/upload/images/{filename}'
+
+
+async def _replace_image_urls_in_text(text: str, config: dict, known_image_paths: list = None) -> str:
+    """将 AI 回答中的本地图片路径替换为 Web URL（/upload/images/...），前端可直接渲染。"""
+    import re
+
+    # 预扫描：处理 AI 可能直接输出的裸路径 → Web URL
+    if known_image_paths:
+        for img_path in known_image_paths:
+            if not img_path:
+                continue
+            escaped = re.escape(img_path)
+            bare_pattern = r'(?<!\]\()' + escaped
+            if not re.search(bare_pattern, text):
+                continue
+            web_url = _path_to_web_url(img_path)
+            text = re.sub(bare_pattern, web_url, text)
+            print(f"[图片替换-裸路径] ✓ {img_path} → {web_url}")
+
+    # 正式替换：Markdown ![]() 语法中的本地路径 → Web URL
+    markdown_pattern = r'!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)'
+    matches = list(re.finditer(markdown_pattern, text))
+    if not matches:
+        print(f"[图片替换] 未找到 Markdown 图片语法，文本前200字: {text[:200]}")
+        return text
+
+    print(f"[图片替换] 找到 {len(matches)} 个 Markdown 图片引用")
+
+    def _convert_match(match: re.Match) -> str:
+        alt_text = match.group(1)
+        image_url = match.group(2)
+        if image_url.startswith("data:") or image_url.startswith("http://") or image_url.startswith("https://"):
+            return match.group(0)
+        if image_url.startswith("/upload/"):
+            return match.group(0)
+        web_url = _path_to_web_url(image_url)
+        print(f"[图片替换] {image_url[:80]} → {web_url}")
+        return f'![{alt_text}]({web_url})'
+
+    result_parts = []
+    last_end = 0
+    for match in matches:
+        result_parts.append(text[last_end:match.start()])
+        replacement = _convert_match(match)
+        result_parts.append(replacement)
+        last_end = match.end()
+    result_parts.append(text[last_end:])
+    return ''.join(result_parts)
+
 
 def get_ai_reference_document_ids_str(ai_reference_document_ids):
     """
@@ -722,6 +854,9 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
             max_tokens=max_token,
             stream=True
         )
+
+        # 打印response
+        print(f"AI response : {response}")
         full_content = ""
         async for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
@@ -734,10 +869,32 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
                 response_data["data"] = data
                 yield f"data: {json.dumps(response_data)}\n\n"
 
-        # print(full_content)
-        # 流结束，保存 AI 消息
-        # ai_msg = db.query(Message).filter(Message.id == id).first()
+        # 流结束，将 AI 回答中的本地图片路径替换为 base64，使前端可显示
+        print(f"[AI流式原始回答-前500字]: {full_content[:500]}")
 
+        # 收集 search_results 中的已知图片路径
+        known_image_paths_stream = []
+        if search_results:
+            for sr in search_results:
+                for chunk in sr.get("chunks", []):
+                    img = chunk.get("image_url")
+                    if img and img not in known_image_paths_stream:
+                        known_image_paths_stream.append(img)
+                for img in sr.get("matched_image_urls", []):
+                    if img and img not in known_image_paths_stream:
+                        known_image_paths_stream.append(img)
+
+        config = get_image_config()
+        full_content_processed = await _replace_image_urls_in_text(full_content, config, known_image_paths_stream)
+        if full_content_processed != full_content:
+            # 发送最终处理后的回答（含 base64 图片），前端会渲染实际图片
+            data["answer"] = full_content_processed
+            response_data["code"] = 0
+            response_data["data"] = data
+            yield f"data: {json.dumps(response_data)}\n\n"
+            full_content = full_content_processed
+
+        # 保存 AI 消息到 DB
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
             ai_msg = result.scalar_one_or_none()
@@ -758,7 +915,7 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
         yield f"data: {json.dumps(error_data)}\n\n"
 
 
-async def get_ai_answer(messages, db: AsyncSession, id):
+async def get_ai_answer(messages, db: AsyncSession, id, search_results=None):
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
@@ -773,7 +930,25 @@ async def get_ai_answer(messages, db: AsyncSession, id):
         return response.choices[0].message.content
 
     final_ans = await asyncio.to_thread(_call_openai)
+    print(f"[AI原始回答-前500字]: {final_ans[:500]}")
     final_ans = final_ans.replace("\n---\n", "---").replace("\n\n", "\n")
+
+    # 收集 search_results 中的所有已知图片路径
+    known_image_paths = []
+    if search_results:
+        for sr in search_results:
+            for chunk in sr.get("chunks", []):
+                img = chunk.get("image_url")
+                if img and img not in known_image_paths:
+                    known_image_paths.append(img)
+            for img in sr.get("matched_image_urls", []):
+                if img and img not in known_image_paths:
+                    known_image_paths.append(img)
+    print(f"[图片替换] 已知图片路径数: {len(known_image_paths)}")
+
+    # 将 AI 回答中的本地图片路径替换为 base64，使前端可直接显示图片
+    config = get_image_config()
+    final_ans = await _replace_image_urls_in_text(final_ans, config, known_image_paths)
 
     # ai_msg = db.query(Message).filter(Message.id == id).first()
 
@@ -875,7 +1050,7 @@ async def chat(message: MessageCreateNew,
                 media_type="text/event-stream"
             )
         else:
-            answer = await get_ai_answer(messages, db, ai_msg.id)
+            answer = await get_ai_answer(messages, db, ai_msg.id, search_results)
             # 构建非流式响应的 reference_images
             ref_images = {}
             if search_results:
