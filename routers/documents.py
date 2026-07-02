@@ -473,6 +473,19 @@ def _source_document_filter_for_document(document_id: int, library_type: str):
 async def _delete_source_documents_for_document(
     db: AsyncSession, document_base_dir: str, document_id: int, library_type: str
 ):
+    """删除源文档记录及其物理文件（兼容旧调用，内部拆分为 DB + 文件两步）。"""
+    # 先删文件
+    await _delete_source_document_files(
+        db, document_base_dir, document_id, library_type
+    )
+    # 再标记 DB
+    await _mark_source_documents_deleted(db, document_id, library_type)
+
+
+async def _delete_source_document_files(
+    db: AsyncSession, document_base_dir: str, document_id: int, library_type: str
+):
+    """仅删除 SourceDocument 关联的物理文件，不修改数据库。"""
     result = await db.execute(
         select(SourceDocument).where(
             *_source_document_filter_for_document(document_id, library_type),
@@ -487,6 +500,19 @@ async def _delete_source_documents_for_document(
                 or source_document.stored_file_path,
             )
             await asyncio.to_thread(delete_file_if_exists, absolute_path)
+
+
+async def _mark_source_documents_deleted(
+    db: AsyncSession, document_id: int, library_type: str
+):
+    """仅标记 SourceDocument 为已删除，不删除物理文件。"""
+    result = await db.execute(
+        select(SourceDocument).where(
+            *_source_document_filter_for_document(document_id, library_type),
+        )
+    )
+    source_documents = result.scalars().all()
+    for source_document in source_documents:
         source_document.is_deleted = 1
         source_document.status = "deleted"
         source_document.deleted_time = datetime.now()
@@ -1055,8 +1081,6 @@ async def delete(
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        # document = db.query(Document).filter(Document.id == id).first()
-
         document_model = _get_document_model(library_type)
         result = await db.execute(
             select(document_model)
@@ -1072,13 +1096,24 @@ async def delete(
             raise AppException(
                 status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在"
             )
-        # 文档表直删仅允许管理员；技术人员必须走删除审核流程
         if not has_role(current_user, UserRole.ADMIN):
             raise AppException(
                 status.HTTP_403_FORBIDDEN,
                 BizCode.FORBIDDEN,
                 "技术人员需提交删除审核，审核通过后才会删除文档",
             )
+
+        doc_library_type = getattr(document, "library_type", library_type)
+        config = get_image_config()
+        base_url = os.path.join(
+            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+        )
+        document_base_dir = os.getenv(
+            "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+        )
+
+        # === 阶段一：收集所有待删除的文件路径 ===
+        image_paths = []
         attrs = [
             attr
             for attr in [
@@ -1092,73 +1127,50 @@ async def delete(
             ]
             if hasattr(document, attr)
         ]
-        config = get_image_config()
-        base_url = os.path.join(
-            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
-        )
-
-        # 删除文档的时候，把文档里的图片都删掉
         for attr in attrs:
             value = getattr(document, attr, None)
-            if value is not None:
-                image_urls = value.split(", ")
-                for image_url in image_urls:
+            if value:
+                for image_url in value.split(", "):
                     filename = os.path.basename(image_url)
                     if filename.strip():
-                        url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                        # if os.path.exists(url):
-                        #     os.remove(url)
-                        #     print(f"删除了{url}")
+                        image_paths.append(
+                            os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+                        )
 
-                        await asyncio.to_thread(delete_image_with_variants, url)
-
-        # 删除知识库文档的章节图片（KnowledgeDocumentSection.image_urls）
-        if _is_knowledge_library(getattr(document, "library_type", library_type)):
-            await delete_section_images_for_document(db, id, base_url)
-
-        # if document.image_urls:
-        #     config = get_image_config()
-        #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
-        #     image_urls = document.image_urls.split(", ")
-        #     print("删除的image_urls: ", image_urls)
-        #     for image_url in image_urls:
-        #         filename = os.path.basename(image_url)
-        #         url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-        #         if os.path.exists(url):
-        #             os.remove(url)
-        #             print(f"删除了{url}")
-
-        # 把原始文件也删掉
+        origin_file_path = None
         if document.origin_file_dir:
-            url = os.path.join(
+            origin_file_path = os.path.join(
                 config["BASE_DIR"],
                 normalize_upload_path(document.origin_file_dir)
                 or document.origin_file_dir,
             )
-            # if os.path.exists(url):
-            #     os.remove(url)
-            #     print(f"已删除源文件{document.origin_file_dir}")
-            await asyncio.to_thread(delete_file_if_exists, url)
-            print(f"已删除源文件{document.origin_file_dir}")
 
-        document_base_dir = os.getenv(
-            "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
-        )
-        await _delete_source_documents_for_document(
-            db, document_base_dir, id, getattr(document, "library_type", "breakdown")
-        )
+        # 收集章节图片路径（知识库）
+        section_image_paths = []
+        if _is_knowledge_library(doc_library_type):
+            old_sections = await get_knowledge_document_sections(db, id)
+            for section in old_sections:
+                for url in (section.image_urls or []):
+                    url_str = str(url).strip()
+                    if url_str:
+                        filename = os.path.basename(url_str)
+                        if filename.strip():
+                            section_image_paths.append(
+                                os.path.join(
+                                    base_url, filename.lstrip("/").lstrip("\\")
+                                )
+                            )
 
-        # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
+        # === 阶段二：数据库 + 向量库操作（事务内） ===
+        # 处理审核记录
         review_refs_result = await db.execute(
             select(Document_review).where(
                 Document_review.document_id == id,
-                Document_review.document_library_type
-                == getattr(document, "library_type", "breakdown"),
+                Document_review.document_library_type == doc_library_type,
             )
         )
         review_refs = review_refs_result.scalars().all()
         for review_ref in review_refs:
-            # 待审核记录自动撤回，并补充系统备注
             if review_ref.status == 0:
                 review_ref.status = 3
                 auto_msg = "源文档已被管理员删除，系统自动撤回"
@@ -1172,21 +1184,34 @@ async def delete(
 
         await db.flush()
 
-        # 删掉向量
-        vector_service = VectorService(db)
-        # vector_service.delete_document_from_vector_store(id)
-        await vector_service.delete_document_from_vector_store(
-            id, getattr(document, "library_type", "breakdown")
-        )
+        # 标记源文档为已删除（仅 DB）
+        await _mark_source_documents_deleted(db, id, doc_library_type)
 
-        print("成功删除文档")
+        # 删除向量
+        vector_service = VectorService(db)
+        await vector_service.delete_document_from_vector_store(id, doc_library_type)
+
+        # 标记文档为已删除
         document.is_deleted = 1
         await db.commit()
+        print("成功删除文档（DB + Milvus）")
+
+        # === 阶段三：删除磁盘文件（commit 之后） ===
+        for path in image_paths:
+            await asyncio.to_thread(delete_image_with_variants, path)
+        for path in section_image_paths:
+            await asyncio.to_thread(delete_image_with_variants, path)
+        if origin_file_path:
+            await asyncio.to_thread(delete_file_if_exists, origin_file_path)
+            print(f"已删除源文件{document.origin_file_dir}")
+        await _delete_source_document_files(
+            db, document_base_dir, id, doc_library_type
+        )
+
         return Result.success()
     except AppException:
         raise
     except Exception as e:
-        # 其他异常回滚
         print(e)
         await db.rollback()
         raise AppException(
@@ -1198,60 +1223,10 @@ async def delete(
 
 async def _delete_single_document(db: AsyncSession, document, library_type: str):
     """
-    内部辅助函数：执行单个文档的物理资源清理和逻辑软删除。
-    包括：图片、原文件、源记录、审核记录撤回、向量删除、数据库标记。
+    内部辅助函数：执行单个文档的数据库 + 向量库清理。
+    磁盘文件清理应在 commit 之后由调用方执行。
     """
-    config = get_image_config()
-    base_url = os.path.join(
-        config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
-    )
-
-    # 1. 删除关联图片
-    attrs = [
-        attr
-        for attr in [
-            "image_urls_problem_intro",
-            "image_urls_causes",
-            "image_urls_evaluation",
-            "image_urls_inspection",
-            "image_urls_solutions",
-            "image_urls_key_points",
-            "image_urls",
-        ]
-        if hasattr(document, attr)
-    ]
-
-    for attr in attrs:
-        value = getattr(document, attr, None)
-        if value is not None:
-            image_urls = value.split(", ")
-            for image_url in image_urls:
-                filename = os.path.basename(image_url)
-                if filename.strip():
-                    url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                    await asyncio.to_thread(delete_image_with_variants, url)
-
-    # 1.1 删除知识库文档的章节图片（KnowledgeDocumentSection.image_urls）
-    if library_type == "knowledge":
-        await delete_section_images_for_document(db, document.id, base_url)
-
-    # 2. 删除原始上传文件
-    if document.origin_file_dir:
-        url = os.path.join(
-            config["BASE_DIR"],
-            normalize_upload_path(document.origin_file_dir) or document.origin_file_dir,
-        )
-        await asyncio.to_thread(delete_file_if_exists, url)
-
-    # 3. 删除源文档记录 (SourceDocument)
-    document_base_dir = os.getenv(
-        "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
-    )
-    await _delete_source_documents_for_document(
-        db, document_base_dir, document.id, library_type
-    )
-
-    # 4. 处理关联的审核记录 (自动撤回待审核项)
+    # 1. 处理关联的审核记录（自动撤回待审核项）
     review_refs_result = await db.execute(
         select(Document_review).where(
             Document_review.document_id == document.id,
@@ -1270,12 +1245,69 @@ async def _delete_single_document(db: AsyncSession, document, library_type: str)
             )
             review_ref.reviewed_time = datetime.now()
 
-    # 5. 删除向量库索引
+    # 2. 标记源文档为已删除（仅 DB）
+    await _mark_source_documents_deleted(db, document.id, library_type)
+
+    # 3. 删除向量库索引
     vector_service = VectorService(db)
     await vector_service.delete_document_from_vector_store(document.id, library_type)
 
-    # 6. 标记数据库记录为已删除
+    # 4. 标记数据库记录为已删除
     document.is_deleted = 1
+
+
+async def _cleanup_document_disk_files(
+    db: AsyncSession, document, library_type: str
+):
+    """删除文档关联的磁盘文件（commit 之后调用）。"""
+    config = get_image_config()
+    base_url = os.path.join(
+        config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+    )
+
+    # 删除文档级图片
+    attrs = [
+        attr
+        for attr in [
+            "image_urls_problem_intro",
+            "image_urls_causes",
+            "image_urls_evaluation",
+            "image_urls_inspection",
+            "image_urls_solutions",
+            "image_urls_key_points",
+            "image_urls",
+        ]
+        if hasattr(document, attr)
+    ]
+    for attr in attrs:
+        value = getattr(document, attr, None)
+        if value:
+            for image_url in value.split(", "):
+                filename = os.path.basename(image_url)
+                if filename.strip():
+                    url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+                    await asyncio.to_thread(delete_image_with_variants, url)
+
+    # 删除章节图片（知识库）
+    if library_type == "knowledge":
+        await delete_section_images_for_document(db, document.id, base_url)
+
+    # 删除原始上传文件
+    if document.origin_file_dir:
+        url = os.path.join(
+            config["BASE_DIR"],
+            normalize_upload_path(document.origin_file_dir)
+            or document.origin_file_dir,
+        )
+        await asyncio.to_thread(delete_file_if_exists, url)
+
+    # 删除源文档物理文件
+    document_base_dir = os.getenv(
+        "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+    )
+    await _delete_source_document_files(
+        db, document_base_dir, document.id, library_type
+    )
 
 
 @router.post("/deletes", summary="批量删除文档")
@@ -1320,6 +1352,7 @@ async def delete_documents(
 
         deleted_count = 0
         failed_items = []
+        deleted_documents = []  # 记录成功删除的文档，用于 commit 后清理文件
 
         # 4. 处理故障库文档
         if breakdown_ids:
@@ -1335,6 +1368,7 @@ async def delete_documents(
                 try:
                     await _delete_single_document(db, document, "breakdown")
                     deleted_count += 1
+                    deleted_documents.append((document, "breakdown"))
                 except Exception as e:
                     logger.exception(f"批量删除故障库文档失败, id={document.id}")
                     failed_items.append(
@@ -1355,6 +1389,7 @@ async def delete_documents(
                 try:
                     await _delete_single_document(db, document, "knowledge")
                     deleted_count += 1
+                    deleted_documents.append((document, "knowledge"))
                 except Exception as e:
                     logger.exception(f"批量删除知识库文档失败, id={document.id}")
                     failed_items.append(
@@ -1363,6 +1398,15 @@ async def delete_documents(
 
         # 6. 提交事务
         await db.commit()
+
+        # 6.1 事务提交成功后，清理磁盘文件（单个文件删除失败不影响整体结果）
+        for document, lib_type in deleted_documents:
+            try:
+                await _cleanup_document_disk_files(db, document, lib_type)
+            except Exception as e:
+                logger.warning(
+                    f"文档 {document.id} 磁盘文件清理失败（DB 已标记删除）: {e}"
+                )
 
         # 7. 返回结果
         if failed_items:
