@@ -637,6 +637,41 @@ class VectorService:
         top_k: int = -1,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
+        # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）
+        # {
+        #         "doc_id": 17,
+        #         "library_type": "knowledge",     # 知识库类型
+        #         "title": "SBC 系列主板硬件设计手册",
+        #         "content": "3.3V 电源模块由 TPS6521815 芯片提供，典型工作电压范围为...",
+        #         "image_url": "upload/images/sbc_power_design.png",
+        #         "score": 0.691,
+        #         "score_max": 0.725,
+        #         "chunks": [
+        #             {
+        #                 "doc_id": "17",
+        #                 "library_type": "knowledge",
+        #                 "title": "SBC 系列主板硬件设计手册",
+        #                 "content": "3.3V 电源模块由 TPS6521815 芯片提供...",
+        #                 "image_url": "upload/images/sbc_power_design.png",
+        #                 "metadata": {"source_doc_id": 17, "library_type": "knowledge", "section_id": 3},
+        #                 "score": 0.725
+        #             },
+        #             {
+        #                 "doc_id": "17",
+        #                 "library_type": "knowledge",
+        #                 "title": "SBC 系列主板硬件设计手册",
+        #                 "content": "供电异常排查：若 3.3V 输出低于 2.8V...",
+        #                 "image_url": "",
+        #                 "metadata": {"source_doc_id": 17, "library_type": "knowledge", "section_id": 5},
+        #                 "score": 0.688
+        #             }
+        #         ],
+        #         # ===== 知识库专属字段 =====
+        #         "matched_section_ids": [3, 5],   # 匹配到的章节 ID 列表（去重）
+        #         "matched_image_urls": [          # 匹配到的图片 URL 列表（去重）
+        #             "upload/images/sbc_power_design.png"
+        #         ]
+        #     }
         try:
             top_k = self.top_k if top_k < 1 else top_k
             all_results: List[Dict[str, Any]] = []
@@ -729,6 +764,25 @@ class VectorService:
                 doc["image_url"] = best_chunk.get("image_url", "")
                 doc["score_max"] = float(best_chunk.get("score", 0.0))
                 doc["score"] = self._aggregate_doc_score(chunks_sorted)
+                # 提取知识库文档匹配到的 section_id 和图片，供 get_prompt 按相关性取章节
+                if doc.get("library_type") == "knowledge":
+                    matched_section_ids = []
+                    matched_image_urls = []
+                    for chunk in chunks_sorted:
+                        metadata = chunk.get("metadata") or {}
+                        if isinstance(metadata, str):
+                            try:
+                                metadata = json.loads(metadata)
+                            except Exception:
+                                metadata = {}
+                        section_id = metadata.get("section_id")
+                        if section_id is not None and section_id not in matched_section_ids:
+                            matched_section_ids.append(section_id)
+                        img = chunk.get("image_url")
+                        if img and img not in matched_image_urls:
+                            matched_image_urls.append(img)
+                    doc["matched_section_ids"] = matched_section_ids
+                    doc["matched_image_urls"] = matched_image_urls
                 docs.append(doc)
 
             docs.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)

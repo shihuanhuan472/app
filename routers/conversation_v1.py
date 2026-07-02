@@ -256,8 +256,8 @@ async def compress_image(image_path: str, max_size=512, pad_color=(0, 0, 0)):
 
     return await asyncio.to_thread(_compress)
 
-
-async def generate_messages(db, id, message_now, documents_id):
+ 
+async def generate_messages(db, id, message_now, documents_id, search_results=None):
     """
     生成给ai发送的消息的，涵盖图片编码和上下文提取（不包含提示词生成）
     """
@@ -348,7 +348,7 @@ async def generate_messages(db, id, message_now, documents_id):
     print(f"tokens: {tokens}")
 
     tokens_tmp = tokens_max - tokens
-    prompt = await get_prompt(db, documents_id, tokens_tmp)
+    prompt = await get_prompt(db, documents_id, tokens_tmp, search_results)
 
 
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}"}]
@@ -417,21 +417,87 @@ async def get_new_title_by_ai(content):
 
     return new_title
 
+# 返回格式举例
+# (
+#     # ==================== 第 1 个元素: document_ids ====================
+#     # 仅包含未被软删除的文档，格式 "library_type:doc_id"
+#     [
+#         "breakdown:42",
+#         "knowledge:17"
+#     ],
+
+#     # ==================== 第 2 个元素: active_documents ====================
+#     # 与 document_ids 一一对应，保留 search_similar_documents 的完整字段（含 chunks）
+#     [
+#         {
+#             "doc_id": 42,
+#             "library_type": "breakdown",
+#             "title": "SBC 主板无法上电故障排障",
+#             "content": "设备型号：SBC-2000，故障现象：按下电源键后主板无任何反应...",
+#             "image_url": "upload/images/sbc_power_failure.jpg",
+#             "score": 0.782,           # 聚合分数
+#             "score_max": 0.851,
+#             "chunks": [
+#                 {
+#                     "doc_id": "42",
+#                     "library_type": "breakdown",
+#                     "title": "SBC 主板无法上电故障排障",
+#                     "content": "设备型号：SBC-2000，故障现象：...",
+#                     "image_url": "upload/images/sbc_power_failure.jpg",
+#                     "metadata": {"source_doc_id": 42, "library_type": "breakdown", "chunk_index": 0, ...},
+#                     "score": 0.851
+#                 },
+#                 { "doc_id": "42", ..., "score": 0.720 },
+#                 { "doc_id": "42", ..., "score": 0.603 }
+#             ]
+#         },
+#         {
+#             "doc_id": 17,
+#             "library_type": "knowledge",
+#             "title": "SBC 系列主板硬件设计手册",
+#             "content": "3.3V 电源模块由 TPS6521815 芯片提供...",
+#             "image_url": "upload/images/sbc_power_design.png",
+#             "score": 0.691,
+#             "score_max": 0.725,
+#             "chunks": [
+#                 {
+#                     "doc_id": "17",
+#                     "library_type": "knowledge",
+#                     "title": "SBC 系列主板硬件设计手册",
+#                     "content": "3.3V 电源模块由 TPS6521815 芯片提供...",
+#                     "image_url": "upload/images/sbc_power_design.png",
+#                     "metadata": {"source_doc_id": 17, "library_type": "knowledge", "section_id": 3, ...},
+#                     "score": 0.725
+#                 },
+#                 { "doc_id": "17", ..., "metadata": {..."section_id": 5}, "score": 0.688 }
+#             ],
+#             # ===== 知识库专属 =====
+#             "matched_section_ids": [3, 5],
+#             "matched_image_urls": ["upload/images/sbc_power_design.png"]
+#         }
+#     ]
+# )
 async def get_reference_documents(db, question: str, image: str = None):
     """
-    检索出相关文档，并返回文档id
+    检索出相关文档，返回 (文档ID列表, 完整检索结果含chunks)
     """
+    # 数据准备工作
     vector_service = VectorService(db)
     # vector_service.batch_vectorize_existing_documents()
     documents = await vector_service.search_similar_documents(question, image)
+    if not documents:
+        return [], []
+
+    # 标准化文档ID
     normalized_docs = [
         {"doc_id": int(document["doc_id"]), "library_type": _normalize_library_type(document.get("library_type", "breakdown"))}
         for document in documents
         if document.get("doc_id") is not None
     ]
     if not normalized_docs:
-        return []
+        return [], []
 
+    # 获取活跃的文档ID
     active_refs = set()
     for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
         candidate_ids = [doc["doc_id"] for doc in normalized_docs if doc["library_type"] == library_type]
@@ -446,40 +512,85 @@ async def get_reference_documents(db, question: str, image: str = None):
         active_refs.update({f"{library_type}:{row.id}" for row in active_result.all()})
     document_ids = [f"{doc['library_type']}:{doc['doc_id']}" for doc in normalized_docs if f"{doc['library_type']}:{doc['doc_id']}" in active_refs]
 
-    return document_ids
+    # 过滤 search_results 只保留 active 的文档，供 get_prompt 使用 chunk 内容
+    active_doc_keys = set()
+    for ref in document_ids:
+        lib, _, did = ref.partition(":")
+        active_doc_keys.add((lib, int(did)))
+    active_documents = [
+        doc for doc in documents
+        if (doc.get("library_type"), int(doc.get("doc_id", 0))) in active_doc_keys
+    ]
 
-async def get_prompt(db, document_ids, max_tokens):
+    return document_ids, active_documents
+
+async def get_prompt(db, document_ids, max_tokens, search_results=None):
     """
-    生成提示词（包括根据相关文档id，提取文档内容作为提示词）
+    生成提示词。search_results 含 chunks 用于按相关性取章节（而非取前8个section）
     """
     if not document_ids:
         return ""
     tokens = 0
     prompts = []
 
+    # 构建 search_results 索引
+    search_index = {}
+    if search_results:
+        for sr in search_results:
+            key = (sr.get("library_type", "breakdown"), int(sr.get("doc_id", 0)))
+            search_index[key] = sr
+
     document_refs = []
     for value in document_ids:
         library_type, _, raw_doc_id = str(value).partition(":")
         document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type)))
 
-    documents = []
-    for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
-        ids = [doc_id for ref_library_type, doc_id in document_refs if ref_library_type == library_type]
-        if not ids:
-            continue
-        result = await db.execute(
-            select(document_model).where(
-                document_model.id.in_(ids),
-                document_model.is_deleted == 0,
-            )
-        )
-        documents.extend(result.scalars().all())
+    for i, (ref_lib, ref_doc_id) in enumerate(document_refs):
+        sr = search_index.get((ref_lib, ref_doc_id))
 
-    for i, document in enumerate(documents):
-        # document = db.query(Document).filter(Document.id == document_id).scalar()
-        if not document:
-            continue
-        if _normalize_library_type(getattr(document, "library_type", "breakdown")) == "knowledge":
+        if ref_lib == "knowledge" and sr:
+            # 知识库文档：使用向量检索匹配到的 chunk 内容（按相关性排序，去重section_id）
+            chunks_sorted = sorted(
+                sr.get("chunks", []),
+                key=lambda x: float(x.get("score", 0.0)),
+                reverse=True,
+            )
+            seen_section_ids = set()
+            section_texts = []
+            for chunk in chunks_sorted:
+                metadata = chunk.get("metadata") or {}
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except Exception:
+                        metadata = {}
+                section_id = metadata.get("section_id")
+                if section_id is not None:
+                    if section_id in seen_section_ids:
+                        continue
+                    seen_section_ids.add(section_id)
+                section_texts.append(chunk.get("content", ""))
+                if len(section_texts) >= 8:
+                    break
+            if section_texts:
+                section_text = "\n---\n".join(section_texts)
+            else:
+                section_text = "(无匹配内容)"
+            doc_prompt = f"""【知识库文档{i + 1}：】{sr.get("title", "")}
+匹配章节内容：
+{section_text}
+        """
+        elif ref_lib == "knowledge":
+            # 兜底：search_results 缺失时回退到 DB 查询
+            result = await db.execute(
+                select(DocumentKnowledge).where(
+                    DocumentKnowledge.id == ref_doc_id,
+                    DocumentKnowledge.is_deleted == 0,
+                )
+            )
+            document = result.scalar_one_or_none()
+            if not document:
+                continue
             section_result = await db.execute(
                 select(KnowledgeDocumentSection)
                 .where(KnowledgeDocumentSection.document_id == document.id)
@@ -495,6 +606,16 @@ async def get_prompt(db, document_ids, max_tokens):
 {section_text}
         """
         else:
+            # breakdown 文档：保持原有 DB 查询逻辑
+            result = await db.execute(
+                select(DocumentBreakdown).where(
+                    DocumentBreakdown.id == ref_doc_id,
+                    DocumentBreakdown.is_deleted == 0,
+                )
+            )
+            document = result.scalar_one_or_none()
+            if not document:
+                continue
             doc_prompt = f"""【文档{i + 1}：】{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
@@ -530,7 +651,7 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
     return result
 
 
-async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
+async def stream_ai_response(id, messages: list, session_id: int, doc_ids, search_results=None):
     api_key = os.getenv("API_KEY", "EMPTY")
     client = AsyncOpenAI(base_url=get_ai_base_url(), api_key=api_key)
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
@@ -549,6 +670,21 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
             library_type, _, raw_doc_id = str(value).partition(":")
             doc_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type), str(value)))
 
+        # 构建 search_results 索引，提取匹配到的图片URL
+        search_image_map = {}
+        if search_results:
+            for sr in search_results:
+                key = (sr.get("library_type", "breakdown"), int(sr.get("doc_id", 0)))
+                images = list(sr.get("matched_image_urls", [])) if sr.get("library_type") == "knowledge" else []
+                if not images:
+                    for chunk in sr.get("chunks", []):
+                        img = chunk.get("image_url")
+                        if img and img not in images:
+                            images.append(img)
+                        if len(images) >= 3:
+                            break
+                search_image_map[key] = images
+
         async with AsyncSessionLocal() as db:
             doc_map = {}
             for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
@@ -566,7 +702,12 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids):
                 doc_title = doc_map.get((library_type, doc_id))
                 if doc_title is None:
                     continue
-                doc_aggs.append({"doc_id": raw_ref, "doc_name": doc_title, "library_type": library_type})
+                doc_agg = {"doc_id": raw_ref, "doc_name": doc_title, "library_type": library_type}
+                # 附带匹配到的图片URL，供前端展示
+                ref_images = search_image_map.get((library_type, doc_id), [])
+                if ref_images:
+                    doc_agg["image_urls"] = ref_images
+                doc_aggs.append(doc_agg)
             data["reference"] = {
                 "total": len(doc_aggs),
                 "doc_aggs": doc_aggs
@@ -701,11 +842,11 @@ async def chat(message: MessageCreateNew,
         await db.commit()
         await db.refresh(db_message)
 
-        ai_reference_document_ids = await get_reference_documents(db, db_message.content_text,
+        ai_reference_document_ids, search_results = await get_reference_documents(db, db_message.content_text,
                                                             db_message.user_uploaded_images)
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
 
-        messages = await generate_messages(db, conversation.id, db_message, ai_reference_document_ids)
+        messages = await generate_messages(db, conversation.id, db_message, ai_reference_document_ids, search_results)
 
         conversation.updated_time = datetime.now()
 
@@ -730,14 +871,31 @@ async def chat(message: MessageCreateNew,
 
         if message.stream:
             return StreamingResponse(
-                stream_ai_response(ai_msg.id, messages, message.session_id, ai_reference_document_ids),
+                stream_ai_response(ai_msg.id, messages, message.session_id, ai_reference_document_ids, search_results),
                 media_type="text/event-stream"
             )
         else:
             answer = await get_ai_answer(messages, db, ai_msg.id)
+            # 构建非流式响应的 reference_images
+            ref_images = {}
+            if search_results:
+                for sr in search_results:
+                    lib = sr.get("library_type", "breakdown")
+                    did = int(sr.get("doc_id", 0))
+                    images = list(sr.get("matched_image_urls", [])) if lib == "knowledge" else []
+                    if not images:
+                        for chunk in sr.get("chunks", []):
+                            img = chunk.get("image_url")
+                            if img and img not in images:
+                                images.append(img)
+                            if len(images) >= 3:
+                                break
+                    if images:
+                        ref_images[f"{lib}:{did}"] = images
             return ResultNew.result(0, None, {
                 "answer": answer,
                 "reference": ai_reference_document_ids_str,
+                "reference_images": ref_images,
                 "id": ai_msg.id,
                 "session_id": message.session_id
             })
