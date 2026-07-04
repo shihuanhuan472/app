@@ -676,6 +676,8 @@ class VectorService:
             top_k = self.top_k if top_k < 1 else top_k
             all_results: List[Dict[str, Any]] = []
 
+            # 如果有图片：describe_image() 调用视觉模型提取语义然后与文本一起Milvus 多模态检索
+            # 否则：Milvus 纯文本检索
             images = [img.strip() for img in (query_images or "").split(",") if img and img.strip()]
 
             if images:
@@ -699,6 +701,7 @@ class VectorService:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
                 all_results.extend(results)
 
+            # 领域术语关键词补充召回 (_search_by_domain_terms)
             keyword_results = await self._search_by_domain_terms(query)
             if keyword_results:
                 self._debug_print_search_results("keyword term results", keyword_results)
@@ -707,6 +710,7 @@ class VectorService:
             if not all_results:
                 return []
 
+            # 合并/去重/按分数排序
             all_results = self._merge_retrieval_candidates(all_results)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("raw vector results", all_results)
@@ -729,6 +733,8 @@ class VectorService:
             #     if not all_results:
             #         return []
 
+
+            # 按 (library_type, doc_id) 分组聚合
             grouped: Dict[str, Dict[str, Any]] = {}
             for item in all_results:
                 score = float(item.get("score", 0.0))
@@ -754,6 +760,7 @@ class VectorService:
                 else:
                     grouped[group_key]["chunks"].append(item)
 
+            # 知识库文档：提取 matched_section_ids + matched_image_urls
             docs = []
             for doc in grouped.values():
                 chunks_sorted = sorted(
@@ -785,6 +792,7 @@ class VectorService:
                     doc["matched_image_urls"] = matched_image_urls
                 docs.append(doc)
 
+            # 过滤低于阈值的低分文档
             docs.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("grouped docs after threshold", docs)
             return docs[: self.top_k_documents]

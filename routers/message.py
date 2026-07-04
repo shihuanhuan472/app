@@ -837,6 +837,7 @@ async def _create_completion(
         4. 预创建 AI 消息，流式或非流式生成最终回答。
     """
     try:
+        # 校验会话归属（Conversation 表）
         config = get_image_config()
 
         conv_result = await db.execute(
@@ -858,6 +859,8 @@ async def _create_completion(
         message.user_uploaded_images = await _validate_uploaded_images_exist(message.user_uploaded_images, config)
 
         user_text_token_count = await _count_text_tokens(message.question)
+
+        # db.commit() → 刷新拿到 message.id
         db_message = Message(
             session_id=message.session_id,
             role=1,
@@ -872,6 +875,7 @@ async def _create_completion(
         await db.commit()
         await db.refresh(db_message)
 
+        # 向量检索
         ai_reference_documents = await get_reference_documents(
             db, db_message.content_text, db_message.user_uploaded_images
         )
@@ -880,6 +884,7 @@ async def _create_completion(
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
         ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
+        # 传给 generate_messages() 用于构建 prompt
         messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_prompt_refs)
 
         conversation.updated_time = datetime.now()
@@ -901,6 +906,7 @@ async def _create_completion(
         await db.commit()
         await db.refresh(ai_msg)
 
+        # 传给 stream_ai_response() 用于构建 reference.doc_aggs 和图片
         if message.stream:
             return StreamingResponse(
                 stream_ai_response(
@@ -1396,6 +1402,7 @@ async def get_reference_documents(db, question: str, image: str = None):
     if not normalized_docs:
         return []
 
+    # 遍历结果，按库类型回查 MySQL 确认文档未被软删除  
     active_map = {}
     for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
         candidate_ids = [doc["doc_id"] for doc in normalized_docs if doc["library_type"] == library_type]
