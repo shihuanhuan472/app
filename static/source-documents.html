@@ -111,7 +111,7 @@
                 <div class="header-actions">
                     <div class="search-box">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名、路径或失败原因...">
+                        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名或失败原因...">
                     </div>
                     <label class="view-toggle" title="切换为文件列表样式">
                         <input type="checkbox" id="sourceListViewToggle" onchange="toggleSourceView(this.checked)">
@@ -397,7 +397,7 @@
             const status = statusText[item.status] || item.status || '未知';
             const category = categoryText[item.file_category] || item.file_category || '其他';
             const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
-            const detail = item.parse_error || item.stored_file_path || '';
+            const detail = item.parse_error || '';
             const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
             const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成知识文档');
             const deleteDisabled = item.document_id || item.review_id;
@@ -415,9 +415,9 @@
                     <div class="document-item-header">
                         <div class="document-item-title">${escapeHtml(item.origin_file_name)}</div>
                     </div>
-                    <div class="document-item-content">
+                    ${detail ? `<div class="document-item-content">
                         ${escapeHtml(detail.length > 100 ? detail.substring(0, 100) + '...' : detail)}
-                    </div>
+                    </div>` : ''}
                     <div class="document-item-footer">
                         <div class="document-item-author">
                             <i class="fas fa-file"></i>
@@ -502,7 +502,7 @@
             const status = statusText[item.status] || item.status || '未知';
             const category = categoryText[item.file_category] || item.file_category || '其他';
             const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
-            const detail = item.parse_error || item.stored_file_path || '';
+            const detail = item.parse_error || '';
             const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
             const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成');
             const statusClass = `source-status-${safeClassToken(item.status)}`;
@@ -512,7 +512,7 @@
                         <i class="fas fa-file"></i>
                         <div class="source-list-name-text">
                             <div class="source-list-title">${escapeHtml(item.origin_file_name || '未命名源文档')}</div>
-                            <div class="source-list-path">${escapeHtml(detail)}</div>
+                            ${detail ? `<div class="source-list-path">${escapeHtml(detail)}</div>` : ''}
                         </div>
                     </div>
                     <div>${escapeHtml(category)}</div>

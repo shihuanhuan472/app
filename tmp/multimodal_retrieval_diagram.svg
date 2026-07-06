@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="240" viewBox="0 0 1000 240">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#0055A6"/>
+    </marker>
+    <style>
+      .title { font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 18px; font-weight: 700; fill: #003B73; }
+      .label { font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #003B73; }
+      .small { font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 12px; fill: #333333; }
+      .red { fill: #E60012; font-weight: 700; }
+      .box { fill: #F3F6F9; stroke: #D5E0EA; stroke-width: 1.2; rx: 6; }
+      .mainbox { fill: #FFFFFF; stroke: #0055A6; stroke-width: 2; rx: 7; }
+      .pill { fill: #EAF2FB; stroke: #9DBEE2; stroke-width: 1; rx: 14; }
+      .arrow { stroke: #0055A6; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .thin { stroke: #7FA9D6; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect x="6" y="6" width="988" height="228" fill="#FFFFFF" stroke="#C7D6E5" stroke-width="1.2" rx="8"/>
+  <text x="28" y="34" class="title">多模态检索增强流程示意</text>
+  <line x1="28" y1="45" x2="972" y2="45" stroke="#0055A6" stroke-width="3"/>
+
+  <rect x="30" y="78" width="140" height="92" class="mainbox"/>
+  <text x="100" y="104" text-anchor="middle" class="label">用户输入</text>
+  <text x="100" y="127" text-anchor="middle" class="small">文本问题</text>
+  <text x="100" y="148" text-anchor="middle" class="small">故障图片</text>
+
+  <path d="M170 124 L215 124" class="arrow"/>
+
+  <rect x="215" y="68" width="170" height="112" class="box"/>
+  <text x="300" y="96" text-anchor="middle" class="label">图像语义增强</text>
+  <text x="300" y="122" text-anchor="middle" class="small">Qwen-VL 解析故障图像</text>
+  <text x="300" y="145" text-anchor="middle" class="small red">图片信息转为可检索语义</text>
+
+  <path d="M385 124 L430 124" class="arrow"/>
+
+  <rect x="430" y="58" width="230" height="132" class="mainbox"/>
+  <text x="545" y="86" text-anchor="middle" class="label">混合检索召回</text>
+  <rect x="454" y="104" width="92" height="28" class="pill"/>
+  <text x="500" y="123" text-anchor="middle" class="small">向量语义检索</text>
+  <rect x="560" y="104" width="78" height="28" class="pill"/>
+  <text x="599" y="123" text-anchor="middle" class="small">关键词补召回</text>
+  <text x="545" y="154" text-anchor="middle" class="small">文档片段 / 图片语义 / 实体描述</text>
+  <text x="545" y="174" text-anchor="middle" class="small red">形成候选证据集合</text>
+
+  <path d="M660 124 L705 124" class="arrow"/>
+
+  <rect x="705" y="68" width="150" height="112" class="box"/>
+  <text x="780" y="96" text-anchor="middle" class="label">LLM 智能重排序</text>
+  <text x="780" y="122" text-anchor="middle" class="small">相关性评分</text>
+  <text x="780" y="145" text-anchor="middle" class="small red">筛选高置信证据</text>
+
+  <path d="M855 124 L900 124" class="arrow"/>
+
+  <rect x="900" y="78" width="70" height="92" class="mainbox"/>
+  <text x="935" y="104" text-anchor="middle" class="label">输出</text>
+  <text x="935" y="127" text-anchor="middle" class="small">维修答案</text>
+  <text x="935" y="148" text-anchor="middle" class="small">引用依据</text>
+
+  <rect x="245" y="205" width="510" height="20" fill="#F4F8FD" stroke="#C8DCEE" stroke-width="1" rx="10"/>
+  <text x="500" y="219" text-anchor="middle" class="small">
+    检索证据与用户问题共同注入大模型，生成可解释维修回复
+  </text>
+</svg>
