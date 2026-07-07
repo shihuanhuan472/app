@@ -4,6 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设备维修辅助系统 - 登录</title>
+    <script>
+        (function () {
+            var mobileLoginPath = '/static/mobile/login.html';
+            var currentPath = window.location.pathname || '';
+
+            // 已经在移动端页面，不重复跳转
+            if (currentPath.indexOf('/static/mobile/') === 0) return;
+
+            var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+
+            // 判断移动设备
+            var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile/i.test(ua);
+
+            // 判断触控设备
+            var isCoarsePointer =
+                window.matchMedia &&
+                window.matchMedia('(pointer: coarse)').matches;
+
+            // 判断窗口尺寸
+            var width = window.innerWidth || document.documentElement.clientWidth || 0;
+
+            // 小窗口直接认为进入移动端
+            var isSmallScreen = width <= 767;
+
+
+            if (isMobileUA || isCoarsePointer || isSmallScreen) {
+                window.location.replace(mobileLoginPath);
+            }
+
+        })();
+    </script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>

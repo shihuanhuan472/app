@@ -90,20 +90,12 @@
         hideError();
 
         try {
-            const result = await requestLogin({ username, password, role });
-
-            if (Number(result.code) === 1) {
-                saveLoginResult(result.data || {});
-                showToast('登录成功', 'success');
-                window.setTimeout(() => {
-                    window.location.href = MOBILE_HOME;
-                }, 450);
-                return;
-            }
-
-            const message = resolveLoginErrorMessage(result);
-            showError(message);
-            showToast(message, 'error');
+            const tokenData = await requestLogin({ username, password, role });
+            saveLoginResult(tokenData || {});
+            showToast('登录成功', 'success');
+            window.setTimeout(() => {
+                window.location.href = MOBILE_HOME;
+            }, 450);
         } catch (error) {
             const message = `登录失败：${error.message || '网络请求失败，请检查后端服务是否启动'}`;
             showError(message);
@@ -114,7 +106,11 @@
     }
 
     async function requestLogin(payload) {
-        if (!window.API_CONFIG || !API_CONFIG.BASE_URL || !API_CONFIG.ENDPOINTS) {
+        if (typeof userAPI !== 'undefined' && userAPI && typeof userAPI.login === 'function') {
+            return await userAPI.login(payload.username, payload.password, payload.role);
+        }
+
+        if (typeof API_CONFIG === 'undefined' || !API_CONFIG.BASE_URL || !API_CONFIG.ENDPOINTS) {
             throw new Error('接口配置未加载');
         }
 
@@ -134,11 +130,11 @@
             throw new Error('服务器响应格式错误');
         }
 
-        if (!response.ok && Number(data.code) !== 1) {
-            throw new Error(extractBackendMessage(data) || `HTTP ${response.status}`);
+        if (Number(data.code) !== 1) {
+            throw new Error(resolveLoginErrorMessage(data));
         }
 
-        return data;
+        return data.data || {};
     }
 
     function saveLoginResult(tokenData) {
@@ -229,3 +225,4 @@
         }, 2600);
     }
 })();
+

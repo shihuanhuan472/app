@@ -1,8 +1,18 @@
 // js/config.js
 const API_CONFIG = {
     // 后端 API 基础地址
-    BASE_URL: 'http://localhost:8000/api/v1',
-    STATIC_BASE_URL: 'http://localhost:8000',
+    BASE_URL: (() => {
+        const origin = window.location && window.location.origin && window.location.origin !== 'null'
+            ? window.location.origin
+            : '';
+        return `${origin.replace(/\/$/, '')}/api/v1`;
+    })(),
+    STATIC_BASE_URL: (() => {
+        const origin = window.location && window.location.origin && window.location.origin !== 'null'
+            ? window.location.origin
+            : '';
+        return origin.replace(/\/$/, '');
+    })(),
 
    
     ENDPOINTS: {
