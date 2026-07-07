@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
+    <title>登录 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="mobile-page login-page">
+    <main class="mobile-login-shell" aria-labelledby="loginTitle">
+        <section class="login-brand-panel" aria-label="系统介绍">
+            <div class="brand-mark" aria-hidden="true">
+                <i class="fas fa-tools"></i>
+            </div>
+            <div>
+                <p class="brand-kicker">Maintenance Assistant</p>
+                <h1 id="loginTitle">设备维修辅助系统</h1>
+                <p class="brand-subtitle">智能维修解决方案平台</p>
+            </div>
+        </section>
+
+        <section class="login-card" aria-label="登录表单">
+            <div class="login-card-header">
+                <h2>登录系统</h2>
+                <p>请选择身份并使用账号密码进入移动端 AI 问答。</p>
+            </div>
+
+            <form id="loginForm" class="login-form" novalidate>
+                <div class="form-field">
+                    <label for="username">用户名</label>
+                    <div class="field-control">
+                        <i class="fas fa-user" aria-hidden="true"></i>
+                        <input id="username" name="username" type="text" autocomplete="username" placeholder="请输入用户名" required>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="password">密码</label>
+                    <div class="field-control password-control">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码（初始密码：123456）" required>
+                        <button class="password-toggle" id="passwordToggle" type="button" aria-label="显示密码">
+                            <i class="far fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="role">身份</label>
+                    <div class="field-control select-control">
+                        <i class="fas fa-id-badge" aria-hidden="true"></i>
+                        <select id="role" name="role" required>
+                            <option value="">请选择身份</option>
+                            <option value="admin">系统管理员</option>
+                            <option value="technician_rw">技术人员</option>
+                            <option value="reviewer">审核人员</option>
+                            <option value="maintenance_staff">维修人员</option>
+                        </select>
+                    </div>
+                </div>
+
+                <p class="form-error" id="loginError" role="alert" aria-live="polite"></p>
+
+                <button class="primary-action" id="submitBtn" type="submit">
+                    <span class="btn-label"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> 登录系统</span>
+                    <span class="btn-loading" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i> 登录中...</span>
+                </button>
+            </form>
+        </section>
+
+        <footer class="login-footer">
+            <span>© 2026 设备维修辅助系统 v1.0</span>
+        </footer>
+    </main>
+
+    <script src="../js/config.js"></script>
+    <script src="script/login.js"></script>
+</body>
+</html>
+
