@@ -624,15 +624,17 @@
                         const fileUrl = getFileUrl(successUrls[i]);
                         const isImage = isImageFile(name);
                         const safeName = name.replace(/'/g, "\\'");
+                        const canPreviewSourceFile = Utils.canPreviewSourceFiles();
 
                         // 根据是否支持预览决定是否显示预览链接
                         const showPreview = isPreviewSupported(name);
-                        const previewLink = showPreview ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
-                        const downloadLink = `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>`;
+                        const previewLink = showPreview && canPreviewSourceFile ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
+                        const downloadLink = canPreviewSourceFile ? `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>` : '';
+                        const fileIcon = '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>';
 
                         successHtml += `
                             <div class="success-item">
-                                ${isImage ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>'}
+                                ${isImage && canPreviewSourceFile ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : fileIcon}
                                 <span style="flex:1;">${name}</span>
                                 ${previewLink}
                                 ${downloadLink}
@@ -693,15 +695,17 @@
                 const isImage = isImageFile(file.name);
                 const safeName = file.name.replace(/'/g, "\\'");
                 const showPreview = isPreviewSupported(file.name);
-                const previewLink = showPreview ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
-                const downloadLink = `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>`;
+                const canPreviewSourceFile = Utils.canPreviewSourceFiles();
+                const previewLink = showPreview && canPreviewSourceFile ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
+                const downloadLink = canPreviewSourceFile ? `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>` : '';
+                const fileIcon = '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>';
 
                 html += `
                     <div class="file-item">
                         <div class="checkbox-column">
                             <input type="checkbox" class="file-checkbox" data-index="${index}" checked>
                         </div>
-                        ${isImage ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>'}
+                        ${isImage && canPreviewSourceFile ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : fileIcon}
                         <span class="file-name" style="flex:1;">${file.name}</span>
                         <span class="file-size">${formatFileSize(file.size)}</span>
                         <div class="file-actions">
@@ -857,6 +861,10 @@
 
     // 图片预览相关（复用 add-document.html 的逻辑）
     function previewImageFromUrl(url) {
+        if (!Utils.canPreviewSourceFiles()) {
+            Utils.showMessage('仅审核人员和管理员可预览源文件', 'warning');
+            return;
+        }
         previewImages = [url]; // 简化，只预览单张
         currentPreviewIndex = 0;
         const modal = document.getElementById('imageModal');
@@ -867,6 +875,10 @@
     }
 
     async function downloadFile(url, filename) {
+        if (!Utils.canPreviewSourceFiles()) {
+            Utils.showMessage('仅审核人员和管理员可预览源文件', 'warning');
+            return;
+        }
         try {
             const response = await fetch(url, {
                 mode: 'cors',

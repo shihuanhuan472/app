@@ -277,6 +277,10 @@
             return String(value || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
         }
 
+        function canPreviewSourceFiles() {
+            return Utils.canPreviewSourceFiles(Utils.getCurrentUser());
+        }
+
         function getFilters() {
             return {
                 keyword: sourceKeyword,
@@ -410,8 +414,12 @@
                     </button>`;
             const canAnalyze = item.status === 'uploaded' || item.status === 'parse_failed';
             const analyzeLabel = item.status === 'parse_failed' ? '重新解析' : '解析文档';
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览" style="cursor: pointer;"`
+                : 'title="仅审核人员和管理员可预览源文件"';
             return `
-                <div class="document-item" ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="Double click to view" style="cursor: pointer;">
+                <div class="document-item" ${previewAttrs}>
                     <div class="document-item-header">
                         <div class="document-item-title">${escapeHtml(item.origin_file_name)}</div>
                     </div>
@@ -506,8 +514,12 @@
             const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
             const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成');
             const statusClass = `source-status-${safeClassToken(item.status)}`;
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览"`
+                : 'title="仅审核人员和管理员可预览源文件"';
             return `
-                <div class="source-list-row" ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})'>
+                <div class="source-list-row" ${previewAttrs}>
                     <div class="source-list-name">
                         <i class="fas fa-file"></i>
                         <div class="source-list-name-text">
@@ -614,6 +626,10 @@
         window.toggleSourceView = toggleSourceView;
 
         function openSourceDocument(storedFilePath) {
+            if (!canPreviewSourceFiles()) {
+                Utils.showMessage('仅审核人员和管理员可预览源文件', 'warning');
+                return;
+            }
             if (!storedFilePath) {
                 Utils.showMessage('源文档路径不存在', 'error');
                 return;
