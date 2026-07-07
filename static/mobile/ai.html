@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
+    <title>AI问答 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/ai.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.5/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body class="mobile-page mobile-ai-page">
+    <div class="mobile-ai-shell">
+        <header class="ai-topbar">
+            <button class="topbar-icon-button" id="openHistoryBtn" type="button" aria-label="打开历史会话">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+            <div class="topbar-title-wrap">
+                <p class="topbar-kicker">AI 维修助手</p>
+                <h1 id="mobilePageTitle">AI辅助对话</h1>
+            </div>
+            <a class="user-entry" id="profileEntry" href="profile.html" aria-label="进入个人信息">
+                <span class="user-entry-name" id="topUserName">用户</span>
+                <span class="user-entry-avatar" id="topUserAvatar">用</span>
+            </a>
+        </header>
+
+        <div class="drawer-overlay" id="drawerOverlay" hidden></div>
+        <aside class="history-drawer" id="historyDrawer" aria-hidden="true" aria-label="历史会话抽屉">
+            <div class="drawer-header">
+                <div>
+                    <p class="drawer-kicker">History</p>
+                    <h2>历史对话</h2>
+                </div>
+                <button class="mobile-icon-button" id="closeHistoryBtn" type="button" aria-label="关闭历史会话">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <button class="new-conversation-btn" id="newConversationBtn" type="button">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                新建对话
+            </button>
+
+            <div class="history-search">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="historySearch" type="search" placeholder="搜索历史对话..." autocomplete="off">
+            </div>
+
+            <div class="history-list" id="historyList" role="list"></div>
+            <div class="history-list-footer" id="historyListFooter"></div>
+        </aside>
+
+        <main class="chat-panel" aria-label="AI 对话主区域">
+            <section class="conversation-meta" aria-live="polite">
+                <div>
+                    <h2 id="currentConversationTitle">请选择或新建一个对话</h2>
+                    <p id="currentConversationDate"></p>
+                </div>
+                <button class="meta-new-btn" id="metaNewConversationBtn" type="button">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                    新建
+                </button>
+            </section>
+
+            <section class="conversation-content" id="conversationContent" aria-live="polite">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon"><i class="fas fa-robot" aria-hidden="true"></i></div>
+                    <h2>AI维修助手</h2>
+                    <p>您好！我是您的维修辅助AI助手，可以帮您解决设备故障、提供维修建议、查找相关文档。</p>
+                    <button class="empty-primary" id="emptyNewConversationBtn" type="button">
+                        <i class="fas fa-comments" aria-hidden="true"></i>
+                        开始新对话
+                    </button>
+                </div>
+            </section>
+
+            <section class="input-section" id="inputSection" hidden>
+                <div class="attachment-preview-container" id="attachmentPreviewContainer"></div>
+                <div class="input-wrapper">
+                    <textarea class="message-input" id="messageInput" rows="1" placeholder="请尽量详细地描述您的问题，支持上传图片..."></textarea>
+                    <div class="input-actions">
+                        <button class="action-button" id="attachmentButton" type="button" title="上传图片" aria-label="上传图片">
+                            <i class="fas fa-paperclip" aria-hidden="true"></i>
+                        </button>
+                        <button class="action-button" id="voiceInputButton" type="button" title="语音输入" aria-label="语音输入">
+                            <i class="fas fa-microphone" aria-hidden="true"></i>
+                        </button>
+                        <button class="send-button" id="sendButton" type="button" title="发送" aria-label="发送消息">
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <input class="file-input" id="fileInput" type="file" accept="image/*" multiple>
+                <div class="voice-status" id="voiceStatus"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js?v=20260702-chat-api"></script>
+    <script src="script/ai.js"></script>
+</body>
+</html>
