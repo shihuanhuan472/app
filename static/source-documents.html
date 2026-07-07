@@ -131,6 +131,7 @@
                     <select class="page-size-select" id="statusSelect" onchange="reloadSourceDocuments()">
                         <option value="">全部状态</option>
                         <option value="uploaded">已上传</option>
+                        <option value="parsing">解析中</option>
                         <option value="vectorized">已入库</option>
                         <option value="review_pending">待审核</option>
                         <option value="parse_failed">解析失败</option>
@@ -180,6 +181,7 @@
 
         const statusText = {
             uploaded: '已上传',
+            parsing: '解析中',
             vectorized: '已入库',
             review_pending: '待审核',
             parse_failed: '解析失败',

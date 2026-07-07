@@ -607,6 +607,9 @@ async def ensure_source_document_library_columns():
         if int(library_column_result.scalar_one() or 0) == 0:
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
 
+        if not await _column_exists(conn, "source_documents", "parse_started_time"):
+            await conn.execute(text("ALTER TABLE source_documents ADD COLUMN parse_started_time DATETIME NULL AFTER parse_error"))
+
 
 async def ensure_message_token_count_column():
     async with engine.begin() as conn:

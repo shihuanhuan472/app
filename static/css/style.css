@@ -3430,6 +3430,11 @@ body {
     background: #eff6ff;
 }
 
+.source-status-parsing {
+    color: #7c3aed;
+    background: #f5f3ff;
+}
+
 .source-status-vectorized {
     color: #047857;
     background: #ecfdf5;

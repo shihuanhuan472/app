@@ -297,6 +297,7 @@ class SourceDocumentResponse(BaseModel):
     upload_time: Optional[datetime] = None
     status: str
     parse_error: Optional[str] = None
+    parse_started_time: Optional[datetime] = None
     document_id: Optional[int] = None
     document_library_type: Optional[str] = "breakdown"
     review_id: Optional[int] = None
