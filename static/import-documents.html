@@ -499,6 +499,32 @@
         }
     }
 
+    function showAnalyzeStep() {
+        const step1Content = document.getElementById('step1-content');
+        const step2Content = document.getElementById('step2-content');
+        const step1Indicator = document.getElementById('step1');
+        const step2Indicator = document.getElementById('step2');
+
+        if (step1Content) step1Content.style.display = 'none';
+        if (step2Content) step2Content.style.display = 'block';
+        if (step1Indicator) {
+            step1Indicator.classList.remove('active');
+            step1Indicator.classList.add('completed');
+        }
+        if (step2Indicator) step2Indicator.classList.add('active');
+    }
+
+    function setFinishButtonEnabled(enabled) {
+        const finishBtn = document.getElementById('finishBtn');
+        if (!finishBtn) return;
+
+        finishBtn.classList.toggle('disabled', !enabled);
+        finishBtn.setAttribute('aria-disabled', String(!enabled));
+        finishBtn.style.pointerEvents = enabled ? '' : 'none';
+        finishBtn.style.opacity = enabled ? '' : '0.6';
+        finishBtn.title = enabled ? '' : '解析完成后才能返回';
+    }
+
     function renderParseTask(task) {
         if (!task) return;
 
@@ -554,6 +580,7 @@
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = isActive || uploadedFiles.length === 0;
         }
+        setFinishButtonEnabled(!isActive);
 
         if (isActive) {
             currentParseTaskId = String(task.id);
@@ -575,6 +602,7 @@
     async function pollParseTask(taskId) {
         if (!taskId) return;
         try {
+            showAnalyzeStep();
             const task = await documentAPI.getParseTask(taskId);
             renderParseTask(task);
             if (task && (task.status === 'pending' || task.status === 'running')) {
@@ -604,6 +632,7 @@
         try {
             const activeTask = await documentAPI.getActiveParseTask();
             if (activeTask) {
+                showAnalyzeStep();
                 await pollParseTask(activeTask.id);
             }
         } catch (error) {
@@ -618,12 +647,19 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isReviewMode = urlParams.get('mode') === 'review';
         const isSourcePendingMode = urlParams.get('source_mode') === 'pending';
+        const taskIdFromUrl = urlParams.get('task_id');
+        const isParseProgressView = urlParams.get('view') === 'parse-progress';
         const currentUser = Utils.getCurrentUser();
         if (!isReviewMode && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && !Utils.hasRole(currentUser, Utils.ROLE.ADMIN)) {
             const redirectParams = new URLSearchParams(window.location.search);
             redirectParams.set('mode', 'review');
             window.location.replace(`import-documents.html?${redirectParams.toString()}`);
             return;
+        }
+
+        if (taskIdFromUrl) {
+            currentParseTaskId = String(taskIdFromUrl);
+            localStorage.setItem('current_parse_task_id', currentParseTaskId);
         }
 
         const uploadArea = document.getElementById('uploadArea');
@@ -641,6 +677,7 @@
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const finishBtn = document.getElementById('finishBtn');
+        setFinishButtonEnabled(false);
         if (isReviewMode && finishBtn) {
             finishBtn.href = 'my-submissions.html';
             finishBtn.textContent = '完成，返回我的提交';
@@ -650,6 +687,9 @@
             finishBtn.textContent = '完成，返回源文档库';
         }
         applyPageMode();
+        if (isParseProgressView || currentParseTaskId) {
+            showAnalyzeStep();
+        }
         TagSelector.init('documentTags', {
             placeholder: '请选择标签'
         });
@@ -1037,11 +1077,7 @@
         }
 
         function switchToAnalyzeStep() {
-            step1Content.style.display = 'none';
-            step2Content.style.display = 'block';
-            step1Indicator.classList.remove('active');
-            step1Indicator.classList.add('completed');
-            step2Indicator.classList.add('active');
+            showAnalyzeStep();
             renderUploadedFilesList();
         }
 
