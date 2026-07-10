@@ -106,6 +106,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            cursor: pointer;
         }
 
         .image-preview-small button {
@@ -384,6 +385,61 @@
             margin-top: 12px;
         }
 
+        .document-image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .document-image-modal-content {
+            position: relative;
+            max-width: min(960px, 94vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .document-image-modal-content img {
+            max-width: 100%;
+            max-height: 82vh;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .document-image-modal-close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: #fff;
+            color: #111827;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 34px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+        }
+
+        .document-image-modal-caption {
+            max-width: 100%;
+            color: #f8fafc;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .knowledge-empty-sections {
             padding: 24px;
             text-align: center;
@@ -406,6 +462,14 @@
     </style>
 </head>
 <body>
+    <div class="document-image-modal" id="documentImageModal">
+        <div class="document-image-modal-content">
+            <button type="button" class="document-image-modal-close" onclick="closeDocumentImagePreview()" title="关闭">&times;</button>
+            <img id="documentImageModalImg" src="" alt="图片预览">
+            <div class="document-image-modal-caption" id="documentImageModalCaption"></div>
+        </div>
+    </div>
+
     <div class="system-container">
         <div class="sidebar">
             <div class="logo-container">
@@ -501,6 +565,26 @@
 
         function escapeAttribute(value) {
             return escapeHtml(value).replace(/\n/g, '&#10;');
+        }
+
+        function openDocumentImagePreview(imageUrl, caption = '图片预览') {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            const captionEl = document.getElementById('documentImageModalCaption');
+            if (!modal || !img) return;
+
+            const fullUrl = getFullImageUrl(imageUrl);
+            img.src = fullUrl;
+            img.alt = caption || '图片预览';
+            if (captionEl) captionEl.textContent = caption || '';
+            modal.style.display = 'flex';
+        }
+
+        function closeDocumentImagePreview() {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            if (modal) modal.style.display = 'none';
+            if (img) img.src = '';
         }
 
         function getReturnUrl(docId) {
@@ -844,7 +928,7 @@
                 const displayUrl = getFullImageUrl(url);
                 return `
                     <div class="knowledge-image-thumb">
-                        <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" onclick="window.open(this.src, '_blank')" onerror="this.onerror=null; this.src='https://via.placeholder.com/86x64?text=加载失败'">
+                        <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="图片${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/86x64?text=加载失败'">
                         <button type="button" title="删除图片" onclick="removeKnowledgeSectionImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
                         <span title="${escapeAttribute(url)}">图片${index + 1}</span>
                     </div>
@@ -852,7 +936,7 @@
             });
             const pending = (knowledgeNewImagesBySection[sectionIndex] || []).map((file, index) => `
                 <div class="knowledge-image-thumb">
-                    <img src="${escapeAttribute(file.previewUrl || '')}" alt="待上传图片">
+                    <img src="${escapeAttribute(file.previewUrl || '')}" alt="待上传图片" data-image-preview-src="${escapeAttribute(file.previewUrl || '')}" data-image-preview-title="${escapeAttribute(file.name || '待上传图片')}">
                     <button type="button" title="移除待上传图片" onclick="removePendingKnowledgeImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
                     <span title="${escapeAttribute(file.name)}">待上传</span>
                 </div>
@@ -1013,7 +1097,7 @@
                         const div = document.createElement('div');
                         div.className = 'image-preview-small';
                         div.innerHTML = `
-                            <img src="${e.target.result}" alt="预览">
+                            <img src="${e.target.result}" alt="预览" data-image-preview-title="${escapeAttribute(file.name || '待上传图片')}">
                             <button type="button" data-field="${field}" data-index="${index}" data-type="new">
                                 <i class="fas fa-times"></i>
                             </button>
@@ -1041,7 +1125,7 @@
                     const displayUrl = getFullImageUrl(url);
                     html += `
                         <div class="image-preview-small" data-url="${url}">
-                            <img src="${displayUrl}" alt="已有图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=加载失败'">
+                            <img src="${displayUrl}" alt="已有图片" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="已有图片 ${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=加载失败'">
                             <button type="button" data-field="${field}" data-url="${url}" data-index="${index}" data-type="existing">
                                 <i class="fas fa-times"></i>
                             </button>
@@ -1054,6 +1138,16 @@
         }
 
         document.addEventListener('click', (e) => {
+            const previewImg = e.target.closest('[data-image-preview-src], .image-preview-small img, .knowledge-image-thumb img');
+            if (previewImg && !e.target.closest('button')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const imageUrl = previewImg.dataset.imagePreviewSrc || previewImg.getAttribute('src');
+                const title = previewImg.dataset.imagePreviewTitle || previewImg.getAttribute('alt') || '图片预览';
+                openDocumentImagePreview(imageUrl, title);
+                return;
+            }
+
             const btn = e.target.closest('.image-preview-small button');
             if (!btn) return;
             e.preventDefault();
@@ -1085,6 +1179,14 @@
                     container.innerHTML = '';
                 }
             }
+        });
+
+        document.getElementById('documentImageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDocumentImagePreview();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeDocumentImagePreview();
         });
 
         function cancelEdit(docId) {

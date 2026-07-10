@@ -87,6 +87,49 @@ class SourceDocument(Base):
     uploader = relationship("User")
 
 
+class ParseTask(Base):
+    __tablename__ = "parse_tasks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String(30), default="pending", nullable=False, index=True)
+    total_count = Column(Integer, default=0, nullable=False)
+    success_count = Column(Integer, default=0, nullable=False)
+    failed_count = Column(Integer, default=0, nullable=False)
+    current_file_name = Column(String(255))
+    submit_for_review = Column(Integer, default=0, nullable=False)
+    library_type = Column(String(32), default="breakdown", nullable=False)
+    tag = Column(JSON, nullable=True)
+    error_message = Column(Text)
+    created_time = Column(DateTime)
+    started_time = Column(DateTime)
+    finished_time = Column(DateTime)
+
+    user = relationship("User")
+    items = relationship("ParseTaskItem", back_populates="task", cascade="all, delete-orphan")
+
+
+class ParseTaskItem(Base):
+    __tablename__ = "parse_task_items"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    task_id = Column(Integer, ForeignKey("parse_tasks.id"), nullable=False, index=True)
+    source_document_id = Column(Integer, ForeignKey("source_documents.id"), nullable=True, index=True)
+    file_name = Column(String(255), nullable=False)
+    file_path = Column(Text, nullable=False)
+    status = Column(String(30), default="pending", nullable=False, index=True)
+    error_reason = Column(Text)
+    error_code = Column(Integer)
+    document_id = Column(Integer, nullable=True, index=True)
+    document_library_type = Column(String(32), default="breakdown", nullable=False)
+    started_time = Column(DateTime)
+    finished_time = Column(DateTime)
+    elapsed_seconds = Column(Integer)
+
+    task = relationship("ParseTask", back_populates="items")
+    source_document = relationship("SourceDocument")
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

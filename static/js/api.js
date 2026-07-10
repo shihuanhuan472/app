@@ -852,6 +852,61 @@ const documentAPI = {
             console.error('解析文件失败:', error);
             throw error;
         }
+    },
+
+    async createParseTask(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
+        try {
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks`,
+                {
+                    file_list: fileList,
+                    file_name: fileNames,
+                    submit_for_review: submitForReview,
+                    library_type: libraryType,
+                    tag: tag
+                },
+                true
+            );
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '创建解析任务失败');
+        } catch (error) {
+            console.error('创建解析任务失败:', error);
+            throw error;
+        }
+    },
+
+    async getParseTask(taskId) {
+        try {
+            const response = await this.client.get(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks/${taskId}`,
+                true
+            );
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '获取解析任务失败');
+        } catch (error) {
+            console.error('获取解析任务失败:', error);
+            throw error;
+        }
+    },
+
+    async getActiveParseTask() {
+        try {
+            const response = await this.client.get(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks/active`,
+                true
+            );
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '获取解析任务失败');
+        } catch (error) {
+            console.error('获取当前解析任务失败:', error);
+            throw error;
+        }
     }
 };
 

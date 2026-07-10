@@ -141,6 +141,90 @@
         .error-item {
             border-left: 3px solid #ef4444;
         }
+        .parse-progress-panel {
+            padding: 14px 16px;
+            background: #ffffff;
+            border: 1px solid #e5edf6;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        .parse-progress-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            color: #475569;
+            font-size: 13px;
+        }
+        .parse-progress-track {
+            height: 10px;
+            background: #eef2f7;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .parse-progress-bar {
+            height: 100%;
+            width: 0;
+            background: #4a9eff;
+            transition: width 0.2s ease;
+        }
+        .parse-result-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border: 1px solid #e5edf6;
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+        .parse-result-table th,
+        .parse-result-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: left;
+            vertical-align: top;
+        }
+        .parse-result-table th {
+            color: #475569;
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .parse-result-table tr:last-child td {
+            border-bottom: 0;
+        }
+        .parse-status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .parse-status-success {
+            color: #047857;
+            background: #ecfdf5;
+        }
+        .parse-status-failed {
+            color: #b91c1c;
+            background: #fef2f2;
+        }
+        .parse-status-parsing,
+        .parse-status-running {
+            color: #2563eb;
+            background: #eff6ff;
+        }
+        .parse-status-pending {
+            color: #64748b;
+            background: #f8fafc;
+        }
+        .parse-reason {
+            max-width: 420px;
+            color: #64748b;
+            line-height: 1.45;
+            word-break: break-word;
+        }
         .file-url {
             margin-left: 15px;
             font-size: 13px;
@@ -297,8 +381,26 @@
                 </div>
                 <div id="analyzeResult" class="result-section" style="display: none;">
                     <div class="result-title">解析结果</div>
-                    <div class="success-list" id="analyzeSuccessList"></div>
-                    <div class="error-list" id="analyzeErrorList"></div>
+                    <div class="parse-progress-panel" id="parseProgressPanel" style="display: none;">
+                        <div class="parse-progress-meta">
+                            <span id="parseProgressText">等待解析</span>
+                            <span id="parseProgressCount">0/0</span>
+                        </div>
+                        <div class="parse-progress-track">
+                            <div class="parse-progress-bar" id="parseProgressBar"></div>
+                        </div>
+                    </div>
+                    <table class="parse-result-table" id="parseResultTable" style="display: none;">
+                        <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>状态</th>
+                            <th>失败原因</th>
+                            <th>耗时</th>
+                        </tr>
+                        </thead>
+                        <tbody id="parseResultBody"></tbody>
+                    </table>
                     <div class="action-bar" style="justify-content: flex-end;">
                         <a href="main.html" class="btn btn-primary" id="finishBtn">完成，返回知识库</a>
                     </div>
@@ -321,6 +423,8 @@
     let uploadErrorFiles = [];             // 上传失败的文件名列表
     let currentPreviewIndex = 0;           // 预览图片索引
     let previewImages = [];                // 当前可预览的图片文件（用于模态框）
+    let currentParseTaskId = localStorage.getItem('current_parse_task_id') || '';
+    let parseTaskPollTimer = null;
 
     // 工具函数：获取文件的静态访问URL
     function getFileUrl(relativePath) {
@@ -358,6 +462,153 @@
 
     function parseDocumentTags() {
         return TagSelector.getSelected('documentTags');
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getParseStatusText(status) {
+        const map = {
+            pending: '等待中',
+            parsing: '解析中',
+            running: '解析中',
+            success: '成功',
+            failed: '失败',
+            finished: '已完成'
+        };
+        return map[status] || status || '未知';
+    }
+
+    function formatElapsedSeconds(seconds) {
+        if (seconds === null || seconds === undefined || seconds === '') return '-';
+        const value = Number(seconds);
+        if (!Number.isFinite(value)) return '-';
+        return `${value}s`;
+    }
+
+    function stopParseTaskPolling() {
+        if (parseTaskPollTimer) {
+            clearInterval(parseTaskPollTimer);
+            parseTaskPollTimer = null;
+        }
+    }
+
+    function renderParseTask(task) {
+        if (!task) return;
+
+        const resultSection = document.getElementById('analyzeResult');
+        const progressPanel = document.getElementById('parseProgressPanel');
+        const progressText = document.getElementById('parseProgressText');
+        const progressCount = document.getElementById('parseProgressCount');
+        const progressBar = document.getElementById('parseProgressBar');
+        const resultTable = document.getElementById('parseResultTable');
+        const resultBody = document.getElementById('parseResultBody');
+
+        const items = Array.isArray(task.items) ? task.items : [];
+        const total = Number(task.total_count || items.length || 0);
+        const successCount = Number(task.success_count || 0);
+        const failedCount = Number(task.failed_count || 0);
+        const finishedCount = successCount + failedCount;
+        const percent = total > 0 ? Math.min(100, Math.round((finishedCount / total) * 100)) : 0;
+
+        resultSection.style.display = 'block';
+        progressPanel.style.display = 'block';
+        progressBar.style.width = `${percent}%`;
+        progressCount.textContent = `${finishedCount}/${total}`;
+
+        if (task.status === 'finished') {
+            progressText.textContent = `解析完成：成功 ${successCount} 个，失败 ${failedCount} 个`;
+        } else if (task.current_file_name) {
+            progressText.textContent = `正在解析：${task.current_file_name}`;
+        } else {
+            progressText.textContent = '解析任务已创建，等待开始';
+        }
+
+        resultTable.style.display = items.length ? 'table' : 'none';
+        resultBody.innerHTML = items.map(item => {
+            const status = item.status || 'pending';
+            const reason = item.error_reason || item.reason || '-';
+            return `
+                <tr>
+                    <td>${escapeHtml(item.file_name || '')}</td>
+                    <td><span class="parse-status-badge parse-status-${escapeHtml(status)}">${escapeHtml(getParseStatusText(status))}</span></td>
+                    <td class="parse-reason">${escapeHtml(reason)}</td>
+                    <td>${escapeHtml(formatElapsedSeconds(item.elapsed_seconds))}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const isActive = task.status === 'pending' || task.status === 'running';
+        if (analyzeBtn) {
+            analyzeBtn.disabled = isActive || uploadedFiles.length === 0;
+            analyzeBtn.innerHTML = isActive ? '<i class="fas fa-spinner fa-spin"></i> 解析中...' : '开始解析';
+        }
+        if (selectAllCheckbox) {
+            selectAllCheckbox.disabled = isActive || uploadedFiles.length === 0;
+        }
+
+        if (isActive) {
+            currentParseTaskId = String(task.id);
+            localStorage.setItem('current_parse_task_id', currentParseTaskId);
+        } else {
+            stopParseTaskPolling();
+            if (String(task.id) === currentParseTaskId) {
+                localStorage.removeItem('current_parse_task_id');
+                currentParseTaskId = '';
+            }
+            const successNames = new Set(items.filter(item => item.status === 'success').map(item => item.file_name));
+            if (successNames.size > 0 && uploadedFiles.length > 0) {
+                uploadedFiles = uploadedFiles.filter(file => !successNames.has(file.name));
+                renderUploadedFilesList();
+            }
+        }
+    }
+
+    async function pollParseTask(taskId) {
+        if (!taskId) return;
+        try {
+            const task = await documentAPI.getParseTask(taskId);
+            renderParseTask(task);
+            if (task && (task.status === 'pending' || task.status === 'running')) {
+                stopParseTaskPolling();
+                parseTaskPollTimer = setInterval(async () => {
+                    try {
+                        const latestTask = await documentAPI.getParseTask(taskId);
+                        renderParseTask(latestTask);
+                    } catch (error) {
+                        console.error('刷新解析任务失败:', error);
+                    }
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('恢复解析任务失败:', error);
+            localStorage.removeItem('current_parse_task_id');
+            currentParseTaskId = '';
+        }
+    }
+
+    async function restoreParseTaskIfNeeded() {
+        if (currentParseTaskId) {
+            await pollParseTask(currentParseTaskId);
+            return;
+        }
+
+        try {
+            const activeTask = await documentAPI.getActiveParseTask();
+            if (activeTask) {
+                await pollParseTask(activeTask.id);
+            }
+        } catch (error) {
+            console.error('获取当前解析任务失败:', error);
+        }
     }
 
     // 初始化
@@ -687,6 +938,8 @@
             const container = document.getElementById('uploadedFilesList');
             if (!uploadedFiles.length) {
                 container.innerHTML = '<div class="file-item">没有已上传的文件</div>';
+                analyzeBtn.disabled = true;
+                document.getElementById('selectAllCheckbox').disabled = true;
                 return;
             }
             let html = '';
@@ -716,8 +969,8 @@
                 `;
             });
             container.innerHTML = html;
-            analyzeBtn.disabled = false;
-            document.getElementById('selectAllCheckbox').disabled = false;
+            analyzeBtn.disabled = Boolean(currentParseTaskId);
+            document.getElementById('selectAllCheckbox').disabled = Boolean(currentParseTaskId);
         }
 
         // 全选/取消全选
@@ -744,49 +997,24 @@
             analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
 
             try {
-                const result = await documentAPI.analyzeFiles(fileList, fileNames, isReviewMode, document.getElementById('libraryType').value, parseDocumentTags());
-                const successNames = result.success_origin_filename || [];
-                const errorNames = result.error_origin_filename || [];
-
-                // 显示解析结果
-                document.getElementById('analyzeResult').style.display = 'block';
-                const successDiv = document.getElementById('analyzeSuccessList');
-                const errorDiv = document.getElementById('analyzeErrorList');
-
-                successDiv.innerHTML = successNames.length
-                    ? '<div style="font-weight:500;">解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
-                    : '';
-                errorDiv.innerHTML = errorNames.length
-                    ? '<div style="font-weight:500; color:#ef4444;">解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
-                    : '';
-
-                // 从 uploadedFiles 中移除已解析成功的文件
-                uploadedFiles = uploadedFiles.filter(f => !successNames.includes(f.name));
-
-                // 重新渲染已上传文件列表
-                renderUploadedFilesList();
-
-                // 如果列表为空，则隐藏开始解析按钮和全选选项，或显示提示
-                if (uploadedFiles.length === 0) {
-                    // 禁用解析按钮，隐藏全选
-                    analyzeBtn.disabled = true;
-                    document.getElementById('selectAllCheckbox').disabled = true;
-                    // 在列表区域显示提示
-                    document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的文件。</div>';
-                } else {
-                    // 重置全选为勾选状态，方便继续解析剩余文件
-                    document.getElementById('selectAllCheckbox').checked = true;
-                    document.getElementById('selectAllCheckbox').disabled = false;
-                }
-
-                Utils.showMessage(`解析完成，成功 ${successNames.length} 个，失败 ${errorNames.length} 个`, 'info');
+                const task = await documentAPI.createParseTask(
+                    fileList,
+                    fileNames,
+                    isReviewMode,
+                    document.getElementById('libraryType').value,
+                    parseDocumentTags()
+                );
+                currentParseTaskId = String(task.id);
+                localStorage.setItem('current_parse_task_id', currentParseTaskId);
+                renderParseTask(task);
+                await pollParseTask(task.id);
+                Utils.showMessage(`解析任务已创建，共 ${task.total_count || fileNames.length} 个文件`, 'info');
             } catch (error) {
-                Utils.showMessage('解析失败：' + error.message, 'error');
-            } finally {
+                Utils.showMessage('创建解析任务失败：' + error.message, 'error');
                 analyzeBtn.innerHTML = '开始解析';
-                analyzeBtn.disabled = false; // 如果列表为空，后续在判断中会重新禁用，这里先启用
-                // 若列表为空，则再次禁用（避免按钮可点击但无文件）
-                if (uploadedFiles.length === 0) {
+                analyzeBtn.disabled = uploadedFiles.length === 0;
+            } finally {
+                if (currentParseTaskId) {
                     analyzeBtn.disabled = true;
                 }
             }
@@ -857,6 +1085,10 @@
                 selectAllCheckbox.disabled = true;
             });
         }
+
+        restoreParseTaskIfNeeded().catch(error => {
+            console.error('恢复解析任务失败:', error);
+        });
     });
 
     // 图片预览相关（复用 add-document.html 的逻辑）
