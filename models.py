@@ -73,6 +73,7 @@ class SourceDocument(Base):
     upload_time = Column(DateTime)
     status = Column(String(30), default="uploaded", nullable=False, index=True)
     parse_error = Column(Text)
+    parse_started_time = Column(DateTime, nullable=True)
     document_id = Column(Integer, nullable=True, index=True)
     document_library_type = Column(
         String(32), default="breakdown", nullable=False, index=True

@@ -33,6 +33,7 @@ DOMAIN_TERM_ALIASES = {
     "FIT": ["FIT", "FIT值", "FIT value"],
     "Q30": ["Q30"],
     "G50": ["G50"],
+    "NSB": ["NSB", "Non-Specific Binding", "Non Specific Binding", "非特异性吸附", "非特异性结合"],
     "SBC": ["SBC"],
     "DNQ": ["DNQ"],
 }

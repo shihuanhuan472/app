@@ -1686,6 +1686,7 @@
                 const isAuthor = currentUserId && String(currentUserId) === String(doc.contributor_id);
                 const isTechnicianAuthor = !!currentUser && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && isAuthor;
                 const showEditDeleteButtons = isAdmin || isTechnicianAuthor;
+                const canPreviewSourceFile = Utils.canPreviewSourceFiles(currentUser);
 
                 let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
                 if (isAuthor) authorName = '我';
@@ -1702,6 +1703,12 @@
                     const fileUrl = getFullAssetUrl(doc.origin_file_dir);
                     const fileExt = String(doc.origin_file_name).split('.').pop().toLowerCase();
                     const isPreviewable = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
+                    const previewAction = isPreviewable && canPreviewSourceFile
+                        ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>`
+                        : '';
+                    const previewHint = !isPreviewable
+                        ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">该格式暂不支持在线预览。</p>'
+                        : (!canPreviewSourceFile ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">仅审核人员和管理员可预览源文件。</p>' : '');
 
                     const iconMap = {
                         pdf: 'fa-file-pdf',
@@ -1714,7 +1721,6 @@
                         txt: 'fa-file-alt'
                     };
                     const iconClass = iconMap[fileExt] || 'fa-file';
-                    const safeFileName = String(doc.origin_file_name).replace(/'/g, "\\'");
 
                     originalFileHtml = `
                         <div class="document-section original-file-section">
@@ -1728,9 +1734,9 @@
                                     <span class="file-name">${escapeHtml(doc.origin_file_name)}</span>
                                 </div>
                                 <div class="file-actions">
-                                    ${isPreviewable ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>` : ''}
+                                    ${previewAction}
                                 </div>
-                                ${!isPreviewable ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">该格式暂不支持在线预览。</p>' : ''}
+                                ${previewHint}
                             </div>
                         </div>
                     `;

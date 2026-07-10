@@ -1,0 +1,16 @@
+[
+  {
+    "id": "db-breakdown-48bf766a5be6",
+    "question": "当AF模块斜率异常超出5±0.25时，应如何检查Z轴分辨率是否正确？",
+    "ground_truth": "检查ACS软件参数EFAC，铭牌颜色为橙色的分辨率为0.5um",
+    "source_title": "T7-AF参数异常（AF SUM/signal/斜率）",
+    "source_file": "upload/source_documents/word/T7-AF参数异常（AF SUMsignal斜率）.docx",
+    "source_doc_id": 65,
+    "source_library_type": "breakdown",
+    "answer": "",
+    "references": [],
+    "score": 0.0,
+    "passed": false,
+    "error": "OSError: Can't load the configuration of 'BAAI/bge-m3'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'BAAI/bge-m3' is the correct path to a directory containing a config.json file"
+  }
+]

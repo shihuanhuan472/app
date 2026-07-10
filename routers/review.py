@@ -86,6 +86,7 @@ async def _reset_source_documents_for_document(db: AsyncSession, document_id: in
         source_document.document_library_type = "breakdown"
         source_document.review_id = None
         source_document.parse_error = None
+        source_document.parse_started_time = None
 
 
 async def _cleanup_review_origin_file(review: Document_review):
@@ -554,6 +555,7 @@ async def approve_review(
             source_document.document_library_type = review.document_library_type
             source_document.review_id = None
             source_document.parse_error = None
+            source_document.parse_started_time = None
         await db.commit()
         await db.refresh(review)
     except AppException:
@@ -603,6 +605,7 @@ async def reject_review(
         source_document.status = "uploaded"
         source_document.review_id = None
         source_document.parse_error = review.review_comment
+        source_document.parse_started_time = None
     await _cleanup_review_origin_file(review)
     await db.commit()
     await db.refresh(review)
@@ -642,6 +645,7 @@ async def withdraw_review(
         source_document.status = "uploaded"
         source_document.review_id = None
         source_document.parse_error = None
+        source_document.parse_started_time = None
     await _cleanup_review_origin_file(review)
     await db.commit()
     await db.refresh(review)

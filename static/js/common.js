@@ -115,6 +115,11 @@ const Utils = {
         return localStorage.getItem('token') || sessionStorage.getItem('token');
     },
 
+    canPreviewSourceFiles: function(user = null) {
+        const currentUser = user || this.getCurrentUser();
+        return this.hasRole(currentUser, this.ROLE.ADMIN, this.ROLE.REVIEWER);
+    },
+
     // 在 Utils 对象中添加文件大小格式化函数
     formatFileSize: function(bytes) {
         if (bytes === 0) return '0 Bytes';

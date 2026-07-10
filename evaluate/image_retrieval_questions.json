@@ -1,0 +1,3596 @@
+[
+  {
+    "id": "image-fdb976bb8f4d",
+    "source_key": "image-source-8eb131496935",
+    "question": "结合图片，当AF模块斜率异常超出5±0.25时，应如何检查Z轴分辨率是否正确？",
+    "ground_truth": "检查ACS软件参数EFAC，铭牌颜色为橙色的分辨率为0.5um",
+    "source_title": "T7-AF参数异常（AF SUM/signal/斜率）",
+    "source_file": "upload/source_documents/word/T7-AF参数异常（AF SUMsignal斜率）.docx",
+    "source_images": [
+      "upload/images/20260624_115809_8e528c875ece46cbbf02ca347f3ad917.jpg",
+      "upload/images/20260624_115809_e41862bfb5f9428392de2e5a6f2cf31f.jpg"
+    ],
+    "source_doc_id": 65,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/151ae9dd1543_1.jpg"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d696c8e73c0e",
+    "source_key": "image-source-e2270cf94347",
+    "question": "结合图片，ZTRON LITE入仓耗时从2小时变为4小时时，若存储容量超过80%会导致什么后果",
+    "ground_truth": "性能下降比较严重，导致入仓写数据IO wait变大",
+    "source_title": "T7-BIT入仓问题",
+    "source_file": "upload/source_documents/word/T7-BIT入仓问题.docx",
+    "source_images": [
+      "upload/images/20260624_120030_788ea346a2ea4904b1fe89ee150ee5fa.png",
+      "upload/images/20260624_120030_91e1b335b9914af880b7503419013211.png",
+      "upload/images/20260624_120030_e4e9e1333aea4b729e11adfddfa61088.png",
+      "upload/images/20260624_120030_c4fc856622f7468c80b7947a6ec085a9.png",
+      "upload/images/20260624_120030_7df5c63be48147b987ddcdf002afc671.png"
+    ],
+    "source_doc_id": 66,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6c1eb1f2e816_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-e442f3f4a58d",
+    "source_key": "image-source-42dbd224fc7d",
+    "question": "结合图片，T7写cal失败导致cal文件丢失的主要原因是什么？",
+    "ground_truth": "ztron lite上入仓和T7写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动",
+    "source_title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+    "source_file": "upload/source_documents/word/T7-数据传输异常（上传cal异常&数据传输中断）.docx",
+    "source_images": [
+      "upload/images/20260624_121850_593e2764c43d496f8fdbc893a46ddb58.png"
+    ],
+    "source_doc_id": 68,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/30dd728d254b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-90fa9b9496df",
+    "source_key": "image-source-ae23e9697b75",
+    "question": "结合图片，当原图信号过高导致basecall无法分辨DNB点时，若使用过曝小工具检测到A图过曝点数超过2107且CGT超过657，应如何判断？",
+    "ground_truth": "判断为过曝",
+    "source_title": "原图信号高导致basecall无法分辨DNB点",
+    "source_file": "upload/source_documents/word/T7-过曝问题.docx",
+    "source_images": [
+      "upload/images/20260624_122337_d54e905413ce43808116e6ec23bdb4cf.png",
+      "upload/images/20260624_122337_2502aede36324a25a981bf2066737b63.png",
+      "upload/images/20260624_122337_00623473e5774269a62984787baaa946.png",
+      "upload/images/20260624_122337_d26debf2fc1745599f7d4b6bddca5c1b.png",
+      "upload/images/20260624_122337_850242291056417ca817acc6b9e87150.png",
+      "upload/images/20260624_122337_7f888fad1b404bc4abdc8ecaaffa11a4.png",
+      "upload/images/20260624_122337_5ce59c0094204f18813c68f4bdba8759.png",
+      "upload/images/20260624_122337_87dfed70a91d4b0797c075351bd1e0b3.png"
+    ],
+    "source_doc_id": 70,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f773c5dce491_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1ff933a831b2",
+    "source_key": "image-source-1f0b1abe80eb",
+    "question": "结合图片，PA机械臂掉电后，除J1轴外其他轴的状态如何？",
+    "ground_truth": "除J1轴有抱闸保护外，其他轴都可手动随意推动",
+    "source_title": "机械臂掉电问题分析",
+    "source_file": "upload/source_documents/word/机械臂掉电.docx",
+    "source_images": [
+      "upload/images/20260624_122904_3e677f1af5064ee38ceba225e21643bc.png",
+      "upload/images/20260624_122904_f36fe60b375047bd83e110a033b9bf1f.png",
+      "upload/images/20260624_122904_c165724c8f3847e8ab415716e171b6d7.png",
+      "upload/images/20260624_122904_fb10a157102e49138685b2e2484b4a0d.png"
+    ],
+    "source_doc_id": 71,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/87515cb19b03_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-49fb8004fd00",
+    "source_key": "image-source-2f79ed5278ff",
+    "question": "结合图片，检查注射器时需要执行哪三个动作",
+    "ground_truth": "检查活塞水痕、检查固定螺丝、轻压注射器",
+    "source_title": "流体现场快速检查项",
+    "source_file": "upload/source_documents/pdf/1、流体现场快速检查项.pdf",
+    "source_images": [
+      "upload/images/20260624_123609_f9ae996b511d4bdf86b0e90469ddc788.png",
+      "upload/images/20260624_123609_20671b41b61e425fb3859b647e0b962c.png",
+      "upload/images/20260624_123609_ecc9402c763c4e709aac9f45b9809d9c.png"
+    ],
+    "source_doc_id": 72,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0c09ae80d996_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1076d5f1cb03",
+    "source_key": "image-source-6c238bcbf9e8",
+    "question": "结合图片，200芯片underloading问题中，IPA残胶导致的黑影污染主要发生在硅片的哪个位置？",
+    "ground_truth": "底部单边，形成向上开始扩散趋势",
+    "source_title": "200芯片underloading",
+    "source_file": "upload/source_documents/pdf/200芯片underloading.pdf",
+    "source_images": [
+      "upload/images/20260624_125029_894436b9241441c2846fae0d4c5d77d4.png",
+      "upload/images/20260624_125029_502400af0fdf412cad27de99c8abf22f.png"
+    ],
+    "source_doc_id": 73,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c215c04c5c27_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d75b7d22c8a7",
+    "source_key": "image-source-e9172e1002a0",
+    "question": "结合图片，在T7ECR4.3版本中，如何查看压力曲线以判断流体状态是否正常？",
+    "ground_truth": "开始压力采集后，正常运行脚本，切换到PressureSensor界面即可看到压力曲线。",
+    "source_title": "EUI压力传感器使用教程",
+    "source_file": "upload/source_documents/pdf/2、EUI压力传感器使用教程.pdf",
+    "source_images": [
+      "upload/images/20260624_125420_d7032c5d44fb4632bfa6465a5d20b229.png"
+    ],
+    "source_doc_id": 74,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e065fd62ad21_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2fd091b51ddf",
+    "source_key": "image-source-fd66bddf1d6c",
+    "question": "结合图片，使用SolenoidValve_off_on_test.py脚本检查电磁阀时，每个电磁阀会进行几次开闭操作？",
+    "ground_truth": "3次",
+    "source_title": "loader流体检查方法",
+    "source_file": "upload/source_documents/pdf/4、loader流体检查方法.pdf",
+    "source_images": [
+      "upload/images/20260624_125649_5cfbb7cc5a6d4fcbbf46a1bfba756765.png",
+      "upload/images/20260624_125649_72be7136f5b645af8980944a1ca2b990.png"
+    ],
+    "source_doc_id": 75,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/997d6a8e4bb0_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1d99574d6990",
+    "source_key": "image-source-7b30661ecd75",
+    "question": "结合图片，App-D IP1污染导致测序异常时，一链前60bp的信号及Q30出现什么现象？",
+    "ground_truth": "一链前60bp的信号及Q30出现抖动",
+    "source_title": "App-D IP1污染导致App-D试剂盒测序异常",
+    "source_file": "upload/source_documents/pdf/App-D IP1污染导致App-D试剂盒测序异常.pdf",
+    "source_images": [
+      "upload/images/20260624_130013_e644f59579354f17a032f7a8cf5d1328.png",
+      "upload/images/20260624_130013_700dea8ccf324d7389e1846b9ff9bf8b.png",
+      "upload/images/20260624_130013_856758ce2bc64d34b1d5f2f0c87e41c6.png"
+    ],
+    "source_doc_id": 76,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/fa6b3897f5e3_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-24fb388fca40",
+    "source_key": "image-source-b1771b174ff5",
+    "question": "结合图片，武汉JD beta12反馈的CAN服务器2无法打开的原因是什么",
+    "ground_truth": "CAN设备IP地址冲突",
+    "source_title": "CAN服务器无法打开",
+    "source_file": "upload/source_documents/pdf/CAN服务器无法打开.pdf",
+    "source_images": [
+      "upload/images/20260624_130359_1d25f1fe4ca94b97b855dc0f5375f529.png"
+    ],
+    "source_doc_id": 77,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6a398439d078_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-89401eb6e789",
+    "source_key": "image-source-e905adf83676",
+    "question": "结合图片，在拍照流程中，Y轴匀速运动时相机的拍照间隔是多少？",
+    "ground_truth": "每325nm拍照一次",
+    "source_title": "拍照的流程",
+    "source_file": "upload/source_documents/pdf/拍照的流程.pdf",
+    "source_images": [
+      "upload/images/20260624_131821_861d95035e2e4406979e2df80cd01530.png"
+    ],
+    "source_doc_id": 79,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1cabec7d46c0_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-00351f8457af",
+    "source_key": "image-source-136cb2f18858",
+    "question": "结合图片，T7设备中Oring结晶的主要原因有哪些？",
+    "ground_truth": "Oring变形导致试剂被挤出、清洗不干净导致清洗试剂无法浸润整个Oring、清洗前管道内残留测序试剂被带入Oring区域、芯片与Oring接触面对中不良导致流阻增大",
+    "source_title": "T7-结晶",
+    "source_file": "upload/source_documents/pdf/T7-结晶.pdf",
+    "source_images": [
+      "upload/images/20260624_132421_1a289c655e9b4eecb44974c151a181d0.png",
+      "upload/images/20260624_132421_98e491aa362f491d92ef7b2d0adbf805.png",
+      "upload/images/20260624_132421_8c00f5baf6194e468f7bab1d88696a7e.png",
+      "upload/images/20260624_132421_86357b5d3ff44cb1a92e9534b4a8ee44.png",
+      "upload/images/20260624_132422_d6bf4ff5e4df461a9b56823e3e8fa966.png"
+    ],
+    "source_doc_id": 81,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2c5b11d2471f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-20da1833147d",
+    "source_key": "image-source-ce8afb28ba2f",
+    "question": "结合图片，使用CrystalDiskMark7_0测试D盘时，SEQ1M Q1T1模式下读写速度的最低要求是多少",
+    "ground_truth": "Read速度≥80MB/S、Write速度≥80MB/S",
+    "source_title": "T7-磁盘性能确认",
+    "source_file": "upload/source_documents/pdf/T7-磁盘性能确认.pdf",
+    "source_images": [
+      "upload/images/20260624_132846_aa85048df8cf4744b79f773ffa1c5906.png",
+      "upload/images/20260624_132846_94856b875bfe4f2889167a2e0ec2b796.png"
+    ],
+    "source_doc_id": 82,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6f8212df6599_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a128ba454374",
+    "source_key": "image-source-88bc74e49ca6",
+    "question": "结合图片，使用CrystalDiskMark7_0测试D盘时，SEQ1M Q1T1模式下读写速度的最低要求是多少",
+    "ground_truth": "Read速度≥80MB/S、Write速度≥80MB/S",
+    "source_title": "T7-磁盘性能确认",
+    "source_file": "upload/source_documents/pdf/T7-磁盘性能确认(1).pdf",
+    "source_images": [
+      "upload/images/20260624_132927_0335c84b96c34608ad6798620085b228.png",
+      "upload/images/20260624_132927_ac1c447e2fd246aea8d4407b1ed2895c.png"
+    ],
+    "source_doc_id": 83,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4f05220d9e74_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-bfa1c4ffa2e9",
+    "source_key": "image-source-5ab9c54a99cb",
+    "question": "结合图片，生化平台升降温超时故障中，若PT100测到的温度与温控工装测到温度接近且升降温速度无明显异常，但仍然报错超时，应检查哪些参数？",
+    "ground_truth": "对应升降温阶段的PID参数、温度补偿、板卡状态",
+    "source_title": "T7-生化平台升降温超时",
+    "source_file": "upload/source_documents/pdf/T7-生化平台升降温超时.pdf",
+    "source_images": [
+      "upload/images/20260624_133007_6af75a3c0f7f49369ac8f3218639d5a9.png",
+      "upload/images/20260624_133007_c98fd2d45e9b42c38f5a0a90c3578827.png"
+    ],
+    "source_doc_id": 84,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1dce3220c9f4_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-4be218eb0da6",
+    "source_key": "image-source-9e03fe50f8d2",
+    "question": "结合图片，T7生化chuck高度差变化的主要原因是什么",
+    "ground_truth": "生化chuck结构中存在相变导热材料，长时间使用过程中会发生老化和挥发现象，导致吸附板下沉，进而引起高度差变化",
+    "source_title": "T7-生化chuck高度差变化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck高度差变化.pdf",
+    "source_images": [
+      "upload/images/20260624_133059_24128daf2c1c488981625e2fbf6c94e2.png",
+      "upload/images/20260624_133059_875f908e94574b569c53497ac9e6df9f.png",
+      "upload/images/20260624_133059_55e5ffc5701c4054b4eb90d9d49a9f48.png",
+      "upload/images/20260624_133100_7011b21ac6394af59ee217913c16057d.png"
+    ],
+    "source_doc_id": 85,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/62d3681920c2_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-dfda2e616b74",
+    "source_key": "image-source-29c79ea33b69",
+    "question": "结合图片，T7芯片在DNB Loading或测序过程中出现开胶现象时，观察到的典型故障表现是什么？",
+    "ground_truth": "载片中心有气泡，或载片漏液污染chuck、结晶，并导致测序中断",
+    "source_title": "T7芯片开胶",
+    "source_file": "upload/source_documents/pdf/T7芯片开胶.pdf",
+    "source_images": [
+      "upload/images/20260624_133709_a3b8b088b4c6445fa77066c7cd4f8b26.png",
+      "upload/images/20260624_133709_59698880ecab43028081677c3c83e4d8.png"
+    ],
+    "source_doc_id": 86,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/542667bd7590_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f72be52c35cd",
+    "source_key": "image-source-e50c5409e363",
+    "question": "结合图片，T7芯片Underloading（DNB吸附不良）现象中，载片缩略图的异常表现是什么？",
+    "ground_truth": "载片缩略图部分区域发黑",
+    "source_title": "T7芯片Underloading（DNB吸附不良）",
+    "source_file": "upload/source_documents/pdf/T7芯片Underloading（DNB吸附不良）.pdf",
+    "source_images": [
+      "upload/images/20260624_133751_c18f1a81d572445da0883dc112b9ffc6.png"
+    ],
+    "source_doc_id": 87,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ca9d45b07447_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-07770d89cd1f",
+    "source_key": "image-source-77afd04e996c",
+    "question": "结合图片，T7芯片DNB过载时，工程区3个FOV呈现怎样的荧光亮度变化现象？",
+    "ground_truth": "从左到右荧光亮度逐渐增强",
+    "source_title": "T7芯片Overloading（DNB过载）",
+    "source_file": "upload/source_documents/pdf/T7芯片Overloading（DNB过载）.pdf",
+    "source_images": [
+      "upload/images/20260624_133825_8dd04d676c4048b7b91ec60260dba55d.png",
+      "upload/images/20260624_133825_aedacac09fb945aca80555a585080553.png"
+    ],
+    "source_doc_id": 88,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c94bf60e6544_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f295400d04d9",
+    "source_key": "image-source-06988d395c6b",
+    "question": "结合图片，T7芯片在去胶过程中出现非特异性吸附（NSB）时，标志区的荧光亮点特征是什么？",
+    "ground_truth": "标志区存在显著荧光亮点",
+    "source_title": "T7芯片NSB（Non-Specific Binding，非特异性吸附）",
+    "source_file": "upload/source_documents/pdf/T7芯片NSB（Non-Specific Binding，非特异性吸附）.pdf",
+    "source_images": [
+      "upload/images/20260624_133913_11c688164404418dac0674d8a4b1388c.png",
+      "upload/images/20260624_133913_7e8f8664517342d0adb4801fb6284a15.png",
+      "upload/images/20260624_133913_ffc4cc7dc1764387ae0f7625987757c0.png"
+    ],
+    "source_doc_id": 89,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c1462c0c9999_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-804aea3aa6c0",
+    "source_key": "image-source-277dcc426c05",
+    "question": "结合图片，T7 E2芯片在测序过程中出现胶柱亮圈现象时，随着Cycle数增加会出现什么变化？",
+    "ground_truth": "胶柱旁逐渐变得越来越黑，亮圈显著且变大",
+    "source_title": "T7胶柱亮圈",
+    "source_file": "upload/source_documents/pdf/T7胶柱亮圈.pdf",
+    "source_images": [
+      "upload/images/20260624_134005_5090d702b57b4d9ab53b8f63b895d7af.png",
+      "upload/images/20260624_134006_a613c72318244fb69a1622d8d6aa666d.png"
+    ],
+    "source_doc_id": 90,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/cfa46e0a0561_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-4d541ec0217e",
+    "source_key": "image-source-f77760876839",
+    "question": "结合图片，T7 β5#样机chuck D在20200214至20200218期间，哪些电磁阀出现了失效？",
+    "ground_truth": "5个电磁阀中有4个发生失效",
+    "source_title": "T7电磁阀失效",
+    "source_file": "upload/source_documents/pdf/T7电磁阀失效.pdf",
+    "source_images": [
+      "upload/images/20260624_134054_df00c34dbf61403e916b4e997cab61a2.png"
+    ],
+    "source_doc_id": 91,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1c8415b7615b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a589c30b8a4c",
+    "source_key": "image-source-0249091c21d5",
+    "question": "结合图片，在部分区域Q30异常现象中，当Z值曲线稳定平滑且最大差值为5.4um，但signal值随Z值减小而下降至8.55时，其根本原因是什么？",
+    "ground_truth": "对焦跟随过慢，Gain2设置值为0.025需调整",
+    "source_title": "部分区域Q30异常",
+    "source_file": "upload/source_documents/pdf/部分区域Q30异常.pdf",
+    "source_images": [
+      "upload/images/20260624_134243_cb19181cd44649f9b5ffcf0527110f8a.png",
+      "upload/images/20260624_134243_c556aa2129ae4cc49b74eb98e0b744f3.png",
+      "upload/images/20260624_134243_6a954b00668b4797b907cedd16e5428d.png",
+      "upload/images/20260624_134243_e6bfc169df1f4d8bad74a2109bfdb3b3.png",
+      "upload/images/20260624_134243_866a6873ebf1438989af3b01c8f20f93.png"
+    ],
+    "source_doc_id": 92,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e1ee56567fce_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2a803cb98f63",
+    "source_key": "image-source-178babf3d458",
+    "question": "结合图片，起始Q30低时，文库定量浓度应至少达到多少ng/ul？",
+    "ground_truth": "8ng/ul",
+    "source_title": "起始Q30低",
+    "source_file": "upload/source_documents/pdf/起始Q30低.pdf",
+    "source_images": [
+      "upload/images/20260624_134412_178f63c0b4024189b87d9224c223e5e0.png",
+      "upload/images/20260624_134412_3ae73646dcb44dc4a4cb51ffc0198295.png",
+      "upload/images/20260624_134412_022df48273dc4a8da89976ab785c9f85.png",
+      "upload/images/20260624_134412_9ce4bcb8bde941dd90fd98788c103804.png"
+    ],
+    "source_doc_id": 93,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/b419056d5de5_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b54df5e1e7ce",
+    "source_key": "image-source-6c89353ca3bb",
+    "question": "结合图片，物镜脏污导致Q30陡降时，原图中出现的异常现象是什么",
+    "ground_truth": "原图中有黑线",
+    "source_title": "物镜脏污导致Q30陡降",
+    "source_file": "upload/source_documents/pdf/物镜脏污导致Q30陡降.pdf",
+    "source_images": [
+      "upload/images/20260624_134515_34538f8ee0af492fa16534bc928d3fbf.png",
+      "upload/images/20260624_134515_c1f86337c538427993d5a5da32ac2bb9.png",
+      "upload/images/20260624_134515_de33900242db4175b07f7631cef3c480.png",
+      "upload/images/20260624_134515_af22db2d63b047df9399e25d5181401b.png"
+    ],
+    "source_doc_id": 94,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/368b2b82099c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1be7d5d486e8",
+    "source_key": "image-source-9341d3325c4f",
+    "question": "结合图片，二链Q30下降快的界定标准是什么？",
+    "ground_truth": "R2 declining低于质检标准（同一版本同一样本的经验值）",
+    "source_title": "二链Q30下降快",
+    "source_file": "upload/source_documents/pdf/二链Q30下降快.pdf",
+    "source_images": [
+      "upload/images/20260624_134627_8d69e8a00b0a4d358bf5ccb0f39b6c63.png",
+      "upload/images/20260624_134627_92b1750973f64ce1ad05c57d79d5cf06.png",
+      "upload/images/20260624_134627_1274c3add4a5426694410b43e55de150.png"
+    ],
+    "source_doc_id": 95,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/8eb86f4f8089_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-62c6f88c58df",
+    "source_key": "image-source-671e5f4cb7f6",
+    "question": "结合图片，4500和G400在使用手持Loader上机时，长草现象的区域DNB呈现什么形态？",
+    "ground_truth": "长草区域DNB呈放射状",
+    "source_title": "长草",
+    "source_file": "upload/source_documents/pdf/长草.pdf",
+    "source_images": [
+      "upload/images/20260624_232349_448a43c9bdbb4417a45e6128ec73c5da.png",
+      "upload/images/20260624_232349_331ce25e48774b64b5173afd31be38a0.png",
+      "upload/images/20260624_232349_3bc4f1320df34e81a3da47922bdc7fbd.png",
+      "upload/images/20260624_232349_279bcef4edd14c11ac75af9aa1a4e97f.png",
+      "upload/images/20260624_232349_e4d3bba2362d4c9ca5c04076e99a77ba.png",
+      "upload/images/20260624_232349_f26b7367805d45da9b6233121efaaac1.png",
+      "upload/images/20260624_232349_20fcd40e2e22477ea924306988abf5bd.png",
+      "upload/images/20260624_232349_3a136618c8104f47842902911a99ce5f.png"
+    ],
+    "source_doc_id": 97,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/b0f26c8af063_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b61cea309d1b",
+    "source_key": "image-source-7eafdd03738f",
+    "question": "结合图片，在PCRFree HG001数据测试中，若SNP Precision较低但错误率正常，且Ti/Tv异常，可能是什么原因导致的？",
+    "ground_truth": "基因组某些位点的正义链和反义链错误率存在较大差别，即发生了链偏现象。",
+    "source_title": "链偏",
+    "source_file": "upload/source_documents/pdf/链偏.pdf",
+    "source_images": [
+      "upload/images/20260624_232535_14b7229377654e8097a04d825d6b9959.png",
+      "upload/images/20260624_232535_8b4b82a7f4b1460e9e3aaea8092aabe5.png",
+      "upload/images/20260624_232535_4d1225ad6a1c4c37b89244cace97c0c4.png",
+      "upload/images/20260624_232535_15d9ff11805745caa66e17446f6cab0c.png",
+      "upload/images/20260624_232535_e98d674d1ed04ad8a1ea60ca1e5eccc1.png",
+      "upload/images/20260624_232535_51359cb8bafa400bbe76f27ddd9ecfe5.png",
+      "upload/images/20260624_232535_8729127b84af48f0a7e1b09b10222ab2.png",
+      "upload/images/20260624_232535_5654ad826a114999a7461d096410c212.png"
+    ],
+    "source_doc_id": 98,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ac27f354f40e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d7504ef86cee",
+    "source_key": "image-source-f4a0dd25fab6",
+    "question": "结合图片，当测序过程中出现1~3个lane报Pressure Low警告时，其压力曲线通常表现为怎样的特征？",
+    "ground_truth": "报异常的lane压力值为一个恒定值，在整个跑run过程中没有波动，最常见的是-100kpa，偶尔也会出现随机值",
+    "source_title": "部分lane报pressure low警告",
+    "source_file": "upload/source_documents/pdf/部分lane报pressure low警告.pdf",
+    "source_images": [
+      "upload/images/20260624_232746_37bb03926fd54e5fa1c63ce1f3d47f81.png",
+      "upload/images/20260624_232746_add1559ca95d459696caf3223e4feb91.png"
+    ],
+    "source_doc_id": 99,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/477085a74e01_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-7a5d592d6556",
+    "source_key": "image-source-dea8ba580f9a",
+    "question": "结合图片，在配准过程中，若出现虚焦问题会导致什么后果？",
+    "ground_truth": "导致无法提取有效点位信息，从而致使配准失败",
+    "source_title": "起始点和配准失败",
+    "source_file": "upload/source_documents/pdf/起始点和配准失败.pdf",
+    "source_images": [
+      "upload/images/20260624_232833_5a22bf48fc1b4029ba520b6207458d4e.png",
+      "upload/images/20260624_232833_8cdf9cfff340423794650ca75990adbf.png"
+    ],
+    "source_doc_id": 100,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6b6a4f94db1b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-9bb2980b1897",
+    "source_key": "image-source-32aba46648ca",
+    "question": "结合图片，试剂槽中SR1和CR合成试剂未按压混匀会导致芯片在cycle1出现什么故障现象？",
+    "ground_truth": "整张芯片没有DNB点，几乎没有信号，在cycle1对焦失败报错",
+    "source_title": "试剂槽合成试剂忘记按压混匀导致芯片几乎无信号",
+    "source_file": "upload/source_documents/pdf/试剂槽合成试剂忘记按压混匀导致芯片几乎无信号.pdf",
+    "source_images": [
+      "upload/images/20260624_232931_8612ad47331b4105beb018589c3753fd.png"
+    ],
+    "source_doc_id": 101,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/079f6c4bc2ec_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-15c7d954248d",
+    "source_key": "image-source-644b27085a0d",
+    "question": "结合图片，T7平台在2023年8月韩国客户反馈中，哪些基因的覆盖出现缺失？",
+    "ground_truth": "TP53、KRAS和HPDL",
+    "source_title": "覆盖度",
+    "source_file": "upload/source_documents/pdf/覆盖度.pdf",
+    "source_images": [
+      "upload/images/20260624_233007_b10c608daef142e29532006fbd46475d.png",
+      "upload/images/20260624_233007_c718720174bb4dffb26d19a2fd6a5af0.png",
+      "upload/images/20260624_233007_9dd04016dba44c8e94038ee626dad4ad.png"
+    ],
+    "source_doc_id": 102,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/83c76da04955_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-830a99c055c7",
+    "source_key": "image-source-1226641ffff6",
+    "question": "结合图片，芯片表面出现边缘清晰显著的不均匀现象在T7早期开发历史中是否多次发生",
+    "ground_truth": "是",
+    "source_title": "芯片白斑",
+    "source_file": "upload/source_documents/pdf/芯片白斑.pdf",
+    "source_images": [
+      "upload/images/20260624_233205_0029b5a8cadd44d7bd04c0a777d4d115.png"
+    ],
+    "source_doc_id": 105,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/34ab4225eca3_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-8b946b489ac5",
+    "source_key": "image-source-70aa3b99cac0",
+    "question": "结合图片，芯片边框出现烧灼痕迹的原因是什么",
+    "ground_truth": "由于运控和激光控制板卡通信延迟，在先打开激光后滑台未及时加速导致激光光点长时间照射芯片点胶胶边，胶边受灼烧气化后留下烧灼痕迹",
+    "source_title": "芯片烧边框",
+    "source_file": "upload/source_documents/pdf/芯片烧边框.pdf",
+    "source_images": [
+      "upload/images/20260624_233227_6eb9ad9aebf34a5a922e919a2d25bbb0.png",
+      "upload/images/20260624_233227_33d4025d63aa490788389fbe989c393f.png"
+    ],
+    "source_doc_id": 106,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/7e2eb039994c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a917a8299f69",
+    "source_key": "image-source-77b11c5c6543",
+    "question": "结合图片，芯片lane4出口端流道堵塞导致callN的故障现象是什么？",
+    "ground_truth": "部分或全部lane完全没点callN，lane4有一半区域是干的",
+    "source_title": "芯片出入口流道堵塞导致callN",
+    "source_file": "upload/source_documents/pdf/芯片出入口流道堵塞导致callN.pdf",
+    "source_images": [
+      "upload/images/20260624_233339_2508f5abf35b4ddf8d57ebdac356dd4a.png",
+      "upload/images/20260624_233339_05c8a0377324426ebb7857711b59ba4b.png",
+      "upload/images/20260624_233339_00bb923c14c246e1aca1393b9bc77b24.png",
+      "upload/images/20260624_233339_a6a886d05c1f46f1848bb297cf35ebcc.png"
+    ],
+    "source_doc_id": 108,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/56b174cbb6d8_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b19f2c5a7d4b",
+    "source_key": "image-source-2dd5d2eb0201",
+    "question": "结合图片，芯片入口端出现抛物线形状黑区且四条lane起始Q值低的原因是什么",
+    "ground_truth": "primetube阶段负压过大导致芯片入口端的管道在灌注时空气或上一轮清洗后残留的水进入芯片入口，导致部分DNB被冲刷走",
+    "source_title": "芯片入口端抛物线形状黑区call N",
+    "source_file": "upload/source_documents/pdf/芯片入口端抛物线形状黑区call N.pdf",
+    "source_images": [
+      "upload/images/20260624_233434_b09e9b661a1f419ebacd02d070353c68.png",
+      "upload/images/20260624_233434_c8a227ff6d53493dba47a57e14e3f48b.png",
+      "upload/images/20260624_233434_31ec471d7ca44cd1b2f213be0b18fa6c.png",
+      "upload/images/20260624_233434_61aaf0f310a64bb7ac304af3f7565f6a.png"
+    ],
+    "source_doc_id": 109,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4d15adecd4cc_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-340578cdc192",
+    "source_key": "image-source-148ffe364fb9",
+    "question": "结合图片，T1+ 1.0试剂中试期间V4文库环化过程中出现AT分离>1%的现象，其主要原因是什么？",
+    "ground_truth": "机器环化过程中Splint buffer和Ligase加入PCR管后混匀不充分，导致连接酶分布不均，影响环化效率。",
+    "source_title": "碱基分离问题排查",
+    "source_file": "upload/source_documents/pdf/碱基分离问题排查.pdf",
+    "source_images": [
+      "upload/images/20260624_233559_8bc6dd351b27402397164ddc10eb2223.png",
+      "upload/images/20260624_233559_29bbfdc5cae441bd9073667c1074c523.png",
+      "upload/images/20260624_233559_a8e14f1d41c24d5e8a780b5f9c9ef2ef.png",
+      "upload/images/20260624_233559_154effefcb1e41c9b6e8ef140a4c1fe3.png",
+      "upload/images/20260624_233559_3d191513e7964fa2a5d9b986c572b060.png",
+      "upload/images/20260624_233559_dc4f2277cf9247f9a683e1bf9bf57980.png",
+      "upload/images/20260624_233600_2fa6fff54e0f47fe9e37724500e1670d.png",
+      "upload/images/20260624_233600_4067fa83030b4192a659cb798bb70839.png",
+      "upload/images/20260624_233600_be0fbbda74ef4a6cb5ea4ceefc97ee48.png",
+      "upload/images/20260624_233600_e731d839f6114549ad452348fbf84b6f.png",
+      "upload/images/20260624_233600_953c017211bf45698714630af1fb47d4.png"
+    ],
+    "source_doc_id": 111,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/27ccffac3e39_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-4fa126292d02",
+    "source_key": "image-source-1ea97ad35d2c",
+    "question": "结合图片，在碱基分离问题中，TDI相机gain过高会导致什么现象？",
+    "ground_truth": "图片过曝导致测序错误，表现为碱基分离，常见于高gain区域以AT为主，可能表现为一链或二链AT分离",
+    "source_title": "碱基分离",
+    "source_file": "upload/source_documents/pdf/碱基分离.pdf",
+    "source_images": [
+      "upload/images/20260624_233823_56127988c37343fda39d161573630f9b.png",
+      "upload/images/20260624_233823_bded9618df8f4cc8b67b22bc705e2473.png",
+      "upload/images/20260624_233823_109758b81b94422eaa3e36878644ce39.png",
+      "upload/images/20260624_233823_64d0030f722e4e8a9f7e2be3b4d3c2c2.png",
+      "upload/images/20260624_233823_b3636715033f40e0866375cfff5d94fb.png",
+      "upload/images/20260624_233823_8a500efa39574f7d96ca411ffd6da443.png",
+      "upload/images/20260624_233823_fd615cd93338408290318755161469c1.png",
+      "upload/images/20260624_233823_522a31a3fa90416c8592fc2c8acc7959.png",
+      "upload/images/20260624_233823_d346fc6782cf4ec096ac1c68ec3d74f6.png",
+      "upload/images/20260624_233823_2d657008d7804a28adbec0a6bdae1e0f.png",
+      "upload/images/20260624_233823_975d5468bebd42c3b856a5863ddbc88e.png",
+      "upload/images/20260624_233823_4f8bcb5cbb59478d91d2bd5b7ae1aaf4.png",
+      "upload/images/20260624_233823_363a7cf2e2ce4cd49962698da9c185d2.png",
+      "upload/images/20260624_233823_d19ea5283fe9433299654f9c99e302b7.png",
+      "upload/images/20260624_233823_92a04a6831814ac9962bc698c703aafb.png",
+      "upload/images/20260624_233823_87ca1bef866541398403e6a8d423784a.png",
+      "upload/images/20260624_233823_74030ddb0578438995dd41a96105d155.png",
+      "upload/images/20260624_233824_c5e94205fe9842ce8bedd7162c0d405e.png",
+      "upload/images/20260624_233824_b8a115fe0ed140b6a445c786b7c4a8e4.png"
+    ],
+    "source_doc_id": 112,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/96a378145db5_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-dfa5ac91ba51",
+    "source_key": "image-source-6389a98ad2b6",
+    "question": "结合图片，当相机在reverse区域图片持续异常且超过6条row时，最可能的原因是什么？",
+    "ground_truth": "触发信号异常，特别是接触不良或无换向信号",
+    "source_title": "相机换向异常",
+    "source_file": "upload/source_documents/pdf/相机换向异常.pdf",
+    "source_images": [
+      "upload/images/20260624_234236_1595d96fb09c4012a30ea16040f66c35.png",
+      "upload/images/20260624_234236_73e88d0628f440149051ecf13bf5a514.png",
+      "upload/images/20260624_234236_423f59767edd462da8e9d7713f71dd3c.png"
+    ],
+    "source_doc_id": 113,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2f05b90efafb_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ffe29636052a",
+    "source_key": "image-source-701f23df0dde",
+    "question": "结合图片，在单点fov拍照逻辑中，固件为何可能导致第二张图不拍或丢图？",
+    "ground_truth": "不满足时序过程判断，导致第二张图不拍或曝光时间不满足要求",
+    "source_title": "相机丢图",
+    "source_file": "upload/source_documents/pdf/相机丢图（严正、张海洲、杨斌）.pdf",
+    "source_images": [
+      "upload/images/20260624_234332_68036d056c5041b2a760ae924d881fff.png",
+      "upload/images/20260624_234332_9c071758f1af4b37ba5cbb562034817f.png"
+    ],
+    "source_doc_id": 114,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/9d773a0ba703_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-9d157cec9436",
+    "source_key": "image-source-450e3b67c0f9",
+    "question": "结合图片，Z一致性异常导致不同通道图像在相同工作距离上清晰度不一致的原因是什么",
+    "ground_truth": "相机位置变动",
+    "source_title": "相机一致性异常",
+    "source_file": "upload/source_documents/pdf/相机一致性异常.pdf",
+    "source_images": [
+      "upload/images/20260624_234421_f920f638a1cd4accb79ba5f793f3fae6.png",
+      "upload/images/20260624_234421_bd1603b459bf43d289abd815e33e3db4.png"
+    ],
+    "source_doc_id": 115,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e9784cd93cab_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-37edc5eb9e67",
+    "source_key": "image-source-38cf10607a4d",
+    "question": "结合图片，mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常的原因是什么？",
+    "ground_truth": "电机线圈产生的泄放高压达到59V，触发48V电源过压保护，导致电源停止输出",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源.pdf",
+    "source_images": [
+      "upload/images/20260624_234505_99e563456219493cb29cf910b7210161.png",
+      "upload/images/20260624_234505_fb0d17ba4a0542c3bc064c75479ca87b.png",
+      "upload/images/20260624_234505_f66a309ed87645f69a4fe6b9439d6bd1.png",
+      "upload/images/20260624_234505_f3ac124daa77435fb73acb0a9f19c11f.png"
+    ],
+    "source_doc_id": 116,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/5ed8a70bb877_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-411381214f80",
+    "source_key": "image-source-d1e95fb6d023",
+    "question": "结合图片，mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常无输出的原因是什么？",
+    "ground_truth": "α样机转移模组X轴运动结束后，内部电机线圈产生的泄放高压达到59V，超过48V电源的过压保护点，导致电源启动过压保护并停止输出。",
+    "source_title": "电源",
+    "source_file": "upload/source_documents/pdf/电源(1).pdf",
+    "source_images": [
+      "upload/images/20260624_234630_3fada4ff96ea488bb0f1da19dc7fc950.png",
+      "upload/images/20260624_234630_e7ef76edc53046a4a47716edc224adca.png",
+      "upload/images/20260624_234630_9ae01b7cfba445e5b2244cd1065f1e17.png",
+      "upload/images/20260624_234630_ddbc6ab4fca84f2ebcb93e5bb0e53452.png"
+    ],
+    "source_doc_id": 117,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/65053b244315_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d90584e4ec1a",
+    "source_key": "image-source-1c60c7223b60",
+    "question": "结合图片，在滑台闭环扫频操作中，X轴的Excitation Current参数应设置为多少？",
+    "ground_truth": "4.5",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频.pdf",
+    "source_images": [
+      "upload/images/20260624_234831_9793658359de48e3ac6538626a85782d.png",
+      "upload/images/20260624_234831_b777ace522864427bec83170d7f36f2f.png",
+      "upload/images/20260624_234831_5276181649e54cefb81e029f91066518.png",
+      "upload/images/20260624_234831_e86fc7616c09408d83d68a99b65fb6cb.png",
+      "upload/images/20260624_234831_1b01aac51d7d48c0bc81bed6195baf5e.png",
+      "upload/images/20260624_234831_fee4234b91b642659fc1ff33c09c47ce.png",
+      "upload/images/20260624_234831_38960b7c0ffb4090aff9425ed7551ed3.png"
+    ],
+    "source_doc_id": 119,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1093ef59e053_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-82fae77adb48",
+    "source_key": "image-source-eb103fa534f6",
+    "question": "结合图片，在滑台闭环扫频操作中，X轴的Excitation Current参数应设置为多少？",
+    "ground_truth": "4.5",
+    "source_title": "滑台闭环扫频",
+    "source_file": "upload/source_documents/pdf/滑台闭环扫频(1).pdf",
+    "source_images": [
+      "upload/images/20260624_235009_2cb44902062b41c382ca4b6feb4d31d9.png",
+      "upload/images/20260624_235009_a48e21e5198e46ef8f265b95aca48e67.png",
+      "upload/images/20260624_235009_bbe09b86a529402482746df9b93eff3f.png",
+      "upload/images/20260624_235009_2eff0e79f1d3463cb3959cafa6a92d75.png",
+      "upload/images/20260624_235009_88ceeb9eefc0431981efb5d1dd9eaffa.png",
+      "upload/images/20260624_235009_13159fc3ce29474aa8fbaadfd0fa8a4c.png",
+      "upload/images/20260624_235009_d7400a0ca611438d8b703550f13a8e0c.png"
+    ],
+    "source_doc_id": 120,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f34060ebd4f9_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-37fed95e2670",
+    "source_key": "image-source-238dce3a4960",
+    "question": "结合图片，当滑台在某频率点出现震动异常且位置误差过大时，应如何通过示波器检查共振频率？",
+    "ground_truth": "用示波器监控轴的PE，如果PE明显异常，将示波器的模式切换到FFT模式，可以查看共振的频率点",
+    "source_title": "滑台共振",
+    "source_file": "upload/source_documents/pdf/滑台共振.pdf",
+    "source_images": [
+      "upload/images/20260624_235146_eae499bd1c4f4a34b7cda3b3c8dbe7f2.png",
+      "upload/images/20260624_235146_37b0274201da46a89ed50d0ffb51e395.png",
+      "upload/images/20260624_235146_07ddc42b3ffe477284a29bd67fe32675.png"
+    ],
+    "source_doc_id": 121,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ee7f0911d12d_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a22098d8d468",
+    "source_key": "image-source-998261a6ccd9",
+    "question": "结合图片，T20 alpha机温控板055-000013-00的1#、3#温度显示为0的原因是什么？",
+    "ground_truth": "ADC异常导致温度值被赋值为0，根本原因是SPI时钟频率达到18MHz，超出ADC规格要求的5MHz上限。",
+    "source_title": "温控板温度掉为0",
+    "source_file": "upload/source_documents/pdf/温控板温度掉为0.pdf",
+    "source_images": [
+      "upload/images/20260624_235233_ecfb8627d9c64e73aa662cffc3918d2b.png",
+      "upload/images/20260624_235233_7b5fe6101ae041e1bf650c888fd5b898.png",
+      "upload/images/20260624_235233_474ce7ed82334aaf95cf9e343b1801db.png",
+      "upload/images/20260624_235233_2488d00e47a84ab8af46460b341b6609.png",
+      "upload/images/20260624_235233_3ea85db2fa2e4890844fdfa7742fa272.png",
+      "upload/images/20260624_235233_06a27db1b1c04efba9e78f48739582a5.png",
+      "upload/images/20260624_235233_799e370b7def471daa05cb4668ed7fc1.png",
+      "upload/images/20260624_235233_1c8141dbfdd14c0e81273cc035143113.png",
+      "upload/images/20260624_235233_6bebb91a7bff4d75b2e82799cdee30eb.png"
+    ],
+    "source_doc_id": 122,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c1d433f76bb5_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1f15a0dbdbde",
+    "source_key": "image-source-5d98e8d2f347",
+    "question": "结合图片，A1口附近及B2口附近出现区域性Q30差，其根本原因是什么？",
+    "ground_truth": "A1口TEC损坏，该损坏TEC靠近PT100导致PT100区域温度上升慢，其他区域要用更大功率补偿整个chuck升温，导致对角区域的温度过高，MDA后发生损坏TEC对角区域也质量变差情况",
+    "source_title": "温度均匀性异常",
+    "source_file": "upload/source_documents/pdf/温度均匀性异常.pdf",
+    "source_images": [
+      "upload/images/20260624_235410_4043f69f02034797ae5e19a81e2ca7ec.png",
+      "upload/images/20260624_235410_75da21c865dc4ac288f54026de01262f.png",
+      "upload/images/20260624_235410_2e9af43182984104b20d0a5b64699a3b.png"
+    ],
+    "source_doc_id": 123,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3a1f1182e3ee_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-572140777f29",
+    "source_key": "image-source-c3a90fe64aad",
+    "question": "结合图片，MGISEQ-2000测序试剂包装盒在运输后破裂的原因是什么",
+    "ground_truth": "包装盒内无填充，存在较大空隙，长时间低温冻存导致材质变脆，结合长时间重力挤压产生局部受力",
+    "source_title": "测序试剂包装盒破裂",
+    "source_file": "upload/source_documents/pdf/测序试剂包装盒破裂.pdf",
+    "source_images": [
+      "upload/images/20260624_235507_37f640522d354fcba050aa7363ecfbae.png"
+    ],
+    "source_doc_id": 124,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/7080dcd9227a_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-6f601d0638f9",
+    "source_key": "image-source-234646f17aaa",
+    "question": "结合图片，滑台在行扫完成后到芯片被抓走的过程中，出现成像时间显著延长的原因是什么",
+    "ground_truth": "滑台运动路径与模组线材发生干涉，导致运动受阻并触发回零流程",
+    "source_title": "测序拍照时间异常排查",
+    "source_file": "upload/source_documents/pdf/测序拍照时间异常排查.pdf",
+    "source_images": [
+      "upload/images/20260624_235535_5b236fe373f84ac5bd34ec9605803349.png",
+      "upload/images/20260624_235535_e5daa3a33dd04f1b85fe1a13f932bcab.png",
+      "upload/images/20260624_235535_ae5f34ed9a344ab0aa4f81fe0223fcdf.png",
+      "upload/images/20260624_235535_451e810b2ec94ee2bb2dfabace51056a.png"
+    ],
+    "source_doc_id": 125,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/763c3dd5efb3_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-5afc6ba2ca10",
+    "source_key": "image-source-511c3ad0ddf0",
+    "question": "结合图片，在流体调试FTAT板的实验中，使用USBTinyISP烧录boot引导程序时需要在Arduino IDE中选择哪个编程器类型？",
+    "ground_truth": "USBTinyISP",
+    "source_title": "流体调试FTAT板的实验拓扑和编译环境搭建",
+    "source_file": "upload/source_documents/pdf/流体调试FTAT板的实验拓扑和编译环境搭建.pdf",
+    "source_images": [
+      "upload/images/20260624_235645_7f5af8776419466a9cb4e04c2112d960.png",
+      "upload/images/20260624_235645_fe7909e11aa644249cd9366c046237f8.png",
+      "upload/images/20260624_235645_a37b076b0b39493aa0643e423ea1c353.png",
+      "upload/images/20260624_235645_2fca682d993a4b9d9aa439a3914b45d1.png",
+      "upload/images/20260624_235645_b2c752614c814ce2b3f4e2f9660df0f0.png",
+      "upload/images/20260624_235645_5b68f9df7595472eb9aad4238ec7f90f.png",
+      "upload/images/20260624_235645_784a4717553641d4bcc45cdfc1acde94.png",
+      "upload/images/20260624_235645_920c2ccacdc6432e89a63d85536b677c.png",
+      "upload/images/20260624_235645_622edc8956ba438d9f41d03775a500a7.png",
+      "upload/images/20260624_235645_fe99d1eae0d649dd874bd36b63fe5db7.png",
+      "upload/images/20260624_235645_e3b7b9eaca9e4762bd33b167defb3ee9.png"
+    ],
+    "source_doc_id": 126,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1e380d6a7289_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-63951063a1ad",
+    "source_key": "image-source-48e15ffd1cfe",
+    "question": "结合图片，在注液头清洗过程中，若清洗液无法正常抽走且液体在注液头周围累积溢出，可能的原因是什么？",
+    "ground_truth": "电磁阀体内部堵塞、oring废液泵损坏或供电异常导致泵工作状态异常",
+    "source_title": "注液头清洗无法正常抽液",
+    "source_file": "upload/source_documents/pdf/注液头清洗无法正常抽液.pdf",
+    "source_images": [
+      "upload/images/20260624_235847_f17a66acecd844e2ad19a21307783553.png"
+    ],
+    "source_doc_id": 127,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6dc39af60240_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-e3d0c75ba03e",
+    "source_key": "image-source-53d0e87c82a3",
+    "question": "结合图片，使用生工品牌的次氯酸钠配置溶液时出现沉淀，且1%浓度的次氯酸钠沉淀比0.25%浓度多，可能的原因是什么？",
+    "ground_truth": "配液顺序、次氯酸钠的品牌、配液的试剂瓶以及Tween的存在都可能影响沉淀的产生",
+    "source_title": "次氯酸钠沉淀问题",
+    "source_file": "upload/source_documents/pdf/次氯酸钠沉淀问题.pdf",
+    "source_images": [
+      "upload/images/20260625_000015_02a1bb1b591444bb9e505c9bf8455294.png",
+      "upload/images/20260625_000015_3eaa85813ac6428daa8df2279bee8707.png",
+      "upload/images/20260625_000015_cdae5cf99bc04bbcb4f4a242be56b86b.png"
+    ],
+    "source_doc_id": 130,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3e97c4e672ad_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b45f646aba51",
+    "source_key": "image-source-27d3b035dc39",
+    "question": "结合图片，TDI系统中图片在扫描方向上出现一段清晰一段模糊的现象，其模糊段可能呈现X方向拉长、Y方向拉长或混合情况，该现象的主要原因是什么？",
+    "ground_truth": "光学系统和样品之间存在不稳定的因素",
+    "source_title": "条纹虚焦",
+    "source_file": "upload/source_documents/pdf/条纹虚焦.pdf",
+    "source_images": [
+      "upload/images/20260625_000056_9599b2019b9e4f1ea36d807c99cdc636.png",
+      "upload/images/20260625_000057_27ea69931ba34b48949652e29a7fc1e3.png",
+      "upload/images/20260625_000057_6b00fb3c78f14169bae135ee32757e6c.png"
+    ],
+    "source_doc_id": 131,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4b372505a252_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1b3d0b247953",
+    "source_key": "image-source-8a4aab7a8064",
+    "question": "结合图片，T7芯片转移至Chuck过程中因下压力导致夹持结构变形引起的位置漂移问题，应如何判断是否为位置漂移故障？",
+    "ground_truth": "位置漂移通常可以在重新学习位置后运行一段时间固定出现，即可判断为位置漂移",
+    "source_title": "机械臂转移失败",
+    "source_file": "upload/source_documents/pdf/机械臂转移失败.pdf",
+    "source_images": [
+      "upload/images/20260625_000141_21631dd81f5742c2b99cda3792ee41ea.png",
+      "upload/images/20260625_000141_bf0fc37200ab44fc93ef520ac8a7755d.png",
+      "upload/images/20260625_000141_a9fa965a992649eb8016b23aabc60979.png"
+    ],
+    "source_doc_id": 132,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ce3642090c90_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ecc981ed7f3f",
+    "source_key": "image-source-82cb310ac6cd",
+    "question": "结合图片，PA机械臂掉电后，除J1轴外其他轴是否可以手动推动？",
+    "ground_truth": "可以手动随意推动",
+    "source_title": "机械臂掉电&损坏",
+    "source_file": "upload/source_documents/pdf/机械臂掉电&损坏.pdf",
+    "source_images": [
+      "upload/images/20260625_000306_33dcf54a774f4b6dae54b968cc4d91f4.png",
+      "upload/images/20260625_000306_e184dbb9bd19451dbc1a61f5ee5d5be6.png",
+      "upload/images/20260625_000306_d7f14ca415d249d38dd1a949698fe450.png",
+      "upload/images/20260625_000306_0ceb4d6a893d445d8b6c62bffd8c7f93.png",
+      "upload/images/20260625_000306_29ac1b161141415dabeaafe250a81f7a.png"
+    ],
+    "source_doc_id": 134,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/48653e6e70a0_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-096368745054",
+    "source_key": "image-source-8e0334b66a0f",
+    "question": "结合图片，旋转阀窜液可能导致芯片出现什么异常现象？",
+    "ground_truth": "BR窜液会导致芯片出现黑影，RR窜液可能引起lag或runon现象，严重漏气时甚至会将空气抽入芯片",
+    "source_title": "旋转阀串液",
+    "source_file": "upload/source_documents/pdf/旋转阀串液.pdf",
+    "source_images": [
+      "upload/images/20260625_000414_6f5031bcf74e4705a6693a5f08581531.png",
+      "upload/images/20260625_000414_e465ca1e61664a7786206217c33b7ecd.png",
+      "upload/images/20260625_000414_debf9d9d0b7d448ab72bd526e1c65313.png"
+    ],
+    "source_doc_id": 135,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/72532026b9f9_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-fb894b58ae99",
+    "source_key": "image-source-784b6ff062dd",
+    "question": "结合图片，数据产量低可能影响哪些方面",
+    "ground_truth": "整体生产效率和数据分析的准确性",
+    "source_title": "数据产量低",
+    "source_file": "upload/source_documents/pdf/数据产量低.pdf",
+    "source_images": [
+      "upload/images/20260625_000505_1ed3bfe6f48d45e2a37485864123467e.png",
+      "upload/images/20260625_000505_f01541a519724e62b1928cf37b2d60bb.png"
+    ],
+    "source_doc_id": 136,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/59d2b4ac77db_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-11a2ae92d53f",
+    "source_key": "image-source-1fb224d717c1",
+    "question": "结合图片，机械臂设备出现动作异常时应遵循的故障排查流程是什么",
+    "ground_truth": "从问题识别到最终解决的完整步骤，通过系统化的流程图指导技术人员快速定位并处理常见故障",
+    "source_title": "故障排查流程",
+    "source_file": "upload/source_documents/pdf/故障排查流程.pdf",
+    "source_images": [
+      "upload/images/20260625_000541_ca52087f31ca4913835e96145038a268.png"
+    ],
+    "source_doc_id": 137,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6461bc5432cb_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-45409b4feeef",
+    "source_key": "image-source-785a6dd86abb",
+    "question": "结合图片，在ECR4.0-4.2版本中，拼图错误导致图像被分为4份的现象主要出现在哪种图像上？",
+    "ground_truth": "胶点图像",
+    "source_title": "拼图错误",
+    "source_file": "upload/source_documents/pdf/拼图错误.pdf",
+    "source_images": [
+      "upload/images/20260625_000604_993cfd90c5d44aa399290b86392d757c.png",
+      "upload/images/20260625_000604_f479f7ce29754a53ad7152433798df32.png",
+      "upload/images/20260625_000604_6882e45fc3354144afe7ce8c4ed5e524.png",
+      "upload/images/20260625_000604_b3f9c2237596407d9a30ee329e336f73.png",
+      "upload/images/20260625_000604_aafdc2ef5a8947cb8332617943e07bcb.png",
+      "upload/images/20260625_000604_559df766117f45acbb5903464cfd06a3.png"
+    ],
+    "source_doc_id": 138,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/9be4b2d296c1_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1e0487a27231",
+    "source_key": "image-source-91ce237109fd",
+    "question": "结合图片，在拍照Offset问题中，当芯片相对于坐标系存在旋转角θ时，通常通过哪个轴的转动来实现姿态偏差校正？",
+    "ground_truth": "T轴",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析.pdf",
+    "source_images": [
+      "upload/images/20260625_000734_5b13cc3383654d3185a4be7e015d86ab.png",
+      "upload/images/20260625_000734_e161ca26115948a1afdfbf901c499a87.png",
+      "upload/images/20260625_000734_d7e5d456779843f6bbb553bf7da94625.png"
+    ],
+    "source_doc_id": 139,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/caae043ee765_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d1d13253b0a9",
+    "source_key": "image-source-c58b387a3591",
+    "question": "结合图片，在拍照Offset问题中，当扫描1000个像素时，滑台需要行驶多少个编码器计数？",
+    "ground_truth": "65000cnts",
+    "source_title": "拍照Offset问题简述",
+    "source_file": "upload/source_documents/pdf/拍照Offset问题分析(1).pdf",
+    "source_images": [
+      "upload/images/20260625_000821_13405e73d7974f15985da49c1174629f.png",
+      "upload/images/20260625_000821_ed2636c7ed6b41248e0ebe2717e63a8b.png",
+      "upload/images/20260625_000821_49c9486683c94403a9951e1589d3171a.png"
+    ],
+    "source_doc_id": 140,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/a70b34015600_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b3dff7636bca",
+    "source_key": "image-source-1c12e105fb50",
+    "question": "结合图片，Z轴静止位置误差呈周期性波动约为50Hz时，导致该问题的根因是什么？",
+    "ground_truth": "真空泵的固定件没有解开，导致真空泵的振动传遍整个机器",
+    "source_title": "对焦差——机器内部振动",
+    "source_file": "upload/source_documents/pdf/对焦差——机器内部振动.pdf",
+    "source_images": [
+      "upload/images/20260625_000947_bf646f300d5d4cb0b790cc4f490def21.png",
+      "upload/images/20260625_000947_c20bb4eb355d4cbb8458c73664fa1745.png"
+    ],
+    "source_doc_id": 142,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e789f134215f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2ff82a606a53",
+    "source_key": "image-source-2bade9b40301",
+    "question": "结合图片，在DNBSEQ-T7RS PE150测序流程中，MDA聚合酶混合液未轻弹混匀而剧烈震荡会导致什么后果",
+    "ground_truth": "MDA聚合酶混合液活性下降",
+    "source_title": "DNBSEQ-T7RS PE150测序流程关键注意事项（上机部分）",
+    "source_file": "upload/source_documents/pdf/客户操作问题.pdf",
+    "source_images": [
+      "upload/images/20260625_001038_67d6ceb18fbe41988af02ef4b6ce65dc.png",
+      "upload/images/20260625_001038_948e75981f4c434d816492a9f47ff33c.png",
+      "upload/images/20260625_001038_f8775ca305504698a1153f591f13d7d0.png"
+    ],
+    "source_doc_id": 143,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/8927e091b088_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-0c49652580d6",
+    "source_key": "image-source-c35f64d8a4f0",
+    "question": "结合图片，在图像清晰度不一致的问题中，导致同一通道不同FOV之间以及单FOV内部图像清晰度不一致的主要原因是什么",
+    "ground_truth": "光轴与所拍FOV不垂直",
+    "source_title": "图像清晰度不一致",
+    "source_file": "upload/source_documents/pdf/图像清晰度不一致.pdf",
+    "source_images": [
+      "upload/images/20260625_001142_8e25a99138494ba8bec39b7c9e3c7fcd.png",
+      "upload/images/20260625_001142_7c85899de2804ab4bb98360c975e18fc.png"
+    ],
+    "source_doc_id": 144,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/87e19a4d215b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c0ca131783e7",
+    "source_key": "image-source-d3d1f0dc13bd",
+    "question": "结合图片，四联针戳到清洗池的PEI材料后，导致什么现象出现？",
+    "ground_truth": "圆柱状的PEI颗粒卡在针内导致部分堵塞，抽液时形成气液混合物，最终引发系统级loading异常",
+    "source_title": "四联针戳到清洗池导致堵塞",
+    "source_file": "upload/source_documents/pdf/四联针戳到清洗池导致堵塞.pdf",
+    "source_images": [
+      "upload/images/20260625_001328_358c5cd4feb848d8a7f7e6b939cd05a4.png",
+      "upload/images/20260625_001328_7ae2414cf1334bf5947c1adf5fd2365e.png"
+    ],
+    "source_doc_id": 147,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/101441eb86e7_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c34776b51a0f",
+    "source_key": "image-source-0452ce9e9c88",
+    "question": "结合图片，四联排注射泵I口闭合异常导致孵育时压力下降报错的原因是什么",
+    "ground_truth": "四联排注射泵在排废液时切换到O口，I口的阀未能关闭，导致与I口相连的芯片和O口的大气连通，芯片内的正压发生泄漏",
+    "source_title": "四联排注射泵I口闭合异常导致孵育时压力下降报错",
+    "source_file": "upload/source_documents/pdf/四联排注射泵I口闭合异常导致孵育时压力下降报错.pdf",
+    "source_images": [
+      "upload/images/20260625_001412_47875ff175f24d74b5d29a82b3f94d12.png"
+    ],
+    "source_doc_id": 148,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/02dc0e240477_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-863e8bc2fdb3",
+    "source_key": "image-source-91d8c5e23c7c",
+    "question": "结合图片，T7系统中单双扫Q值差异大时，如何通过整机调试记录表进行量化评估？",
+    "ground_truth": "可通过T7整机调试记录表中1*1 Q30标准页直接计算量化评估单双扫Q值差异，判断是否超出允许范围。",
+    "source_title": "单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/单双扫Q值差异大.pdf",
+    "source_images": [
+      "upload/images/20260625_001456_26c8f91362724d259d5d465421ddc94c.png",
+      "upload/images/20260625_001456_14af787262b64fbcae45dcea72e6f677.png",
+      "upload/images/20260625_001456_18fc27c9005a4911a96536b5c219d64b.png",
+      "upload/images/20260625_001456_ff56929caf48402a89d518e83bff3a7c.png",
+      "upload/images/20260625_001456_5b34e8ab86c947018da1b4d4bb22d3a9.png"
+    ],
+    "source_doc_id": 149,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e5e5869b69fd_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-1c0354ed82ce",
+    "source_key": "image-source-06a2bce945e8",
+    "question": "结合图片，测序前自检报错升降温超时，若发现TEC损坏应如何处理",
+    "ground_truth": "需更换整个生化chuck模块",
+    "source_title": "升降温超时",
+    "source_file": "upload/source_documents/pdf/升降温超时.pdf",
+    "source_images": [
+      "upload/images/20260625_001609_cc81163873454e82a9ffea5b754f3811.png",
+      "upload/images/20260625_001609_2f05d9c3ab3347e29b5c7514866f78c8.png"
+    ],
+    "source_doc_id": 150,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/d762d6ec90df_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d8f2294f0ff3",
+    "source_key": "image-source-b992f954bc81",
+    "question": "结合图片，出口电磁阀过热导致lane2、lane3出现黑影和测序质量差的原因是什么？",
+    "ground_truth": "散热风扇转速过低导致散热效果不好，位于芯片出口的三通电磁阀组中中间两个阀散热最差，发热严重，使中间两条lane的DNB在反向进入芯片时被烫伤，造成loading质量差和起始Q30低",
+    "source_title": "出口电磁阀过热导致lane2、lane3黑影和测序质量差",
+    "source_file": "upload/source_documents/pdf/出口电磁阀过热导致lane2、lane3黑影和测序质量差.pdf",
+    "source_images": [
+      "upload/images/20260625_001700_99ddc00e60304b3186ef83565710c7f0.png",
+      "upload/images/20260625_001700_23e5d5d2753d4b288f8c51cf2bfd6e0c.png",
+      "upload/images/20260625_001700_2dec0b02f2af4751af479c2665ec1f01.png"
+    ],
+    "source_doc_id": 151,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/abfc440a748f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-84499c85f344",
+    "source_key": "image-source-31567bf2ad2f",
+    "question": "结合图片，出口电磁阀端子脱落导致四联泵抽液异常时，流阻测试会呈现什么现象？",
+    "ground_truth": "流阻会呈现一个很大的负压",
+    "source_title": "出口电磁阀端子脱落导致抽液异常",
+    "source_file": "upload/source_documents/pdf/出口电磁阀端子脱落导致抽液异常.pdf",
+    "source_images": [
+      "upload/images/20260625_001759_bc3647aec54443e5905149a1143e978d.png",
+      "upload/images/20260625_001759_044a8dfa00424ba59a718e23a46f626d.png"
+    ],
+    "source_doc_id": 152,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/02aa82230d44_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-336931b1db85",
+    "source_key": "image-source-640b65741fb5",
+    "question": "结合图片，在光电液位传感器中，当储液池通道通光孔较大时，对一个通道加水导致相邻通道采样值变化的原因是什么？",
+    "ground_truth": "发光二极管发出的光线经过凹透镜发散、凸透镜汇聚（液体折射率大于空气折射率使发散变小）、再经凹透镜发散到达接收端；光路在内壁圆形和外壁方形的储液池上传播呈发散状态，导致发散光影响相邻通道",
+    "source_title": "光电液位传感器通道间干扰",
+    "source_file": "upload/source_documents/pdf/光电液位传感器通道间干扰.pdf",
+    "source_images": [
+      "upload/images/20260625_001902_995e4ef6360940869146c4fe7027e952.png",
+      "upload/images/20260625_001902_069690a644e1435b9b9f63cbd1ec3338.png",
+      "upload/images/20260625_001902_12d6e822be0b4eac8e9b277dd87cfdb3.png",
+      "upload/images/20260625_001902_4098cf805f704fba99e79be7d96ddc3e.png"
+    ],
+    "source_doc_id": 154,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e5488f16cb27_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-98a5b455b393",
+    "source_key": "image-source-1eda574b76aa",
+    "question": "结合图片，储液池液位传感器出现假True现象会导致什么后果？",
+    "ground_truth": "试剂泵空和Q30陡降",
+    "source_title": "储液池假True导致泵空和Q30下降",
+    "source_file": "upload/source_documents/pdf/储液池假True导致泵空和Q30下降.pdf",
+    "source_images": [
+      "upload/images/20260625_002004_211a5792fba04b7199ea811456545390.png",
+      "upload/images/20260625_002004_8e156b4d875d4496bafc5c7ee1e002b8.png",
+      "upload/images/20260625_002004_0eb4b6459ef9439c936d352ca1f6d8e9.png",
+      "upload/images/20260625_002004_5aec76d024404e548d7a37244a55b029.png",
+      "upload/images/20260625_002004_f67469ea64934fad9ea3ae169a5f59f1.png"
+    ],
+    "source_doc_id": 155,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0b5db4b51aee_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ebb132f9007f",
+    "source_key": "image-source-a5aba75ed070",
+    "question": "结合图片，在E250041943设备上，为何下机fq文件中出现多个cycle的callN现象但QC指标正常？",
+    "ground_truth": "传输cal文件时异常导致远程cal文件不完整，算法软件未正常将call base信息写入cal文件，导致对应cycle默认全部为N",
+    "source_title": "偶发多个cycle callN",
+    "source_file": "upload/source_documents/pdf/偶发多个cycle callN.pdf",
+    "source_images": [
+      "upload/images/20260625_002126_6b0a03e2e3f546f28e4039aa3ce5bfd7.png",
+      "upload/images/20260625_002126_a0821c5b215741a89b1a217797f8c743.png",
+      "upload/images/20260625_002126_f5febc65e7b14f7794ef1b03fbe5329e.png",
+      "upload/images/20260625_002126_fc65b4153805421ea2522cbb71d0bca2.png",
+      "upload/images/20260625_002126_a003a72931e042bc811e683e3c421776.png"
+    ],
+    "source_doc_id": 156,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e86ccd555242_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b946cf9d8583",
+    "source_key": "image-source-ba15b4c94936",
+    "question": "结合图片，仪器电脑病毒和威胁防护应用升级后，为何会导致随机fq.gz文件丢失？",
+    "ground_truth": "在Quarantined过程中由于未知原因将随机fq.gz文件识别为木马并进行防御删除，导致FQ文件丢失",
+    "source_title": "偶发丢FQ文件",
+    "source_file": "upload/source_documents/pdf/偶发丢FQ文件.pdf",
+    "source_images": [
+      "upload/images/20260625_002240_e895293ca1b1488bb9c3081bfe130d48.png",
+      "upload/images/20260625_002240_7328fb410ec14bd0817ff369b66d42f7.png",
+      "upload/images/20260625_002240_8e376edf6bca446da46ae6eba4bd207a.png",
+      "upload/images/20260625_002240_292b31ff0ab84be7b6e33b20e58d894a.png",
+      "upload/images/20260625_002240_7f4a0c43a577461fa0c3b9bc850a8baf.png",
+      "upload/images/20260625_002240_0aa31529e899424bba0d81c6bb9a1d38.png",
+      "upload/images/20260625_002240_cfe42a217abe4fcf8767284387c03fb5.png",
+      "upload/images/20260625_002240_1c232391a6a9413294343036899a8c28.png",
+      "upload/images/20260625_002240_06f00f1b2da54facb620cb995b297e00.png"
+    ],
+    "source_doc_id": 157,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2bb6eba3770b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-10d1560a931f",
+    "source_key": "image-source-d4b54b9b6968",
+    "question": "结合图片，在PE测序中，当二链起始Q30%低于一链最后cycle的Q30%或一链起始Q30%与二链起始Q30%差值大于10%时，属于哪种二链不回升现象？",
+    "ground_truth": "信号不回升且Q30%不回升，或信号回升但Q30不回升",
+    "source_title": "二链不抬升",
+    "source_file": "upload/source_documents/pdf/二链不抬升.pdf",
+    "source_images": [
+      "upload/images/20260625_002427_263d070ee45840459841e2b392e8e877.png",
+      "upload/images/20260625_002427_edc5bb86a2184dcc8faa8ddd45b22a2c.png",
+      "upload/images/20260625_002427_50d578b971804e818f7aea79da3eeef5.png",
+      "upload/images/20260625_002427_c861a17142f3453cb1c688b070e44f51.png",
+      "upload/images/20260625_002427_b3fe7d4444f94aef987a4587f8f091b6.png",
+      "upload/images/20260625_002427_d17dbcc203c94840b8176289045b6553.png",
+      "upload/images/20260625_002427_f12dc906e19f49e7abf76de23ec6fae9.png",
+      "upload/images/20260625_002428_9ca26716579f4ff0bb83d20826a7a170.png"
+    ],
+    "source_doc_id": 158,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/573606460e35_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-44076cbdf7e1",
+    "source_key": "image-source-2f2278543fa0",
+    "question": "结合图片，T7四边形芯片在二链1Cycle配准失败时，若CoarseTheta图出现过曝现象，可能由什么原因导致？",
+    "ground_truth": "泛白过曝",
+    "source_title": "与测序载片相关的配准失败",
+    "source_file": "upload/source_documents/pdf/与测序载片相关的配准失败.pdf",
+    "source_images": [
+      "upload/images/20260625_002626_742f58615bf64d86bb59dd9af8120fbf.png"
+    ],
+    "source_doc_id": 159,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/55820a8f11ab_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-7b421914f7c3",
+    "source_key": "image-source-2445ec3f32f1",
+    "question": "结合图片，当WFQ模块因文件句柄数不够导致失败时，系统日志中会显示什么错误信息？",
+    "ground_truth": "Too many open files",
+    "source_title": "WFQ失败",
+    "source_file": "upload/source_documents/pdf/WFQ失败.pdf",
+    "source_images": [
+      "upload/images/20260625_002714_ad786e5d85a04fb38d2da5b0492354d4.png",
+      "upload/images/20260625_002714_008a65cae28b4f0c8466f69ed00e84cf.png",
+      "upload/images/20260625_002714_18fc5079d3b54eb889a9c05a12f9a5a0.png",
+      "upload/images/20260625_002715_cb70e7320f7a43b1a0aae4b7c5262843.png",
+      "upload/images/20260625_002715_60b54fe8ee9c4f80939209a5d1a388ae.png",
+      "upload/images/20260625_002715_ba67c325b544463188cde7607dbe3304.png"
+    ],
+    "source_doc_id": 160,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/cfe4bb2cc8a6_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2cf3b3c54822",
+    "source_key": "image-source-c9b58667c0be",
+    "question": "结合图片，PMSEQ-4500平台在使用SE50试剂盒测序时，若出现cycle11_Q30骤降且缩略图局部区域较暗的现象，该现象的判断标准是什么？",
+    "ground_truth": "判断标准为cycle11 Q30骤降，callN比例明显增加",
+    "source_title": "underloading-PM4500",
+    "source_file": "upload/source_documents/pdf/underloading-PM4500.pdf",
+    "source_images": [
+      "upload/images/20260625_002842_0e5bbba1bbeb4188b468abcff902d070.png",
+      "upload/images/20260625_002842_17cb938bf9be4b698069c36a3b5dafce.png",
+      "upload/images/20260625_002842_9d903b2b1b80487aa7cbe47a8614346c.png"
+    ],
+    "source_doc_id": 161,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/a4820723f7f5_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b1bd967be98e",
+    "source_key": "image-source-57bdd57064cf",
+    "question": "结合图片，HG001 WGS数据中200平台的Ti/Tv值为何低于2000和500平台",
+    "ground_truth": "因SNP位点中存在较多低质量的A>C,T>G假阳位点，这些假阳位点由测序错误引入",
+    "source_title": "Ti/Tv值偏低问题分析",
+    "source_file": "upload/source_documents/pdf/TiTv.pdf",
+    "source_images": [
+      "upload/images/20260625_002947_e5cb58ddaa684511bc1d47730549611f.png",
+      "upload/images/20260625_002947_332cbc554fcf480db3f2f4459abc9e0a.png",
+      "upload/images/20260625_002947_c0aa309b1ef1499b8ba48ca3ee633335.png",
+      "upload/images/20260625_002947_d47cf4c2d7cf41eabe40b0572eb8c679.png"
+    ],
+    "source_doc_id": 162,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f877aac7f9f8_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c3836358fe6e",
+    "source_key": "image-source-c88ca98c895f",
+    "question": "结合图片，DNBSEQ-E5RS设备在运行过程中出现TECAN泵反馈数据异常（0x1801608）的故障，其根本原因是什么？",
+    "ground_truth": "试剂产生的结晶导致陶瓷阀头转动阻尼过大，无法正常转动，从而引发阀过载报警",
+    "source_title": "TECAN泵通讯异常",
+    "source_file": "upload/source_documents/pdf/TECAN泵通讯异常.pdf",
+    "source_images": [
+      "upload/images/20260625_003117_2015a62127944f74849ed29fd1c1f7ac.png",
+      "upload/images/20260625_003117_716119beb6ed498eb5a03ea99baf8959.png",
+      "upload/images/20260625_003117_c8b1e8f3092f490a8b5df9401602f4bf.png",
+      "upload/images/20260625_003117_1b8ce0bea4f646c3a9530b66b4953ae4.png",
+      "upload/images/20260625_003117_bb30c0cebd584615a593f63f37fe7546.png",
+      "upload/images/20260625_003118_3087f365a53d4f248e83179b5d3aeb24.png",
+      "upload/images/20260625_003118_04d27122ca324dd6ae08a0a47cf30261.png",
+      "upload/images/20260625_003118_f94f597582db468d968912a0820d1426.png",
+      "upload/images/20260625_003118_e61a50a7153840779a4935c7cf467daf.png",
+      "upload/images/20260625_003118_2e023567db89455ead56e3458a53033f.png",
+      "upload/images/20260625_003118_79e9f1e401a24f21b8f439887aadadc2.png",
+      "upload/images/20260625_003118_0e18229aea8f49ad825e3c33f4e7ebe2.png",
+      "upload/images/20260625_003118_8e6ccf3a61ab490f8761a7ab5d22102d.png",
+      "upload/images/20260625_003118_dc49b72aecb546debd306f7f68ece733.png",
+      "upload/images/20260625_003118_b44d3b55010d4f1ca2d7fd42b41d17b1.png",
+      "upload/images/20260625_003118_e8353b0d986548619ec5dceefcb6707b.png",
+      "upload/images/20260625_003118_ab1c3224459a49229e1f098250f55ab5.png",
+      "upload/images/20260625_003118_72341e2e71e646cfade3929a54fa8e12.png",
+      "upload/images/20260625_003118_b12433d2f67a4b7fb482bf6f67e4eea6.png"
+    ],
+    "source_doc_id": 163,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/15e6d4ef477e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-6a8f5ecce4c9",
+    "source_key": "image-source-25a823d545fa",
+    "question": "结合图片，在A11光机上更换JX激光器后，T>A错误率有何变化？",
+    "ground_truth": "T>A错误率明显降低，与A8接近",
+    "source_title": "T>A错误率问题排查",
+    "source_file": "upload/source_documents/pdf/TA错误率问题排查.pdf",
+    "source_images": [
+      "upload/images/20260625_003507_3e3651d1110f42a1aa6b20097fb8aa3a.png",
+      "upload/images/20260625_003507_6a5fe215dfd34c47bab37e562cca1cc8.png",
+      "upload/images/20260625_003507_d157f4c81f7142d598702433c7906722.png",
+      "upload/images/20260625_003507_055e5cea5fc9430abf5c0637d0390ec8.png",
+      "upload/images/20260625_003507_353a8763c76b48f7972bb110e04ebdfd.png"
+    ],
+    "source_doc_id": 165,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/a96d5b9c9b95_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-22d0abad994f",
+    "source_key": "image-source-b10bb70b0c9d",
+    "question": "结合图片，T7平台载片下机缩略图中靠近Trench区域出现的黑线现象与哪种生化试剂相关？",
+    "ground_truth": "与生化试剂CMR（切除试剂）相关",
+    "source_title": "T7黑线",
+    "source_file": "upload/source_documents/pdf/T7黑线.pdf",
+    "source_images": [
+      "upload/images/20260625_003630_dbb58a2d6a254231ae9312c9dda9b6b5.png",
+      "upload/images/20260625_003630_ff850973f8a34127b66358130691e605.png",
+      "upload/images/20260625_003630_544144e816044b5ca59eaba67eb1cdc0.png",
+      "upload/images/20260625_003630_309cde936d6644e98932347e6088d70d.png",
+      "upload/images/20260625_003630_5f5098b37247410d86c7173f514cec52.png"
+    ],
+    "source_doc_id": 166,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c58b29725f86_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-bb9cd93ca9cd",
+    "source_key": "image-source-be460f2883c9",
+    "question": "结合图片，T7起始Q30低的界定标准是什么？",
+    "ground_truth": "R1_firstQ30低于质检标准（同一版本同一样本的经验值）",
+    "source_title": "T7起始Q30低（综合性）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（综合性）王雅.pdf",
+    "source_images": [
+      "upload/images/20260625_003802_27c36b437b354f22a06fcf60e0b7b1fc.png",
+      "upload/images/20260625_003802_3ae6dc1efd0740f88282fb0692044fc1.png",
+      "upload/images/20260625_003802_cd5ef5b495b041fcadcd437598f64363.png",
+      "upload/images/20260625_003802_331984ac9ad6465b84e443ea0eda7eef.png",
+      "upload/images/20260625_003802_5b57c843829d41259f2aed02f1a95050.png",
+      "upload/images/20260625_003802_077b1d9bc1f64357832c3a81bba9df9e.png",
+      "upload/images/20260625_003802_1120b4ec1eb64ed8b8ba6aa127f4e079.png",
+      "upload/images/20260625_003802_dcdd27acefc64cbea3bb584b01c07c71.png",
+      "upload/images/20260625_003802_fb109c084bef4c91b956f393941aac21.png",
+      "upload/images/20260625_003802_0a9f836aa71441b488dbe51efd801eed.png",
+      "upload/images/20260625_003802_1ddc78469d9f4f0ba0a4be25d98fe3d7.png",
+      "upload/images/20260625_003802_7fb81999bd0349caa7c6ded92c0cde30.png"
+    ],
+    "source_doc_id": 167,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/de5fc42740c6_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-3a10c98ee868",
+    "source_key": "image-source-7783341032eb",
+    "question": "结合图片，使用带滤芯的扩口移液吸头对T7 PE150测序的DNB制备和加载有何影响？",
+    "ground_truth": "带滤芯的扩口移液吸头对DNB制备和加载有严重影响，尤其滤棉部分可能含有降解酶物质，导致underloading和点稀。",
+    "source_title": "T7起始Q30低（日本案例）",
+    "source_file": "upload/source_documents/pdf/T7起始Q30低（日本案例）.pdf",
+    "source_images": [
+      "upload/images/20260625_004033_3280e613609e4d6bbd52b2680896c675.png",
+      "upload/images/20260625_004033_3dd3e4f8e48c4b8bb922437423d470dc.png",
+      "upload/images/20260625_004033_9181923f1da74bd3996397331842e603.png",
+      "upload/images/20260625_004033_8cf7174aafff402fba11d3e7b8565c09.png",
+      "upload/images/20260625_004033_bdcb8a22988041d5bee5157081cca0b4.png",
+      "upload/images/20260625_004033_0ebd183262c34d2ab055cc26ce8cdac6.png",
+      "upload/images/20260625_004034_c5a8ce20a160486da0abdb22aad8a3fe.png",
+      "upload/images/20260625_004034_1046d32b9898473e950b5ececbe449da.png",
+      "upload/images/20260625_004034_f4e80a9c303047be97ea5ffb1d865697.png",
+      "upload/images/20260625_004034_ead1e2fea7184000b31f8b844ae92a3e.png",
+      "upload/images/20260625_004034_c647830263c74870bdfe62ed17ca1703.png"
+    ],
+    "source_doc_id": 168,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/aeb3cb5dd815_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-fa7934cabf1b",
+    "source_key": "image-source-1b6a464fe021",
+    "question": "结合图片，T7测序仪器中载片脱框的可能原因是什么",
+    "ground_truth": "T7测序仪器机械臂抓手在转移载片时出现异常导致载片脱框",
+    "source_title": "T7芯片脱框",
+    "source_file": "upload/source_documents/pdf/T7芯片脱框.pdf",
+    "source_images": [
+      "upload/images/20260625_004324_2af6112d66744f0bb162a856903ba5d6.png"
+    ],
+    "source_doc_id": 170,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/b6d2c4520eef_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-95a3250cc39e",
+    "source_key": "image-source-cda2ee07e2dc",
+    "question": "结合图片，T7芯片在载片内部边缘位置出现气泡后，若气泡导致的总空腔率大于总FOV的1%，应如何处理？",
+    "ground_truth": "按照顺利下机故障载片进行信息收集",
+    "source_title": "T7芯片空腔",
+    "source_file": "upload/source_documents/pdf/T7芯片空腔.pdf",
+    "source_images": [
+      "upload/images/20260625_004402_139a813c30c74a58a02e2b338f0df42a.png",
+      "upload/images/20260625_004402_9e03185395824d9a819026d204b3be72.png"
+    ],
+    "source_doc_id": 171,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/63147beeccbc_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b1dfaf7fdb79",
+    "source_key": "image-source-0735f4d8318c",
+    "question": "结合图片，T7玻璃门隐形铰链在使用过程中出现松脱、变形的原因是什么？",
+    "ground_truth": "H230-26/26T型号强度不够",
+    "source_title": "T7玻璃门铰链松脱",
+    "source_file": "upload/source_documents/pdf/T7玻璃门铰链松脱.pdf",
+    "source_images": [
+      "upload/images/20260625_004446_bbbd0bb382d3429480aec90870d57208.png"
+    ],
+    "source_doc_id": 172,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/77d6d3f756ea_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-6cf8c6ebd324",
+    "source_key": "image-source-cb65da7161bf",
+    "question": "结合图片，T7温控板上电无电压输出时，TPS54335器件的2~4和2~8引脚IV曲线检查结果如何",
+    "ground_truth": "2~4/2~8pinIV曲线异常",
+    "source_title": "T7温控板上电无电压输出",
+    "source_file": "upload/source_documents/pdf/T7温控板上电无电压输出.pdf",
+    "source_images": [
+      "upload/images/20260625_004515_b28912d9478f47c2b7b41fa0071b2978.png"
+    ],
+    "source_doc_id": 173,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f7ea33d1be45_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f7d1db08da66",
+    "source_key": "image-source-8f99e2251f85",
+    "question": "结合图片，当芯片过液压力偏高时，应检查哪些部件？",
+    "ground_truth": "应检查oring及金属环状态，必要时更换oring或检查电磁阀功能",
+    "source_title": "T7流体异常排查",
+    "source_file": "upload/source_documents/pdf/T7流体异常排查.pdf",
+    "source_images": [
+      "upload/images/20260625_004553_ab181e526084423ba1ffcf5a997a4b32.png",
+      "upload/images/20260625_004553_ea86fe9c75ba4e96ae7a2c5df7ce80c6.png",
+      "upload/images/20260625_004553_1b55293a2b5e419488bfb54af4735ff6.png",
+      "upload/images/20260625_004553_f27cc8cb32e34a53baf74c1616a4e596.png",
+      "upload/images/20260625_004553_87650fb5f2a8485f91d075995945a32c.png",
+      "upload/images/20260625_004553_9e54b43ce03d4fc2954b7fac4389b739.png",
+      "upload/images/20260625_004553_f00491e43cc34d668ed9a40dd6c972c1.png",
+      "upload/images/20260625_004553_9fc08202987a41b797583406f414378e.png",
+      "upload/images/20260625_004553_e4cad15a99d94c29b0b93c94f7f1aacc.png",
+      "upload/images/20260625_004553_41adfd87c4a34d189cd4bafd67878259.png"
+    ],
+    "source_doc_id": 174,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/b8c094be6809_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ebf26e97160e",
+    "source_key": "image-source-bff74aa69783",
+    "question": "结合图片，T7 15#机废液缓存箱液位计管堵塞的原因是什么？",
+    "ground_truth": "废液缓存箱铝合金背板发生腐蚀，灰白色物质堵塞液位计管，该物质主要成分为氢氧化铝，混有少量有机质，系试剂中的NaOH溶液与铝合金反应所致",
+    "source_title": "T7废液缓存箱背板腐蚀",
+    "source_file": "upload/source_documents/pdf/T7废液缓存箱背板腐蚀.pdf",
+    "source_images": [
+      "upload/images/20260625_004808_e5d9a1742bce47c588453c89a1400ee3.png"
+    ],
+    "source_doc_id": 175,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/5e36b8619c48_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d18fe154e1e0",
+    "source_key": "image-source-446dad62167d",
+    "question": "结合图片，T7用户在使用自有集群进行autoWriteFq时，出现'Address already in use'错误的原因是什么？",
+    "ground_truth": "autoWriteFq启动任务时会生成30000~60000范围内的随机端口并配置在settings.config中，用于processor和client通信，而用户的WFQ节点上存在大量该范围内的端口占用，造成端口冲突。",
+    "source_title": "T7使用客户自有集群WFQ启动失败问题",
+    "source_file": "upload/source_documents/pdf/T7使用客户自有集群WFQ启动失败问题.pdf",
+    "source_images": [
+      "upload/images/20260625_004841_0a858f671f8f44d4aad5a880aa859097.png",
+      "upload/images/20260625_004841_eb6b0e4c2fd84af096323e317a879b15.png",
+      "upload/images/20260625_004842_6993ea113f9b4035a5b415af44af771f.png",
+      "upload/images/20260625_004842_acb0173db9694f4297fc876ae04ec48d.png",
+      "upload/images/20260625_004842_d0b8b8c5ebbc4cf2a36ca0744ea14261.png",
+      "upload/images/20260625_004842_c79e9e82651144ac80411c88bae16a4d.png",
+      "upload/images/20260625_004842_1df24554198e47f4a9a420f44475e29c.png",
+      "upload/images/20260625_004842_5bbdf03cd09048bf83b74d088426ae25.png",
+      "upload/images/20260625_004842_c0e441496eb143899be20e26bf02db94.png"
+    ],
+    "source_doc_id": 176,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1a429c415d81_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-59016ecac36e",
+    "source_key": "image-source-9458859f9e07",
+    "question": "结合图片，二链不抬现象中，当一链Q30%正常，二链第一个cycle的Q30%不抬升且15cycle后陡降趋于平稳时，该现象属于哪种故障表现？",
+    "ground_truth": "一链Q30%正常，二链第一个cycle的Q30%不抬升且15cycle后陡降趋于平稳",
+    "source_title": "T7二链不抬",
+    "source_file": "upload/source_documents/pdf/T7二链不抬.pdf",
+    "source_images": [
+      "upload/images/20260625_005038_90a1a27d8d854c2bba7beeb09264eb2a.png",
+      "upload/images/20260625_005038_a1bd014235344dc9b45abc952a18f04c.png"
+    ],
+    "source_doc_id": 177,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0a9e15a8d128_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-84cac5518475",
+    "source_key": "image-source-819eb19acef9",
+    "question": "结合图片，T7芯片在测序后半段出现开胶时，应重点关注哪些压力曲线？",
+    "ground_truth": "应重点关注oring结晶及测序压力曲线，次要关注loading压力曲线",
+    "source_title": "T7-芯片胶点开胶",
+    "source_file": "upload/source_documents/pdf/T7-芯片胶点开胶.pdf",
+    "source_images": [
+      "upload/images/20260625_005214_84e8991d0b1e4f4d9fd9a55bd83c9113.png",
+      "upload/images/20260625_005214_3106196621f448688f92dfc2c56c1ee8.png",
+      "upload/images/20260625_005214_0e2836921a60451e81d9d785e319ab1a.png",
+      "upload/images/20260625_005215_2e4cb83b182c4cd883a8768b4c2aa2bd.png",
+      "upload/images/20260625_005215_243a77325ef640db97ded4e5275eb7f2.png",
+      "upload/images/20260625_005215_abf5121c6b5e4c118a60ef1cd65782c6.png",
+      "upload/images/20260625_005215_78a887db10db4ceeb2fa7399682d17d9.png",
+      "upload/images/20260625_005215_7820bb83d4424d2b835e08c6a6e3d348.png",
+      "upload/images/20260625_005215_836edaf5397f4eda9e7b300700da2289.png",
+      "upload/images/20260625_005215_c64ba8edccb5456b8a80298641987193.png",
+      "upload/images/20260625_005215_481a5ae3ec3a4d9fb7ebe3841674fe88.png",
+      "upload/images/20260625_005215_349f2eda8b014f1e8bba6e25e166a065.png",
+      "upload/images/20260625_005215_243ced70d4b348b2a908def4c8291b67.png",
+      "upload/images/20260625_005215_513b3ab167374ebda2be83edae428abd.png",
+      "upload/images/20260625_005215_4ee68112c11244e99af373db00a39eac.png",
+      "upload/images/20260625_005215_7e0aa2aaca8e44a8be01414eeebfdbff.png",
+      "upload/images/20260625_005215_fd8a57a508954b67bcc05ff4b99f89bc.png",
+      "upload/images/20260625_005215_e1dfeab735194a35a8808608326f540c.png"
+    ],
+    "source_doc_id": 179,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/68d3e663ff04_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a14207f838b8",
+    "source_key": "image-source-7c485736bfb2",
+    "question": "结合图片，使用3年以上的T7生化chuck在高温切除阶段出现温度过冲大于1.5℃时，应如何判断是否存在切除温度风险",
+    "ground_truth": "若过冲大于1.5℃，即存在切除温度风险",
+    "source_title": "T7-生化chuck老化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck老化.pdf",
+    "source_images": [
+      "upload/images/20260625_005551_499c4d309cb442be86fe0a5035752452.png",
+      "upload/images/20260625_005551_c1f9a4c86fdd49db879e7da60cffb725.png",
+      "upload/images/20260625_005551_fd9d8e08b19a4c5ca9a6311151bd6ad0.png",
+      "upload/images/20260625_005551_c5d025b826314d86b20e63b493ae5d4e.png",
+      "upload/images/20260625_005551_ceaa4e0b220449d2867be120eef4d745.png",
+      "upload/images/20260625_005551_27ac9b8bcf96446f930808dc9e518896.png",
+      "upload/images/20260625_005551_f7541a4e7ab4407198b9ea746d272ddc.png"
+    ],
+    "source_doc_id": 180,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4bb510b1355e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-370543f2f48a",
+    "source_key": "image-source-ff1da2b92248",
+    "question": "结合图片，FOV图片出现左右两边亮度较暗且背景曲线不平整的黑边问题，其根本原因是什么？",
+    "ground_truth": "照明模块未调好",
+    "source_title": "FOV图片黑边问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-照明黑边.pdf",
+    "source_images": [
+      "upload/images/20260625_005713_7c283d706ccf4886bfc838a34b36b86e.png",
+      "upload/images/20260625_005713_eaf32cba0ef949b7af59a5176d84ca61.png",
+      "upload/images/20260625_005713_a1cfe2b9080e491c96a190de664a1875.png",
+      "upload/images/20260625_005715_0b6514df00fa43bda57da8077c90180a.png",
+      "upload/images/20260625_005715_1753f6bb5deb4a19863c6c3da8dec770.png",
+      "upload/images/20260625_005715_35fd30cc6a0d4a378d8c1fb282b9afaf.png",
+      "upload/images/20260625_005715_616dc6193d1346ffa3ae556e6d3bb7c5.png",
+      "upload/images/20260625_005715_47e1ffaaab884feeb36e102da024a5b3.png",
+      "upload/images/20260625_005715_7ca7cebe28a74d1ca540cf4e67a4bb76.png",
+      "upload/images/20260625_005715_9ac682b91ad74f4eb743d610525fc79c.png",
+      "upload/images/20260625_005715_15fb82e5eb13483499df97ecf6a40881.png"
+    ],
+    "source_doc_id": 181,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2c814bf881c3_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-65a36561ce5e",
+    "source_key": "image-source-b9c75525b37d",
+    "question": "结合图片，当使用激光功率计测试物镜端的红绿激光功率时，若透过率低于多少百分比则说明激光器功率衰减",
+    "ground_truth": "68%",
+    "source_title": "测序仪研发中心Sequencing Product R&D Center – T7-激光器偶发不亮&信号衰减",
+    "source_file": "upload/source_documents/pdf/T7-激光器偶发不亮&信号衰减.pdf",
+    "source_images": [
+      "upload/images/20260625_005924_5dec2888cc1842a0927c5fc7387655ad.png",
+      "upload/images/20260625_005924_d079f7f3fe0c42619bb9ded52d7c6481.png",
+      "upload/images/20260625_005924_a9101f963a654f469ddb4841d23c40fc.png",
+      "upload/images/20260625_005924_9bf9699c69bd4734868bb52434bfdbf0.png",
+      "upload/images/20260625_005924_025f7e21168c43e9aa2130c7cd73633f.png"
+    ],
+    "source_doc_id": 182,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/eb9596202001_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f744fa7f3822",
+    "source_key": "image-source-5bf6bf29666a",
+    "question": "结合图片，T7平台在测序前自检时出现平整度超差报错，部分区域Q30偏低且对焦超时，可能的原因有哪些？",
+    "ground_truth": "imager平整度自身发生变化，精密螺纹副产生移位；imagerchuck表面存在脏污（结晶或灰尘）；芯片背面存在结晶；imager未固定牢固",
+    "source_title": "T7-平台平整度异常",
+    "source_file": "upload/source_documents/pdf/T7-平台平整度异常.pdf",
+    "source_images": [
+      "upload/images/20260625_010134_3ee8ae4011ec4f9185a1cb6e8e117b54.png",
+      "upload/images/20260625_010134_f501e83b330b43ae85ac4f81da22472f.png",
+      "upload/images/20260625_010134_e42fdec942ea4a8c915f68db68fff679.png",
+      "upload/images/20260625_010134_e3a7a6d57e164bfd830d83e4d9b16fbf.png"
+    ],
+    "source_doc_id": 184,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2b771a00f653_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-adc31d52b68a",
+    "source_key": "image-source-b1f507c3fc62",
+    "question": "结合图片，在T7设备中，当1*1扫描时发现当前cycle的Q值heatmap分布不均，相差约2个点，可能的原因是什么？",
+    "ground_truth": "对焦参数设置不合适，带宽不合适（即存在谐振点）",
+    "source_title": "T7-单双扫Q值差异大",
+    "source_file": "upload/source_documents/pdf/T7-单双扫Q值差异大.pdf",
+    "source_images": [
+      "upload/images/20260625_010235_d33d20ec837342df9df0caf2b69eb8dc.png",
+      "upload/images/20260625_010236_776dfffcb1464d9593a08bc66009c4d8.png",
+      "upload/images/20260625_010236_5aba2a45a6be43c3830a4ae1cee2210c.png",
+      "upload/images/20260625_010236_1ae2b3739ce14104955ca0713eb1d1cf.png",
+      "upload/images/20260625_010236_87b6ac1baa2b478c99d60bd053d52495.png",
+      "upload/images/20260625_010236_3645e05f23bd4b21bede7f8d27402bea.png",
+      "upload/images/20260625_010236_ef7afcf19cea4e77934446a1c991379e.png",
+      "upload/images/20260625_010236_508e60f0e135464b81fe19aec15ccaca.png",
+      "upload/images/20260625_010236_b1268fe20ccc4ff0b2679fdc62a1d527.png",
+      "upload/images/20260625_010236_5223f566b4894664bce3d1c48cbb312a.png"
+    ],
+    "source_doc_id": 185,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/b3fe05fd2650_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ca3a60291004",
+    "source_key": "image-source-60162b11cfef",
+    "question": "结合图片，T7系统在扫描芯片时出现单双行信号Q值差异显著的问题，应如何通过1*1 Q30标准页进行量化评估？",
+    "ground_truth": "取所有正扫方向FOV（除去cal0）的Q30平均值，与所有反扫方向FOV（除去cal0）的Q30平均值做差值，以判断单双扫差异程度。",
+    "source_title": "T7-单双扫问题分析与解决方案",
+    "source_file": "upload/source_documents/pdf/T7-单双扫.pdf",
+    "source_images": [
+      "upload/images/20260625_010440_3066d239dde24e86ac79eecc26167c16.png",
+      "upload/images/20260625_010440_aace2b3e290f4e519d9fea5bfd1466ad.png",
+      "upload/images/20260625_010440_d85f32c036aa479696b7e5dd90092a37.png"
+    ],
+    "source_doc_id": 186,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f474f3afa49e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-9a1a4c233219",
+    "source_key": "image-source-8d2f3fc693e1",
+    "question": "结合图片，T7-Processor在测序过程中自动重启导致Q30曲线丢失一个cycle，其主要原因是哪些？",
+    "ground_truth": "Dell驱动异常、系统killed程序或其他未知原因",
+    "source_title": "T7-Processor 自动重启",
+    "source_file": "upload/source_documents/pdf/T7-Processor 自动重启.pdf",
+    "source_images": [
+      "upload/images/20260625_010549_9b0e279161504a9fbaa5109dd139babd.png",
+      "upload/images/20260625_010549_4f61d2cca7564d0fb90bde1cba943b40.png",
+      "upload/images/20260625_010549_0fd09e7586834f61b2b17d83ba58d2b3.png",
+      "upload/images/20260625_010549_1211039d9dbf479ba0caaac72cac5d43.png",
+      "upload/images/20260625_010549_d1d322397fca4a2d84fa118fcf90c8e7.png",
+      "upload/images/20260625_010549_4f71876270a949038b6ffd8bb9181a1b.png",
+      "upload/images/20260625_010549_495cc40556bb4885a923715a1d8ba8ca.png"
+    ],
+    "source_doc_id": 187,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/cf1a7cd0eaf2_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-348d6ac17ac7",
+    "source_key": "image-source-f648b9d0ce53",
+    "question": "结合图片，一体化manifold中o-ring脱落的主要原因是什么",
+    "ground_truth": "一体化manifold固定o-ring的高度比旧版本低0.3mm，导致o-ring在manifold外漏出变大；o-ring尺寸未进行来料全检验，个体存在尺寸差异，与manifold配合存在差异，配合较松时易发生脱落",
+    "source_title": "T7-oring 脱落",
+    "source_file": "upload/source_documents/pdf/T7-oring 脱落.pdf",
+    "source_images": [
+      "upload/images/20260625_010728_b2b50854ec424ba6873143fad5595907.png",
+      "upload/images/20260625_010728_173541463dcd477b8672c45b9e309345.png"
+    ],
+    "source_doc_id": 188,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c0ca04a9f3b0_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-6c8248354eba",
+    "source_key": "image-source-3932de4fa63f",
+    "question": "结合图片，相机丢图或拼图异常可能导致单cycle或连续cycle中所有或大部分FOV出现callN现象，这种情况下应检查哪些模块？",
+    "ground_truth": "应检查相机硬件和算法模块",
+    "source_title": "T7-CallN问题",
+    "source_file": "upload/source_documents/pdf/T7-CallN问题.pdf",
+    "source_images": [
+      "upload/images/20260625_010819_55c8f6ed14704ee786eb6694c6cf38fc.png",
+      "upload/images/20260625_010820_90be9bfde7ba4d0da4341bae25534fa2.png",
+      "upload/images/20260625_010820_92e222e110384dd09d4823c35613af44.png",
+      "upload/images/20260625_010820_e1d0c74fb8e14dc09cca9ffc34fb7a1e.png",
+      "upload/images/20260625_010820_255e348d4416460d84635ff13f5a5146.png",
+      "upload/images/20260625_010820_fc04f30d20934527a656ffe93f5abfeb.png",
+      "upload/images/20260625_010820_14b84b8d0e94480f8961c404c2b7660d.png",
+      "upload/images/20260625_010821_6b28d9308fa3458ab66b097b505129ce.png",
+      "upload/images/20260625_010821_6edb481d275d4003b50f75496f7b1660.png",
+      "upload/images/20260625_010821_7e8de897148342dc9ada371a657a34bb.png",
+      "upload/images/20260625_010821_24f23130248e406eb69d9a88ff1af9f2.png",
+      "upload/images/20260625_010821_df47706e583d493889393928e4b824f4.png"
+    ],
+    "source_doc_id": 189,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f2d43f97b267_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-8a3034f24902",
+    "source_key": "image-source-cc031145d697",
+    "question": "结合图片，T7+显示屏在betaⅡ样机及武汉JD样机中出现闪屏现象，重启阶段更容易发生，其根本解决方案是什么？",
+    "ground_truth": "供应商端安装完后对排线进行二次确认",
+    "source_title": "T7+显示屏闪屏",
+    "source_file": "upload/source_documents/pdf/T7+显示屏闪屏.pdf",
+    "source_images": [
+      "upload/images/20260625_011049_801f5a5d14b448f996d9bcf87202b56f.png"
+    ],
+    "source_doc_id": 190,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c9da9bc5862f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-97878f9ad0ae",
+    "source_key": "image-source-f9154ce9c49f",
+    "question": "结合图片，T7芯片载片泛白现象中，标志区亮度比正常值高多少且呈现均匀亮白时可判定为异常？",
+    "ground_truth": "标志区亮度比正常值高50%，且标志区是均匀亮白",
+    "source_title": "T7 芯片泛白，200、2000、FTAT光晕",
+    "source_file": "upload/source_documents/pdf/T7 芯片泛白，200、2000、FTAT光晕.pdf",
+    "source_images": [
+      "upload/images/20260625_011157_50ead63d14674555ba23f1166eda5079.png",
+      "upload/images/20260625_011158_15f268cf80a64ea79eee27e760f2a5f7.png",
+      "upload/images/20260625_011158_f8b3a79d67e7424c830a8ed17e6a3f77.png",
+      "upload/images/20260625_011158_7434436fa9e84b87985a13294856d60a.png",
+      "upload/images/20260625_011158_c87c31569b2b4a08a6a4ae66d5037847.png"
+    ],
+    "source_doc_id": 192,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/8d160787741f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d531703d3586",
+    "source_key": "image-source-20293e324dce",
+    "question": "结合图片，T7设备中单向阀止回失效会导致什么现象？",
+    "ground_truth": "一侧泵液时另一侧出现压力波动，串液量增大，可能影响测序质量",
+    "source_title": "T7 单向阀止回异常",
+    "source_file": "upload/source_documents/pdf/T7 单向阀止回异常.pdf",
+    "source_images": [
+      "upload/images/20260625_011318_3be66063abc84bf08f36b0edf30c8cc6.png",
+      "upload/images/20260625_011318_abda5a726e674522bf4313a202138756.png",
+      "upload/images/20260625_011318_8d0e3b64ba45432f82be4c69209db138.png",
+      "upload/images/20260625_011318_2aeff0b7e20f4066b595bfb53e9c6a5b.png"
+    ],
+    "source_doc_id": 193,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2f89f829cfac_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-5d502ee22501",
+    "source_key": "image-source-a79d020147d2",
+    "question": "结合图片，T7 SBC无法启动时，为何需要拆主板纽扣电池放电才能解决？",
+    "ground_truth": "SBC上电前LT板USB DATA+信号有1.3V~1.5V电压灌入，影响Intel PCH的USB部分，干扰正常开机时序，需清空BIOS",
+    "source_title": "T7 SBC丢BIOS",
+    "source_file": "upload/source_documents/pdf/T7 SBC丢BIOS.pdf",
+    "source_images": [
+      "upload/images/20260625_120619_14b27ca5eb2e434aa6018896cbe63330.png"
+    ],
+    "source_doc_id": 196,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e11957005831_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-15534cec830e",
+    "source_key": "image-source-344d13f31120",
+    "question": "结合图片，T7设备在11月24日出现MLG故障后，测序发现Q值曲线部分cycle无点，且allcycleheatmap显示cycle严重callN，其根本原因是什么？",
+    "ground_truth": "机械手放置芯片时产生刮蹭，导致芯片角度偏移，进而引发位点偏移和callN。",
+    "source_title": "T7 offset callN问题分析",
+    "source_file": "upload/source_documents/pdf/T7 offset callN.pdf",
+    "source_images": [
+      "upload/images/20260625_120733_1fed24935e424bc39c061b4337e9b1cf.png",
+      "upload/images/20260625_120733_bd0ff81119394b858c9c22c107962f09.png",
+      "upload/images/20260625_120733_8fa521630c604bb48997f77da2463aec.png"
+    ],
+    "source_doc_id": 198,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0f87ce221c8f_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f9e74c10a910",
+    "source_key": "image-source-eb9484c3fcef",
+    "question": "结合图片，T7测序中barcode曲线异常导致Q30曲线抖动，可能由哪些操作因素引起？",
+    "ground_truth": "barcode序列导入错误、试剂不足、barcode平衡性差",
+    "source_title": "T7 barcode曲线异常",
+    "source_file": "upload/source_documents/pdf/T7 barcode曲线异常.pdf",
+    "source_images": [
+      "upload/images/20260625_120841_8afc513518e94e759d662ed0b79a44a8.png",
+      "upload/images/20260625_120841_bc6dea5ac7a645b48c396217e5c4072a.png",
+      "upload/images/20260625_120841_21ca96bb352e488bbc8ac96bd5d0191d.png",
+      "upload/images/20260625_120841_7f96b88a4c814783a3a8dfc9d851ea4e.png"
+    ],
+    "source_doc_id": 199,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4d7205ce3594_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b07e20f7e5e9",
+    "source_key": "image-source-f1b8a0e1e5f8",
+    "question": "结合图片，在T100样机5#2控制板的CAN通讯响应时长测试中，冲水时长配置指令在5ms时间间隔下的响应报文丢包率是多少？",
+    "ground_truth": "3.086%",
+    "source_title": "T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象",
+    "source_file": "upload/source_documents/pdf/T100 Chuck控制板CAN通讯响应时长测试时偶发丢包现象.pdf",
+    "source_images": [
+      "upload/images/20260625_120958_7f537f2c67974366921d5e96f9ac71e4.png",
+      "upload/images/20260625_120958_e42a2d6d43e54f4d9f81fabe9dc9350e.png"
+    ],
+    "source_doc_id": 200,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/88360dfb75ad_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-96601c5a038c",
+    "source_key": "image-source-99e982d9854b",
+    "question": "结合图片，T100 5#设备在加载第二张芯片时提示内存不足，关闭系统后将NUMA节点从2个调整为1个并重启，第二张芯片的内存分配是否成功？",
+    "ground_truth": "是",
+    "source_title": "T100 5# 内存分配失败",
+    "source_file": "upload/source_documents/pdf/T100 5# 内存分配失败.pdf",
+    "source_images": [
+      "upload/images/20260625_121050_07d9c4ce0215461196986dc5ac7a9f7f.png",
+      "upload/images/20260625_121050_3e197f4f1ae841fca53e0fb78fdc0ec6.png"
+    ],
+    "source_doc_id": 201,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3557b0a7b188_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-6824a70babb7",
+    "source_key": "image-source-81941309144c",
+    "question": "结合图片，在T1+从dsDNA开始进行make DNB过程中，若使用单Barcode文库，应选用哪种环化缓冲液？",
+    "ground_truth": "环化缓冲液SD-SB",
+    "source_title": "T1+makeDNB失败（从环化开始）",
+    "source_file": "upload/source_documents/pdf/T1+makeDNB失败（从环化开始）.pdf",
+    "source_images": [
+      "upload/images/20260625_121140_78c9c93e63bc4e03b9dae703a9e5f77c.png"
+    ],
+    "source_doc_id": 202,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/a3accf33725a_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-60429cf6aa31",
+    "source_key": "image-source-e3c88b6e8385",
+    "question": "结合图片，Lane 04在全流程测序中数据量偏低且Q30值比前三条lane低约3~5个点的原因是什么",
+    "ground_truth": "酶I+II混匀不充分、分液顺序和airgap设置不当导致lane间试剂浓度不均",
+    "source_title": "T1+lane间差异大",
+    "source_file": "upload/source_documents/pdf/T1+lane间差异大.pdf",
+    "source_images": [
+      "upload/images/20260625_121231_772780fd67fa471aa57a6fa03e27566b.png",
+      "upload/images/20260625_121231_bc095f0ebcf6430188902b49dc4e44c4.png",
+      "upload/images/20260625_121231_6b1df8805a8f4dd0840b4df3ca9d4b1a.png",
+      "upload/images/20260625_121231_e88349475cef4420863f1f606c2491b6.png",
+      "upload/images/20260625_121231_e1bc18daabcd4f419e66eb6609f48075.png",
+      "upload/images/20260625_121231_ad761d97fc104d469fc261486643c78c.png",
+      "upload/images/20260625_121231_7b553a59140546e89796ab03d363e31b.png"
+    ],
+    "source_doc_id": 203,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/fefda8ced529_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-60284f420fa5",
+    "source_key": "image-source-3fed78494ca0",
+    "question": "结合图片，T1+测序中dup偏高的根本原因是什么？",
+    "ground_truth": "DNB落在两个spot点之间，导致相邻区域信号重叠，使系统误判为同一来源的信号",
+    "source_title": "T1+ dup高问题排查",
+    "source_file": "upload/source_documents/pdf/T1+ dup高问题排查.pdf",
+    "source_images": [
+      "upload/images/20260625_121502_a1db674c84a3498ba7a1417f45579867.png",
+      "upload/images/20260625_121502_2ca682f6a2a94645bc1850965a500651.png",
+      "upload/images/20260625_121503_5719cfdb2b9b433fa402a0640f93566c.png",
+      "upload/images/20260625_121503_90ffaceff18641b2836cc5abbdf1c87e.png",
+      "upload/images/20260625_121503_0eb83f38f8444a8bb6ffa96036a1d879.png",
+      "upload/images/20260625_121503_412318594ae543fc88c4b4599fbab6bb.png"
+    ],
+    "source_doc_id": 205,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c20b44a3a4ad_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-8eabd8b58709",
+    "source_key": "image-source-4bc96d03ddfa",
+    "question": "结合图片，激光功率偏高会导致哪个模块的SNR曲线出现陡降？",
+    "ground_truth": "A模块",
+    "source_title": "SNR曲线差异原因",
+    "source_file": "upload/source_documents/pdf/SNR曲线差异原因.pdf",
+    "source_images": [
+      "upload/images/20260625_121655_bf842e76037643b8bd3882d0c1ec55fb.png",
+      "upload/images/20260625_121655_5e1feb46e5a54210a580d639063bb18d.png",
+      "upload/images/20260625_121655_5a3b4a580bee4e12893f05c73e743a05.png"
+    ],
+    "source_doc_id": 206,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/395d18ec59d2_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c26e9d669422",
+    "source_key": "image-source-8aa6f6dfa8d5",
+    "question": "结合图片，Q30下降快，1链下降了多少个点？",
+    "ground_truth": "7个点",
+    "source_title": "Q30下降快，Runon高",
+    "source_file": "upload/source_documents/pdf/Q30下降快，Runon高.pdf",
+    "source_images": [
+      "upload/images/20260625_121758_447d207fef6149d18233aeb53c760cb6.png",
+      "upload/images/20260625_121758_f75b2a0137dd430fa6753a3e6b6554a0.png",
+      "upload/images/20260625_121758_b1fe0d64b736407bbed036d94ee8a954.png",
+      "upload/images/20260625_121758_a6baeacb583144cea4f55a48323071cc.png"
+    ],
+    "source_doc_id": 208,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/d4a6edbc32ff_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-b850813f084f",
+    "source_key": "image-source-ba0c4e7aa278",
+    "question": "结合图片，在MGI平台测序过程中，polyT区域导致Q30陡降的原因是什么？",
+    "ground_truth": "polyT区域导致滑移，错误率增加，最后被过滤掉",
+    "source_title": "polyT导致Q30陡降，数据量不达标",
+    "source_file": "upload/source_documents/pdf/polyT导致Q30陡降，数据量不达标.pdf",
+    "source_images": [
+      "upload/images/20260625_121850_3d85bc0e606a47e3aa712766531d42cb.png",
+      "upload/images/20260625_121850_68141749340a4d049c6a12ee7a77acca.png",
+      "upload/images/20260625_121850_b8d36ecd6e9842e089b2d50b6332bf10.png",
+      "upload/images/20260625_121850_16bab55bae1e4396a706f88d88df345b.png"
+    ],
+    "source_doc_id": 209,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/5307c5df64eb_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c167131d805b",
+    "source_key": "image-source-6e9603fe8321",
+    "question": "结合图片，在B1测序过程中，试剂仓板无MCU心跳指示灯且无数据上报，按板卡复位无法恢复，一段时间后恢复正常，同时同一根总线下其他设备无法连接，总线进入BUS OFF模式，其根本原因是什么？",
+    "ground_truth": "5V供电被拉低，进一步定位到测序试剂盒到位传感器漏液导致短路",
+    "source_title": "MM试剂仓板无心跳指示",
+    "source_file": "upload/source_documents/pdf/MM试剂仓板无心跳指示.pdf",
+    "source_images": [
+      "upload/images/20260625_121942_e96c5543df4748fdbc4bb0afd7e978d0.png",
+      "upload/images/20260625_121942_b2ebab4515174d79b4aeb50c5f22774e.png"
+    ],
+    "source_doc_id": 210,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/095b2b84e41c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-3fbf4ee19f5d",
+    "source_key": "image-source-d44d119842a3",
+    "question": "结合图片，Mammoth浪潮服务器在alpha和betaⅠ阶段出现采集卡识别异常的原因有哪些",
+    "ground_truth": "采集卡和服务器信号兼容性问题；Pcie排线接触不良",
+    "source_title": "Mammoth浪潮服务器采集卡识别异常",
+    "source_file": "upload/source_documents/pdf/Mammoth浪潮服务器采集卡识别异常.pdf",
+    "source_images": [
+      "upload/images/20260625_122053_1515adcf71b84542ab7401756a9ffa63.png",
+      "upload/images/20260625_122053_7043260e45a64ece9ae2c39f93dcae64.png"
+    ],
+    "source_doc_id": 212,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/78f2057ea9a5_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-ca7795ebb534",
+    "source_key": "image-source-2e2784c59f42",
+    "question": "结合图片，Mammoth废液模块称重传感器校准中，零点校准时废液仓应处于什么状态？",
+    "ground_truth": "废液仓为空",
+    "source_title": "Mammoth废液模块称重传感器校准功能验证",
+    "source_file": "upload/source_documents/pdf/Mammoth废液模块称重传感器校准功能验证.pdf",
+    "source_images": [
+      "upload/images/20260625_122128_eba9c98e4de741ba878fa2a24e3d831e.png",
+      "upload/images/20260625_122129_e158e07e8b954a8f80aa9e0a1dde36a5.png",
+      "upload/images/20260625_122129_c6240bea4404496aa177d64fd4390468.png"
+    ],
+    "source_doc_id": 213,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4ecb7b6c900c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-28e46cbc126c",
+    "source_key": "image-source-4c7b19902f4d",
+    "question": "结合图片，A5旋转阀通讯超时导致初始化失败的原因是什么",
+    "ground_truth": "旋转阀光电开关干扰",
+    "source_title": "Mammoth外设初始化异常",
+    "source_file": "upload/source_documents/pdf/Mammoth外设初始化异常.pdf",
+    "source_images": [
+      "upload/images/20260625_122223_e43de9052392446c97b7647c37c310c5.png"
+    ],
+    "source_doc_id": 214,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/91ec06a1ebc9_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-8069ccfa3bbd",
+    "source_key": "image-source-a2a764f21777",
+    "question": "结合图片，MammothChuck板在相对运动模式下，当设置的脉冲数小于多少时会导致电机堵转？",
+    "ground_truth": "320",
+    "source_title": "MammothChuck板电机堵转现象的测试验证",
+    "source_file": "upload/source_documents/pdf/MammothChuck板电机堵转现象的测试验证.pdf",
+    "source_images": [
+      "upload/images/20260625_122303_215f07f8463b4ce190fcbc8eb65ed4d2.png",
+      "upload/images/20260625_122303_4aea469ade374489990995a55f96bd6c.png"
+    ],
+    "source_doc_id": 215,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/46df0aa66f40_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-5723eaccbc0a",
+    "source_key": "image-source-1bdad0d78aa0",
+    "question": "结合图片，在Mammoth试剂舱温控测试中，当温度从25°C变化到16°C时，TEC状态码应如何变化？",
+    "ground_truth": "TEC状态变化为0x02制冷→0x04恒温制冷",
+    "source_title": "Mammoth 试剂舱固件上报温控状态数据错误",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂舱固件上报温控状态数据错误.pdf",
+    "source_images": [
+      "upload/images/20260625_122351_a5d9247b5ee34ccdb19707a8530eb408.png",
+      "upload/images/20260625_122351_2978485ae83542baa8d348d6f0f8bccf.png",
+      "upload/images/20260625_122352_871569dbfc454ed69cbabc47e3e7475c.png"
+    ],
+    "source_doc_id": 216,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/79a4bbaec10c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2475865fa5a9",
+    "source_key": "image-source-4f9151c09105",
+    "question": "结合图片，Mammoth试剂仓在beta1-4阶段出现RFID识别率低的原因有哪些",
+    "ground_truth": "距离远；MDA控温风扇干扰；RFID馈线折弯角度；线材干扰；金属避空不够",
+    "source_title": "Mammoth 试剂仓RFID识别优化",
+    "source_file": "upload/source_documents/pdf/Mammoth 试剂仓RFID识别优化.pdf",
+    "source_images": [
+      "upload/images/20260625_122445_e7e2d446e0104ea9b44c6aea2e126d72.png",
+      "upload/images/20260625_122445_02fe3c1bf40b4adf86a54e4469c5ca75.png"
+    ],
+    "source_doc_id": 217,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/97fd67e6634b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-2e524a778aa7",
+    "source_key": "image-source-432940dcdc03",
+    "question": "结合图片，Mammoth冠冷TEC在alpha样机阶段出现易损坏问题，其焊盘脆弱的原因是什么？",
+    "ground_truth": "线材制作环节或生产安装环节拉扯焊盘导致焊盘破裂",
+    "source_title": "Mammoth 冠冷TEC损坏",
+    "source_file": "upload/source_documents/pdf/Mammoth 冠冷TEC损坏.pdf",
+    "source_images": [
+      "upload/images/20260625_122529_539e2a99f0284ad385dc005cb690f69a.png"
+    ],
+    "source_doc_id": 218,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/455c3851e326_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d2e40ac4c732",
+    "source_key": "image-source-515461ecc1f4",
+    "question": "结合图片，mammoth chuck模块在温度性能测试中降温速度超时约多少秒，超出≤13S的要求？",
+    "ground_truth": "18S",
+    "source_title": "mammoth chuck模块温控速度不达标",
+    "source_file": "upload/source_documents/pdf/mammoth chuck模块温控速度不达标.pdf",
+    "source_images": [
+      "upload/images/20260625_122602_8a63d63c9b524975abf85867278c8df7.png",
+      "upload/images/20260625_122603_7cf448943771454daf3479ddbd7bbc59.png"
+    ],
+    "source_doc_id": 219,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/bf0eefe93aee_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a288f7a5581a",
+    "source_key": "image-source-fe98a7b19fbc",
+    "question": "结合图片，Mammoth Chuck控温过程中TEC自动关停的直接原因有哪些？",
+    "ground_truth": "RTD开路或短路、热面温度过高、温度超过设定上限或下限、TEC电流监控异常",
+    "source_title": "Mammoth Chuck控温过程中TEC自动关停问题排查",
+    "source_file": "upload/source_documents/pdf/Mammoth Chuck控温过程中TEC自动关停问题排查.pdf",
+    "source_images": [
+      "upload/images/20260625_122655_3c6490e473f54999817cf0688da7e438.png",
+      "upload/images/20260625_122655_ec4cb93faba549d480bf607e9fd0518f.png",
+      "upload/images/20260625_122655_8f6b460b16cc4cd19520515d5f6ce7dd.png",
+      "upload/images/20260625_122655_0f1af60b1ca74dda926c1c9b7d7507e9.png"
+    ],
+    "source_doc_id": 220,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/08ea418b5803_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-46b6ee488726",
+    "source_key": "image-source-7b55cd1da853",
+    "question": "结合图片，Mammoth Beta4#中相机通道1出图慢的主要诱因是什么",
+    "ground_truth": "采集卡PCIe带宽由X8降为X1，导致相机带宽下降",
+    "source_title": "Mammoth Beta4# 出图慢问题分析",
+    "source_file": "upload/source_documents/pdf/Mammoth Beta4# 出图慢问题分析.pdf",
+    "source_images": [
+      "upload/images/20260625_122813_4118462efefe4e429e4256d7e903984d.png",
+      "upload/images/20260625_122813_3d6e73d982b340cf93d7163ca69ab29a.png",
+      "upload/images/20260625_122813_5d9f73740aaa466485dd9bd3c4f911c1.png"
+    ],
+    "source_doc_id": 221,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/20f22509265e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-19a0d4f260d9",
+    "source_key": "image-source-1a77d545067a",
+    "question": "结合图片，运控滑台工作时导致48V电源无输出的原因是什么？",
+    "ground_truth": "伺服驱动器产生了很大的倒灌电压，电压最大值达到59V，进入48V过压保护区间（52.8V∽62.4V），触发电源过压保护并关断输出",
+    "source_title": "Mammoth 48V台达电源保护",
+    "source_file": "upload/source_documents/pdf/Mammoth 48V台达电源保护.pdf",
+    "source_images": [
+      "upload/images/20260625_122912_3a5b6769845f42f09982f0794adf466f.png"
+    ],
+    "source_doc_id": 222,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/7e22ed4b5ba0_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-8434f2c7cdc0",
+    "source_key": "image-source-c629bb9bcace",
+    "question": "结合图片，在T1+从ssDNA开始进行make过程中，若产物总量少于预期10ul且浓度小于2ng/ul，同时发现ligas buffer剩余量远大于预期，应检查哪个部件的加样功能？",
+    "ground_truth": "应检查对应的单泵加样功能",
+    "source_title": "MakeDNB失败",
+    "source_file": "upload/source_documents/pdf/MakeDNB失败.pdf",
+    "source_images": [
+      "upload/images/20260625_122946_dbba8c81658b41eba2f8230686d4120d.png"
+    ],
+    "source_doc_id": 223,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2a92d6541f7b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d579741b2068",
+    "source_key": "image-source-761dd8438e0e",
+    "question": "结合图片，LT板使用STM32F407主控芯片时，其固件初始化的主频是多少？",
+    "ground_truth": "63M",
+    "source_title": "LT板报错",
+    "source_file": "upload/source_documents/pdf/LT板报错.pdf",
+    "source_images": [
+      "upload/images/20260625_123023_21b5f2bc0ea541c6ae9b38054c06801d.png",
+      "upload/images/20260625_123023_8aa39e2249814bd5a4a2bcdc28fcda3b.png"
+    ],
+    "source_doc_id": 224,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/26c5155bf7b1_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-0feae797bfe7",
+    "source_key": "image-source-faaf3582d81b",
+    "question": "结合图片，在混样测序中，样本A中检出样本B的物种Reads，其主要原因是什么？",
+    "ground_truth": "Insert太短、R1R2不匹配、建库引入污染、Barcode设计问题（如汉明距离较小、双端不唯一）",
+    "source_title": "Index hopping",
+    "source_file": "upload/source_documents/pdf/Index hopping.pdf",
+    "source_images": [
+      "upload/images/20260625_123407_e34cc3f1e0734d98a66295ccb60d4e41.png",
+      "upload/images/20260625_123407_8cd27fffa401419682686ccd12971c98.png",
+      "upload/images/20260625_123407_9d404b0e99c3433ead940bf55fe95e31.png",
+      "upload/images/20260625_123407_87ef802c0a0946c78439c4021b08edf9.png",
+      "upload/images/20260625_123407_a8c4c024e0814a168ca0c3b18dda8e7f.png",
+      "upload/images/20260625_123407_e7d72c0d46104fbb87b443d8a9c448f2.png",
+      "upload/images/20260625_123407_47563ef1941e44a1b6e2e548c2389ddc.png",
+      "upload/images/20260625_123407_3c1943858687414babdc1b0705fb0eef.png"
+    ],
+    "source_doc_id": 229,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/545de16f982e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d450f51a2581",
+    "source_key": "image-source-3b6f31cdce02",
+    "question": "结合图片，当MCU作为IIC主机在通信过程中异常复位，且从机输出的数据位为0时，会导致什么现象？",
+    "ground_truth": "总线进入死锁状态",
+    "source_title": "IIC 通信异常恢复和时钟拉伸问题",
+    "source_file": "upload/source_documents/pdf/IIC 通信异常恢复和时钟拉伸问题.pdf",
+    "source_images": [
+      "upload/images/20260625_123558_4914ef1db58847aeba2363a971ff2c78.png"
+    ],
+    "source_doc_id": 230,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/30db8c1c031e_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-c3df55c36bd9",
+    "source_key": "image-source-d124b866dadd",
+    "question": "结合图片，i7 barcode出现陡降的原因是什么？",
+    "ground_truth": "分析发现barcode陡降主要是lag导致，进一步分析发现是因为IP2引物导致空间位阻影响了barcode的合成切除",
+    "source_title": "i7 Barcode陡降",
+    "source_file": "upload/source_documents/pdf/i7 Barcode陡降.pdf",
+    "source_images": [
+      "upload/images/20260625_123704_6b8ff26eb617404688396163fc7e430d.png",
+      "upload/images/20260625_123704_4d267e91d685497aa74be0a972bc4acd.png",
+      "upload/images/20260625_123704_5f7cb0309b9643c79c4650ebb50a5217.png",
+      "upload/images/20260625_123704_b68b56d7b0d44b43af32e127d692ca11.png",
+      "upload/images/20260625_123704_27966617fa7b48fa9abb7a730bd552a5.png",
+      "upload/images/20260625_123704_c699462ff1164150a520db5218fa60af.png",
+      "upload/images/20260625_123704_c912b15df0284f93b1da51438d205374.png",
+      "upload/images/20260625_123704_455eb432dfc7415f8fa660115da3b80e.png",
+      "upload/images/20260625_123704_d14ef8217e3743f0b2e6a479b99faf6c.png",
+      "upload/images/20260625_123704_45903efa5e634658bf65e129897f5da4.png",
+      "upload/images/20260625_123704_666840217bd64b25971d601653350aa4.png",
+      "upload/images/20260625_123704_85d9cde6044c47eaaec74fbb2734846b.png"
+    ],
+    "source_doc_id": 231,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ce45893dec1c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-52e9c0327272",
+    "source_key": "image-source-a6fbbcb74496",
+    "question": "结合图片，96孔板在上机前被摇晃导致试剂产生泡沫或离开底部，进而影响四联针抽液的具体故障现象是什么",
+    "ground_truth": "TotalReads低，heatmap呈现上下分层式不均匀",
+    "source_title": "heatmap分布呈现上下分层式不均匀",
+    "source_file": "upload/source_documents/pdf/heatmap分布呈现上下分层式不均匀.pdf",
+    "source_images": [
+      "upload/images/20260625_123924_06fbb25dab8e488caa7d452bcb334c03.png"
+    ],
+    "source_doc_id": 232,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/29df3d3a2db7_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-e1a935356c74",
+    "source_key": "image-source-a54a1968b870",
+    "question": "结合图片，E250041938芯片号cycle95出现本地cal缺失的原因是什么",
+    "ground_truth": "BIS本地内存累积至70%以上导致cal文件落盘速度变慢，ztronLite凌晨入仓操作引发IO Wait升高，造成远程落盘延迟，最终导致cycle95本地cal缺失",
+    "source_title": "GBG T7-2#本地个别cycle calN问题分析",
+    "source_file": "upload/source_documents/pdf/GBG T7-2#本地个别cycle calN.pdf",
+    "source_images": [
+      "upload/images/20260625_124003_8a4b3e4096db4e29b453bbfafed840ed.png",
+      "upload/images/20260625_124003_561e37d25296446788f640cd221d0622.png",
+      "upload/images/20260625_124003_abfe4befc8004e839897b9c726bea3a9.png",
+      "upload/images/20260625_124003_6bd56b09da1b47f9b6dfe02c045d5991.png",
+      "upload/images/20260625_124003_f4e35f92209540dcaaf57612b2e90d3c.png",
+      "upload/images/20260625_124003_6e7f74de090a4350bfde487c272e914d.png",
+      "upload/images/20260625_124003_00ddd60ff07b46429db6daf9fdf36128.png",
+      "upload/images/20260625_124003_f6ce0f58a2114c8aa27ac6f068e73060.png",
+      "upload/images/20260625_124003_17892e038dfd4e578e6b667500088f4c.png",
+      "upload/images/20260625_124003_3037aca314f04595b037697f078ae155.png"
+    ],
+    "source_doc_id": 233,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/abcbcfdda807_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-0680d3a67dc7",
+    "source_key": "image-source-65d47ca0fb19",
+    "question": "结合图片，G99黑线现象在试产阶段出现的具体表现是什么？",
+    "ground_truth": "芯片中间随着cycle数逐渐出现一条黑线，一般在70cycle后出现，且二链不恢复，A边较为严重，B边存在但不明显，每个run均存在可复现",
+    "source_title": "G99黑线/黑影",
+    "source_file": "upload/source_documents/pdf/G99黑线黑影.pdf",
+    "source_images": [
+      "upload/images/20260625_124201_d18c1844455646888fcbeb7b19ca2918.png",
+      "upload/images/20260625_124201_e2c8f78bd2e545f094d8603551923f37.png"
+    ],
+    "source_doc_id": 234,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/367c3897d61d_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-0e743b21ded7",
+    "source_key": "image-source-2e2ae1be339c",
+    "question": "结合图片，G99平台A边起始Q30低于87时，可能由哪些流体差异引起",
+    "ground_truth": "AB边manifold孔位排布不一致，AB边postload孔位管道长度不一致",
+    "source_title": "G99起始Q30低",
+    "source_file": "upload/source_documents/pdf/G99起始Q30低.pdf",
+    "source_images": [
+      "upload/images/20260625_124251_db941befbe8442f394d500007ce66a47.png"
+    ],
+    "source_doc_id": 235,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/f34d5d1a373c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-003e68386ee2",
+    "source_key": "image-source-2974f4f02b7a",
+    "question": "结合图片，在G99-查找起始点失败故障中，如果location图片清晰但scanner日志中算出的offset有一个方向大于50，可能的原因是什么？",
+    "ground_truth": "芯片过于倾斜导致移动出错或平台重复定位精度问题",
+    "source_title": "G99-查找起始点失败",
+    "source_file": "upload/source_documents/pdf/G99-查找起始点失败.pdf",
+    "source_images": [
+      "upload/images/20260625_124336_6efda66fae104d63991a59310777ca84.png",
+      "upload/images/20260625_124336_671dd51d51b44acbbe79156378d8a695.png"
+    ],
+    "source_doc_id": 236,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3cd6db968069_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-92854c233f64",
+    "source_key": "image-source-490f1b7a7e7a",
+    "question": "结合图片，在使用ECR1.1及以前版本进行APP-C 75+1+8+8读长测序时，导致barcode段测序质量差和拆分率低的主要原因是什么？",
+    "ground_truth": "Read2测的长度太短，导致barcode段质量不好；barcode段反应不充分；算法未加wgbs优化",
+    "source_title": "G99 barcode曲线陡降",
+    "source_file": "upload/source_documents/pdf/G99 barcode曲线陡降.pdf",
+    "source_images": [
+      "upload/images/20260625_124430_ef7ddea9e4d648afba4e3b8e4dc39c10.png",
+      "upload/images/20260625_124430_7a7fc236595b484587f836aa83b2ef1d.png",
+      "upload/images/20260625_124430_cb455e6b7fdc4c69b9723ea3609eff6d.png",
+      "upload/images/20260625_124430_0a0297f249344a38b7e6901057f4d7d0.png",
+      "upload/images/20260625_124430_605c58b29f884a31979c769b9295da3c.png",
+      "upload/images/20260625_124430_e75927a3e3f34b769087608e6d605444.png",
+      "upload/images/20260625_124430_e1491ff8d03142788e3c6ff95f3e6807.png",
+      "upload/images/20260625_124430_6276fd19cf3848388f7ad85f673cac2c.png",
+      "upload/images/20260625_124430_f42e955a7f414208969d255b0647a781.png",
+      "upload/images/20260625_124430_b268b5deb426491e869bb88e24811a01.png"
+    ],
+    "source_doc_id": 237,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3b8b7749eb68_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-90d68683c8b7",
+    "source_key": "image-source-b8f99043e774",
+    "question": "结合图片，仪器A和C出现起始Q30下降快的原因是什么？",
+    "ground_truth": "芯片非特异性吸附",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）.pdf",
+    "source_images": [
+      "upload/images/20260625_124636_06868e58d013442fa988446b0f480ba4.png",
+      "upload/images/20260625_124636_7ad8ef4fd4d34304ac131809a060f9ce.png",
+      "upload/images/20260625_124636_5885f2d695ed44aaa931c5babfad0434.png",
+      "upload/images/20260625_124636_acbd2b0d78174a04beb8758771a6f96f.png",
+      "upload/images/20260625_124636_04c85d1e809b4756bcaf3000727b4f70.png",
+      "upload/images/20260625_124636_85fb5ea75fc644bca45eea0588f4708a.png",
+      "upload/images/20260625_124636_23112267005d49448b63f0b0650c0391.png"
+    ],
+    "source_doc_id": 238,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/e7b416927101_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-857c0782c7f6",
+    "source_key": "image-source-c3d3594b6c6a",
+    "question": "结合图片，G50仪器A出现起始Q30下降快的原因是什么？",
+    "ground_truth": "芯片非特异性吸附导致Overloading",
+    "source_title": "G50起始Q30下降快（原因二）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因二）(1).pdf",
+    "source_images": [
+      "upload/images/20260625_124806_a7dc4921691b4762a02f155e1e4d0221.png",
+      "upload/images/20260625_124806_61c1d8e37ac64e56bbc499654a923266.png",
+      "upload/images/20260625_124806_03089ff1dc88472995fd1215dad73484.png",
+      "upload/images/20260625_124806_59adae317c6a43cdb1926fc0ad7ff0ab.png",
+      "upload/images/20260625_124806_3e594b2e2957476da11f77fc3cb57b8b.png",
+      "upload/images/20260625_124806_b9cc30933d0b49349a5a91564ea36cc6.png",
+      "upload/images/20260625_124806_ac580207f74a46c792d9b905c60bbf16.png"
+    ],
+    "source_doc_id": 239,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0b333e3016fd_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-779db37c52b5",
+    "source_key": "image-source-03721ccca142",
+    "question": "结合图片，G50设备在200冲量期间武汉FQC的4台机器出现起始Q30下降快的问题，经排查后确定DNB管路未完全排空残留试剂较多，最终采取了什么解决方案？",
+    "ground_truth": "要求FQC每次上机前增加气瓶吹干公共管路和DNB管路的动作，后续出现此问题时更换公共管路和DNB管路，同时增加吹气动作。",
+    "source_title": "G50起始Q30下降快（原因一）",
+    "source_file": "upload/source_documents/pdf/G50起始Q30下降快（原因一）.pdf",
+    "source_images": [
+      "upload/images/20260625_124940_63f3346ccf7a4ae893dbdaf15a5b766b.png"
+    ],
+    "source_doc_id": 240,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/2591ccbf1cef_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-4c5fffee7611",
+    "source_key": "image-source-db46e6d36951",
+    "question": "结合图片，G50平台在升级ECR5.0后第四次测序的拆分率是多少？",
+    "ground_truth": "90%",
+    "source_title": "G50 拆分率偏低（运控相关）",
+    "source_file": "upload/source_documents/pdf/G50 拆分率偏低（运控相关）.pdf",
+    "source_images": [
+      "upload/images/20260625_125017_0beb88973386473d9a9094e2af5aa0a8.png",
+      "upload/images/20260625_125017_1240a9b20f3e41a6b81c9f587e6c2f12.png",
+      "upload/images/20260625_125017_be4fc196e1494c419736afa0d1c6ab86.png",
+      "upload/images/20260625_125017_99ae129360b04fad9590a37e95ce4276.png",
+      "upload/images/20260625_125017_91cd8dd22eb8488a8a1977adaffe9055.png",
+      "upload/images/20260625_125017_08b56799353e48d7a9dd2d2b55c300d4.png",
+      "upload/images/20260625_125017_e13e4e3147814995a9d9e37a0d7deeab.png",
+      "upload/images/20260625_125017_19b4c5711bf44acbbec8c842827ba8f4.png",
+      "upload/images/20260625_125017_96feef138a8f4992a51c41bec02632e0.png",
+      "upload/images/20260625_125017_c61c03b29ec54c88b0e4fe925bc6d302.png",
+      "upload/images/20260625_125017_112e8f2810e047fba84569ba8a9abc20.png",
+      "upload/images/20260625_125017_24f49b19a96d4faf8afc8d1b5b0984c5.png"
+    ],
+    "source_doc_id": 241,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/31538fafedd8_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-bcd95712b0cf",
+    "source_key": "image-source-dba6bfbe3033",
+    "question": "结合图片，G50 barcode黑线故障在测序过程中表现为从barcode 1cycle开始至测序结束时靠近进液口的黑影，且该黑影形状不随测序进行改变，原图几乎无信号，这种现象是否仅出现在barcode阶段？",
+    "ground_truth": "是",
+    "source_title": "G50 barcode黑线",
+    "source_file": "upload/source_documents/pdf/G50 barcode黑线.pdf",
+    "source_images": [
+      "upload/images/20260625_125236_80c2706c87fb433db670a46a02b40c78.png",
+      "upload/images/20260625_125236_ad5055cff30b49349abbfa12d4cfbe5e.png",
+      "upload/images/20260625_125236_92ebc106a9af4d23b0c9dbba2b5b20d3.png",
+      "upload/images/20260625_125236_e3a3317064e04f85831ac2de8d3935af.png"
+    ],
+    "source_doc_id": 242,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3fc27a91b902_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-bdde324ad260",
+    "source_key": "image-source-95183ab92ecc",
+    "question": "结合图片，G400平台二链出现黑线时，使用H0050批次试剂更换加载II+MDA酶+DIPRR试剂后运行PE150，黑线是否消失",
+    "ground_truth": "二链黑线消失",
+    "source_title": "G400黑线",
+    "source_file": "upload/source_documents/pdf/G400黑线.pdf",
+    "source_images": [
+      "upload/images/20260625_125346_a840675b94dc4140a2239419552ca732.png",
+      "upload/images/20260625_125346_496bf7f0c71b43d2960f66267ae32ac0.png",
+      "upload/images/20260625_125346_18abec35328748cbbc51596396e90f8a.png",
+      "upload/images/20260625_125346_1e71cf6b8c0049c8b06e8cadd897ee14.png",
+      "upload/images/20260625_125346_4a0863229f334c2cb80d4010c154367d.png",
+      "upload/images/20260625_125346_90228358226e49258ba9f15f388d339f.png",
+      "upload/images/20260625_125346_6d62ae0d9b6e4db6b03685cd94664e3a.png",
+      "upload/images/20260625_125346_6166e913e3e5459b9e5e5547342ab025.png",
+      "upload/images/20260625_125347_71d612aab91c4e6390078d7ca97716a0.png",
+      "upload/images/20260625_125347_7dde8d40869d4d88b9f7f73ac81c60a1.png",
+      "upload/images/20260625_125347_68b7587384454151a76945c895d3b02a.png"
+    ],
+    "source_doc_id": 243,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/4aec583e8029_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-9f4cd43871ca",
+    "source_key": "image-source-7bad604f82fd",
+    "question": "结合图片，FTRR V3.0试剂在化冻后出现沉淀的原因是什么？",
+    "ground_truth": "RR试剂瓶底部存在明显结晶，导致试剂均匀性受影响，结晶不易被清洗和替代，是造成lag异常的主要原因。",
+    "source_title": "FTRR V3.0试剂化冻后沉淀问题",
+    "source_file": "upload/source_documents/pdf/FTRR V3.0试剂化冻后沉淀问题.pdf",
+    "source_images": [
+      "upload/images/20260625_125602_8e20ad2e92494de3b8536aa28c934a70.png",
+      "upload/images/20260625_125602_e6b6f95c449143169821f7adb30a5e6c.png",
+      "upload/images/20260625_125602_df88573cd5824cec9b28fa070eebfdae.png",
+      "upload/images/20260625_125602_8edcfdde4ac5493797a0eb8405c9240e.png"
+    ],
+    "source_doc_id": 244,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6e9a8701cc6c_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-866eff225d0d",
+    "source_key": "image-source-a684cd806d84",
+    "question": "结合图片，E25设备出现die白图异常时，MPI信号传输路径中pogopin接触不良导致的阻抗变化范围是多少？",
+    "ground_truth": "阻抗会从80多欧姆上升至800欧姆以上",
+    "source_title": "E25设备die白图异常问题分析",
+    "source_file": "upload/source_documents/pdf/E25.pdf",
+    "source_images": [
+      "upload/images/20260625_125915_6f9c44f0ace94c9cb271c82eb49f3216.png",
+      "upload/images/20260625_125915_7b440960a191450a9b15ea28d518f798.png",
+      "upload/images/20260625_125915_b0418d539aab491c82e27d5e781576ba.png",
+      "upload/images/20260625_125915_ce08f1d9883d43679e5da8094b7bc863.png",
+      "upload/images/20260625_125915_a5b6926ec1664aab95717d08b9cb07e0.png",
+      "upload/images/20260625_125915_344e4cf282284490a148182368d209b3.png",
+      "upload/images/20260625_125915_c0ad2d29949547f68c213993838c8d54.png",
+      "upload/images/20260625_125915_c4a55319b5b64e7388d510ff3b823406.png",
+      "upload/images/20260625_125915_55dcb073a69a498d8cec9369ae2cf240.png",
+      "upload/images/20260625_125915_cd464c2b6b2c454d896fa8e7d302702f.png",
+      "upload/images/20260625_125915_bc512680d5134eae9e258f7f7b4aa23e.png",
+      "upload/images/20260625_125915_9521601065c846bb8a8666de43319b67.png",
+      "upload/images/20260625_125915_6c228405ebc94739b09d61d09783823b.png",
+      "upload/images/20260625_125915_d250e66cd4584a9ba453b259e4494644.png",
+      "upload/images/20260625_125915_ce746fba580248faab432b9c7fad9ebf.png",
+      "upload/images/20260625_125915_934ebd4fd8bf4f88990575d44d7dfb80.png",
+      "upload/images/20260625_125915_5384df448f034f5e8efb7e0b9f28c8bd.png",
+      "upload/images/20260625_125915_ab270f633eb449bf9bac61b720bd9e2f.png",
+      "upload/images/20260625_125915_38874de631374b8f85729288414cef42.png",
+      "upload/images/20260625_125915_ccb9c9c1987b40f5adfe806b95f1da48.png",
+      "upload/images/20260625_125915_0408bb50ae884cc49c2d3fb6ef3589f7.png",
+      "upload/images/20260625_125915_89c8a4789ac748958cf23de6d4055448.png",
+      "upload/images/20260625_125915_96e8eb17c940417fb76ba0a4fc2a560e.png",
+      "upload/images/20260625_125915_6909fc2b34d44e92b83b45988a66375e.png",
+      "upload/images/20260625_125915_945698abba8a47a2862487abaf93bafc.png",
+      "upload/images/20260625_125915_2760bd9806e84de6b8d3768ac6bfbf0f.png",
+      "upload/images/20260625_125916_e201cf0c35374c63924c4eb1a05a665b.png",
+      "upload/images/20260625_125916_e54377020b1a4da8a54fab07ba196b8a.png",
+      "upload/images/20260625_125916_9e03585e2f8a48a8b2f6e0bbaa8f5859.png",
+      "upload/images/20260625_125916_dc292a2af69d41e88492458e44164f96.png",
+      "upload/images/20260625_125916_3cce2e5207e2459b83cceddb0e6a320b.png",
+      "upload/images/20260625_125916_9665bb5c48e94eae85a56f0cff231bfe.png",
+      "upload/images/20260625_125916_1a9342a815364a5c8f1ab3c551f9c668.png",
+      "upload/images/20260625_125916_92498cc287024d9a9753d55ed4d42969.png"
+    ],
+    "source_doc_id": 251,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/bfbc3f51469b_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-80cfdfff7c10",
+    "source_key": "image-source-768cf3d6dfba",
+    "question": "结合图片，智微智能SBC在高温高湿测试后无法进入系统，卡在加载界面，使用PE系统检查C盘日志文件未发现相关错误记录，但检测到C盘有大量故障块，该问题的根本原因是什么？",
+    "ground_truth": "硬盘因为高温高湿测试损坏",
+    "source_title": "Dophin智微智能SBC无法进入系统",
+    "source_file": "upload/source_documents/pdf/Dophin智微智能SBC无法进入系统.pdf",
+    "source_images": [
+      "upload/images/20260625_130510_94aab8433726427a9892b47f6996b6cb.png"
+    ],
+    "source_doc_id": 252,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/c12cefe0c294_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-a9bb883e1705",
+    "source_key": "image-source-eb6782ae9a7d",
+    "question": "结合图片，Festo SPAN-B2R-M5F-PNLK-PNVBA-L1气体压力传感器在使用EUI控制软件时，为何会出现45.6kpa、-91.5kpa和58.6kpa之间交替变化的现象？",
+    "ground_truth": "ADC内部电容C的放电时间大于通道切换时间，导致上一通道数据残留影响下一通道采集，造成同一ADC下的通道间数据串扰。",
+    "source_title": "Dolphin气体压力传感器传送数据串扰问题",
+    "source_file": "upload/source_documents/pdf/Dolphin气体压力传感器传送数据串扰问题.pdf",
+    "source_images": [
+      "upload/images/20260625_130546_ec359848c09341d3b36cb3d2380a98e9.png",
+      "upload/images/20260625_130546_ecf86dd795954e9f941ff2d982f3fb63.png",
+      "upload/images/20260625_130546_84cbfce4f3e440b58867d4f77ee61ef3.png",
+      "upload/images/20260625_130546_1341fc82d52f412b8f7fc879060b0c06.png",
+      "upload/images/20260625_130546_b474b7855a074ea6b6cbdd6c48adef32.png",
+      "upload/images/20260625_130546_14ae9ba51b5648fa92c7586e3af63b7c.png"
+    ],
+    "source_doc_id": 253,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6f48504a9380_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d99e8cee4aae",
+    "source_key": "image-source-27baeb226195",
+    "question": "结合图片，Dolphin ML试剂盒模组A模组RFID标签读取成功率低的原因是什么？",
+    "ground_truth": "RFID天线辐射面与实际使用场景相反，且风扇的干扰导致射频馈线与风扇线缆走在一起。",
+    "source_title": "Dolphin ML试剂盒模组RFID标签读取成功率低",
+    "source_file": "upload/source_documents/pdf/Dolphin ML试剂盒模组RFID标签读取成功率低.pdf",
+    "source_images": [
+      "upload/images/20260625_130705_04b9157e06f84037a8464cffe593efe7.png",
+      "upload/images/20260625_130705_c9c24f71ae8f4f31bfe0c538f96d9848.png",
+      "upload/images/20260625_130705_03833324b816463d8d494a72412582bc.png",
+      "upload/images/20260625_130705_3ac8c0c4a0004e89a7afe41fd22b855a.png",
+      "upload/images/20260625_130705_33dc9a6863fe4bf0ab315ec0e1eb1356.png",
+      "upload/images/20260625_130705_e2d2d727d7cf4d2aba68043db3037fe5.png",
+      "upload/images/20260625_130705_1a6b38c2be944537979fbaaeda48ff55.png"
+    ],
+    "source_doc_id": 254,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/1b8cd460b520_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-cb05b1cd7d0c",
+    "source_key": "image-source-dbd42600ad8e",
+    "question": "结合图片，Dolphin A11型号DST401-S24RJ的JBOD拓展柜在系统内无法进入阵列，且两块硬盘故障灯点亮，其根本原因是什么？",
+    "ground_truth": "服务器异常掉电时，因RAID无超级电容，RAID卡相关信息无法及时保存，导致RAID阵列数据损坏。",
+    "source_title": "Dolphin A11#国鑫JBOD拓展柜阵列无法访问",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫JBOD拓展柜阵列无法访问.pdf",
+    "source_images": [
+      "upload/images/20260625_130835_55d3789255254919a32cbf22b04915c7.png",
+      "upload/images/20260625_130835_2d97909d05ed471082eab0c11e306b2d.png",
+      "upload/images/20260625_130835_8634c5b177a84fda9d036138cb50f70c.png",
+      "upload/images/20260625_130835_042f282d275e4450aed83e94820bbca2.png"
+    ],
+    "source_doc_id": 255,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6d36ac5d0d48_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-276a8aebef32",
+    "source_key": "image-source-6a76e9d020a4",
+    "question": "结合图片，MSR201-D06R服务器在写入数据时提示写入无效，其RAID卡走线从哪个位置穿过导致轻微变形？",
+    "ground_truth": "RAID卡走线从CPU散热器侧边穿过",
+    "source_title": "Dolphin A11#国鑫BCS RAID数据丢失",
+    "source_file": "upload/source_documents/pdf/Dolphin A11#国鑫BCS RAID数据丢失.pdf",
+    "source_images": [
+      "upload/images/20260625_130938_53b570b8702647fea2e68defd736d6bd.png",
+      "upload/images/20260625_130938_83ba46c6e0f94381a2a2e00e3d6c7107.png",
+      "upload/images/20260625_130938_59c84ddf039d415f9a3701a706a6d562.png",
+      "upload/images/20260625_130938_dc0e46d98e404915b910037e01d70cc0.png",
+      "upload/images/20260625_130938_402bf5a1453f4be49fa92850eba23ed9.png",
+      "upload/images/20260625_130938_8dd31bcf08dc4e279ac48d7ebfa6fb73.png",
+      "upload/images/20260625_130938_9d59a0bfa5914b77b25da8286ec5b8b3.png"
+    ],
+    "source_doc_id": 256,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/0b36c25fc550_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-d6a18eeab4fe",
+    "source_key": "image-source-78c884f61ec3",
+    "question": "结合图片，Dolphin气路控制模块中6路气压传感器压力值测量不准确的原因是什么？",
+    "ground_truth": "ADC连续采样时，采样保持电容Csh上的残余电荷未完全放电，导致测量误差，该问题源于ADC内部结构的寄生电容和采样开关的电荷注入效应。",
+    "source_title": "ADC 连续采样时电压测量值误差",
+    "source_file": "upload/source_documents/pdf/ADC 连续采样时电压测量值误差.pdf",
+    "source_images": [
+      "upload/images/20260625_131149_cf1265e50d78417ca36ce685e599062d.png"
+    ],
+    "source_doc_id": 258,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/345f1026fdbf_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-7c081d878e16",
+    "source_key": "image-source-4fda152fb6fe",
+    "question": "结合图片，当泵液压力值过大且压力曲线出现异常波动时，应运行哪些脚本进行评估？",
+    "ground_truth": "应运行CheckFluidic_1_RotaryValveAndCheckValve、CheckFluidic_2_SolenoidValve和CheckFluidic_4_ReagentTubing三个脚本进行评估。",
+    "source_title": "通过压力曲线评估流体状态",
+    "source_file": "upload/source_documents/pdf/3、通过压力曲线评估流体状态.pdf",
+    "source_images": [
+      "upload/images/20260625_131253_c2bfd8cffdd742e6b6cb9df6bee6f9e5.png",
+      "upload/images/20260625_131253_e57a456ba31c4aab93fd3731765f84f1.png",
+      "upload/images/20260625_131253_733fa951787f4b3eba4f67df31b9542b.png",
+      "upload/images/20260625_131253_a3c855f55f2649d98d6bb050afcccfc0.png"
+    ],
+    "source_doc_id": 259,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/724727f5fcab_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-f0af00547bc4",
+    "source_key": "image-source-0f509d28b891",
+    "question": "结合图片，G99平台在16S扩增子测序中降噪后拼接数据量低的原因是什么",
+    "ground_truth": "末端质量下降导致Dada2过滤比例高，大量低质量Reads被分析软件过滤，未能参与拼接；测序过程中引入气泡导致callN，fq文件中呈现固定cycle的CallN现象，且部分FOV的Q30为0，影响数据完整性",
+    "source_title": "16S/18S/ITS扩增子测序问题分析",
+    "source_file": "upload/source_documents/pdf/16S18SITS扩增子测序.pdf",
+    "source_images": [
+      "upload/images/20260625_131351_8e036bf7996e4e75b3cc2902bf28ec0e.png",
+      "upload/images/20260625_131351_2027858d071b43429fd61f56f871422f.png",
+      "upload/images/20260625_131351_c3613a811c0c4c919cbc9c595fe92116.png"
+    ],
+    "source_doc_id": 260,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/ab72dbcc8e99_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-70a18e71c5ea",
+    "source_key": "image-source-e6141968abd6",
+    "question": "结合图片，PA机械臂夹爪在检查时若前端两个勾子均比后端高或低，应如何处理？",
+    "ground_truth": "可以通过重新固定的方式进行调节",
+    "source_title": "爪勾异常问题分析",
+    "source_file": "upload/source_documents/word/爪勾异常.docx",
+    "source_images": [
+      "upload/images/20260625_131445_83e80eaa6f1e44a8a74edf0d79de57a3.png",
+      "upload/images/20260625_131445_fbddf9a205734fc1b4690ba5af03cf4d.png",
+      "upload/images/20260625_131445_f85e4ae1b1eb4c4486c4a6a3a2bccbb6.png",
+      "upload/images/20260625_131445_6a7af898d6844d2598921bb59282a9c4.png",
+      "upload/images/20260625_131445_bf2597ddd5fa491492ddff71c3b24d79.png",
+      "upload/images/20260625_131445_3e7ecf184e594e07a84b2779f4ba2af1.png",
+      "upload/images/20260625_131445_6752f1a500714058a2ff16777fccdf5d.png",
+      "upload/images/20260625_131445_b7c4e6b158ca44e18951a81fb00641fe.png",
+      "upload/images/20260625_131445_9461876265f14aa180cd0a086d99190c.png"
+    ],
+    "source_doc_id": 261,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/6f3fa97d8951_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-0a38921c0425",
+    "source_key": "image-source-e6ce0cfb5745",
+    "question": "结合图片，当激光器出现闪断现象时，影响多少个FOV无信号？",
+    "ground_truth": "影响3~5个FOV无信号",
+    "source_title": "激光器偶发不亮导致FOV图片无信号问题分析",
+    "source_file": "upload/source_documents/word/T7-激光器偶发不亮&信号衰减-v6-20260507_095138.docx",
+    "source_images": [
+      "upload/images/20260625_131652_6ab2e9c623524657aa5b6664d2080ed4.png",
+      "upload/images/20260625_131652_525c427b01e14d879d952b5f65a2fea7.png",
+      "upload/images/20260625_131652_14d85fc976564dd1bae73f965ec6abc0.png",
+      "upload/images/20260625_131652_38b6fb7bf4154f4b95f7b64f9d074432.png",
+      "upload/images/20260625_131652_b29553484a374940b063e32413ae5b1d.png"
+    ],
+    "source_doc_id": 262,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/101f396c6dde_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-12a84f15c3ef",
+    "source_key": "image-source-fc660defd62d",
+    "question": "结合图片，当所有lane的runon值很高而lag值正常时，可能的原因包括哪些？",
+    "ground_truth": "文库碱基不平衡、流体管路堵塞、聚合试剂污染或变质",
+    "source_title": "lag/runon曲线异常",
+    "source_file": "upload/source_documents/pdf/lagrunon曲线异常.pdf",
+    "source_images": [
+      "upload/images/20260627_182226_964e936ebb9642b98df61a720037c218.png",
+      "upload/images/20260627_182226_9073d9a9aeae42b687db382beaa51cad.png",
+      "upload/images/20260627_182226_7281b03759e241bab735aac2a535a723.png"
+    ],
+    "source_doc_id": 263,
+    "source_library_type": "breakdown",
+    "query_images": [
+      "evaluate/image_retrieval_images/3194fb98c7bd_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  },
+  {
+    "id": "image-4fe8fc735c67",
+    "source_key": "image-source-2d81ed5e09c6",
+    "question": "结合图片，在DNBSEQ-T7系列基因测序仪的ACS性能确认中，Y轴时域检查要求位置误差在匀速段全程保持在±0.25um以内，且CNT2的上升沿需在CNT3的下降沿之后，此测试需在多少个不同的X位置完成？",
+    "ground_truth": "5个",
+    "source_title": "SOP-016-A18-009",
+    "source_file": "upload/source_documents/pdf/SOP-016-A18-009-A4 DNBSEQ-T7 系列基因测序仪安装调试指南- 编辑中无PA版 (已自动恢复) (1).pdf",
+    "source_images": [
+      "upload/images/20260624_142617_c6f5b39aee2a4775a1e1fe1bdb6bfb50.png",
+      "upload/images/20260624_142617_f8c587f142434965b41f4daa300aeb83.png",
+      "upload/images/20260624_142617_371c84fc38d8456c8d784e171ec5c242.png",
+      "upload/images/20260624_142617_9e703c62285b4a71a4d165019c6f91a5.png",
+      "upload/images/20260624_142617_417eed25b2824556b7ddb92c4c4e6a30.png",
+      "upload/images/20260624_142617_53fca912654d453080f3c4024811880e.png",
+      "upload/images/20260624_142617_727c93142756478a93138998f3c9a113.png",
+      "upload/images/20260624_142618_9052811c03ac489cb65732769ed90ca0.png",
+      "upload/images/20260624_142618_d6e25645956a467f97a29d0f1ecc3448.png",
+      "upload/images/20260624_142619_7f1cb3a2568d430a87ead32435994ec1.png",
+      "upload/images/20260624_142619_e2b06b37ea584f9a9f9d7c130a6ce32e.png",
+      "upload/images/20260624_142619_f658888f4731473e8360d71614e8a986.png",
+      "upload/images/20260624_142619_779e51fe7b7d4aa4aa58ddde9fd2ed6e.png",
+      "upload/images/20260624_142619_d440b35eb4ea4204a51d5c87bf0d9563.png",
+      "upload/images/20260624_142619_7064e79e09614c95842ba9d5a277a4cc.png",
+      "upload/images/20260624_142620_6d59bc5850cc4377bb95aaf8af00f8e8.png",
+      "upload/images/20260624_142619_ea9aa801af60427283da348bad09179f.png",
+      "upload/images/20260624_142620_e4942c8c64d64d6fa7f9ee97fc82b4e3.png",
+      "upload/images/20260624_142620_1d541c9bac62443fa1d63429961c7d0f.png",
+      "upload/images/20260624_142621_553b19b2742a4354ac0837c409feef9e.png",
+      "upload/images/20260624_142621_3e49cf4086284cca8c03ce769a46ce31.png",
+      "upload/images/20260624_142621_488f58f4cd9f4fe9827dee94914c2399.png",
+      "upload/images/20260624_142621_854443129b174955a4d13a8a0d911dac.png",
+      "upload/images/20260624_142621_dc771ad221eb4c348d88c7a551878777.png",
+      "upload/images/20260624_142621_cb95cedd848f4043b35ed9a5dc26ded3.png",
+      "upload/images/20260624_142622_ea74440911d1419da35926a6635c6d4f.png",
+      "upload/images/20260624_142622_62d19a08ab424ac797869e8d626a49d3.png",
+      "upload/images/20260624_142622_afcc67a7b44d4b9fb20934adf35cdbca.png",
+      "upload/images/20260624_142623_7b6f0f6d71cc46de80fd87c3665a9382.png",
+      "upload/images/20260624_142623_20004b7cbff842279b47f7ce8b1e7532.png",
+      "upload/images/20260624_142623_b73578b6fde144858e703c7f84c272e2.png",
+      "upload/images/20260624_142623_ceb05d7f146a4552bb65a569f84a7329.png",
+      "upload/images/20260624_142623_f967c418c1af4fa5ba3a5f9a8d1f02e4.png",
+      "upload/images/20260624_142624_69dcc349856a49f88483a4933e657413.png",
+      "upload/images/20260624_142624_3927bd3243d74c0d84bb9eadb879d5a1.png",
+      "upload/images/20260624_142624_1ee4315f2beb47248afe2844766c8f93.png",
+      "upload/images/20260624_142625_986cc2fa78af40418c3d2eb6d8b96dde.png",
+      "upload/images/20260624_142625_c2d64aa2456f40368fed7fab8799f70f.png",
+      "upload/images/20260624_142625_55885e9a5ba34613bf8dc8d6f75764e6.png",
+      "upload/images/20260624_142625_48c30b890c7b4736aa0a1099e83505bb.png",
+      "upload/images/20260624_142625_e95439fd8f7243e7be91bbb8e1cae217.png",
+      "upload/images/20260624_142625_c1c194e5affb41959dad64b85eda8b3c.png",
+      "upload/images/20260624_142625_9d70e9be134142f4b1ace7e8ac358a2a.png",
+      "upload/images/20260624_142625_cf24fc98b6eb44df95c268f9652285b6.png",
+      "upload/images/20260624_142625_96aed3ffe398495eabaf58a4535bfeaf.png",
+      "upload/images/20260624_142625_2883776d7a364e33beb9174828906f05.png",
+      "upload/images/20260624_142625_b9329d39ed9f471d9fc8a04eb3840dce.png",
+      "upload/images/20260624_142626_62010c593c6b4b70b30dc8d8f4e4dbd7.png",
+      "upload/images/20260624_142627_5d7bdf12ca064ae8a8b4d4e5162e736a.png",
+      "upload/images/20260624_142627_c0329bb62c864f66805249deb04e39fb.png",
+      "upload/images/20260624_142627_0ee6f0b449d44065b39cd44cef0ace8b.png",
+      "upload/images/20260624_142627_b7a9e510a13c41a8b88a23c25ba5f252.png",
+      "upload/images/20260624_142628_8eb1d4ab179047ac93893436f502fb83.png",
+      "upload/images/20260624_142628_93290be9d31e44e785cbba55d691223a.png",
+      "upload/images/20260624_142628_eddc9a5ba2d340b09b2f2ebdf6c44770.png",
+      "upload/images/20260624_142629_15f516b6e89443e093f67a9d439a358d.png",
+      "upload/images/20260624_142629_864857a204e545feab657de89fc8379f.png",
+      "upload/images/20260624_142629_cf43c8d75c8b4e2ebdc9e748ae88a45a.png",
+      "upload/images/20260624_142629_3bc772f0cb6344cc987e32db6f3275f7.png",
+      "upload/images/20260624_142629_395c651ab5d8455292e132320d6041ae.png",
+      "upload/images/20260624_142629_477719f6eb2447848e79043013499699.png",
+      "upload/images/20260624_142630_62a382752a134d8d9f50eb486c62d579.png",
+      "upload/images/20260624_142630_903641c516de4a0987c74717f996f154.png",
+      "upload/images/20260624_142631_adb301c466384e769dbd42531a82e3dd.png",
+      "upload/images/20260624_142631_ae907b0cc2c741649b9ad7de762a6b67.png",
+      "upload/images/20260624_142631_01590a514ab84bd49877ab082a1deca0.png",
+      "upload/images/20260624_142631_a33c991b850b41d697d635c086a2fd3d.png",
+      "upload/images/20260624_142631_10ce001364c1445b8325dac9132068bd.png",
+      "upload/images/20260624_142631_f34370c193f34e309035b95b938e8b8b.png",
+      "upload/images/20260624_142631_86264568b7f842e9a333f867d6933008.png",
+      "upload/images/20260624_142631_379507df45094b5d9edecbafaf8c034e.png",
+      "upload/images/20260624_142632_8bdccb2381c945d7935fa4ff3e023a83.png",
+      "upload/images/20260624_142633_aa28ae9a581048f5aa7608acdd98875c.png",
+      "upload/images/20260624_142633_809a384b96b443bfb28f31e349980d06.png",
+      "upload/images/20260624_142633_825b1865e71441138c7d7666f2ed3fa4.png",
+      "upload/images/20260624_142633_20528c9c725e4b1ab1bf5fda9eef2ea8.png",
+      "upload/images/20260624_142633_e007e13552754e0190b7769d79f7c6bb.png",
+      "upload/images/20260624_142633_7682c1dab62340dd814a8906cecad363.png",
+      "upload/images/20260624_142633_545a854444fb4f1bb544efdba76fd8e0.png",
+      "upload/images/20260624_142634_0768fdda1c754b0ca359002fa03b513a.png",
+      "upload/images/20260624_142635_f05d5697237049078bdcf6598dd47349.png",
+      "upload/images/20260624_142635_081104a4f03a4d3bb7422154cb95d80b.png",
+      "upload/images/20260624_142635_11d31a20106d4c5caef2917449f74d95.png",
+      "upload/images/20260624_142635_da16c4a46e2d421194d6adc8b5f30917.png",
+      "upload/images/20260624_142635_2cc3b70c4bcb4705b3d00000b7fee7c8.png",
+      "upload/images/20260624_142635_ad9fa9ac87ad4150a4cfa2a67931f945.png",
+      "upload/images/20260624_142635_6c4da46442474117ad14f2180ecd1d11.png",
+      "upload/images/20260624_142635_a859aee1c5b44a7495cd4c78a6487e9f.png",
+      "upload/images/20260624_142635_36e0056c02d4460e9711d1d430a12175.png",
+      "upload/images/20260624_142636_1e9703113c44490880291d420c6141bd.png",
+      "upload/images/20260624_142636_0007eeab458e47b8a69abfc465e2b395.png",
+      "upload/images/20260624_142636_55f82451cf2b47b99a39754580c5663a.png",
+      "upload/images/20260624_142636_167e8f2778354decb2389d1ee107bda1.png",
+      "upload/images/20260624_142636_edf846dda84d4988a99bafae7f9b0499.png",
+      "upload/images/20260624_142636_645274559eec40e18c8ffd7deba3b159.png",
+      "upload/images/20260624_142637_e7001333f876488385ea421cc9080138.png",
+      "upload/images/20260624_142636_4806db0cfa9b44b597e8fcb20c5a716b.png",
+      "upload/images/20260624_142638_38826925c4a94d4db4c6480fb897a5c1.png",
+      "upload/images/20260624_142638_4ce048857b41436c8d649b7113309e1f.png",
+      "upload/images/20260624_142638_009231160c584f298093fd713f14f006.png",
+      "upload/images/20260624_142638_bddded41823c4626a5baf78c0d9d1dcf.png",
+      "upload/images/20260624_142638_3db8b52dde134185ac4e01d9e93cde88.png",
+      "upload/images/20260624_142638_1511c364e3a3430dbc1701894fd283eb.png",
+      "upload/images/20260624_142638_ada6b9cb209249eab43c300e95240f47.png",
+      "upload/images/20260624_142638_5d3d4479a55b4fa78769c8919b89f2d6.png",
+      "upload/images/20260624_142638_16260a9d8fad4775b640cc33a71317b1.png",
+      "upload/images/20260624_142639_26d0ff31229c4d22943a0af5965b59a8.png",
+      "upload/images/20260624_142640_40900ac9b3124a7391d2f78e77ca6325.png",
+      "upload/images/20260624_142640_e8e6d8d413114ba3a81aec91bf78b4bc.png",
+      "upload/images/20260624_142640_ec945be3032d44e492705496b7c229e7.png",
+      "upload/images/20260624_142640_f8e21277975a42f899a5fb70ba1b23f2.png",
+      "upload/images/20260624_142640_f531cfe4efe54ce19b48dffd8121c0ae.png",
+      "upload/images/20260624_142640_967bc5c8f7e549308330e21082a2af94.png",
+      "upload/images/20260624_142640_4e5f682bc3534bd58b53015c3bf544bf.png",
+      "upload/images/20260624_142641_6973dbc3b7ef472eb4b67613f28aa04a.png",
+      "upload/images/20260624_142641_b025162d7f974150bf17f08243462ffd.png",
+      "upload/images/20260624_142642_ff5c2e8f4c4f4f0482a35e86b6a0cc56.png",
+      "upload/images/20260624_142642_0687e6dc999f49debd151be32b0bc3ab.png",
+      "upload/images/20260624_142642_cf318ce3c609473bb0196dc9f3d84bb7.png",
+      "upload/images/20260624_142642_e59527026d434511ad4a850d8e8dd5f2.png",
+      "upload/images/20260624_142642_cdfe88ef2c854272a416817efabfea4a.png",
+      "upload/images/20260624_142642_23a84ff6408c4917b660481aebe76e3a.png",
+      "upload/images/20260624_142642_a55874f0c3a84776a11c20af3f29309a.png",
+      "upload/images/20260624_142642_9e99c1739bc74831912609b0f328fd70.png",
+      "upload/images/20260624_142643_6c14d5bd7cbd44229cc00b7902a6acc2.png",
+      "upload/images/20260624_142644_ddb4786192b749c88a8e09a52eb11a5c.png",
+      "upload/images/20260624_142644_213ec640348040ca983dcde78075a2a1.png",
+      "upload/images/20260624_142644_669eacd22c2a42d9bae507e1e6a1e54f.png",
+      "upload/images/20260624_142644_b88582420f3d4d53b63cacdf4f2b003b.png",
+      "upload/images/20260624_142644_638c956ce34445f38bc3336e7d5238b0.png",
+      "upload/images/20260624_142644_b807453019b44a2da92f9eabcb2da355.png",
+      "upload/images/20260624_142644_6334eda1a8054de388c6dd7025341603.png",
+      "upload/images/20260624_142645_6a18eb408a754cbcb6ba7509723ae78d.png",
+      "upload/images/20260624_142645_d5a1ddb5f178478f8dc99212fc33f77f.png",
+      "upload/images/20260624_142645_b6ccb7b1d32248e3b57e7f26b40e6948.png",
+      "upload/images/20260624_142646_8b8208ec5d4c463f97036c5ce831225f.png",
+      "upload/images/20260624_142646_d10a9692feb0491c8b68bb9c0d67b1c9.png",
+      "upload/images/20260624_142646_8953c71fc77743e3bdb515f3af96631f.png",
+      "upload/images/20260624_142646_bb530c71422046d68582148ab45f5921.png",
+      "upload/images/20260624_142646_111f2340704a4c32859a579caaf1ce85.png",
+      "upload/images/20260624_142647_dd3e548edb4b46f0be61e51c877871de.png",
+      "upload/images/20260624_142647_5df11827585c48f9a2f755ec47485fbd.png",
+      "upload/images/20260624_142647_a4c7432a8541497f8a814b170e1e0fb9.png",
+      "upload/images/20260624_142647_738d3b97623f4a6d845624f34bea32c1.png",
+      "upload/images/20260624_142647_d651a2f4c4ca456ab9b00e145e6d2d4b.png",
+      "upload/images/20260624_142649_e269a0401692412aaf3f5d465b4f0665.png",
+      "upload/images/20260624_142648_ba79f8bebff94c9e835043f5c7588da7.png",
+      "upload/images/20260624_142648_bc288bec4fda462a95e0020b9e1e6b44.png",
+      "upload/images/20260624_142649_83ee3d330d5a4682b3a0a8eebfa03c0c.png",
+      "upload/images/20260624_142649_8ca5ac0f247a4cd9a4358e33ced32e4b.png",
+      "upload/images/20260624_142650_8d8efccfa38a45f9935a031207acc82a.png",
+      "upload/images/20260624_142650_efeec15f9d4b4b6786793fe7e29dbb1a.png",
+      "upload/images/20260624_142650_532f73b41f4b4d758e3048babf066eee.png",
+      "upload/images/20260624_142650_45d44d6eece04e79aa076c8ef82ebc63.png",
+      "upload/images/20260624_142650_63505c03ea4446d4830063dfd30c0632.png",
+      "upload/images/20260624_142650_2e70676f2a9b48aca9abc14753669281.png",
+      "upload/images/20260624_142650_ae979f8d5c7e4c55994b50005184126b.png",
+      "upload/images/20260624_142651_81728f4e6e9c45a792f4af6633dd13c3.png",
+      "upload/images/20260624_142651_5b0995b1dce148d8a7d2beee0d304121.png",
+      "upload/images/20260624_142651_4214c8c1d9a14a5d82cac9d2470fa397.png",
+      "upload/images/20260624_142651_588758c21d7d404694744159815687b9.png",
+      "upload/images/20260624_142651_836daa49a06a46e4b17bebfb49a0165c.png",
+      "upload/images/20260624_142651_c303632b803a42808ed6e3fe2baf0a20.png",
+      "upload/images/20260624_142651_6589566b94574e4a915c96afd530dba5.png",
+      "upload/images/20260624_142651_b364e8d8c704441a8cdf4a99ad395c39.png",
+      "upload/images/20260624_142651_8f16233b4d224c08bdb4d1456c9094ab.png",
+      "upload/images/20260624_142651_c4d6e9661c5f423abf40bc75d02b347e.png",
+      "upload/images/20260624_142652_06945f76be12497a8230e4043c4079d4.png",
+      "upload/images/20260624_142652_40d9f61847954e6ea7384b5332b2c70e.png",
+      "upload/images/20260624_142652_6d128db25c2343d3abbdb6ad49f1c5a7.png",
+      "upload/images/20260624_142653_4c947319c7cf48be914d27477c2c46cd.png",
+      "upload/images/20260624_142653_90b94dcde68b467a8961d4adae0c8925.png",
+      "upload/images/20260624_142653_feabde378d194e56bca6eb8e7cfea9c0.png",
+      "upload/images/20260624_142653_0c4db65085b843a5bce87027639e7301.png",
+      "upload/images/20260624_142653_33acf0769f114bb987251a6c84781dfa.png",
+      "upload/images/20260624_142653_698d7b8325f943129f6c76b47cabf6a7.png",
+      "upload/images/20260624_142653_413127d9ab944ba7ac1d28329c1d4c22.png",
+      "upload/images/20260624_142655_e5e037673ae94d6a8ab3e048638f59e5.png",
+      "upload/images/20260624_142655_a6c47c9291264142bd42b1e3876d723b.png",
+      "upload/images/20260624_142655_bd34c7ec93544182a2fc1a1f2af71c55.png",
+      "upload/images/20260624_142655_4096053f2be44847a97d124639e86668.png",
+      "upload/images/20260624_142655_db0e4bf4df7f4d938664f208d1e62458.png",
+      "upload/images/20260624_142655_9cf2935752994f61b963967a51734a9d.png",
+      "upload/images/20260624_142655_cca2bd492ea84e3b83a5d9734316a2df.png",
+      "upload/images/20260624_142656_4d54cdca327d473c997b34e1faf5a930.png",
+      "upload/images/20260624_142656_fada294dd9f94f77972a07330617bdd8.png",
+      "upload/images/20260624_142657_2610443d7f604d62a4ac711af2f171c6.png",
+      "upload/images/20260624_142657_30850d712c054d02a97a2b73dff911e9.png",
+      "upload/images/20260624_142657_0faa611a70da4f2d9cb21c9dde68b2d1.png",
+      "upload/images/20260624_142657_e4c451ce22164db19d398f308ea81d7d.png",
+      "upload/images/20260624_142659_1ea23144c79f4ff28ff586a17c18530b.png",
+      "upload/images/20260624_142659_71f8edb9e4ce442fb8063f3372d7f9f9.png",
+      "upload/images/20260624_142659_9ab65a1660f24f3a96c062294a61fc20.png",
+      "upload/images/20260624_142659_a5a020b1617645d2946ba7d24f4066b3.png",
+      "upload/images/20260624_142700_cd3e6940d94f43f584d6dbdfa8ab583e.png",
+      "upload/images/20260624_142700_b030bea30fbe432285d38daedac5c4de.png",
+      "upload/images/20260624_142700_8b1c9110365144859ba24e5faa218a51.png",
+      "upload/images/20260624_142700_ef793f4ddb6149edb2a8225aff1d0f8f.png",
+      "upload/images/20260624_142701_2a146f0a298f42828b7fa8ad17809366.png",
+      "upload/images/20260624_142701_e20880a0d3bb4dbe9d5daa365ac80e87.png",
+      "upload/images/20260624_142701_5e927f9a89aa423bb55b71f2000eed49.png",
+      "upload/images/20260624_142701_1936ce6d68294a5897776379f1019a49.png",
+      "upload/images/20260624_142701_3bf7537d1809447ea50f7acc704e6747.png",
+      "upload/images/20260624_142701_c1960878cfb647deb9da909bdeae133a.png",
+      "upload/images/20260624_142701_2b71b10b3e294b1983c2ae32696f0e70.png",
+      "upload/images/20260624_142701_223cff8e28754cc4b7f85e6448a2b9f1.png",
+      "upload/images/20260624_142702_0122f9dc7c2842a982cf775dc03784f2.png",
+      "upload/images/20260624_142703_6557f65ce2354176909087b13ce29357.png",
+      "upload/images/20260624_142703_6eb5593aa2f343cfa09738723a436431.png",
+      "upload/images/20260624_142703_ffd7575fa5e84e168097c39cfc754afa.png",
+      "upload/images/20260624_142703_7dad8c4dabf34e9a8941ef141fa13b2b.png",
+      "upload/images/20260624_142703_d1bd2d34af034f778ef0f21ed0d564cf.png",
+      "upload/images/20260624_142703_16a37a81ade040beb1d06e6e939cb0e1.png",
+      "upload/images/20260624_142703_899a8a820b9d401f97e1aeaa646702ba.png",
+      "upload/images/20260624_142703_beeed9abd2724847a278cf246ddecea6.png",
+      "upload/images/20260624_142704_fb7191e20f7f416983e919faa729e840.png",
+      "upload/images/20260624_142704_5c025acbc4254e2c8f757665af7a1dae.png",
+      "upload/images/20260624_142704_c5b546677f43494c887b1a862fa75aa1.png",
+      "upload/images/20260624_142705_e0a6405f306c40ca8d08b5f1e7e566e0.png",
+      "upload/images/20260624_142705_f1d2ab6cbb4f4cafa5a03dea2d8be2d4.png",
+      "upload/images/20260624_142705_5c199f7f00e44eee97ea62fa579a9a7d.png",
+      "upload/images/20260624_142706_5a7fb7b26fde497499083fab62bfea2a.png",
+      "upload/images/20260624_142706_30d2cd7497324a87b70d843fe13dab5a.png",
+      "upload/images/20260624_142707_c93731f5722b453caaa3482e09634059.png",
+      "upload/images/20260624_142708_dce2deba7bce46f1a204ea44f5495897.png",
+      "upload/images/20260624_142708_1013e5ec4dd1421299803a76be9e3a5b.png",
+      "upload/images/20260624_142708_1f097667db6748d38feb94cc7fdf7cf2.png",
+      "upload/images/20260624_142708_c9c6359aa87b4f76814ef85a770bc05f.png",
+      "upload/images/20260624_142708_05c03f3011634ca69d2a54e5adba2323.png",
+      "upload/images/20260624_142708_b373c88f88bf4058ae611c63415b5595.png",
+      "upload/images/20260624_142708_dc6c3208626a4dd7b9f7932c1adb8f01.png",
+      "upload/images/20260624_142708_514952f44e734208b05aaf0ae0c752e0.png",
+      "upload/images/20260624_142708_821efb103cc540e8acb33c9e41e8bbf1.png",
+      "upload/images/20260624_142708_1f0e3879c6c743648dd7f32cd8e50721.png",
+      "upload/images/20260624_142708_1c03b6db1ec74bbc913d945309dac179.png",
+      "upload/images/20260624_142708_990f75fb9a3d4e19b803dc2f7bc3bfb2.png",
+      "upload/images/20260624_142709_9805086fa2524052bf810da9200124ed.png",
+      "upload/images/20260624_142709_0f7ab198e7cc410da084043658e73ee1.png",
+      "upload/images/20260624_142709_912bf0104fff495bb5f943df08ba8fce.png",
+      "upload/images/20260624_142709_82935bdaa9af4ee9b980bc2dc0760769.png",
+      "upload/images/20260624_142709_bfd3fbf7e5894f72b1b56dac1e63e7b0.png",
+      "upload/images/20260624_142709_6496eee601784d518a33a7635ee38143.png",
+      "upload/images/20260624_142709_670200a231a64445b841aa498b2a9333.png",
+      "upload/images/20260624_142709_bd88c20f10fa4916adacb11b29d0d04a.png",
+      "upload/images/20260624_142710_919e55b73e744200a0ca9ca6243dc932.png",
+      "upload/images/20260624_142711_06574b3de02a468cbfdbbc7920abec64.png",
+      "upload/images/20260624_142711_387c33ca83974a5487edebb372b695d1.png",
+      "upload/images/20260624_142711_91973e8a0b45427e9ebfb02cecbd9a01.png",
+      "upload/images/20260624_142711_704f10ac36a941c19f25a791f0684519.png",
+      "upload/images/20260624_142711_c70e5e1b649249fc93ab3e1dd4897b49.png",
+      "upload/images/20260624_142711_dde33be57c3a410b81a5320cf4bd9417.png",
+      "upload/images/20260624_142711_9a970f59c1124ff2837e7bc3c05c7025.png",
+      "upload/images/20260624_142711_acc664c986514419af0bbde4fdf4b6c3.png",
+      "upload/images/20260624_142712_e98e0c2143b8408a8514dc5dc098bec2.png",
+      "upload/images/20260624_142712_e9ed61eb982c47c08e700357a001ba74.png",
+      "upload/images/20260624_142713_89a7aeb989ea4ce1818e86c3bacf8242.png",
+      "upload/images/20260624_142713_e680824c1f6b4c61a3537bbf37e6c7f5.png",
+      "upload/images/20260624_142713_2f0632a89c06400b9dee27ef23830e4d.png",
+      "upload/images/20260624_142713_2e5a1cfe7e114c1f97fbeaf407384d23.png",
+      "upload/images/20260624_142713_c76fef9600094702a603fbb0056c09f1.png",
+      "upload/images/20260624_142713_033126b1b88f422abffb39b1a3e8f31f.png",
+      "upload/images/20260624_142713_6a9f3921b10443f0bd48e46e5cc5e241.png",
+      "upload/images/20260624_142713_05f636d6fdbb41c38e56e377a3f450f3.png",
+      "upload/images/20260624_142715_3a6eeeca8f6e48a8b94300dd2ad09a7b.png",
+      "upload/images/20260624_142714_e75b772dab77429782f717cc30ef6ec1.png",
+      "upload/images/20260624_142715_bd55e5b368bd4147a79c4c8ffe7286cc.png",
+      "upload/images/20260624_142716_a4ace7b0245e4fb2bd2a4b65b3ab9afe.png",
+      "upload/images/20260624_142716_97bc01ce3d3a49f889ffdbda4e8d9a6d.png",
+      "upload/images/20260624_142716_4204a58aeb2a475eb8f378ddce0e9c2b.png",
+      "upload/images/20260624_142716_c80939c370564022a0f076794ce450d9.png",
+      "upload/images/20260624_142716_e7e608370f7040918ce0e803e69720f6.png",
+      "upload/images/20260624_142716_cfd8b792606c4934927786d9a9d08d85.png",
+      "upload/images/20260624_142717_768dd391e9e44489a1b5cccfe63ae8f8.png",
+      "upload/images/20260624_142718_b88ee89c9e194bf9a165f6571e63eed3.png",
+      "upload/images/20260624_142718_cc54dc471ada40de9530454f31763453.png",
+      "upload/images/20260624_142718_c996d71485d14c7aacf4b92b326738ab.png",
+      "upload/images/20260624_142718_6464239f0fba44d8a864248adf62f0a6.png",
+      "upload/images/20260624_142718_8d86b76051624633b034f8fb20cffb13.png",
+      "upload/images/20260624_142718_7ba6e17c688d46eda40d918d6a4a364d.png",
+      "upload/images/20260624_142718_59f9fe5df1b449909e272974777d28b5.png",
+      "upload/images/20260624_142719_33b42bab40ff4773b01eda71641d0070.png",
+      "upload/images/20260624_142719_457d170cd6324183b0d36dbf4ca52c80.png",
+      "upload/images/20260624_142719_3b24b414b2664121b445fa327566a317.png",
+      "upload/images/20260624_142720_3bf83d279ac74713b9f0ebdb0c67bbed.png",
+      "upload/images/20260624_142720_986297207db84030baeaaaf53ceb8311.png",
+      "upload/images/20260624_142720_e8e4d381ae13446f8c7debf9eeafc073.png",
+      "upload/images/20260624_142720_ef7220f14f19488588b0f0e6f5faf584.png",
+      "upload/images/20260624_142720_64f3c844d41b4112b8c34269d7f5ce98.png",
+      "upload/images/20260624_142720_a984702d776840e3b54ff203cddc99d8.png",
+      "upload/images/20260624_142720_29546eb69ac243238440bc31bc832da5.png",
+      "upload/images/20260624_142721_4a8002101c0f4a33975c3df7d92a305a.png",
+      "upload/images/20260624_142722_2ae40bf3f3c3451495235d4793eea8a2.png",
+      "upload/images/20260624_142722_a27e79ada41643d7b884bafcd2d544e2.png",
+      "upload/images/20260624_142722_a1916931d36f4389b67f4325e0d6bc32.png",
+      "upload/images/20260624_142722_eb459b2786f9464c97a3a778b99b62fb.png",
+      "upload/images/20260624_142722_b05753417c9243c29db641a6e4d271e3.png",
+      "upload/images/20260624_142722_d77c450ba70d435b837e6b018e37957e.png",
+      "upload/images/20260624_142723_33c988074bba456b8c5c8cf8f1384372.png",
+      "upload/images/20260624_142723_4097eebe95ee4e88960edfc5f1510a83.png",
+      "upload/images/20260624_142723_8919d6ef365f400891905e9112511fa4.png",
+      "upload/images/20260624_142723_1700aafc26664f40ab7d3824d48b4b1c.png",
+      "upload/images/20260624_142724_c464d2bb7c364ef38a55afdd07e576a7.png",
+      "upload/images/20260624_142724_10251a9be0da46458a752c11a53d18f4.png",
+      "upload/images/20260624_142724_83870ef284e14613b61ef2a6f8cf063e.png",
+      "upload/images/20260624_142724_f80f5b42b3d24ce18bb23656ecbc9e08.png",
+      "upload/images/20260624_142724_d53c189bd8a242a39ca575754235fed9.png",
+      "upload/images/20260624_142724_ac83908f9d394489bed1639f438edef5.png"
+    ],
+    "source_doc_id": 40,
+    "source_library_type": "knowledge",
+    "query_images": [
+      "evaluate/image_retrieval_images/64cb9cc267dc_1.png"
+    ],
+    "image_eval_mode": "source_image_as_query"
+  }
+]

@@ -314,9 +314,11 @@
                     <h3>原始附件</h3>
                     <div class="file-card">
                         <div><i class="fas fa-paperclip"></i> ${escapeHtml(item.origin_file_name)}</div>
-                        <a href="${getAssetUrl(item.origin_file_dir)}" target="_blank" class="btn btn-primary btn-sm">
-                            <i class="fas fa-download"></i> 下载
-                        </a>
+                        ${Utils.canPreviewSourceFiles() ? `
+                            <a href="${getAssetUrl(item.origin_file_dir)}" target="_blank" class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye"></i> 预览
+                            </a>
+                        ` : '<span class="text-muted" style="font-size:13px;">仅审核人员和管理员可预览源文件</span>'}
                     </div>
                 </div>
             `

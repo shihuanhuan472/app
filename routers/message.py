@@ -472,7 +472,7 @@ async def generate_messages(db, id, message_now, documents_id):
     tokens_tmp = tokens_max - tokens
     prompt = await get_prompt(db, documents_id, tokens_tmp)
 
-    constrain_tip = "\n回答只依据知识文档的内容，不添加多余的信息；若无知识文档，则提示知识库无相关内容。"
+    constrain_tip = "\n回答只依据知识文档内容，不添加文档外信息；只要有知识文档，就基于已有内容整理答案，不回复知识库无相关内容；文档信息不完整时，围绕已有依据回答，避免强调文档不足；仅无知识文档时提示知识库无相关内容。"
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"}]
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
@@ -721,18 +721,25 @@ async def get_prompt(db, document_ids, max_tokens):
     prompts = []
 
     document_refs = []
+    seen_refs = set()
     for value in document_ids:
         if isinstance(value, dict):
-            document_refs.append((
-                _normalize_library_type(value.get("library_type", "breakdown")),
-                int(value.get("doc_id")),
-                value.get("chunks") or [],
-            ))
+            library_type = _normalize_library_type(value.get("library_type", "breakdown"))
+            doc_id = int(value.get("doc_id"))
+            chunks = value.get("chunks") or []
         else:
             library_type, _, raw_doc_id = str(value).partition(":")
-            document_refs.append((_normalize_library_type(library_type), int(raw_doc_id or library_type), []))
+            library_type = _normalize_library_type(library_type)
+            doc_id = int(raw_doc_id or library_type)
+            chunks = []
 
-    documents = []
+        ref_key = (library_type, doc_id)
+        if ref_key in seen_refs:
+            continue
+        seen_refs.add(ref_key)
+        document_refs.append((library_type, doc_id, chunks))
+
+    documents_by_ref = {}
     for library_type, document_model in DOCUMENT_LIBRARY_MODELS.items():
         ids = [doc_id for ref_library_type, doc_id, _chunks in document_refs if ref_library_type == library_type]
         if not ids:
@@ -743,7 +750,14 @@ async def get_prompt(db, document_ids, max_tokens):
                 document_model.is_deleted == 0,
             )
         )
-        documents.extend(result.scalars().all())
+        for document in result.scalars().all():
+            documents_by_ref[(library_type, int(document.id))] = document
+
+    documents = [
+        documents_by_ref[(library_type, doc_id)]
+        for library_type, doc_id, _chunks in document_refs
+        if (library_type, doc_id) in documents_by_ref
+    ]
 
     for i, document in enumerate(documents):
         if not document:
@@ -812,7 +826,6 @@ async def get_prompt(db, document_ids, max_tokens):
     if prompts:
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(prompts)
-        final_prompt += "\n\n请只依据上述知识文档回答用户的问题。若上述片段包含可回答的信息，请直接给出答案；只有上述文档确实没有相关信息时，才提示知识库无相关内容。"
         return final_prompt
 
     return ""

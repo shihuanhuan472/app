@@ -46,6 +46,7 @@ def source_document_to_response(source: SourceDocument, uploader_name: Optional[
         upload_time=source.upload_time,
         status=source.status,
         parse_error=source.parse_error,
+        parse_started_time=source.parse_started_time,
         document_id=source.document_id,
         document_library_type=source.document_library_type,
         review_id=source.review_id,
@@ -68,6 +69,7 @@ async def _repair_stale_source_link(db: AsyncSession, source: SourceDocument) ->
     source.document_id = None
     source.document_library_type = "breakdown"
     source.parse_error = None
+    source.parse_started_time = None
     return True
 
 
@@ -211,6 +213,7 @@ async def delete_source_document(
     source.is_deleted = 1
     source.status = "deleted"
     source.deleted_time = datetime.now()
+    source.parse_started_time = None
     await db.commit()
 
     return Result.success_with_data({"id": source_id})

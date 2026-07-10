@@ -111,7 +111,7 @@
                 <div class="header-actions">
                     <div class="search-box">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名、路径或失败原因...">
+                        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名或失败原因...">
                     </div>
                     <label class="view-toggle" title="切换为文件列表样式">
                         <input type="checkbox" id="sourceListViewToggle" onchange="toggleSourceView(this.checked)">
@@ -131,6 +131,7 @@
                     <select class="page-size-select" id="statusSelect" onchange="reloadSourceDocuments()">
                         <option value="">全部状态</option>
                         <option value="uploaded">已上传</option>
+                        <option value="parsing">解析中</option>
                         <option value="vectorized">已入库</option>
                         <option value="review_pending">待审核</option>
                         <option value="parse_failed">解析失败</option>
@@ -180,6 +181,7 @@
 
         const statusText = {
             uploaded: '已上传',
+            parsing: '解析中',
             vectorized: '已入库',
             review_pending: '待审核',
             parse_failed: '解析失败',
@@ -275,6 +277,10 @@
 
         function safeClassToken(value) {
             return String(value || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+
+        function canPreviewSourceFiles() {
+            return Utils.canPreviewSourceFiles(Utils.getCurrentUser());
         }
 
         function getFilters() {
@@ -397,7 +403,7 @@
             const status = statusText[item.status] || item.status || '未知';
             const category = categoryText[item.file_category] || item.file_category || '其他';
             const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
-            const detail = item.parse_error || item.stored_file_path || '';
+            const detail = item.parse_error || '';
             const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
             const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成知识文档');
             const deleteDisabled = item.document_id || item.review_id;
@@ -410,14 +416,18 @@
                     </button>`;
             const canAnalyze = item.status === 'uploaded' || item.status === 'parse_failed';
             const analyzeLabel = item.status === 'parse_failed' ? '重新解析' : '解析文档';
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览" style="cursor: pointer;"`
+                : 'title="仅审核人员和管理员可预览源文件"';
             return `
-                <div class="document-item" ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="Double click to view" style="cursor: pointer;">
+                <div class="document-item" ${previewAttrs}>
                     <div class="document-item-header">
                         <div class="document-item-title">${escapeHtml(item.origin_file_name)}</div>
                     </div>
-                    <div class="document-item-content">
+                    ${detail ? `<div class="document-item-content">
                         ${escapeHtml(detail.length > 100 ? detail.substring(0, 100) + '...' : detail)}
-                    </div>
+                    </div>` : ''}
                     <div class="document-item-footer">
                         <div class="document-item-author">
                             <i class="fas fa-file"></i>
@@ -502,17 +512,21 @@
             const status = statusText[item.status] || item.status || '未知';
             const category = categoryText[item.file_category] || item.file_category || '其他';
             const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
-            const detail = item.parse_error || item.stored_file_path || '';
+            const detail = item.parse_error || '';
             const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
             const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成');
             const statusClass = `source-status-${safeClassToken(item.status)}`;
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览"`
+                : 'title="仅审核人员和管理员可预览源文件"';
             return `
-                <div class="source-list-row" ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})'>
+                <div class="source-list-row" ${previewAttrs}>
                     <div class="source-list-name">
                         <i class="fas fa-file"></i>
                         <div class="source-list-name-text">
                             <div class="source-list-title">${escapeHtml(item.origin_file_name || '未命名源文档')}</div>
-                            <div class="source-list-path">${escapeHtml(detail)}</div>
+                            ${detail ? `<div class="source-list-path">${escapeHtml(detail)}</div>` : ''}
                         </div>
                     </div>
                     <div>${escapeHtml(category)}</div>
@@ -614,6 +628,10 @@
         window.toggleSourceView = toggleSourceView;
 
         function openSourceDocument(storedFilePath) {
+            if (!canPreviewSourceFiles()) {
+                Utils.showMessage('仅审核人员和管理员可预览源文件', 'warning');
+                return;
+            }
             if (!storedFilePath) {
                 Utils.showMessage('源文档路径不存在', 'error');
                 return;

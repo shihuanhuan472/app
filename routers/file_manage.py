@@ -3,7 +3,7 @@ import os
 import uuid
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiofiles
 from fastapi import APIRouter, UploadFile, Depends, File, Query
@@ -77,6 +77,13 @@ def _copy_document_to_library(document: Document, library_type: str, tag=None):
     copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
     return document_model(**copied_data)
 ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
+SOURCE_STATUS_UPLOADED = "uploaded"
+SOURCE_STATUS_PARSING = "parsing"
+SOURCE_STATUS_PARSE_FAILED = "parse_failed"
+SOURCE_STATUS_REVIEW_PENDING = "review_pending"
+SOURCE_STATUS_VECTORIZED = "vectorized"
+SOURCE_PARSE_ALLOWED_STATUSES = {SOURCE_STATUS_UPLOADED, SOURCE_STATUS_PARSE_FAILED}
+SOURCE_PARSE_TIMEOUT_MINUTES = int(os.getenv("SOURCE_PARSE_TIMEOUT_MINUTES", "30"))
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -141,14 +148,62 @@ def _build_create_review_from_document(document: Document, contributor_id: int) 
     )
 
 
-async def _get_source_document_by_path(db: AsyncSession, stored_file_path: str):
-    result = await db.execute(
-        select(SourceDocument).where(
-            SourceDocument.stored_file_path == stored_file_path,
-            SourceDocument.is_deleted == 0,
-        )
+async def _get_source_document_by_path(
+    db: AsyncSession, stored_file_path: str, for_update: bool = False
+):
+    query = select(SourceDocument).where(
+        SourceDocument.stored_file_path == stored_file_path,
+        SourceDocument.is_deleted == 0,
     )
+    if for_update:
+        query = query.with_for_update()
+    result = await db.execute(query)
     return result.scalar_one_or_none()
+
+
+def _source_parse_timed_out(source: SourceDocument) -> bool:
+    if source.status != SOURCE_STATUS_PARSING or not source.parse_started_time:
+        return False
+    return datetime.now() - source.parse_started_time > timedelta(
+        minutes=SOURCE_PARSE_TIMEOUT_MINUTES
+    )
+
+
+def _source_parse_block_message(source: SourceDocument) -> str:
+    if source.review_id or source.status == SOURCE_STATUS_REVIEW_PENDING:
+        return "该源文档已有待审核记录，请先处理审核"
+    if source.document_id or source.status == SOURCE_STATUS_VECTORIZED:
+        return "该源文档已生成正式文档，请勿重复解析"
+    if source.status == SOURCE_STATUS_PARSING:
+        if _source_parse_timed_out(source):
+            return ""
+        return "该源文档正在解析中，请稍后再试"
+    if source.status not in SOURCE_PARSE_ALLOWED_STATUSES:
+        return f"该源文档当前状态为 {source.status}，不能解析"
+    return ""
+
+
+async def _claim_source_document_for_parse(
+    db: AsyncSession, stored_file_path: str, library_type: str
+) -> str:
+    source = await _get_source_document_by_path(db, stored_file_path, for_update=True)
+    if not source:
+        await db.rollback()
+        return "源文档记录不存在"
+
+    block_message = _source_parse_block_message(source)
+    if block_message:
+        await db.rollback()
+        return block_message
+
+    source.status = SOURCE_STATUS_PARSING
+    source.parse_error = None
+    source.review_id = None
+    source.document_id = None
+    source.document_library_type = _normalize_library_type(library_type)
+    source.parse_started_time = datetime.now()
+    await db.commit()
+    return ""
 
 
 async def _source_filename_exists(db: AsyncSession, origin_file_name: str) -> bool:
@@ -171,14 +226,20 @@ def _source_document_filter_for_document(document_id: int, library_type: str):
     )
 
 
-async def _mark_source_parse_failed(db: AsyncSession, stored_file_path: str, error_message: str):
+async def _mark_source_parse_failed(
+    db: AsyncSession,
+    stored_file_path: str,
+    error_message: str,
+    library_type: str = "breakdown",
+):
     source = await _get_source_document_by_path(db, stored_file_path)
     if source:
         source.status = "parse_failed"
         source.parse_error = error_message
         source.review_id = None
         source.document_id = None
-        source.document_library_type = "breakdown"
+        source.document_library_type = _normalize_library_type(library_type)
+        source.parse_started_time = None
         await db.commit()
 
 
@@ -291,11 +352,19 @@ async def analyze_files(file_list: AnalyzeRequest,
     current_user_id = current_user.id
     for file, file_name in zip(file_list.file_list, file_list.file_name):
         try:
+            claim_error = await _claim_source_document_for_parse(
+                db, file, file_list.library_type
+            )
+            if claim_error:
+                error_origin_filename.append(file_name)
+                print(f"跳过解析{file_name}: {claim_error}")
+                continue
+
             file_ext = os.path.splitext(file)[1].lower()
             # print(file_ext)
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
-                await _mark_source_parse_failed(db, file, "文件格式不支持")
+                await _mark_source_parse_failed(db, file, "文件格式不支持", file_list.library_type)
                 continue
             url = os.path.join(document_base_dir, file)
             # print(url)
@@ -321,7 +390,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 document = csv_excel_parser.parse(url)
             if not document:
                 error_origin_filename.append(file_name)
-                await _mark_source_parse_failed(db, file, "文件解析失败")
+                await _mark_source_parse_failed(db, file, "文件解析失败", file_list.library_type)
                 continue
             document.title = _title_from_source_filename(file_name)
             document.contributor_id = current_user_id
@@ -336,7 +405,7 @@ async def analyze_files(file_list: AnalyzeRequest,
             if submit_for_review:
                 review = _build_create_review_from_document(document, current_user_id)
                 db.add(review)
-                await db.commit()
+                await db.flush()
                 await db.refresh(review)
                 source = await _get_source_document_by_path(db, file)
                 if source:
@@ -344,7 +413,8 @@ async def analyze_files(file_list: AnalyzeRequest,
                     source.review_id = review.id
                     source.document_library_type = document.library_type
                     source.parse_error = None
-                    await db.commit()
+                    source.parse_started_time = None
+                await db.commit()
             else:
                 document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
                 db.add(document)
@@ -358,6 +428,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     source.document_id = document.id
                     source.document_library_type = getattr(document, "library_type", "breakdown")
                     source.parse_error = None
+                    source.parse_started_time = None
                 await db.commit()
 
             success_file_url.append(file)
@@ -366,7 +437,7 @@ async def analyze_files(file_list: AnalyzeRequest,
         except Exception as e:
             print(e)
             await db.rollback()
-            await _mark_source_parse_failed(db, file, str(e))
+            await _mark_source_parse_failed(db, file, str(e), file_list.library_type)
             error_origin_filename.append(file_name)
 
     analyze_result = UploadDocumentResponse(
@@ -455,6 +526,7 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                 source_document.document_id = None
                 source_document.document_library_type = "breakdown"
                 source_document.parse_error = None
+                source_document.parse_started_time = None
 
             vector_service = VectorService(db)
             await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))

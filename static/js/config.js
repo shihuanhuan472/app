@@ -2,6 +2,7 @@
 const API_CONFIG = {
     // 后端 API 基础地址
     BASE_URL: 'http://localhost:8000/api/v1',
+    STATIC_BASE_URL: 'http://localhost:8000',
 
    
     ENDPOINTS: {
@@ -33,5 +34,16 @@ const API_CONFIG = {
         }
 
         return url;
+    },
+
+    getAssetUrl(path) {
+        if (!path) return '';
+        const value = String(path).trim();
+        if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) {
+            return value;
+        }
+
+        const base = (this.STATIC_BASE_URL || this.BASE_URL.replace(/\/api\/v1\/?$/, '')).replace(/\/$/, '');
+        return `${base}/${value.replace(/^\/+/, '')}`;
     }
 };

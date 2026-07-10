@@ -32,17 +32,23 @@ class MenuManager {
         const canReview = isAdmin || isReviewer;
         const canManageTags = isAdmin || isTechnician;
 
+        this.ensureDashboardMenuLink();
         this.ensureSourceDocumentMenuLink();
         this.ensureReviewMenuLink();
         this.ensureTagManagementMenuLink();
         this.normalizeMenuOrder();
 
+        const dashboardLink = document.querySelector('a[href="dashboard.html"]');
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
         const mySubmissionsLink = document.querySelector('a[href="my-submissions.html"]');
         const reviewCenterLink = document.querySelector('a[href="document-review.html"]');
         const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
         const tagManagementLink = document.querySelector('a[href="tag-management.html"]');
+
+        if (dashboardLink) {
+            dashboardLink.style.display = isAdmin ? 'flex' : 'none';
+        }
 
         if (userManagementLink) {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
@@ -87,6 +93,30 @@ class MenuManager {
         const user = this.currentUser;
         if (!user) return false;
         return Utils.hasRole(user, Utils.ROLE.REVIEWER);
+    }
+
+    ensureDashboardMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="dashboard.html"]');
+        if (exists) return;
+
+        const dashboardLink = document.createElement('a');
+        dashboardLink.href = 'dashboard.html';
+        dashboardLink.className = 'nav-item';
+        dashboardLink.style.display = 'none';
+        dashboardLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+            <span>数据看板</span>
+        `;
+
+        const knowledgeBaseLink = navMenu.querySelector('a[href="main.html"]');
+        if (knowledgeBaseLink) {
+            navMenu.insertBefore(dashboardLink, knowledgeBaseLink);
+        } else {
+            navMenu.insertBefore(dashboardLink, navMenu.firstChild);
+        }
     }
 
     ensureReviewMenuLink() {
@@ -174,6 +204,7 @@ class MenuManager {
         if (!navMenu) return;
 
         const orderedHrefs = [
+            'dashboard.html',
             'main.html',
             'source-documents.html',
             'my-submissions.html',
