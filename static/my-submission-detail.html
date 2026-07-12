@@ -219,12 +219,21 @@
 
     function guardTechnicianOnly() {
         const user = Utils.getCurrentUser();
-        const isTechnician = user && Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+        const isTechnician = canUseMySubmissions(user);
         if (!isTechnician) {
-            window.location.replace('main.html');
+            const canReview = user && Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
+            window.location.replace(canReview ? 'document-review.html' : 'main.html');
             return false;
         }
         return true;
+    }
+
+    function canUseMySubmissions(user) {
+        return !!(
+            user &&
+            !Utils.hasPermission(user, Utils.PERMISSION.ADMIN) &&
+            Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE)
+        );
     }
 
     function getReviewIdFromUrl() {

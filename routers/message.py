@@ -315,6 +315,29 @@ async def _validate_uploaded_images_exist(uploaded_images: Optional[str], config
     return normalized
 
 
+def _debug_reference_doc_image_summary(reference_docs: List[Dict[str, Any]], label: str):
+    """打印参考文档图片字段摘要，便于排查图片未展示问题。"""
+    try:
+        docs = reference_docs or []
+        print(f"[图片排查][{label}] docs={len(docs)}")
+        for index, doc in enumerate(docs, start=1):
+            chunks = doc.get("chunks") or []
+            matched_image_urls = doc.get("matched_image_urls") or []
+            chunk_images = [
+                chunk.get("image_url")
+                for chunk in chunks
+                if isinstance(chunk, dict) and chunk.get("image_url")
+            ]
+            print(
+                f"[图片排查][{label}] doc#{index} "
+                f"id={doc.get('doc_id')} library={doc.get('library_type')} "
+                f"title={doc.get('title')} chunks={len(chunks)} "
+                f"matched_image_urls={matched_image_urls} chunk_images={chunk_images}"
+            )
+    except Exception as e:
+        print(f"[图片排查][{label}] 打印失败: {e}")
+
+
 def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_images: Optional[int] = None) -> List[str]:
     """
     功能说明：
@@ -329,27 +352,35 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
         本地文件存在性校验，避免把历史脏数据或已丢失文件返回给前端造成 404。
     """
     images: List[str] = []
+    print(f"[图片排查][collect_start] max_images={max_images}")
+    _debug_reference_doc_image_summary(reference_docs, "collect_input")
 
-    def add(image: Optional[str]):
+    def add(image: Optional[str], source: str):
         if not image:
             return
         normalized = str(image).strip().replace("\\", "/")
         if not normalized or normalized in images:
+            if normalized in images:
+                print(f"[图片排查][collect_skip_duplicate] source={source} image={normalized}")
             return
-        if _image_to_web_url_if_exists(normalized) is None:
-            print(f"[图片过滤] 文件不存在，跳过引用: {normalized}")
+        web_url = _image_to_web_url_if_exists(normalized)
+        if web_url is None:
+            print(f"[图片过滤] source={source} 文件不存在，跳过引用: {normalized}")
             return
+        print(f"[图片排查][collect_ok] source={source} image={normalized} web_url={web_url}")
         images.append(normalized)
 
-    for doc in reference_docs or []:
+    for doc_index, doc in enumerate(reference_docs or [], start=1):
         for image in doc.get("matched_image_urls", []) or []:
-            add(image)
-        for chunk in doc.get("chunks", []) or []:
-            add(chunk.get("image_url"))
+            add(image, f"doc#{doc_index}.matched_image_urls")
+        for chunk_index, chunk in enumerate(doc.get("chunks", []) or [], start=1):
+            add(chunk.get("image_url"), f"doc#{doc_index}.chunks#{chunk_index}.image_url")
         if max_images is not None and len(images) >= max_images:
             break
 
-    return images[:max_images] if max_images is not None else images
+    result = images[:max_images] if max_images is not None else images
+    print(f"[图片排查][collect_result] count={len(result)} images={result}")
+    return result
 
 
 def _image_to_web_url_if_exists(image_path: str) -> Optional[str]:
@@ -412,7 +443,9 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
     final_answer = answer or ""
     config = get_image_config()
     max_images = int(os.getenv("MAX_DOC_IMAGES", 5))
+    _debug_reference_doc_image_summary(reference_docs, "append_answer_input")
     image_paths = _collect_reference_image_paths(reference_docs, max_images=max_images)
+    print(f"[图片排查][append_answer] image_paths={image_paths}")
 
     if image_paths:
         final_answer = await _replace_image_urls_in_text(final_answer, config, image_paths)
@@ -420,16 +453,39 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
         for index, image_path in enumerate(image_paths, start=1):
             web_url = _image_to_web_url_if_exists(image_path)
             if not web_url:
+                print(f"[图片排查][append_skip_no_web_url] image={image_path}")
                 continue
             if image_path in final_answer or web_url in final_answer:
+                print(f"[图片排查][append_skip_exists] image={image_path} web_url={web_url}")
                 continue
+            print(f"[图片排查][append_markdown] image={image_path} web_url={web_url}")
             appended_lines.append(f"![参考图片{index}]({web_url})")
         if appended_lines:
             final_answer = final_answer.rstrip() + "\n\n参考图片：\n" + "\n".join(appended_lines)
+            print(f"[图片排查][append_done] appended={len(appended_lines)}")
+        else:
+            print("[图片排查][append_done] 没有新增图片 Markdown")
     else:
+        print("[图片排查][append_answer] 未收集到可用参考图片")
         final_answer = await _replace_image_urls_in_text(final_answer, config)
+        final_answer = _remove_reference_image_hint_without_images(final_answer)
 
     return final_answer
+
+
+def _remove_reference_image_hint_without_images(text: str) -> str:
+    """无可展示参考图片时，清理模型误生成的图片提示语。"""
+    if not text:
+        return text
+    import re
+    cleaned = re.sub(
+        r"[（(]?(?:见下方参考图片|参考图片见下方|见下方配图|见下方相关图片)[）)]?[。！？!?,，；;：:]*",
+        "",
+        text,
+    )
+    cleaned = re.sub(r"(?im)^\s*(?:参考图片|相关参考图片)\s*[：:]\s*$", "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _reference_doc_ids_to_api_reference(reference_docs: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1291,7 +1347,7 @@ async def generate_messages(db, id, message_now, documents_id):
     tokens_tmp = tokens_max - tokens
     prompt = await get_prompt(db, documents_id, tokens_tmp)
 
-    constrain_tip = "\n回答只依据知识文档内容，不添加文档外信息；只要有知识文档，就基于已有内容整理答案，不回复知识库无相关内容；文档信息不完整时，围绕已有依据回答，避免强调文档不足；仅无知识文档时提示知识库无相关内容。"
+    constrain_tip = "\n回答只依据知识文档内容，不添加文档外信息；只要有知识文档，就基于已有内容整理答案，不回复知识库无相关内容；文档信息不完整时，围绕已有依据回答，避免强调文档不足；仅无知识文档时提示知识库无相关内容。要求有关问题内容的回答完全按照我提供的文档内容。"
     msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"}]
 
     # 添加文档中命中的参考图片，让多模态模型可结合图片内容回答；最终展示仍由后端追加 Markdown 图片保证稳定。
@@ -1299,9 +1355,12 @@ async def generate_messages(db, id, message_now, documents_id):
         documents_id if isinstance(documents_id, list) else [],
         max_images=int(os.getenv("MAX_DOC_IMAGES", 5)),
     )
+    print(f"[图片排查][generate_messages] doc_image_urls={doc_image_urls}")
     for image in doc_image_urls:
         image_path = os.path.join(config["MESSAGE_BASE_DIR"], image.lstrip("/"))
+        print(f"[图片排查][generate_messages] 准备加入模型图片 image={image} resolved_path={image_path}")
         if not await asyncio.to_thread(os.path.exists, image_path):
+            print(f"[图片排查][generate_messages] 文件不存在，跳过模型图片: {image_path}")
             continue
         try:
             image_compressed = await compress_image(image_path, max_size=512)
@@ -1320,9 +1379,11 @@ async def generate_messages(db, id, message_now, documents_id):
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
             })
+            print(f"[图片排查][generate_messages] 已加入模型图片: {image_compressed}")
         except Exception as e:
             print(f"添加文档图片失败 {image}: {e}")
 
+    print(f"[图片排查][generate_messages] msg_content_types={[item.get('type') for item in msg_content]}")
     print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = _split_uploaded_images(message_now.user_uploaded_images)
@@ -1384,6 +1445,8 @@ async def get_reference_documents(db, question: str, image: str = None):
     """向量检索相关文档，并返回可展示的文档匹配信息。"""
     vector_service = VectorService(db)
     documents = await vector_service.search_similar_documents(question, image)
+    print(f"[图片排查][search_raw] docs={len(documents or [])}")
+    _debug_reference_doc_image_summary(documents, "search_raw")
     normalized_docs = []
     for doc in documents:
         doc_id = doc.get("doc_id")
@@ -1397,10 +1460,13 @@ async def get_reference_documents(db, question: str, image: str = None):
             "title": doc.get("title", ""),
             "score": round(score, 6),
             "chunks": doc.get("chunks") or [],
+            "matched_image_urls": doc.get("matched_image_urls") or [],
         })
 
     if not normalized_docs:
+        print("[图片排查][search_normalized] 无可用检索结果")
         return []
+    _debug_reference_doc_image_summary(normalized_docs, "search_normalized")
 
     # 遍历结果，按库类型回查 MySQL 确认文档未被软删除  
     active_map = {}
@@ -1428,7 +1494,9 @@ async def get_reference_documents(db, question: str, image: str = None):
             "title": active_map.get((library_type, doc_id)) or doc.get("title", ""),
             "score": doc.get("score", 0.0),
             "chunks": doc.get("chunks") or [],
+            "matched_image_urls": doc.get("matched_image_urls") or [],
         })
+    _debug_reference_doc_image_summary(filtered_docs, "search_filtered")
     return filtered_docs
 
 
@@ -1446,6 +1514,7 @@ def get_ai_reference_prompt_refs(reference_docs: List[Dict[str, Any]]) -> List[D
             "doc_id": int(doc["doc_id"]),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "chunks": doc.get("chunks") or [],
+            "matched_image_urls": doc.get("matched_image_urls") or [],
         })
     return refs
 
@@ -1704,8 +1773,14 @@ async def get_prompt(db, document_ids, max_tokens):
     if prompts:
         final_prompt = "以下是一些相关的知识文档，供你参考：\n\n"
         final_prompt += "\n---\n".join(prompts)
-        final_prompt += "\n\n请只依据上述知识文档回答用户的问题。若上述片段包含可回答的信息，请直接给出答案；只有上述文档确实没有相关信息时，才提示知识库无相关内容。"
-        final_prompt += "\n如需结合文档配图，请在文字中说明“见下方参考图片”，不要输出任何图片路径、服务器路径或 Markdown 图片语法；图片由系统在回答结束后统一展示。"
+        reference_image_docs = (
+            document_ids
+            if isinstance(document_ids, list) and all(isinstance(item, dict) for item in document_ids)
+            else []
+        )
+        has_reference_images = bool(_collect_reference_image_paths(reference_image_docs, max_images=1))
+        if has_reference_images:
+            final_prompt += "\n如需结合文档配图，请在文字中说明“见下方参考图片”，不要输出任何图片路径、服务器路径或 Markdown 图片语法；图片由系统在回答结束后统一展示。"
         return final_prompt
 
     return ""

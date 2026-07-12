@@ -80,19 +80,19 @@ class MenuManager {
     isUserAdmin() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.ADMIN);
+        return Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
     }
 
     isUserTechnician() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+        return !this.isUserAdmin() && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
     }
 
     isUserReviewer() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.REVIEWER);
+        return Utils.hasPermission(user, Utils.PERMISSION.REVIEW);
     }
 
     ensureDashboardMenuLink() {

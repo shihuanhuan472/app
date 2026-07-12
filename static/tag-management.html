@@ -101,10 +101,23 @@
             background: #f5f9ff;
         }
 
+        .icon-btn:disabled {
+            color: #a0aec0;
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            cursor: not-allowed;
+        }
+
         .icon-btn.danger:hover {
             color: #ef4444;
             border-color: #ef4444;
             background: #fff5f5;
+        }
+
+        .icon-btn.danger:disabled:hover {
+            color: #a0aec0;
+            border-color: #e2e8f0;
+            background: #f8fafc;
         }
 
         .tag-form-title {
@@ -321,7 +334,13 @@
                 return;
             }
 
-            const rows = tags.map(tag => `
+            const rows = tags.map(tag => {
+                const documentCount = Number(tag.document_count || 0);
+                const deleteDisabled = documentCount > 0 ? 'disabled' : '';
+                const deleteTitle = documentCount > 0
+                    ? `已有 ${documentCount} 篇文档使用该标签，不能删除`
+                    : '删除';
+                return `
                 <tr>
                     <td>
                         <div class="tag-name-cell">
@@ -329,20 +348,21 @@
                         </div>
                     </td>
                     <td><span class="tag-description-text" title="${escapeHtml(tag.description || '')}">${escapeHtml(tag.description || '-')}</span></td>
-                    <td>${Number(tag.document_count || 0)}</td>
+                    <td>${documentCount}</td>
                     <td>${formatDate(tag.updated_time || tag.created_time)}</td>
                     <td>
                         <div class="tag-actions">
                             <button class="icon-btn" title="编辑" onclick="editTagById(${Number(tag.id)})">
                                 <i class="fas fa-pen"></i>
                             </button>
-                            <button class="icon-btn danger" title="删除" onclick="deleteTag(${Number(tag.id)})">
+                            <button class="icon-btn danger" title="${escapeHtml(deleteTitle)}" onclick="deleteTag(${Number(tag.id)})" ${deleteDisabled}>
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
 
             wrap.innerHTML = `
                 <table class="tag-table">
@@ -446,6 +466,12 @@
         }
 
         async function deleteTag(tagId) {
+            const tag = tagRows.find(item => Number(item.id) === Number(tagId));
+            const documentCount = Number(tag && tag.document_count || 0);
+            if (documentCount > 0) {
+                Utils.showMessage(`该标签已被 ${documentCount} 篇文档使用，不能删除`, 'warning');
+                return;
+            }
             if (!confirm('确认删除该标签？')) return;
             try {
                 await tagAPI.deleteTag(tagId);

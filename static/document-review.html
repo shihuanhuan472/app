@@ -100,6 +100,58 @@
             font-family: inherit;
             font-size: 14px;
         }
+        .batch-review-toolbar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .batch-review-toolbar.visible { display: flex; }
+        .batch-review-left,
+        .batch-review-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .batch-review-select {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .batch-review-count {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .review-card-title-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            min-width: 0;
+        }
+        .review-select {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 24px;
+            flex: 0 0 auto;
+        }
+        .review-select input,
+        .batch-review-select input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -158,6 +210,23 @@
                     <button class="tab-btn active" id="pendingTabBtn" onclick="switchTab('pending')">待审核</button>
                     <button class="tab-btn" id="allTabBtn" onclick="switchTab('all')">全部记录</button>
                 </div>
+                <div class="batch-review-toolbar" id="batchReviewToolbar">
+                    <div class="batch-review-left">
+                        <label class="batch-review-select" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="batchSelectAll" onchange="toggleSelectAllReviews(this.checked)">
+                            <span>全选当前待审核</span>
+                        </label>
+                        <span class="batch-review-count" id="batchSelectedCount">已选择 0 项</span>
+                    </div>
+                    <div class="batch-review-actions">
+                        <button class="btn btn-danger btn-sm" id="batchRejectBtn" onclick="batchRejectReviews()" disabled>
+                            <i class="fas fa-times"></i> 批量驳回
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="batchApproveBtn" onclick="batchApproveReviews()" disabled>
+                            <i class="fas fa-check"></i> 批量通过
+                        </button>
+                    </div>
+                </div>
                 <div class="document-grid" id="reviewList"></div>
             </div>
         </div>
@@ -170,6 +239,8 @@
         let currentReviews = [];
         let rawReviews = [];
         let reviewSubmitting = false;
+        let batchReviewSubmitting = false;
+        const selectedReviewIds = new Set();
 
         function escapeHtml(text) {
             const value = text == null ? '' : String(text);
@@ -183,7 +254,7 @@
 
         function canReview(user) {
             if (!user) return false;
-            return Utils.hasRole(user, Utils.ROLE.ADMIN, Utils.ROLE.REVIEWER);
+            return Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
         }
 
         function setTabButtonState() {
@@ -195,7 +266,9 @@
 
         async function switchTab(tab) {
             currentTab = tab;
+            selectedReviewIds.clear();
             setTabButtonState();
+            updateBatchReviewToolbar();
             await loadReviewList();
         }
 
@@ -217,6 +290,7 @@
                 currentReviews = currentTab === 'pending'
                     ? buildPendingDisplayList(rawReviews)
                     : rawReviews;
+                selectedReviewIds.clear();
 
                 renderReviewList();
             } catch (error) {
@@ -226,6 +300,7 @@
                         <p style="color: #666; margin-bottom: 20px;">加载审核列表失败：${escapeHtml(error.message || '未知错误')}</p>
                     </div>
                 `;
+                updateBatchReviewToolbar();
             }
         }
 
@@ -264,6 +339,141 @@
             return `review-${item.id}`;
         }
 
+        function getSelectableReviewIds() {
+            if (currentTab !== 'pending') return [];
+            return currentReviews
+                .filter(item => Number(item.status) === 0)
+                .map(item => Number(item.id))
+                .filter(id => Number.isFinite(id));
+        }
+
+        function updateBatchReviewToolbar() {
+            const toolbar = document.getElementById('batchReviewToolbar');
+            const selectAll = document.getElementById('batchSelectAll');
+            const countText = document.getElementById('batchSelectedCount');
+            const approveBtn = document.getElementById('batchApproveBtn');
+            const rejectBtn = document.getElementById('batchRejectBtn');
+            if (!toolbar) return;
+
+            const selectableIds = getSelectableReviewIds();
+            const selectableSet = new Set(selectableIds);
+            Array.from(selectedReviewIds).forEach(id => {
+                if (!selectableSet.has(Number(id))) selectedReviewIds.delete(id);
+            });
+
+            const hasSelectable = selectableIds.length > 0;
+            toolbar.classList.toggle('visible', currentTab === 'pending' && hasSelectable);
+
+            const selectedCount = selectedReviewIds.size;
+            if (selectAll) {
+                selectAll.checked = hasSelectable && selectedCount === selectableIds.length;
+                selectAll.indeterminate = selectedCount > 0 && selectedCount < selectableIds.length;
+                selectAll.disabled = batchReviewSubmitting || !hasSelectable;
+            }
+            if (countText) {
+                countText.textContent = `已选择 ${selectedCount} 项`;
+            }
+            [approveBtn, rejectBtn].forEach(btn => {
+                if (btn) btn.disabled = batchReviewSubmitting || selectedCount === 0;
+            });
+
+            document.querySelectorAll('.review-select input').forEach(input => {
+                input.disabled = batchReviewSubmitting;
+            });
+        }
+
+        function toggleReviewSelection(reviewId, checked) {
+            const id = Number(reviewId);
+            if (!Number.isFinite(id) || batchReviewSubmitting) return;
+            if (checked) {
+                selectedReviewIds.add(id);
+            } else {
+                selectedReviewIds.delete(id);
+            }
+            updateBatchReviewToolbar();
+        }
+
+        function toggleSelectAllReviews(checked) {
+            if (batchReviewSubmitting) return;
+            const selectableIds = getSelectableReviewIds();
+            selectedReviewIds.clear();
+            if (checked) {
+                selectableIds.forEach(id => selectedReviewIds.add(id));
+            }
+            renderReviewList();
+        }
+
+        function setBatchReviewSubmitting(submitting, actionType = 'approve') {
+            batchReviewSubmitting = submitting;
+            const approveBtn = document.getElementById('batchApproveBtn');
+            const rejectBtn = document.getElementById('batchRejectBtn');
+
+            if (approveBtn) {
+                approveBtn.disabled = submitting || selectedReviewIds.size === 0;
+                approveBtn.innerHTML = submitting && actionType === 'approve'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 批量通过中...'
+                    : '<i class="fas fa-check"></i> 批量通过';
+            }
+            if (rejectBtn) {
+                rejectBtn.disabled = submitting || selectedReviewIds.size === 0;
+                rejectBtn.innerHTML = submitting && actionType === 'reject'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 批量驳回中...'
+                    : '<i class="fas fa-times"></i> 批量驳回';
+            }
+            updateBatchReviewToolbar();
+        }
+
+        async function batchProcessReviews(actionType) {
+            if (batchReviewSubmitting || reviewSubmitting) return;
+            const ids = Array.from(selectedReviewIds);
+            if (!ids.length) {
+                Utils.showMessage('请先选择要审核的记录', 'warning');
+                return;
+            }
+
+            const isApprove = actionType === 'approve';
+            const actionText = isApprove ? '通过' : '驳回';
+            const comment = window.prompt(`请输入批量${actionText}意见（可选）`, '');
+            if (comment === null) return;
+            if (!window.confirm(`确认批量${actionText}选中的 ${ids.length} 条审核记录？`)) return;
+
+            setBatchReviewSubmitting(true, actionType);
+            const failedItems = [];
+            let successCount = 0;
+
+            for (const reviewId of ids) {
+                try {
+                    if (isApprove) {
+                        await reviewAPI.approveReview(reviewId, comment.trim() || null);
+                    } else {
+                        await reviewAPI.rejectReview(reviewId, comment.trim() || null);
+                    }
+                    successCount += 1;
+                } catch (error) {
+                    failedItems.push({ reviewId, message: error.message || '未知错误' });
+                }
+            }
+
+            selectedReviewIds.clear();
+            setBatchReviewSubmitting(false, actionType);
+            await loadReviewList();
+
+            if (failedItems.length) {
+                console.error('批量审核失败记录:', failedItems);
+                Utils.showMessage(`批量${actionText}完成：成功 ${successCount} 条，失败 ${failedItems.length} 条`, 'warning');
+            } else {
+                Utils.showMessage(`批量${actionText}成功，共处理 ${successCount} 条`, 'success');
+            }
+        }
+
+        async function batchApproveReviews() {
+            await batchProcessReviews('approve');
+        }
+
+        async function batchRejectReviews() {
+            await batchProcessReviews('reject');
+        }
+
         function renderReviewList() {
             const list = document.getElementById('reviewList');
             if (!currentReviews.length) {
@@ -273,6 +483,7 @@
                         <p style="color: #666;">暂无审核记录</p>
                     </div>
                 `;
+                updateBatchReviewToolbar();
                 return;
             }
 
@@ -283,6 +494,15 @@
                 const dateText = item.first_edit_date ? String(item.first_edit_date).slice(0, 10) : '未知日期';
                 const content = item.problem_intro ? escapeHtml(item.problem_intro.slice(0, 100)) : '无内容';
                 const comment = escapeHtml(item.review_comment || '无');
+                const isSelectable = currentTab === 'pending' && Number(item.status) === 0;
+                const isChecked = selectedReviewIds.has(Number(item.id)) ? 'checked' : '';
+                const selectHtml = isSelectable
+                    ? `
+                        <label class="review-select" onclick="event.stopPropagation()" title="选择该审核记录">
+                            <input type="checkbox" ${isChecked} onchange="toggleReviewSelection(${item.id}, this.checked)">
+                        </label>
+                    `
+                    : '';
                 const mergedHint = item._merged_count > 0
                     ? `<div style="font-size:12px; color:#6b7280; margin-bottom:8px;">已合并重复待审 ${item._merged_count} 条（仅展示最新）</div>`
                     : '';
@@ -290,7 +510,10 @@
                 html += `
                     <div class="document-item" onclick="openReviewModal(${item.id})">
                         <div class="document-item-header">
-                            <div class="document-item-title">${escapeHtml(item.title || '未命名提交')}</div>
+                            <div class="review-card-title-row">
+                                ${selectHtml}
+                                <div class="document-item-title">${escapeHtml(item.title || '未命名提交')}</div>
+                            </div>
                         </div>
                         <div class="document-item-content">${content}</div>
                         <div style="display:flex; gap:8px; margin-bottom:10px;">
@@ -311,6 +534,7 @@
             });
 
             list.innerHTML = html;
+            updateBatchReviewToolbar();
         }
 
         function getReviewById(reviewId) {

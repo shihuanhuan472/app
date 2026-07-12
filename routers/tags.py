@@ -12,7 +12,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
-from utils.tag_service import get_tag_document_counts, normalize_tag_names, remove_tag_from_documents
+from utils.tag_service import get_tag_document_count, get_tag_document_counts, normalize_tag_names
 
 router = APIRouter(prefix="/tag", tags=["标签"])
 
@@ -170,7 +170,13 @@ async def delete_tag(
 ):
     _require_tag_operator(current_user)
     tag = await _get_active_tag_or_404(db, tag_id)
-    await remove_tag_from_documents(db, tag.id)
+    document_count = await get_tag_document_count(db, tag.id)
+    if document_count > 0:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"该标签已被 {document_count} 篇文档使用，不能删除",
+        )
     tag.is_deleted = 1
     tag.updated_time = datetime.now()
     await db.commit()
