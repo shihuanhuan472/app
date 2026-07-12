@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument, User
+from models import Document, DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentSection, SourceDocument, User
 from schemas import DocumentReviewRequest, DocumentReviewResponse, Result
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
@@ -18,6 +18,7 @@ from utils.roles import UserRole, has_role
 from utils.tag_service import normalize_tag_values, set_document_tag_names
 from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
+from knowledge_parsers.section_service import delete_section_images_for_document
 
 router = APIRouter(prefix="/review", tags=["document-review"])
 
@@ -44,7 +45,7 @@ def _filter_model_data(model, data: dict) -> dict:
     return {key: value for key, value in data.items() if key in allowed_fields}
 
 
-async def _cleanup_document_files(document: Document):
+async def _cleanup_document_files(db: AsyncSession, document: Document):
     config_base_dir = os.getenv("BASE_DIR", "/")
     image_dir = os.getenv("IMAGE_DIR", "/upload/images")
     base_url = os.path.join(config_base_dir, image_dir.lstrip("/").lstrip("\\"))
@@ -66,6 +67,11 @@ async def _cleanup_document_files(document: Document):
             filename = os.path.basename(image_url)
             if filename.strip():
                 await asyncio.to_thread(delete_image_with_variants, os.path.join(base_url, filename.lstrip("/").lstrip("\\")))
+
+    # 删除知识库文档的章节图片（KnowledgeDocumentSection.image_urls）
+    library_type = getattr(document, "library_type", "breakdown")
+    if library_type == "knowledge":
+        await delete_section_images_for_document(db, document.id, base_url)
 
     if getattr(document, "origin_file_dir", None):
         origin_file_dir = normalize_upload_path(document.origin_file_dir) or document.origin_file_dir
@@ -532,7 +538,7 @@ async def approve_review(
                 raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "待删除文档不存在")
 
             await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
-            await _cleanup_document_files(document)
+            await _cleanup_document_files(db, document)
             await _reset_source_documents_for_document(db, document.id, getattr(document, "library_type", "breakdown"))
             document.is_deleted = 1
         else:

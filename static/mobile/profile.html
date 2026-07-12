@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
+    <title>个人信息 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="mobile-page mobile-profile-page">
+    <div class="profile-shell">
+        <header class="profile-topbar">
+            <a class="back-button" href="ai.html" aria-label="返回 AI 问答">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+            </a>
+            <div class="profile-title-wrap">
+                <p>Profile</p>
+                <h1>个人信息</h1>
+            </div>
+            <button class="logout-icon-button" id="topLogoutBtn" type="button" aria-label="退出登录">
+                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <main class="profile-content">
+            <section class="profile-hero-card" id="profileHero" aria-live="polite">
+                <div class="profile-loading">
+                    <span class="loading-dot"></span>
+                    <span>正在加载用户信息...</span>
+                </div>
+            </section>
+
+            <section class="profile-card" id="profileViewCard">
+                <div class="section-header">
+                    <div>
+                        <p>Basic Info</p>
+                        <h2>基本信息</h2>
+                    </div>
+                    <button class="small-primary-btn" id="editProfileBtn" type="button">
+                        <i class="fas fa-edit" aria-hidden="true"></i>
+                        编辑
+                    </button>
+                </div>
+                <div class="info-list" id="profileInfoList"></div>
+            </section>
+
+            <section class="profile-card profile-edit-card" id="profileEditCard" hidden>
+                <div class="section-header">
+                    <div>
+                        <p>Edit Info</p>
+                        <h2>编辑资料</h2>
+                    </div>
+                    <button class="plain-icon-btn" id="cancelEditTopBtn" type="button" aria-label="关闭编辑">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <form class="profile-form" id="profileForm" novalidate>
+                    <div class="form-field">
+                        <label for="editFullName">姓名</label>
+                        <input id="editFullName" type="text" placeholder="请输入姓名" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="editPhone">电话</label>
+                        <input id="editPhone" type="tel" placeholder="请输入电话" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="editEmail">邮箱</label>
+                        <input id="editEmail" type="email" placeholder="请输入邮箱">
+                    </div>
+                    <div class="form-field">
+                        <label for="editDepartment">部门</label>
+                        <input id="editDepartment" type="text" placeholder="请输入部门">
+                    </div>
+                    <div class="form-actions">
+                        <button class="secondary-btn" id="cancelEditBtn" type="button">取消</button>
+                        <button class="primary-btn" id="saveProfileBtn" type="submit">
+                            <span class="btn-label"><i class="fas fa-save" aria-hidden="true"></i> 保存更改</span>
+                            <span class="btn-loading"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中...</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="profile-card security-card">
+                <div class="section-header">
+                    <div>
+                        <p>Security</p>
+                        <h2>安全设置</h2>
+                    </div>
+                </div>
+                <button class="security-action" id="showPasswordModalBtn" type="button">
+                    <span class="security-icon"><i class="fas fa-key" aria-hidden="true"></i></span>
+                    <span>
+                        <strong>修改密码</strong>
+                        <small>定期修改密码，保障账号安全</small>
+                    </span>
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </section>
+
+            <button class="logout-button" id="logoutBtn" type="button">
+                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                退出登录
+            </button>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="passwordModalOverlay" hidden></div>
+    <section class="password-modal" id="passwordModal" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle" aria-hidden="true">
+        <header class="modal-header">
+            <div>
+                <p>Security</p>
+                <h2 id="passwordModalTitle">修改密码</h2>
+            </div>
+            <button class="plain-icon-btn" id="closePasswordModalBtn" type="button" aria-label="关闭修改密码">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <form class="password-form" id="changePasswordForm" novalidate>
+            <div class="form-field password-field">
+                <label for="currentPassword">当前密码</label>
+                <div class="password-input-wrap">
+                    <input id="currentPassword" type="password" autocomplete="current-password" placeholder="请输入当前密码">
+                    <button class="password-toggle" type="button" data-target="currentPassword" aria-label="显示当前密码">
+                        <i class="far fa-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-field password-field">
+                <label for="newPassword">新密码</label>
+                <div class="password-input-wrap">
+                    <input id="newPassword" type="password" autocomplete="new-password" placeholder="请输入新密码（至少6位）">
+                    <button class="password-toggle" type="button" data-target="newPassword" aria-label="显示新密码">
+                        <i class="far fa-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="password-strength">
+                    <div class="strength-track"><div class="strength-level" id="passwordStrengthBar"></div></div>
+                    <span id="passwordStrengthText">弱</span>
+                </div>
+            </div>
+
+            <div class="form-field password-field">
+                <label for="confirmPassword">确认新密码</label>
+                <div class="password-input-wrap">
+                    <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="请再次输入新密码">
+                    <button class="password-toggle" type="button" data-target="confirmPassword" aria-label="显示确认密码">
+                        <i class="far fa-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-actions modal-actions">
+                <button class="secondary-btn" id="cancelPasswordBtn" type="button">取消</button>
+                <button class="primary-btn" id="changePasswordBtn" type="submit">
+                    <span class="btn-label"><i class="fas fa-check" aria-hidden="true"></i> 确认修改</span>
+                    <span class="btn-loading"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 修改中...</span>
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js?v=20260702-chat-api"></script>
+    <script src="script/profile.js"></script>
+</body>
+</html>

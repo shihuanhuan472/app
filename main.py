@@ -49,8 +49,8 @@ from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents, tags
-# from routers import auth, conversation_v1
+from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags
+# conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
 from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
@@ -780,8 +780,6 @@ app.include_router(review.router)
 app.include_router(source_documents.router)
 app.include_router(tags.router)
 app.include_router(conversation.router)
-app.include_router(message.router)
-app.include_router(conversation_v1.router)
 app.include_router(file_manage.router)
 
 # Enterprise-facing API namespace. Keep legacy routes above for backward
@@ -795,7 +793,7 @@ app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)
 app.include_router(tags.router, prefix=API_V1_PREFIX)
 app.include_router(conversation.router, prefix=API_V1_PREFIX)
-app.include_router(message.router, prefix=API_V1_PREFIX)
+app.include_router(message.chat_router)
 
 @app.get("/", summary="根路径")
 async def root():

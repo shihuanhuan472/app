@@ -1037,7 +1037,27 @@ class VectorStoreMultimodal:
 
     def search(self, query_text: str, query_image=None, top_k: int = -1) -> List[Dict]:
         """搜索相似文档"""
-
+        # 返回格式举例
+        # {
+        #     "contributor_id": 2,
+        #     "source_doc_id": 17,
+        #     "library_type": "knowledge",
+        #     "tag": [],
+        #     "first_edit_date": "2026-01-20T08:00:00",
+        #     "section_id": 3,                // 知识库独有：章节主键
+        #     "section_title": "供电模块",     // 知识库独有：章节标题
+        #     "section_type": "3.2",          // 知识库独有：目录编号
+        #     "section_index": 2,             // 知识库独有：章节排序序号
+        #     "image_urls": ["..."],          // 知识库独有：章节关联图片列表
+        #     "image_positions": [],
+        #     "subchunk_index": 0,
+        #     "unit_type": "section_text",
+        #     "content_type": "section_text",
+        #     "chunk_id": "knowledge-section-3-text-0",
+        #     "chunk_size": 412,
+        #     "semantic_method": "knowledge_section_text_v3",
+        #     "chunk_strategy": "enterprise_docx_adaptive_text_v1"
+        # }
         try:
             self.load_collection()
         except:
