@@ -2,12 +2,12 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Body, Depends, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database import get_db
+from database import AsyncSessionLocal, get_db
 from models import RoleGroup, User
 from schemas import Result, UserLogin
 from utils.app_exceptions import AppException
@@ -22,6 +22,7 @@ ROLE_ADMIN = "admin"
 ROLE_TECH_RW = "technician_rw"
 ROLE_REVIEWER = "reviewer"
 ROLE_MAINTENANCE = "maintenance_staff"
+LAST_LOGIN_LOCK_WAIT_TIMEOUT = 2
 
 
 def _normalize_role(selected_role: str):
@@ -65,8 +66,33 @@ def _role_match(user: User, canonical_role: str) -> bool:
     return has_permission(user, expected_permission)
 
 
+async def _update_last_login_best_effort(user_id: int, login_time: datetime):
+    async with AsyncSessionLocal() as session:
+        try:
+            bind = session.get_bind()
+            if bind.dialect.name == "mysql":
+                await session.execute(
+                    text("SET innodb_lock_wait_timeout = :timeout"),
+                    {"timeout": LAST_LOGIN_LOCK_WAIT_TIMEOUT},
+                )
+
+            await session.execute(
+                update(User)
+                .where(User.id == user_id)
+                .values(last_login=login_time)
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.warning("更新用户最后登录时间失败，已忽略 user_id=%s", user_id, exc_info=True)
+
+
 @router.post("/login", summary="用户登录")
-async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(
+    login_data: UserLogin,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(User)
         .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
@@ -91,23 +117,17 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
     if canonical_role and not _role_match(user, canonical_role):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.AUTH_ROLE_MISMATCH, "所选身份与账号角色/权限配置不匹配")
 
-    try:
-        user.last_login = datetime.now()
-        await db.commit()
-        await db.refresh(user)
-    except Exception as e:
-        await db.rollback()
-        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"更新登录时间失败：{e}")
-
+    login_time = datetime.now()
     permissions = sorted(get_user_permissions(user))
     role_group = getattr(user, "role_group", None)
+    role_group_name = getattr(role_group, "name", None)
     payload = {
         "username": user.username,
         "phone": user.phone,
         "role": user.role,
         "perm": getattr(user, "perm", None),
         "role_group_id": getattr(user, "role_group_id", None),
-        "role_group_name": getattr(role_group, "name", None),
+        "role_group_name": role_group_name,
         "permissions": permissions,
         "login_role": canonical_role,
         "user_id": user.id,
@@ -115,6 +135,7 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
 
     access_token = jwt_utils.create_access_token(subject=user.id, payload=payload)
     refresh_token = jwt_utils.create_refresh_token(subject=user.id, payload=payload)
+    background_tasks.add_task(_update_last_login_best_effort, user.id, login_time)
 
     return Result.success_with_data(
         {
@@ -129,9 +150,9 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
                 "role": user.role,
                 "perm": getattr(user, "perm", None),
                 "role_group_id": getattr(user, "role_group_id", None),
-                "role_group_name": getattr(role_group, "name", None),
+                "role_group_name": role_group_name,
                 "permissions": permissions,
-                "last_login": user.last_login,
+                "last_login": login_time,
             },
         }
     )
