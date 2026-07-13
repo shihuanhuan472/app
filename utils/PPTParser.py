@@ -1,8 +1,19 @@
 import base64
 import json
 import mimetypes
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import uuid
-from datetime import datetime
+from pathlib import Path
+from urllib.parse import unquote
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from PIL import Image
 from openai import OpenAI
 from qwen_token_counter import get_token_count
@@ -10,11 +21,10 @@ from qwen_token_counter import get_token_count
 from models import Document
 from utils.ai_endpoint import get_ai_base_url_alt
 from utils.error_codes import BizCode
-from pptx import Presentation
 import os
 
 """
-解析ppt，使用python-pptx提取ppt中的图像和文本
+使用 MinerU 提取 PPTX 中的文本和图片。
 """
 
 class PPTParser:
@@ -27,6 +37,8 @@ class PPTParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.mineru_exe = os.getenv("MINERU_EXE", "").strip()
+        self.mineru_timeout = int(os.getenv("MINERU_TIMEOUT", 1800))
         self.last_error_code = None
         self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -94,76 +106,170 @@ class PPTParser:
             "key_points": [],
         }
 
+    def _resolve_mineru_executable(self) -> str:
+        if self.mineru_exe:
+            mineru_path = os.path.abspath(os.path.expanduser(self.mineru_exe))
+            if os.path.exists(mineru_path):
+                return mineru_path
+            raise FileNotFoundError(f"MINERU_EXE 指定的文件不存在：{mineru_path}")
+
+        python_exe = Path(sys.executable)
+        candidates = []
+        if os.name == "nt":
+            candidates.extend([
+                python_exe.parent / "mineru.exe",
+                python_exe.parent / "mineru.cmd",
+                python_exe.parent / "mineru.bat",
+            ])
+        else:
+            candidates.append(python_exe.parent / "mineru")
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        path_command = shutil.which("mineru")
+        if path_command:
+            return path_command
+
+        raise FileNotFoundError(
+            "没有找到 MinerU 可执行文件。请确认已在当前虚拟环境安装 MinerU，"
+            "或者在 .env 中设置 MINERU_EXE。"
+        )
+
+    def _find_mineru_markdown(self, output_dir: str) -> Path:
+        markdown_files = list(Path(output_dir).rglob("*.md"))
+        if not markdown_files:
+            raise FileNotFoundError(
+                f"MinerU 已执行，但在输出目录中没有找到 .md 文件：{output_dir}"
+            )
+        return max(
+            markdown_files,
+            key=lambda path: (path.stat().st_size, path.stat().st_mtime),
+        )
+
+    def _copy_mineru_images(self, markdown_text: str, markdown_dir: Path):
+        image_urls = []
+        image_names = []
+        image_indexes = {}
+        target_dir = Path(self.document_base_dir) / self.image_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
+        markdown_root = markdown_dir.resolve()
+
+        def copy_image(raw_path: str) -> int | None:
+            relative_path = unquote(raw_path.strip().strip('"\''))
+            relative_path = relative_path.split("#", 1)[0].split("?", 1)[0]
+            source_path = (markdown_dir / relative_path).resolve()
+
+            try:
+                source_path.relative_to(markdown_root)
+            except ValueError:
+                return None
+            if not source_path.is_file():
+                return None
+
+            source_key = str(source_path).lower()
+            if source_key in image_indexes:
+                return image_indexes[source_key]
+
+            extension = source_path.suffix.lower() or ".png"
+            unique_filename = f"{uuid.uuid4().hex}{extension}"
+            target_path = target_dir / unique_filename
+            shutil.copy2(source_path, target_path)
+
+            image_urls.append(str(target_path))
+            image_names.append(unique_filename)
+            image_index = len(image_urls)
+            image_indexes[source_key] = image_index
+            print(f"[MinerU] 已保存 PPT 图片：{unique_filename}")
+            return image_index
+
+        markdown_image_pattern = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+        def replace_markdown_image(match: re.Match) -> str:
+            image_index = copy_image(match.group(1))
+            return f"\n【图片{image_index}】\n" if image_index else "\n[图片]\n"
+
+        markdown_text = markdown_image_pattern.sub(replace_markdown_image, markdown_text)
+
+        html_image_pattern = re.compile(
+            r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*>",
+            flags=re.IGNORECASE,
+        )
+
+        def replace_html_image(match: re.Match) -> str:
+            image_index = copy_image(match.group(1))
+            return f"\n【图片{image_index}】\n" if image_index else "\n[图片]\n"
+
+        markdown_text = html_image_pattern.sub(replace_html_image, markdown_text)
+        markdown_text = re.sub(r"\n{4,}", "\n\n\n", markdown_text).strip()
+        return markdown_text, image_urls, image_names
+
     def get_content(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
-        prs = Presentation(file_path)
-        image_urls = []
-        image_names = []
-        layout_items = []
-        base_url = os.path.join(self.document_base_dir, self.image_dir)
+        extension = Path(file_path).suffix.lower()
+        if extension != ".pptx":
+            raise ValueError("MinerU 仅支持 .pptx，不支持旧版 .ppt；请先将文件另存为 .pptx。")
 
-        for slide_index, slide in enumerate(prs.slides):
-            for shape in slide.shapes:
-                try:
-                    left = int(getattr(shape, "left", 0) or 0)
-                    top = int(getattr(shape, "top", 0) or 0)
-                    if shape.has_text_frame:
-                        shape_text = "\n".join(
-                            paragraph.text.strip()
-                            for paragraph in shape.text_frame.paragraphs
-                            if paragraph.text.strip()
-                        )
-                        if shape_text:
-                            layout_items.append({
-                                "type": "text",
-                                "slide": slide_index,
-                                "top": top,
-                                "left": left,
-                                "content": shape_text,
-                            })
-                    if hasattr(shape, "shape_type") and shape.shape_type == 13:
-                        image = shape.image
-                        ext = image.ext or "png"
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{ext}"
-                        image_path = os.path.join(base_url, unique_filename)
-                        with open(image_path, "wb") as img_file:
-                            img_file.write(image.blob)
-                        print(f"已保存 {unique_filename}")
-                        image_urls.append(image_path)
-                        image_names.append(unique_filename)
-                        layout_items.append({
-                            "type": "image",
-                            "slide": slide_index,
-                            "top": top,
-                            "left": left,
-                            "image_index": len(image_urls),
-                        })
-                except Exception:
-                    continue
+        mineru_exe = self._resolve_mineru_executable()
+        print(f"[MinerU] 开始解析 PPTX：{file_path}")
 
-        layout_items.sort(key=lambda item: (item["slide"], item["top"], item["left"]))
-        current_section = None
-        section_image_indexes = self._empty_section_image_indexes()
-        text_parts = []
-        current_slide = None
-        for item in layout_items:
-            if item["slide"] != current_slide:
-                current_slide = item["slide"]
-                text_parts.append(f"\n【第{current_slide + 1}页】")
-            if item["type"] == "text":
-                detected_section = self._detect_section(item["content"])
-                if detected_section:
-                    current_section = detected_section
-                text_parts.append(item["content"])
-            else:
-                image_index = item["image_index"]
-                text_parts.append(f"【图片{image_index}】")
-                if current_section:
-                    section_image_indexes[current_section].append(image_index)
+        with tempfile.TemporaryDirectory(prefix="mineru_ppt_") as temp_output_dir:
+            command = [
+                mineru_exe,
+                "-p",
+                os.path.abspath(file_path),
+                "-o",
+                temp_output_dir,
+            ]
+            try:
+                result = subprocess.run(
+                    command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.mineru_timeout,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise RuntimeError(
+                    f"MinerU 解析 PPTX 超时，超过 {self.mineru_timeout} 秒。"
+                ) from error
+            except subprocess.CalledProcessError as error:
+                detail = (error.stderr or error.stdout or str(error)).strip()
+                raise RuntimeError(f"MinerU 解析 PPTX 失败：{detail}") from error
 
-        return "\n".join(text_parts), image_urls, image_names, section_image_indexes
+            if result.stdout:
+                print("[MinerU] 输出：")
+                print(result.stdout[-3000:])
+
+            try:
+                markdown_file = self._find_mineru_markdown(temp_output_dir)
+            except FileNotFoundError as error:
+                detail = (result.stderr or result.stdout or "").strip()
+                if detail:
+                    detail = f"\nMinerU 输出：{detail[-3000:]}"
+                raise RuntimeError(f"{error}{detail}") from error
+            markdown_text = markdown_file.read_text(encoding="utf-8")
+            markdown_text, image_urls, image_names = self._copy_mineru_images(
+                markdown_text,
+                markdown_file.parent,
+            )
+            if not markdown_text:
+                raise RuntimeError("MinerU 解析 PPTX 完成，但提取到的文本为空。")
+
+            print(
+                f"[MinerU] PPTX 解析成功，文本长度：{len(markdown_text)}，"
+                f"图片数量：{len(image_urls)}"
+            )
+            return (
+                markdown_text,
+                image_urls,
+                image_names,
+                self._empty_section_image_indexes(),
+            )
     def image_to_base64(self, image: str):
         with open(image, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
@@ -196,6 +302,18 @@ class PPTParser:
 
         new_image.save(new_path)
         return new_path
+
+    def _remove_image_files(self, image_path: str, max_size=512):
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        dir_name, filename = os.path.split(image_path)
+        name, ext = os.path.splitext(filename)
+        compressed_path = os.path.join(
+            dir_name,
+            f"{name}_compressed_{max_size}{ext}",
+        )
+        if os.path.exists(compressed_path):
+            os.remove(compressed_path)
 
     def generate_message(self, text, image_urls):
         messages = []
@@ -334,13 +452,7 @@ class PPTParser:
             if len(image_urls) > 0:
                 for i in range(len(image_urls)):
                     if i + 1 not in used_image_indexes:
-                        os.remove(image_urls[i])
-                        dir_name, filename = os.path.split(image_urls[i])
-                        name, ext = os.path.splitext(filename)
-                        new_path = f"{name}_compressed.{ext}"
-                        new_path = os.path.join(dir_name, new_path)
-                        if os.path.exists(new_path):
-                            os.remove(new_path)
+                        self._remove_image_files(image_urls[i])
 
             return document
 
@@ -351,11 +463,68 @@ class PPTParser:
             else:
                 self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
             for image in image_urls:
-                if os.path.exists(image):
-                    os.remove(image)
+                self._remove_image_files(image)
             return None
 
 ppt_parser = PPTParser()
 
 if __name__ == "__main__":
-    pass
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    pdf_path = r"C:\Users\exile\xwechat_files\wxid_rgs337i28sad22_66b4\msg\file\2026-07\E15芯片无trackline-芯片工程排查.pptx"
+
+    try:
+        # 执行完整 PDF 解析流程：
+        # 1. 判断普通 PDF / 扫描 PDF
+        # 2. PyMuPDF / MinerU 提取内容
+        # 3. 提取图片
+        # 4. 调用大模型进行结构化
+        # 5. 转换为 Document 对象
+        document = ppt_parser.parse(pdf_path)
+
+        if document is None:
+            print("=" * 50)
+            print("PPT 结构化失败")
+            print("=" * 50)
+            print("错误码：", ppt_parser.last_error_code)
+            print("错误信息：", ppt_parser.last_error_detail)
+
+        else:
+            print("=" * 50)
+            print("大模型结构化结果")
+            print("=" * 50)
+
+            # SQLAlchemy Document 对象转成字典
+            result = {
+                "title": document.title,
+                "problem_intro": document.problem_intro,
+                "image_urls_problem_intro": document.image_urls_problem_intro,
+                "causes": document.causes,
+                "image_urls_causes": document.image_urls_causes,
+                "evaluation": document.evaluation,
+                "image_urls_evaluation": document.image_urls_evaluation,
+                "inspection": document.inspection,
+                "image_urls_inspection": document.image_urls_inspection,
+                "solutions": document.solutions,
+                "image_urls_solutions": document.image_urls_solutions,
+                "key_points": document.key_points,
+                "image_urls_key_points": document.image_urls_key_points,
+                "is_vectorized": document.is_vectorized,
+            }
+
+            # 格式化输出 JSON
+            print(
+                json.dumps(
+                    result,
+                    ensure_ascii=False,
+                    indent=4
+                )
+            )
+
+    except Exception as e:
+        print("=" * 50)
+        print("PPT 解析失败")
+        print("=" * 50)
+        print(type(e).__name__)
+        print(e)
