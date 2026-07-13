@@ -17,6 +17,7 @@ from models import (
     DocumentBreakdown,
     DocumentKnowledge,
     Document_review,
+    KnowledgeDocumentReview,
     Message,
     RoleGroup,
     RoleGroupPermission,
@@ -387,6 +388,16 @@ async def _collect_active_user_ids(db: AsyncSession, start: datetime, end: datet
     )
     user_ids.update(int(row[0]) for row in review_result.all() if row[0] is not None)
 
+    knowledge_review_result = await db.execute(
+        select(KnowledgeDocumentReview.contributor_id)
+        .where(
+            KnowledgeDocumentReview.contributor_id.is_not(None),
+            *_range_filters(KnowledgeDocumentReview.first_edit_date, start, end),
+        )
+        .distinct()
+    )
+    user_ids.update(int(row[0]) for row in knowledge_review_result.all() if row[0] is not None)
+
     return user_ids
 
 
@@ -595,16 +606,21 @@ async def get_dashboard(
 
     knowledge_count = await _count_rows(db, DocumentKnowledge, [DocumentKnowledge.is_deleted == 0])
     breakdown_count = await _count_rows(db, DocumentBreakdown, [DocumentBreakdown.is_deleted == 0])
-    pending_review_count = await _count_rows(db, Document_review, [Document_review.status == 0])
+    pending_review_count = (
+        await _count_rows(db, Document_review, [Document_review.status == 0])
+        + await _count_rows(db, KnowledgeDocumentReview, [KnowledgeDocumentReview.status == 0])
+    )
     today_docs = (
         await _count_rows(db, DocumentKnowledge, [DocumentKnowledge.is_deleted == 0, *_range_filters(DocumentKnowledge.first_edit_date, today_start, tomorrow_start)])
         + await _count_rows(db, DocumentBreakdown, [DocumentBreakdown.is_deleted == 0, *_range_filters(DocumentBreakdown.first_edit_date, today_start, tomorrow_start)])
         + await _count_rows(db, Document_review, [*_range_filters(Document_review.first_edit_date, today_start, tomorrow_start)])
+        + await _count_rows(db, KnowledgeDocumentReview, [*_range_filters(KnowledgeDocumentReview.first_edit_date, today_start, tomorrow_start)])
     )
     yesterday_docs = (
         await _count_rows(db, DocumentKnowledge, [DocumentKnowledge.is_deleted == 0, *_range_filters(DocumentKnowledge.first_edit_date, yesterday_start, today_start)])
         + await _count_rows(db, DocumentBreakdown, [DocumentBreakdown.is_deleted == 0, *_range_filters(DocumentBreakdown.first_edit_date, yesterday_start, today_start)])
         + await _count_rows(db, Document_review, [*_range_filters(Document_review.first_edit_date, yesterday_start, today_start)])
+        + await _count_rows(db, KnowledgeDocumentReview, [*_range_filters(KnowledgeDocumentReview.first_edit_date, yesterday_start, today_start)])
     )
 
     tags_result = await db.execute(select(Tag).where(Tag.is_deleted == 0))

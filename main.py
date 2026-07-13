@@ -593,6 +593,21 @@ async def ensure_source_document_library_columns():
         for row in fk_result.all():
             await conn.execute(text(f"ALTER TABLE source_documents DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
 
+        review_fk_result = await conn.execute(
+            text(
+                """
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'source_documents'
+                  AND COLUMN_NAME = 'review_id'
+                  AND REFERENCED_TABLE_NAME = 'document_reviews'
+                """
+            )
+        )
+        for row in review_fk_result.all():
+            await conn.execute(text(f"ALTER TABLE source_documents DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
+
         library_column_result = await conn.execute(
             text(
                 """
@@ -606,6 +621,9 @@ async def ensure_source_document_library_columns():
         )
         if int(library_column_result.scalar_one() or 0) == 0:
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
+
+        if not await _column_exists(conn, "source_documents", "review_library_type"):
+            await conn.execute(text("ALTER TABLE source_documents ADD COLUMN review_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER review_id"))
 
         if not await _column_exists(conn, "source_documents", "parse_started_time"):
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN parse_started_time DATETIME NULL AFTER parse_error"))
@@ -681,6 +699,7 @@ async def migrate_legacy_upload_document_paths_to_source_documents():
         ("document_breakdown", "origin_file_dir"),
         ("document_knowledge", "origin_file_dir"),
         ("document_reviews", "origin_file_dir"),
+        ("knowledge_document_reviews", "origin_file_dir"),
     ]
 
     async with engine.begin() as conn:

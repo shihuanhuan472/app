@@ -23,6 +23,7 @@ from models import (
     DocumentBreakdown,
     DocumentKnowledge,
     Document_review,
+    KnowledgeDocumentReview,
     KnowledgeDocumentSection,
     SourceDocument,
     User,
@@ -290,10 +291,53 @@ def _knowledge_sections_from_request(sections):
     return result
 
 
+def _knowledge_sections_to_review_payload(sections):
+    payload = []
+    for index, section in enumerate(sections or []):
+        if hasattr(section, "model_dump"):
+            data = section.model_dump()
+        elif isinstance(section, dict):
+            data = dict(section)
+        else:
+            data = {
+                "section_index": getattr(section, "section_index", None),
+                "section_title": getattr(section, "section_title", None),
+                "section_type": getattr(section, "section_type", None),
+                "plain_text": getattr(section, "plain_text", None),
+                "image_urls": getattr(section, "image_urls", None),
+                "char_start": getattr(section, "char_start", None),
+                "char_end": getattr(section, "char_end", None),
+                "metadata": getattr(section, "metadata", None) or getattr(section, "section_metadata", None),
+            }
+
+        image_urls = data.get("image_urls") or []
+        if isinstance(image_urls, str):
+            image_urls = [url.strip() for url in image_urls.split(",") if url.strip()]
+
+        metadata = data.get("metadata")
+        if metadata is None:
+            metadata = data.get("section_metadata") or {}
+
+        payload.append(
+            {
+                "section_index": data.get("section_index") if data.get("section_index") is not None else index,
+                "section_title": data.get("section_title") or f"section-{index + 1}",
+                "section_type": data.get("section_type") or str(index + 1),
+                "plain_text": data.get("plain_text") or "",
+                "image_urls": image_urls,
+                "char_start": data.get("char_start"),
+                "char_end": data.get("char_end"),
+                "metadata": metadata,
+            }
+        )
+    return payload
+
+
 def _knowledge_document_from_parsed(
     parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags
 ):
     return DocumentKnowledge(
+        library_type="knowledge",
         title=parsed.title or file_name,
         contributor_id=contributor_id,
         first_edit_date=datetime.now(),
@@ -415,36 +459,42 @@ def _is_ai_result_effectively_empty(document: Document) -> bool:
 
 
 def _build_create_review_from_document(
-    document: Document, contributor_id: int
+    document: Document, contributor_id: int, sections=None, library_type: str = None
 ) -> Document_review:
-    return Document_review(
+    document_library_type = _normalize_library_type(
+        library_type or getattr(document, "library_type", "breakdown")
+    )
+    review_model = KnowledgeDocumentReview if document_library_type == "knowledge" else Document_review
+    review_data = dict(
         document_id=None,
-        document_library_type=getattr(document, "library_type", "breakdown"),
+        document_library_type=document_library_type,
         title=document.title,
         contributor_id=contributor_id,
         reviewer_id=None,
         first_edit_date=document.first_edit_date or datetime.now(),
         reviewed_time=None,
         status=0,
-        problem_intro=document.problem_intro,
-        image_urls=document.image_urls,
-        causes=document.causes,
-        evaluation=document.evaluation,
-        inspection=document.inspection,
-        solutions=document.solutions,
-        key_points=document.key_points,
-        origin_file_name=document.origin_file_name,
-        origin_file_dir=normalize_upload_path(document.origin_file_dir),
+        problem_intro=getattr(document, "problem_intro", None),
+        image_urls=getattr(document, "image_urls", None),
+        causes=getattr(document, "causes", None),
+        evaluation=getattr(document, "evaluation", None),
+        inspection=getattr(document, "inspection", None),
+        solutions=getattr(document, "solutions", None),
+        key_points=getattr(document, "key_points", None),
+        origin_file_name=getattr(document, "origin_file_name", None),
+        origin_file_dir=normalize_upload_path(getattr(document, "origin_file_dir", None)),
         tag=_normalize_tags(getattr(document, "tag", [])),
-        image_urls_problem_intro=document.image_urls_problem_intro,
-        image_urls_causes=document.image_urls_causes,
-        image_urls_evaluation=document.image_urls_evaluation,
-        image_urls_inspection=document.image_urls_inspection,
-        image_urls_solutions=document.image_urls_solutions,
-        image_urls_key_points=document.image_urls_key_points,
+        sections=_knowledge_sections_to_review_payload(sections),
+        image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
+        image_urls_causes=getattr(document, "image_urls_causes", None),
+        image_urls_evaluation=getattr(document, "image_urls_evaluation", None),
+        image_urls_inspection=getattr(document, "image_urls_inspection", None),
+        image_urls_solutions=getattr(document, "image_urls_solutions", None),
+        image_urls_key_points=getattr(document, "image_urls_key_points", None),
         action_type=1,
         review_comment=None,
     )
+    return review_model(**_filter_model_data(review_model, review_data))
 
 
 async def _get_source_document_by_path(
@@ -500,6 +550,7 @@ async def _claim_source_document_for_parse(
     source.status = SOURCE_STATUS_PARSING
     source.parse_error = None
     source.review_id = None
+    source.review_library_type = "breakdown"
     source.document_id = None
     source.document_library_type = _normalize_library_type(library_type)
     source.parse_started_time = datetime.now()
@@ -575,6 +626,7 @@ async def _mark_source_documents_deleted(
         source_document.deleted_time = datetime.now()
         source_document.document_id = None
         source_document.review_id = None
+        source_document.review_library_type = "breakdown"
         source_document.parse_error = None
         source_document.parse_started_time = None
 
@@ -590,6 +642,7 @@ async def _mark_source_parse_failed(
         source.status = "parse_failed"
         source.parse_error = error_message
         source.review_id = None
+        source.review_library_type = "breakdown"
         source.document_id = None
         source.document_library_type = _normalize_library_type(library_type)
         source.parse_started_time = None
@@ -1222,12 +1275,11 @@ async def delete(
 
         # === 阶段二：数据库 + 向量库操作（事务内） ===
         # 处理审核记录
-        review_refs_result = await db.execute(
-            select(Document_review).where(
-                Document_review.document_id == id,
-                Document_review.document_library_type == doc_library_type,
-            )
-        )
+        review_model = KnowledgeDocumentReview if _is_knowledge_library(doc_library_type) else Document_review
+        review_conditions = [review_model.document_id == id]
+        if hasattr(review_model, "document_library_type"):
+            review_conditions.append(review_model.document_library_type == doc_library_type)
+        review_refs_result = await db.execute(select(review_model).where(*review_conditions))
         review_refs = review_refs_result.scalars().all()
         for review_ref in review_refs:
             if review_ref.status == 0:
@@ -1286,12 +1338,11 @@ async def _delete_single_document(db: AsyncSession, document, library_type: str)
     磁盘文件清理应在 commit 之后由调用方执行。
     """
     # 1. 处理关联的审核记录（自动撤回待审核项）
-    review_refs_result = await db.execute(
-        select(Document_review).where(
-            Document_review.document_id == document.id,
-            Document_review.document_library_type == library_type,
-        )
-    )
+    review_model = KnowledgeDocumentReview if _is_knowledge_library(library_type) else Document_review
+    review_conditions = [review_model.document_id == document.id]
+    if hasattr(review_model, "document_library_type"):
+        review_conditions.append(review_model.document_library_type == library_type)
+    review_refs_result = await db.execute(select(review_model).where(*review_conditions))
     review_refs = review_refs_result.scalars().all()
     for review_ref in review_refs:
         if review_ref.status == 0:
@@ -1909,12 +1960,6 @@ async def analyze_files(file_list: AnalyzeRequest,
             message="请求核心参数无效",
         )
     submit_for_review = bool(file_list.submit_for_review)
-    if _is_knowledge_library(file_list.library_type) and submit_for_review:
-        raise AppException(
-            http_status=status.HTTP_400_BAD_REQUEST,
-            biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="知识库导入暂不支持审核流程，请由管理员直接导入",
-        )
     if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
         raise AppException(
             http_status=status.HTTP_403_FORBIDDEN,
@@ -2047,6 +2092,35 @@ async def analyze_files(file_list: AnalyzeRequest,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
                 )
+                if submit_for_review:
+                    review = _build_create_review_from_document(
+                        document,
+                        current_user_id,
+                        parsed.sections,
+                        library_type="knowledge",
+                    )
+                    db.add(review)
+                    await db.flush()
+                    await db.refresh(review)
+                    source = await _get_source_document_by_path(db, file)
+                    if source:
+                        source.status = "review_pending"
+                        source.review_id = review.id
+                        source.review_library_type = "knowledge"
+                        source.document_library_type = "knowledge"
+                        source.parse_error = None
+                        source.parse_started_time = None
+                    await db.commit()
+                    success_file_url.append(file)
+                    success_origin_filename.append(file_name)
+                    logger.info(
+                        "knowledge document analyze review created, file=%s, review_id=%s, elapsed=%.2fs",
+                        file_name,
+                        review.id,
+                        time.perf_counter() - file_started,
+                    )
+                    continue
+
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
@@ -2193,7 +2267,11 @@ async def analyze_files(file_list: AnalyzeRequest,
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
-                review = _build_create_review_from_document(document, current_user_id)
+                review = _build_create_review_from_document(
+                    document,
+                    current_user_id,
+                    library_type=document.library_type,
+                )
                 db.add(review)
                 await db.flush()
                 await db.refresh(review)
@@ -2201,6 +2279,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 if source:
                     source.status = "review_pending"
                     source.review_id = review.id
+                    source.review_library_type = document.library_type
                     source.document_library_type = document.library_type
                     source.parse_error = None
                     source.parse_started_time = None

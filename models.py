@@ -78,8 +78,9 @@ class SourceDocument(Base):
     document_library_type = Column(
         String(32), default="breakdown", nullable=False, index=True
     )
-    review_id = Column(
-        Integer, ForeignKey("document_reviews.id"), nullable=True, index=True
+    review_id = Column(Integer, nullable=True, index=True)
+    review_library_type = Column(
+        String(32), default="breakdown", nullable=False, index=True
     )
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     deleted_time = Column(DateTime)
@@ -221,6 +222,31 @@ class Document_review(Base):
     review_comment = Column(Text)
 
     # Explicit foreign keys are required because both contributor_id and reviewer_id reference users.id
+    contributor = relationship("User", foreign_keys=[contributor_id])
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+
+
+class KnowledgeDocumentReview(Base):
+    __tablename__ = "knowledge_document_reviews"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    document_id = Column(Integer, nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    contributor_id = Column(Integer, ForeignKey("users.id"), index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    first_edit_date = Column(DateTime)
+    reviewed_time = Column(DateTime, nullable=True)
+    status = Column(
+        Integer, default=0, nullable=False, index=True
+    )  # 0-pending, 1-approved, 2-rejected, 3-withdrawn
+    image_urls = Column(LargeText)
+    origin_file_name = Column(String(255))
+    origin_file_dir = Column(Text)
+    tag = Column(JSON, default=list)
+    sections = Column(JSON, nullable=True)
+    action_type = Column(Integer, nullable=False)  # 1-create, 2-update, 3-delete
+    review_comment = Column(Text)
+
     contributor = relationship("User", foreign_keys=[contributor_id])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 

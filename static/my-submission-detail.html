@@ -11,6 +11,7 @@
     <script src="js/menu.js"></script>
     <script src="js/api.js"></script>
     <script src="js/review.js"></script>
+    <script src="js/review-detail-renderer.js"></script>
     <style>
         .detail-shell {
             background: #fff;
@@ -241,6 +242,12 @@
         return value ? Number(value) : null;
     }
 
+    function getReviewLibraryTypeFromUrl() {
+        const value = new URLSearchParams(window.location.search).get('review_library_type');
+        if (!value) return null;
+        return value === 'knowledge' ? 'knowledge' : 'breakdown';
+    }
+
     function escapeHtml(text) {
         const value = text == null ? '' : String(text);
         return value
@@ -273,6 +280,33 @@
                 }).join('')}
             </div>
         `;
+    }
+
+    function renderKnowledgeSections(item) {
+        const sections = Array.isArray(item.sections) ? item.sections : [];
+        if (!sections.length) {
+            return `
+                <div class="detail-section">
+                    <h3>知识库章节</h3>
+                    <div class="section-card empty">无</div>
+                </div>
+            `;
+        }
+
+        return sections.map((section, index) => {
+            const title = section.section_title || `章节${index + 1}`;
+            const marker = section.section_type || String(index + 1);
+            const images = Array.isArray(section.image_urls)
+                ? section.image_urls.join(', ')
+                : section.image_urls;
+            return `
+                <div class="detail-section">
+                    <h3>${escapeHtml(marker)} ${escapeHtml(title)}</h3>
+                    ${asTextBlock(section.plain_text)}
+                    ${buildImageGrid(images)}
+                </div>
+            `;
+        }).join('');
     }
 
     function getAssetUrl(path) {
@@ -308,7 +342,20 @@
         const authorName = item.contributor_name || '我';
         const reviewerName = item.reviewer_name || '未分配';
 
-        const sections = [
+        const libraryType = ReviewDetailRenderer.getReviewLibraryType(item);
+        const contentHtml = ReviewDetailRenderer.renderReviewContent(item, {
+            sectionClass: 'detail-section',
+            headingTag: 'h3',
+            textClass: 'section-card',
+            emptyClass: 'section-card empty',
+            imageGridClass: 'image-grid',
+            imageItemClass: 'image-item',
+            includeImages: true,
+            emptyText: '\u65e0',
+            emptyKnowledgeMessage: '\u6682\u65e0\u7ae0\u8282\u5185\u5bb9'
+        });
+
+        const breakdownSections = [
             { title: '问题描述', content: item.problem_intro, images: item.image_urls_problem_intro || item.image_urls },
             { title: '原因分析', content: item.causes, images: item.image_urls_causes },
             { title: '故障评估', content: item.evaluation, images: item.image_urls_evaluation },
@@ -353,21 +400,15 @@
                 ${asTextBlock(item.review_comment || '无')}
             </div>
 
-            ${sections.map(section => `
-                <div class="detail-section">
-                    <h3>${section.title}</h3>
-                    ${asTextBlock(section.content)}
-                    ${buildImageGrid(section.images)}
-                </div>
-            `).join('')}
+            ${contentHtml}
 
             ${fileBlock}
             <div class="action-row">
                 ${canOperateOnExistingDocument ? `
-                    <button type="button" class="btn btn-primary btn-sm" onclick="goEditSubmission(${item.document_id}, '${item.library_type || item.document_library_type || 'breakdown'}')">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="goEditSubmission(${item.document_id}, '${libraryType}')">
                         <i class="fas fa-edit"></i> 提交修改申请
                     </button>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteRequest(${item.document_id}, '${escapeHtml(item.title || '').replace(/'/g, "\\'")}', '${item.library_type || item.document_library_type || 'breakdown'}')">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="submitDeleteRequest(${item.document_id}, '${escapeHtml(item.title || '').replace(/'/g, "\\'")}', '${libraryType}')">
                         <i class="fas fa-trash"></i> 提交删除申请
                     </button>
                 ` : ''}
@@ -406,6 +447,7 @@
 
     async function loadSubmissionDetail() {
         const reviewId = getReviewIdFromUrl();
+        const reviewLibraryType = getReviewLibraryTypeFromUrl();
         if (!reviewId || Number.isNaN(reviewId)) {
             showError('参数无效：缺少 review_id');
             return;
@@ -413,7 +455,13 @@
 
         try {
             const reviews = await reviewAPI.getMyReviews();
-            const target = (reviews || []).find(item => Number(item.id) === reviewId);
+            let target = (reviews || []).find(item => {
+                const itemType = ReviewDetailRenderer.getReviewStorageType(item);
+                return Number(item.id) === reviewId && (!reviewLibraryType || itemType === reviewLibraryType);
+            });
+            if (!target && reviewLibraryType) {
+                target = (reviews || []).find(item => Number(item.id) === reviewId);
+            }
             if (!target) {
                 showError('未找到该提交记录，可能已被撤回或无权限访问');
                 return;

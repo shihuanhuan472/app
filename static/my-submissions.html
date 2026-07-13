@@ -11,6 +11,7 @@
     <script src="js/menu.js"></script>
     <script src="js/api.js"></script>
     <script src="js/review.js"></script>
+    <script src="js/review-detail-renderer.js"></script>
     <style>
         .status-pill {
             display: inline-block;
@@ -276,12 +277,12 @@
 
                 let html = '';
                 displayItems.forEach(item => {
+                    const reviewLibraryType = ReviewDetailRenderer.getReviewStorageType(item);
                     const statusText = statusMap[item.status] || `状态${item.status}`;
                     const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
-                    const reviewComment = item.review_comment || '无';
+                    const reviewComment = escapeHtml(item.review_comment || '无');
                     const dateText = item.first_edit_date ? String(item.first_edit_date).slice(0, 10) : '未知日期';
-                    const rawContent = item.problem_intro || '';
-                    const content = rawContent.length > 100 ? `${rawContent.slice(0, 100)}...` : (rawContent || '无内容');
+                    const content = escapeHtml(ReviewDetailRenderer.getPreviewText(item, 100));
                     const trackText = item._action_track?.length
                         ? item._action_track.join(' -> ')
                         : actionText;
@@ -294,9 +295,9 @@
                         : '';
 
                     html += `
-                        <div class="document-item" onclick="window.location.href='my-submission-detail.html?review_id=${item.id}&source=review'">
+                        <div class="document-item" onclick="window.location.href='my-submission-detail.html?review_id=${item.id}&review_library_type=${encodeURIComponent(reviewLibraryType)}&source=review'">
                             <div class="document-item-header">
-                                <div class="document-item-title">${item.title || '未命名提交'}</div>
+                                <div class="document-item-title">${escapeHtml(item.title || '未命名提交')}</div>
                             </div>
                             <div class="document-item-content">${content}</div>
                             <div style="display:flex; gap:8px; margin-bottom:10px;">
@@ -363,8 +364,9 @@
 
         function getSubmissionGroupKey(item) {
             const documentId = Number(item.document_id);
+            const libraryType = ReviewDetailRenderer.getReviewLibraryType(item);
             if (Number.isFinite(documentId) && documentId > 0) {
-                return `doc-${documentId}`;
+                return `${libraryType}-doc-${documentId}`;
             }
 
             // Delete-approved flow clears document_id of historical reviews.
@@ -377,9 +379,9 @@
             const title = normalizeForGroup(item.title);
             const originName = normalizeForGroup(item.origin_file_name);
             const originDir = normalizeForGroup(item.origin_file_dir);
-            const intro = normalizeForGroup((item.problem_intro || '').slice(0, 120));
-            const causes = normalizeForGroup((item.causes || '').slice(0, 120));
-            return [contributor, title, originName, originDir, intro, causes].join('|');
+            const preview = normalizeForGroup(ReviewDetailRenderer.getPreviewText(item, 120));
+            const libraryType = normalizeForGroup(ReviewDetailRenderer.getReviewLibraryType(item));
+            return [libraryType, contributor, title, originName, originDir, preview].join('|');
         }
 
         function normalizeForGroup(value) {

@@ -225,19 +225,22 @@ const reviewAPI = {
         return this.client.get('/review/all');
     },
 
-    async approveReview(reviewId, reviewComment = null) {
-        return this.client.post(`/review/approve/${reviewId}`, {
+    async approveReview(reviewId, reviewComment = null, reviewLibraryType = 'breakdown') {
+        const query = reviewLibraryType ? `?review_library_type=${encodeURIComponent(reviewLibraryType)}` : '';
+        return this.client.post(`/review/approve/${reviewId}${query}`, {
             review_comment: reviewComment
         });
     },
 
-    async rejectReview(reviewId, reviewComment = null) {
-        return this.client.post(`/review/reject/${reviewId}`, {
+    async rejectReview(reviewId, reviewComment = null, reviewLibraryType = 'breakdown') {
+        const query = reviewLibraryType ? `?review_library_type=${encodeURIComponent(reviewLibraryType)}` : '';
+        return this.client.post(`/review/reject/${reviewId}${query}`, {
             review_comment: reviewComment
         });
     },
 
-    async withdrawReview(reviewId) {
-        return this.client.post(`/review/withdraw/${reviewId}`, {});
+    async withdrawReview(reviewId, reviewLibraryType = 'breakdown') {
+        const query = reviewLibraryType ? `?review_library_type=${encodeURIComponent(reviewLibraryType)}` : '';
+        return this.client.post(`/review/withdraw/${reviewId}${query}`, {});
     }
 };

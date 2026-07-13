@@ -11,6 +11,7 @@
     <script src="js/menu.js"></script>
     <script src="js/api.js"></script>
     <script src="js/review.js"></script>
+    <script src="js/review-detail-renderer.js"></script>
     <style>
         .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
         .tab-btn {
@@ -83,6 +84,45 @@
             word-break: break-word;
             color: #374151;
             line-height: 1.65;
+        }
+        .knowledge-section-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .knowledge-section-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff;
+        }
+        .knowledge-section-title {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+        .knowledge-section-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .image-item {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+        }
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
         }
         .review-actions {
             display: flex;
@@ -252,6 +292,27 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function getReviewLibraryType(item) {
+            return ReviewDetailRenderer.getReviewLibraryType(item);
+        }
+
+        function getReviewStorageType(item) {
+            return ReviewDetailRenderer.getReviewStorageType(item);
+        }
+
+        function getReviewKey(item) {
+            return `${getReviewStorageType(item)}:${item.id}`;
+        }
+
+        function parseReviewKey(key) {
+            const [reviewLibraryType, rawId] = String(key || '').split(':');
+            const reviewId = Number(rawId);
+            return {
+                reviewId,
+                reviewLibraryType: reviewLibraryType === 'knowledge' ? 'knowledge' : 'breakdown'
+            };
+        }
+
         function canReview(user) {
             if (!user) return false;
             return Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
@@ -334,17 +395,16 @@
             const documentId = Number(item.document_id);
             const contributorId = Number(item.contributor_id);
             if ((actionType === 2 || actionType === 3) && Number.isFinite(documentId) && documentId > 0) {
-                return `doc-${documentId}-action-${actionType}-user-${Number.isFinite(contributorId) ? contributorId : 'na'}`;
+                return `${getReviewLibraryType(item)}-doc-${documentId}-action-${actionType}-user-${Number.isFinite(contributorId) ? contributorId : 'na'}`;
             }
-            return `review-${item.id}`;
+            return `review-${getReviewKey(item)}`;
         }
 
         function getSelectableReviewIds() {
             if (currentTab !== 'pending') return [];
             return currentReviews
                 .filter(item => Number(item.status) === 0)
-                .map(item => Number(item.id))
-                .filter(id => Number.isFinite(id));
+                .map(item => getReviewKey(item));
         }
 
         function updateBatchReviewToolbar() {
@@ -358,7 +418,7 @@
             const selectableIds = getSelectableReviewIds();
             const selectableSet = new Set(selectableIds);
             Array.from(selectedReviewIds).forEach(id => {
-                if (!selectableSet.has(Number(id))) selectedReviewIds.delete(id);
+                if (!selectableSet.has(id)) selectedReviewIds.delete(id);
             });
 
             const hasSelectable = selectableIds.length > 0;
@@ -383,8 +443,8 @@
         }
 
         function toggleReviewSelection(reviewId, checked) {
-            const id = Number(reviewId);
-            if (!Number.isFinite(id) || batchReviewSubmitting) return;
+            const id = String(reviewId || '');
+            if (!id || batchReviewSubmitting) return;
             if (checked) {
                 selectedReviewIds.add(id);
             } else {
@@ -442,11 +502,12 @@
             let successCount = 0;
 
             for (const reviewId of ids) {
+                const parsed = parseReviewKey(reviewId);
                 try {
                     if (isApprove) {
-                        await reviewAPI.approveReview(reviewId, comment.trim() || null);
+                        await reviewAPI.approveReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
                     } else {
-                        await reviewAPI.rejectReview(reviewId, comment.trim() || null);
+                        await reviewAPI.rejectReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
                     }
                     successCount += 1;
                 } catch (error) {
@@ -489,17 +550,18 @@
 
             let html = '';
             currentReviews.forEach(item => {
+                const reviewKey = getReviewKey(item);
                 const statusText = statusMap[item.status] || `状态${item.status}`;
                 const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
                 const dateText = item.first_edit_date ? String(item.first_edit_date).slice(0, 10) : '未知日期';
-                const content = item.problem_intro ? escapeHtml(item.problem_intro.slice(0, 100)) : '无内容';
+                const content = escapeHtml(ReviewDetailRenderer.getPreviewText(item, 100));
                 const comment = escapeHtml(item.review_comment || '无');
                 const isSelectable = currentTab === 'pending' && Number(item.status) === 0;
-                const isChecked = selectedReviewIds.has(Number(item.id)) ? 'checked' : '';
+                const isChecked = selectedReviewIds.has(reviewKey) ? 'checked' : '';
                 const selectHtml = isSelectable
                     ? `
                         <label class="review-select" onclick="event.stopPropagation()" title="选择该审核记录">
-                            <input type="checkbox" ${isChecked} onchange="toggleReviewSelection(${item.id}, this.checked)">
+                            <input type="checkbox" ${isChecked} onchange="toggleReviewSelection('${reviewKey}', this.checked)">
                         </label>
                     `
                     : '';
@@ -508,7 +570,7 @@
                     : '';
 
                 html += `
-                    <div class="document-item" onclick="openReviewModal(${item.id})">
+                    <div class="document-item" onclick="openReviewModal('${reviewKey}')">
                         <div class="document-item-header">
                             <div class="review-card-title-row">
                                 ${selectHtml}
@@ -538,7 +600,8 @@
         }
 
         function getReviewById(reviewId) {
-            return currentReviews.find(item => Number(item.id) === Number(reviewId)) || null;
+            const key = String(reviewId || '');
+            return currentReviews.find(item => getReviewKey(item) === key) || null;
         }
 
         function renderSection(title, value) {
@@ -550,9 +613,26 @@
             `;
         }
 
+        function renderKnowledgeSections(item) {
+            return ReviewDetailRenderer.renderKnowledgeSections(item, {
+                sectionClass: 'review-section',
+                headingTag: 'h4',
+                textClass: 'review-text',
+                emptyClass: 'review-text',
+                imageGridClass: 'image-grid',
+                imageItemClass: 'image-item',
+                includeImages: true,
+                showImageCount: true,
+                previewLength: 1200,
+                emptyText: '\u65e0\u5185\u5bb9',
+                emptyKnowledgeMessage: '\u6682\u65e0\u7ae0\u8282\u5185\u5bb9'
+            });
+        }
+
         function openReviewModal(reviewId) {
             const item = getReviewById(reviewId);
             if (!item) return;
+            const reviewKey = getReviewKey(item);
 
             const statusText = statusMap[item.status] || `状态${item.status}`;
             const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
@@ -560,18 +640,27 @@
             const reviewedAt = item.reviewed_time ? Utils.formatDate(item.reviewed_time, 'YYYY-MM-DD HH:mm') : '未审核';
             const canOperate = Number(item.status) === 0;
 
-            const libraryType = item.library_type || item.document_library_type || 'breakdown';
+            const libraryType = getReviewLibraryType(item);
             const docLink = item.document_id
                 ? `<a href="document-detail.html?id=${item.document_id}&source=${encodeURIComponent(libraryType)}" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-link"></i> 查看当前文档</a>`
                 : '';
+            const knowledgeSectionsHtml = libraryType === 'knowledge' ? renderKnowledgeSections(item) : '';
+            const breakdownFieldsHtml = `
+                ${renderSection('问题描述', item.problem_intro)}
+                ${renderSection('原因分析', item.causes)}
+                ${renderSection('故障评估', item.evaluation)}
+                ${renderSection('检查步骤', item.inspection)}
+                ${renderSection('解决方案', item.solutions)}
+                ${renderSection('关键要点', item.key_points)}
+            `;
 
             const operateHtml = canOperate ? `
                 <div class="review-section">
                     <h4>审核意见</h4>
                     <textarea class="review-textarea" id="reviewCommentInput" placeholder="可填写审核意见（可选）"></textarea>
                     <div class="review-actions">
-                        <button class="btn btn-danger" id="rejectBtn" onclick="rejectReview(${item.id})"><i class="fas fa-times"></i> 驳回</button>
-                        <button class="btn btn-primary" id="approveBtn" onclick="approveReview(${item.id})"><i class="fas fa-check"></i> 通过</button>
+                        <button class="btn btn-danger" id="rejectBtn" onclick="rejectReview('${reviewKey}')"><i class="fas fa-times"></i> 驳回</button>
+                        <button class="btn btn-primary" id="approveBtn" onclick="approveReview('${reviewKey}')"><i class="fas fa-check"></i> 通过</button>
                     </div>
                 </div>
             ` : '';
@@ -588,12 +677,7 @@
                     </div>
                 </div>
                 ${renderSection('审核意见（当前）', item.review_comment || '无')}
-                ${renderSection('问题描述', item.problem_intro)}
-                ${renderSection('原因分析', item.causes)}
-                ${renderSection('故障评估', item.evaluation)}
-                ${renderSection('检查步骤', item.inspection)}
-                ${renderSection('解决方案', item.solutions)}
-                ${renderSection('关键要点', item.key_points)}
+                ${libraryType === 'knowledge' ? knowledgeSectionsHtml : breakdownFieldsHtml}
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
                     <div>${docLink}</div>
                 </div>
@@ -638,10 +722,11 @@
 
         async function approveReview(reviewId) {
             if (reviewSubmitting) return;
+            const parsed = parseReviewKey(reviewId);
             setReviewSubmitting(true, 'approve');
             try {
                 const comment = getCommentInputValue();
-                await reviewAPI.approveReview(reviewId, comment || null);
+                await reviewAPI.approveReview(parsed.reviewId, comment || null, parsed.reviewLibraryType);
                 Utils.showMessage('审核通过成功', 'success');
                 closeReviewModal(true);
                 await loadReviewList();
@@ -654,10 +739,11 @@
 
         async function rejectReview(reviewId) {
             if (reviewSubmitting) return;
+            const parsed = parseReviewKey(reviewId);
             setReviewSubmitting(true, 'reject');
             try {
                 const comment = getCommentInputValue();
-                await reviewAPI.rejectReview(reviewId, comment || null);
+                await reviewAPI.rejectReview(parsed.reviewId, comment || null, parsed.reviewLibraryType);
                 Utils.showMessage('驳回成功', 'success');
                 closeReviewModal(true);
                 await loadReviewList();
