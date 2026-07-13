@@ -469,13 +469,6 @@
     color: #b91c1c;
 }
 
-.input-wrapper {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
-    align-items: end;
-}
-
 .message-input {
     width: 100%;
     max-height: 8rem;
@@ -780,5 +773,158 @@
     .send-button {
         width: 2.35rem;
         height: 2.35rem;
+    }
+}
+
+/* Targeted UI fixes: input composer, AI answer density, no business logic changes. */
+.input-section {
+    padding: 0.62rem 0.75rem calc(0.62rem + var(--mobile-safe-bottom));
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 -0.45rem 1.2rem rgba(14, 40, 66, 0.05);
+}
+
+.attachment-preview-container {
+    padding-inline: 0.15rem;
+}
+
+.input-wrapper {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 0.42rem 0.48rem 0.42rem 0.85rem;
+    border: 1px solid rgba(220, 230, 242, 0.95);
+    border-radius: 1.35rem;
+    background: #fff;
+    box-shadow: 0 0.35rem 1.1rem rgba(14, 40, 66, 0.1);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-wrapper:focus-within {
+    border-color: rgba(74, 158, 255, 0.42);
+    box-shadow: 0 0 0 0.16rem rgba(74, 158, 255, 0.08), 0 0.38rem 1.1rem rgba(14, 40, 66, 0.1);
+}
+
+.message-input {
+    min-height: 2.45rem;
+    max-height: 8.8rem;
+    padding: 0.52rem 0.2rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+.message-input:focus {
+    background: transparent;
+    box-shadow: none;
+}
+
+.message-input::placeholder {
+    color: #a6afbd;
+}
+
+.input-actions {
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.action-button,
+.send-button {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 50%;
+    transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+}
+
+.action-button {
+    border-color: transparent;
+    background: #f8fafc;
+    color: #253040;
+}
+
+.action-button.is-active {
+    border-color: rgba(239, 68, 68, 0.2);
+    background: #fff1f2;
+}
+
+.send-button {
+    background: #162033;
+    color: #fff;
+    box-shadow: none;
+}
+
+.send-button:disabled {
+    background: #d7dee8;
+    color: #8995a5;
+}
+
+.action-button:active,
+.send-button:active {
+    transform: scale(0.96);
+}
+
+.message-content.ai {
+    padding: 0.68rem 0.82rem;
+}
+
+.message-content.ai .message-text {
+    line-height: 1.56;
+    white-space: normal;
+}
+
+.message-content.ai .message-text p {
+    margin: 0 0 0.42rem;
+}
+
+.message-content.ai .message-text p:empty {
+    display: none;
+}
+
+.message-content.ai .message-text br + br {
+    display: none;
+}
+
+.message-content.ai .message-text h1,
+.message-content.ai .message-text h2,
+.message-content.ai .message-text h3,
+.message-content.ai .message-text h4,
+.message-content.ai .message-text h5,
+.message-content.ai .message-text h6 {
+    margin: 0.72rem 0 0.38rem;
+    line-height: 1.35;
+}
+
+.message-content.ai .message-text ul,
+.message-content.ai .message-text ol {
+    margin: 0.32rem 0 0.5rem;
+    padding-left: 1.15rem;
+}
+
+.message-content.ai .message-text li {
+    margin: 0.12rem 0;
+}
+
+.message-content.ai .message-text blockquote {
+    margin: 0.5rem 0;
+    padding: 0.48rem 0.65rem;
+}
+
+.message-content.ai .message-text pre {
+    margin: 0.55rem 0;
+}
+
+@media (max-width: 350px) {
+    .input-wrapper {
+        padding-left: 0.72rem;
+    }
+
+    .action-button,
+    .send-button {
+        width: 2.25rem;
+        height: 2.25rem;
     }
 }
