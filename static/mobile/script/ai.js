@@ -650,7 +650,7 @@
                 const scoreHtml = typeof doc.score === 'number' && !Number.isNaN(doc.score)
                     ? `<span class="doc-score ${this.getReferenceScoreLevel(doc.score).className}">匹配度 ${(Math.max(0, Math.min(1, doc.score)) * 100).toFixed(1)}%</span>`
                     : '';
-                return `<a href="../document-detail.html?id=${doc.doc_id}&source=${encodeURIComponent(libraryType)}" target="_blank" class="document-item" data-doc-id="${doc.doc_id}" data-library-type="${libraryType}"><div class="document-item-title"><i class="fas fa-external-link-alt"></i><span class="doc-title">${title}</span>${scoreHtml}</div></a>`;
+                return `<div class="document-item document-item-static" data-doc-id="${doc.doc_id}" data-library-type="${libraryType}"><div class="document-item-title"><i class="fas fa-book-open"></i><span class="doc-title">${title}</span>${scoreHtml}</div></div>`;
             }).join('');
             return `<div class="message-documents"><div class="documents-title"><i class="fas fa-book-open"></i> 相关参考文档</div><div class="documents-list">${items}</div></div>`;
         }
