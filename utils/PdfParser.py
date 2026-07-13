@@ -3,18 +3,33 @@ import json
 import mimetypes
 import re
 import uuid
+import os
+import sys
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from datetime import datetime
+"""
+PDF 解析器：普通 PDF 使用 PyMuPDF，扫描 PDF 自动使用 MinerU 提取文本。
+需要运行：python -m pip install uv
+python -m uv pip install -U "mineru[all]"来安装相关库，还有一个库的版本要求：python -m pip install setuptools==80.9.0
+"""
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from PIL import Image
 from qwen_token_counter import get_token_count
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 import pymupdf
-import os
 from openai import OpenAI
 
 from utils.error_codes import BizCode
-"""PDF 解析器：使用 PyMuPDF 提取文本和图片。"""
+"""PDF 解析器：普通 PDF 使用 PyMuPDF，扫描 PDF 自动使用 MinerU 提取文本。"""
 
 class PdfParser:
     def __init__(self):
@@ -27,6 +42,28 @@ class PdfParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+
+        # =========================
+        # MinerU 配置
+        # =========================
+        # 是否启用 MinerU 自动解析扫描 PDF。
+        self.mineru_enabled = os.getenv("MINERU_ENABLED", "1").lower() in {"1", "true", "yes", "on"}
+
+        # 可以在 .env 中手动指定：
+        # MINERU_EXE=C:/xxx/app-main/.venv/Scripts/mineru.exe
+        # 不指定时，会自动寻找当前虚拟环境中的 mineru.exe 或 PATH 中的 mineru。
+        self.mineru_exe = os.getenv("MINERU_EXE", "").strip()
+
+        # 扫描件判断参数：
+        # 单页有效文字少于该值，认为这一页没有有效文本层。
+        self.scan_page_min_chars = int(os.getenv("PDF_SCAN_PAGE_MIN_CHARS", 30))
+
+        # 有效文本页比例低于该值，认为整个 PDF 主要是扫描件。
+        self.scan_text_page_ratio = float(os.getenv("PDF_SCAN_TEXT_PAGE_RATIO", 0.5))
+
+        # MinerU 最大执行时间，默认 30 分钟。
+        self.mineru_timeout = int(os.getenv("MINERU_TIMEOUT", 1800))
+
         self.last_error_code = None
         self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -71,14 +108,230 @@ class PdfParser:
         return any(k in msg for k in keywords)
 
     def get_pdf_text(self, pdf_url: str):
+        """使用 PyMuPDF 提取 PDF 自带文本层。"""
         if not os.path.exists(pdf_url):
             raise FileNotFoundError(pdf_url)
+
         doc = pymupdf.open(pdf_url)
-        text = ""
-        for page in doc:
-            text += page.get_text().strip()
-        # print(text)
-        return text
+        try:
+            text_parts = []
+            for page in doc:
+                page_text = page.get_text("text", sort=True).strip()
+                if page_text:
+                    text_parts.append(page_text)
+            return "\n\n".join(text_parts)
+        finally:
+            doc.close()
+
+    def is_scanned_pdf(self, pdf_url: str) -> bool:
+        """
+        判断 PDF 是否主要为扫描件。
+
+        判断方式：
+        1. 逐页提取文本层；
+        2. 单页有效字符数 >= scan_page_min_chars，认为该页存在有效文本；
+        3. 有效文本页比例 < scan_text_page_ratio，则认为是扫描 PDF。
+
+        注意：
+        这只是工程上的启发式判断，可以通过 .env 调整阈值。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        doc = pymupdf.open(pdf_url)
+        try:
+            total_pages = len(doc)
+            if total_pages == 0:
+                return False
+
+            text_pages = 0
+            total_chars = 0
+
+            for page in doc:
+                page_text = page.get_text("text", sort=True).strip()
+                clean_text = re.sub(r"\s+", "", page_text)
+                char_count = len(clean_text)
+                total_chars += char_count
+
+                if char_count >= self.scan_page_min_chars:
+                    text_pages += 1
+
+            text_page_ratio = text_pages / total_pages
+
+            print(
+                f"[PDF类型检测] 总页数={total_pages}, "
+                f"有效文本页={text_pages}, "
+                f"有效文本页比例={text_page_ratio:.2%}, "
+                f"总文本字符数={total_chars}"
+            )
+
+            is_scanned = text_page_ratio < self.scan_text_page_ratio
+
+            if is_scanned:
+                print("[PDF类型检测] 判定为扫描型 PDF，将优先使用 MinerU。")
+            else:
+                print("[PDF类型检测] 判定为普通文本型 PDF，使用 PyMuPDF。")
+
+            return is_scanned
+        finally:
+            doc.close()
+
+    def _resolve_mineru_executable(self) -> str:
+        """
+        自动寻找 MinerU 可执行文件。
+
+        查找顺序：
+        1. .env 中的 MINERU_EXE；
+        2. 当前 Python 环境 Scripts 目录下的 mineru.exe；
+        3. 系统 PATH 中的 mineru。
+        """
+        if self.mineru_exe:
+            mineru_path = os.path.abspath(os.path.expanduser(self.mineru_exe))
+            if os.path.exists(mineru_path):
+                return mineru_path
+            raise FileNotFoundError(
+                f"MINERU_EXE 指定的文件不存在：{mineru_path}"
+            )
+
+        # 当前正在运行的 Python，例如：
+        # app-main/.venv/Scripts/python.exe
+        python_exe = Path(sys.executable)
+        candidates = []
+
+        if os.name == "nt":
+            candidates.extend([
+                python_exe.parent / "mineru.exe",
+                python_exe.parent / "mineru.cmd",
+                python_exe.parent / "mineru.bat",
+            ])
+        else:
+            candidates.append(python_exe.parent / "mineru")
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        path_command = shutil.which("mineru")
+        if path_command:
+            return path_command
+
+        raise FileNotFoundError(
+            "没有找到 MinerU 可执行文件。请确认已在当前虚拟环境安装 MinerU，"
+            "或者在 .env 中设置 MINERU_EXE。"
+        )
+
+    def _find_mineru_markdown(self, output_dir: str) -> str:
+        """在 MinerU 输出目录中寻找生成的 Markdown 文件。"""
+        markdown_files = list(Path(output_dir).rglob("*.md"))
+
+        if not markdown_files:
+            raise FileNotFoundError(
+                f"MinerU 已执行，但在输出目录中没有找到 .md 文件：{output_dir}"
+            )
+
+        # 优先选择内容较多的 Markdown，避免误取辅助说明文件。
+        markdown_file = max(
+            markdown_files,
+            key=lambda path: (path.stat().st_size, path.stat().st_mtime)
+        )
+
+        print(f"[MinerU] 使用解析结果：{markdown_file}")
+        return str(markdown_file)
+
+    def _clean_mineru_markdown(self, markdown_text: str) -> str:
+        """
+        对 MinerU Markdown 做轻量清洗。
+
+        保留标题、列表、表格等结构，仅移除图片 Markdown 语法，
+        因为图片仍由当前 PdfParser 的图片提取逻辑单独处理。
+        """
+        if not markdown_text:
+            return ""
+
+        # ![alt](images/xxx.png) -> [图片]
+        markdown_text = re.sub(
+            r"!\[[^\]]*\]\([^\)]+\)",
+            "\n[图片]\n",
+            markdown_text
+        )
+
+        # HTML img 标签 -> [图片]
+        markdown_text = re.sub(
+            r"<img\b[^>]*>",
+            "\n[图片]\n",
+            markdown_text,
+            flags=re.IGNORECASE
+        )
+
+        # 合并过多空行
+        markdown_text = re.sub(r"\n{4,}", "\n\n\n", markdown_text)
+
+        return markdown_text.strip()
+
+    def parse_pdf_by_mineru(self, pdf_url: str) -> str:
+        """
+        调用 MinerU CLI 解析扫描 PDF，并返回 Markdown 文本。
+
+        MinerU 输出使用临时目录，读取完成后自动删除，
+        不会长期占用项目磁盘空间。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        mineru_exe = self._resolve_mineru_executable()
+
+        print(f"[MinerU] 可执行文件：{mineru_exe}")
+        print(f"[MinerU] 开始解析：{pdf_url}")
+
+        with tempfile.TemporaryDirectory(prefix="mineru_") as temp_output_dir:
+            command = [
+                mineru_exe,
+                "-p",
+                os.path.abspath(pdf_url),
+                "-o",
+                temp_output_dir,
+            ]
+
+            print("[MinerU] 执行命令：", " ".join(f'"{item}"' if " " in item else item for item in command))
+
+            try:
+                result = subprocess.run(
+                    command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.mineru_timeout,
+                )
+            except subprocess.TimeoutExpired as e:
+                raise RuntimeError(
+                    f"MinerU 解析超时，超过 {self.mineru_timeout} 秒。"
+                ) from e
+            except subprocess.CalledProcessError as e:
+                stderr = (e.stderr or "").strip()
+                stdout = (e.stdout or "").strip()
+                detail = stderr or stdout or str(e)
+                raise RuntimeError(
+                    f"MinerU 解析失败：{detail}"
+                ) from e
+
+            if result.stdout:
+                print("[MinerU] 输出：")
+                print(result.stdout[-3000:])
+
+            markdown_file = self._find_mineru_markdown(temp_output_dir)
+
+            with open(markdown_file, "r", encoding="utf-8") as f:
+                markdown_text = f.read()
+
+            markdown_text = self._clean_mineru_markdown(markdown_text)
+
+            if not markdown_text.strip():
+                raise RuntimeError("MinerU 解析完成，但提取到的文本为空。")
+
+            print(f"[MinerU] 解析成功，文本长度：{len(markdown_text)}")
+            return markdown_text
 
     def _build_image_file(self, doc, xref: int):
         pix = pymupdf.Pixmap(doc, xref)
@@ -332,6 +585,66 @@ class PdfParser:
             ]
 
     def get_pdf_layout_content(self, pdf_url: str):
+        """
+        PDF 自动解析入口。
+
+        普通文本型 PDF：
+            PyMuPDF 提取文本 + 图片 + 版面位置。
+
+        扫描型 PDF：
+            MinerU 提取 OCR/版面文本；
+            图片仍沿用 PyMuPDF 的原有提取逻辑。
+            如果 MinerU 失败，则自动回退到 PyMuPDF，避免整个上传流程直接中断。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        use_mineru = False
+
+        if self.mineru_enabled:
+            try:
+                use_mineru = self.is_scanned_pdf(pdf_url)
+            except Exception as e:
+                print(f"[PDF类型检测] 判断失败，继续使用 PyMuPDF：{e}")
+        else:
+            print("[MinerU] MINERU_ENABLED=0，已禁用 MinerU。")
+
+        # 普通 PDF：完全沿用原来的版面提取逻辑。
+        if not use_mineru:
+            return self._get_pdf_layout_content_by_pymupdf(pdf_url)
+
+        # 扫描 PDF：
+        # 1. MinerU 提取 OCR / Markdown 文本；
+        # 2. PyMuPDF 继续负责提取 PDF 中能够获取到的图片。
+        try:
+            mineru_text = self.parse_pdf_by_mineru(pdf_url)
+
+            # 这里仍调用原来的 PyMuPDF 逻辑，是为了尽量保留图片提取能力。
+            # 对扫描件来说，PyMuPDF 文本通常很少，但图片仍可能被提取出来。
+            (
+                _pymupdf_text,
+                image_urls,
+                image_names,
+                section_image_indexes,
+            ) = self._get_pdf_layout_content_by_pymupdf(pdf_url)
+
+            # MinerU 的文本是重新 OCR 后的内容，原来的 section_image_indexes
+            # 依赖 PyMuPDF 文本位置，对扫描件通常不可靠，因此置空，
+            # 后续让多模态大模型根据 MinerU 文本 + 图片自行判断图片归属。
+            section_image_indexes = self._empty_section_image_indexes()
+
+            return (
+                mineru_text,
+                image_urls,
+                image_names,
+                section_image_indexes,
+            )
+
+        except Exception as e:
+            print(f"[MinerU] 解析失败，自动回退到 PyMuPDF：{e}")
+            return self._get_pdf_layout_content_by_pymupdf(pdf_url)
+
+    def _get_pdf_layout_content_by_pymupdf(self, pdf_url: str):
         if not os.path.exists(pdf_url):
             raise FileNotFoundError(pdf_url)
 
@@ -643,12 +956,17 @@ class PdfParser:
                 for i in range(len(image_urls)):
                     if i + 1 not in used_image_indexes:
                         os.remove(image_urls[i])
+                        # 删除该原图可能生成的压缩副本。
+                        # compress_image() 的命名格式为：
+                        # 原文件名_compressed_512.ext
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)
-                        new_path = f"{name}_compressed.{ext}"
-                        new_path = os.path.join(dir_name, new_path)
-                        if os.path.exists(new_path):
-                            os.remove(new_path)
+                        compressed_path = os.path.join(
+                            dir_name,
+                            f"{name}_compressed_512{ext}"
+                        )
+                        if os.path.exists(compressed_path):
+                            os.remove(compressed_path)
 
             return document
 
@@ -666,4 +984,20 @@ class PdfParser:
 pdf_parser = PdfParser()
 
 if __name__ == "__main__":
-    pass
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    pdf_path = r"C:\Users\exile\xwechat_files\wxid_rgs337i28sad22_66b4\msg\file\2026-07\(其他-TS相关-NCMR报告&让步放行报告)-SJ240605 不合格品报告 20241128.pdf"
+
+    try:
+        text = pdf_parser.parse_pdf_by_mineru(pdf_path)
+
+        print("=" * 50)
+        print("MinerU解析成功")
+        print("=" * 50)
+
+        print(text)
+
+    except Exception as e:
+        print("MinerU解析失败：")
+        print(e)
