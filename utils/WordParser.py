@@ -11,10 +11,14 @@ from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from openai import OpenAI
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 
 """
 word解析器，使用python-docx提取docx中的文本图像和表格
@@ -26,7 +30,6 @@ class WordParser:
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("SUMMARY_MAX_TOKEN", 2000))
@@ -281,7 +284,7 @@ class WordParser:
 3. 所有文字必须100%来自文档原文和图片，不可杜撰任何信息。
 4. 你给出的回答仅包含我要求的JSON格式答案。
 5. 给定图片编号从1开始，不得编写新的图片。
-6. title不可为空，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
+6. title不可为空且必须控制在100个字符以内，同一张图片不要出现太多次，即一张图片不要出现在2个以上字段中。
 7. 内容需连贯详细，最大限度使用给定内容，请勿过分精简。
 8. 检查步骤和解决方案字段若有内容相关，请尽可能详细描述。
 9. 各字段内容请勿大量重复。
@@ -363,6 +366,7 @@ class WordParser:
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
+            result["title"] = normalize_document_title(result.get("title"))
 
             result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 

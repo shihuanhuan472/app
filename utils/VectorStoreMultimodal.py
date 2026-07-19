@@ -1,14 +1,19 @@
 import os
 import re
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
-os.environ["HF_DATASETS_OFFLINE"] = "1"
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 
 from PIL import Image
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 import base64
 import mimetypes
 from functools import lru_cache
@@ -20,8 +25,62 @@ from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.title_utils import normalize_document_title
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
+
+
+def _local_model_dir(path_like: str) -> Optional[str]:
+    if not path_like:
+        return None
+    model_dir = Path(path_like).expanduser()
+    if model_dir.is_dir() and (model_dir / "config.json").is_file():
+        return str(model_dir)
+    return None
+
+
+def _resolve_hf_snapshot_path(model_name: str) -> Optional[str]:
+    """Resolve a Hugging Face model id to a local snapshot under HF_HOME."""
+    for configured_path in (
+        os.getenv("MODEL_LOCAL_PATH"),
+        os.getenv("BGE_MODEL_LOCAL_PATH"),
+        model_name,
+    ):
+        local_dir = _local_model_dir(configured_path or "")
+        if local_dir:
+            return local_dir
+
+    if not model_name or "/" not in model_name:
+        return None
+
+    cache_root = Path(os.environ.get("HF_HOME") or "").expanduser()
+    if not cache_root:
+        return None
+
+    model_cache_name = f"models--{model_name.replace('/', '--')}"
+    for cache_base in (cache_root / "hub", cache_root):
+        model_cache_dir = cache_base / model_cache_name
+        snapshots_dir = model_cache_dir / "snapshots"
+        if not snapshots_dir.is_dir():
+            continue
+
+        ref_file = model_cache_dir / "refs" / "main"
+        if ref_file.is_file():
+            revision = ref_file.read_text(encoding="utf-8").strip()
+            snapshot_dir = snapshots_dir / revision
+            if (snapshot_dir / "config.json").is_file():
+                return str(snapshot_dir)
+
+        snapshots = [
+            snapshot
+            for snapshot in snapshots_dir.iterdir()
+            if snapshot.is_dir() and (snapshot / "config.json").is_file()
+        ]
+        if snapshots:
+            snapshots.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+            return str(snapshots[0])
+
+    return None
 
 
 @lru_cache(maxsize=8192)
@@ -49,8 +108,17 @@ class VectorStoreMultimodal:
 
         self.model_name = os.getenv("MODEL_NAME", "BAAI/bge-m3")
         self.model_weight = os.getenv("MODEL_WEIGHT", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\Visualized_m3.pth")
+        self.model_local_path = _resolve_hf_snapshot_path(self.model_name)
+        if self.model_local_path:
+            print(f"BGE local model path = {self.model_local_path}")
+        elif os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            raise RuntimeError(
+                f"Local BGE model snapshot not found for {self.model_name!r}. "
+                "Check MODEL_DOWNLOAD_URL or set MODEL_LOCAL_PATH to the snapshot directory."
+            )
         self.model = Visualized_BGE(model_name_bge=self.model_name,
-                                    model_weight=self.model_weight)
+                                    model_weight=self.model_weight,
+                                    from_pretrained=self.model_local_path)
         self.model.eval()
         self.model.to(self.device)
         self.image_config = self.get_config()
@@ -72,7 +140,6 @@ class VectorStoreMultimodal:
         # self.collection_name = "documents_collection_reranker" # 主chunk + 图像语义
         self.create_or_load_collection()
 
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = 2000
@@ -1008,7 +1075,7 @@ class VectorStoreMultimodal:
             data.append([
                 chunk["doc_id"],  # doc_id
                 i,  # chunk_id
-                chunk["title"],  # title
+                normalize_document_title(chunk["title"]),  # title
                 chunk["content"],  # content
                 chunk["image_url"],  # image_url
                 chunk["metadata"]  # metadata
@@ -1173,6 +1240,7 @@ class VectorStoreMultimodal:
 2. 若包含图像，可以从图像中分析特征。
 3. 回答长度不得超过500个token。
 4. 关键特征部分可相对详细一点。
+5. 回答仅包含JSON对象，不要输出Markdown代码块或其他说明文字。
 
 现在给定内容如下：
 [文本内容]
@@ -1210,6 +1278,63 @@ class VectorStoreMultimodal:
         data["content"] = msg_content
         messages.append(data)
         return messages
+
+    def _parse_ai_json_object(self, ans: str) -> Dict[str, Any]:
+        text = (ans or "").strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text).strip()
+        if not text:
+            raise ValueError("AI response is empty")
+
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start < 0 or end <= start:
+                preview = text[:120].replace("\n", "\\n")
+                raise ValueError(f"AI response is not JSON: {preview!r}")
+            parsed = json.loads(text[start:end + 1])
+
+        if not isinstance(parsed, dict):
+            raise ValueError(f"AI response JSON is not an object: {type(parsed).__name__}")
+        return parsed
+
+    def _normalize_main_chunk_fields(
+            self,
+            result: Dict[str, Any],
+            fallback: Dict[str, Any],
+            required_keys: List[str],
+    ) -> Dict[str, Any]:
+        normalized = {}
+        for key in required_keys:
+            value = result.get(key)
+            if value is None or str(value).strip() == "":
+                value = fallback.get(key, "")
+            normalized[key] = str(value or "").strip()
+        return normalized
+
+    def _build_breakdown_main_chunk_fallback(self, document: Document) -> Dict[str, Any]:
+        problem_intro = str(getattr(document, "problem_intro", "") or "").strip()
+        causes = str(getattr(document, "causes", "") or "").strip()
+        feature_parts = []
+        for label, field in (
+                ("评估", "evaluation"),
+                ("检查", "inspection"),
+                ("解决方案", "solutions"),
+                ("关键点", "key_points"),
+        ):
+            value = str(getattr(document, field, "") or "").strip()
+            if value:
+                feature_parts.append(f"{label}：{value}")
+
+        feature = "；".join(feature_parts) or problem_intro or causes
+        return {
+            "title": str(getattr(document, "title", "") or "").strip(),
+            "problem_intro": problem_intro,
+            "causes": causes,
+            "feature": feature,
+        }
 
     def generate_knowledge_message(self, content, images):
         messages = []
@@ -1325,12 +1450,18 @@ class VectorStoreMultimodal:
                 ans = response.choices[0].message.content
                 print("生成知识库主chunk的ai回答")
                 print(ans)
-                return json.loads(ans)
+                result = self._parse_ai_json_object(ans)
+                return self._normalize_main_chunk_fields(
+                    result,
+                    fallback_main_chunk,
+                    ["title", "summary", "core_topic", "key_points", "scope", "tags"],
+                )
             except Exception as e:
                 print(f"知识库主chunk AI生成失败，使用文本兜底主chunk: {e}")
                 return fallback_main_chunk
 
         content = f"【标题】：{document.title}\n【问题简介】：{document.problem_intro}\n【成因】：{document.causes}\n"
+        fallback_main_chunk = self._build_breakdown_main_chunk_fallback(document)
 
         if document.image_urls_problem_intro is not None and document.image_urls_problem_intro != "":
             images = document.image_urls_problem_intro.split(", ")
@@ -1354,11 +1485,15 @@ class VectorStoreMultimodal:
             ans = response.choices[0].message.content
             print("生成主chunk的ai回答")
             print(ans)
-            result = json.loads(ans)
-            return result
+            result = self._parse_ai_json_object(ans)
+            return self._normalize_main_chunk_fields(
+                result,
+                fallback_main_chunk,
+                ["title", "problem_intro", "causes", "feature"],
+            )
         except Exception as e:
-            print(e)
-            return None
+            print(f"主chunk AI生成失败，使用文本兜底主chunk: {e}")
+            return fallback_main_chunk
 
     def embed_multimodal(self, chunks):
         """生成向量"""

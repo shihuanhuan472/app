@@ -40,6 +40,7 @@ from utils.file_classifier import (
 )
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
+from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from sqlalchemy import or_, select, func, delete
 
@@ -57,7 +58,7 @@ def _title_from_source_filename(file_name: str) -> str:
     """导入标题优先使用源文件名，去掉目录和扩展名。"""
     filename = os.path.basename(str(file_name or "").replace("\\", "/"))
     title = os.path.splitext(filename)[0].strip()
-    return title or filename.strip() or "未命名文档"
+    return normalize_document_title(title or filename.strip())
 
 
 def _get_document_model(library_type: str):
@@ -123,6 +124,8 @@ def _normalize_document_for_db(document: Document) -> None:
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
             setattr(document, field, str(value))
+        if field == "title":
+            setattr(document, field, normalize_document_title(getattr(document, field, None)))
 
     for field in image_fields:
         value = getattr(document, field, None)

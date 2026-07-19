@@ -192,9 +192,106 @@
             height: 16px;
             cursor: pointer;
         }
+
+
+        .review-image-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .review-image-item {
+            width: 92px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: #f9fafb;
+            overflow: hidden;
+        }
+
+        .review-image-item img {
+            display: block;
+            width: 92px;
+            height: 68px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .review-image-item span {
+            display: block;
+            padding: 4px 6px;
+            color: #64748b;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1300;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .document-image-modal-content {
+            position: relative;
+            max-width: min(960px, 94vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .document-image-modal-content img {
+            max-width: 100%;
+            max-height: 82vh;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .document-image-modal-close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: #fff;
+            color: #111827;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 34px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+        }
+
+        .document-image-modal-caption {
+            max-width: 100%;
+            color: #f8fafc;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
+    <div class="document-image-modal" id="documentImageModal">
+        <div class="document-image-modal-content">
+            <button type="button" class="document-image-modal-close" onclick="closeDocumentImagePreview()" title="关闭">&times;</button>
+            <img id="documentImageModalImg" src="" alt="图片预览">
+            <div class="document-image-modal-caption" id="documentImageModalCaption"></div>
+        </div>
+    </div>
+
     <div class="review-modal" id="reviewModal">
         <div class="review-modal-content">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -311,6 +408,73 @@
                 reviewId,
                 reviewLibraryType: reviewLibraryType === 'knowledge' ? 'knowledge' : 'breakdown'
             };
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replace(/\n/g, '&#10;');
+        }
+
+        function getFullImageUrl(relativeUrl) {
+            if (!relativeUrl) return '';
+            if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(relativeUrl)) return relativeUrl;
+            if (API_CONFIG.getAssetUrl) return API_CONFIG.getAssetUrl(relativeUrl);
+            const base = (API_CONFIG.STATIC_BASE_URL || API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') || '').replace(/\/$/, '');
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+        }
+
+        function normalizeImageUrls(imageUrls) {
+            if (Array.isArray(imageUrls)) {
+                return imageUrls.map(url => String(url || '').trim()).filter(Boolean);
+            }
+            if (typeof imageUrls === 'string' && imageUrls.trim() && imageUrls !== 'null') {
+                try {
+                    const parsed = JSON.parse(imageUrls);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(url => String(url || '').trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return imageUrls.split(',').map(url => url.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function renderImageGrid(imageUrls) {
+            const urls = normalizeImageUrls(imageUrls);
+            if (!urls.length) return '';
+            return `
+                <div class="review-image-grid">
+                    ${urls.map((url, index) => {
+                        const displayUrl = getFullImageUrl(url);
+                        return `
+                            <div class="review-image-item">
+                                <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="图片${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/92x68?text=加载失败'">
+                                <span title="${escapeAttribute(url)}">图片${index + 1}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function openDocumentImagePreview(imageUrl, caption = '图片预览') {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            const captionEl = document.getElementById('documentImageModalCaption');
+            if (!modal || !img) return;
+
+            img.src = getFullImageUrl(imageUrl);
+            img.alt = caption || '图片预览';
+            if (captionEl) captionEl.textContent = caption || '';
+            modal.style.display = 'flex';
+        }
+
+        function closeDocumentImagePreview() {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            if (modal) modal.style.display = 'none';
+            if (img) img.src = '';
         }
 
         function canReview(user) {
@@ -604,11 +768,12 @@
             return currentReviews.find(item => getReviewKey(item) === key) || null;
         }
 
-        function renderSection(title, value) {
+        function renderSection(title, value, imageUrls = null) {
             return `
                 <div class="review-section">
                     <h4>${title}</h4>
                     <div class="review-text">${escapeHtml(value || '无')}</div>
+                    ${renderImageGrid(imageUrls)}
                 </div>
             `;
         }
@@ -646,12 +811,12 @@
                 : '';
             const knowledgeSectionsHtml = libraryType === 'knowledge' ? renderKnowledgeSections(item) : '';
             const breakdownFieldsHtml = `
-                ${renderSection('问题描述', item.problem_intro)}
-                ${renderSection('原因分析', item.causes)}
-                ${renderSection('故障评估', item.evaluation)}
-                ${renderSection('检查步骤', item.inspection)}
-                ${renderSection('解决方案', item.solutions)}
-                ${renderSection('关键要点', item.key_points)}
+                ${renderSection('问题描述', item.problem_intro, item.image_urls_problem_intro || item.image_urls)}
+                ${renderSection('原因分析', item.causes, item.image_urls_causes)}
+                ${renderSection('故障评估', item.evaluation, item.image_urls_evaluation)}
+                ${renderSection('检查步骤', item.inspection, item.image_urls_inspection)}
+                ${renderSection('解决方案', item.solutions, item.image_urls_solutions)}
+                ${renderSection('关键要点', item.key_points, item.image_urls_key_points)}
             `;
 
             const operateHtml = canOperate ? `
@@ -770,8 +935,29 @@
             if (e.target === this) closeReviewModal();
         });
 
+        document.getElementById('documentImageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDocumentImagePreview();
+        });
+
+        document.addEventListener('click', function(e) {
+            const previewImg = e.target.closest('[data-image-preview-src]');
+            if (!previewImg) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openDocumentImagePreview(
+                previewImg.dataset.imagePreviewSrc || previewImg.getAttribute('src'),
+                previewImg.dataset.imagePreviewTitle || previewImg.getAttribute('alt') || '图片预览'
+            );
+        });
+
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeReviewModal();
+            if (e.key !== 'Escape') return;
+            const imageModal = document.getElementById('documentImageModal');
+            if (imageModal && imageModal.style.display === 'flex') {
+                closeDocumentImagePreview();
+                return;
+            }
+            closeReviewModal();
         });
     </script>
 </body>

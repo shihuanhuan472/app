@@ -1634,12 +1634,19 @@ const messageAPI = {
 
                         for (const line of lines) {
                             const trimmedLine = line.trim();
-                            if (!trimmedLine) continue;
+                            if (!trimmedLine || trimmedLine.startsWith(':')) continue;
 
-                            let jsonStr = trimmedLine;
+                            let jsonStr = '';
                             if (trimmedLine.startsWith('data:')) {
                                 jsonStr = trimmedLine.slice(5).trim();
+                            } else if (trimmedLine.startsWith('event:') || trimmedLine.startsWith('id:') || trimmedLine.startsWith('retry:')) {
+                                continue;
+                            } else if (trimmedLine.startsWith('{') || trimmedLine.startsWith('[')) {
+                                jsonStr = trimmedLine;
+                            } else {
+                                continue;
                             }
+                            if (!jsonStr) continue;
 
                             try {
                                 const parsed = JSON.parse(jsonStr);

@@ -11,12 +11,13 @@ from pathlib import Path
 import logging
 from types import SimpleNamespace
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, status, UploadFile, Body, File
+from fastapi import APIRouter, Depends, status, UploadFile, Body, File, BackgroundTasks
 from sqlalchemy import or_
 
 # from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
+from utils.title_utils import normalize_document_title
 from dependencies import get_current_active_user
 from models import (
     Document,
@@ -25,6 +26,8 @@ from models import (
     Document_review,
     KnowledgeDocumentReview,
     KnowledgeDocumentSection,
+    ParseTask,
+    ParseTaskItem,
     SourceDocument,
     User,
 )
@@ -36,11 +39,14 @@ from schemas import (
     Page,
     DocumentQuery,
     KnowledgeSectionResponse,
+    ParseTaskCreate,
+    ParseTaskItemResponse,
+    ParseTaskResponse,
     UploadDocumentResponse,
     AnalyzeRequest,
     BatchDeleteRequest,
 )
-from database import get_db
+from database import AsyncSessionLocal, get_db
 import aiofiles
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
@@ -79,7 +85,7 @@ from utils.tag_service import (
     tag_keyword_filter_for_model,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, select, func, delete
+from sqlalchemy import or_, select, func, delete, desc
 
 router = APIRouter(prefix="/document", tags=["文档"])
 load_dotenv()
@@ -104,7 +110,7 @@ def _title_from_source_filename(file_name: str) -> str:
     """导入标题优先使用源文件名，去掉目录和扩展名。"""
     filename = Path(str(file_name or "").replace("\\", "/")).name
     title = os.path.splitext(filename)[0].strip()
-    return title or filename.strip() or "未命名文档"
+    return normalize_document_title(title or filename.strip())
 
 
 def _get_document_model(library_type: str):
@@ -338,7 +344,7 @@ def _knowledge_document_from_parsed(
 ):
     return DocumentKnowledge(
         library_type="knowledge",
-        title=parsed.title or file_name,
+        title=normalize_document_title(parsed.title or file_name, fallback=file_name),
         contributor_id=contributor_id,
         first_edit_date=datetime.now(),
         image_urls=_join_image_urls(parsed.image_urls),
@@ -377,6 +383,11 @@ SOURCE_STATUS_REVIEW_PENDING = "review_pending"
 SOURCE_STATUS_VECTORIZED = "vectorized"
 SOURCE_PARSE_ALLOWED_STATUSES = {SOURCE_STATUS_UPLOADED, SOURCE_STATUS_PARSE_FAILED}
 SOURCE_PARSE_TIMEOUT_MINUTES = int(os.getenv("SOURCE_PARSE_TIMEOUT_MINUTES", "30"))
+PARSE_TASK_ACTIVE_STATUSES = {"pending", "running"}
+PARSE_TASK_ITEM_ACTIVE_STATUSES = {"pending", "parsing"}
+PARSE_TASK_STALE_TIMEOUT_MINUTES = int(
+    os.getenv("PARSE_TASK_STALE_TIMEOUT_MINUTES", str(SOURCE_PARSE_TIMEOUT_MINUTES))
+)
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -413,6 +424,8 @@ def _normalize_document_for_db(document: Document) -> None:
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
             setattr(document, field, str(value))
+        if field == "title":
+            setattr(document, field, normalize_document_title(getattr(document, field, None)))
 
     for field in image_fields:
         value = getattr(document, field, None)
@@ -468,7 +481,7 @@ def _build_create_review_from_document(
     review_data = dict(
         document_id=None,
         document_library_type=document_library_type,
-        title=document.title,
+        title=normalize_document_title(document.title),
         contributor_id=contributor_id,
         reviewer_id=None,
         first_edit_date=document.first_edit_date or datetime.now(),
@@ -649,10 +662,392 @@ async def _mark_source_parse_failed(
         await db.commit()
 
 
+def _task_bool(value) -> bool:
+    return bool(int(value or 0))
+
+
+def _parse_task_elapsed_seconds(started_at: datetime | None, finished_at: datetime | None) -> int | None:
+    if not started_at or not finished_at:
+        return None
+    return max(0, int((finished_at - started_at).total_seconds()))
+
+
+def _parse_error_from_exception(error: Exception) -> tuple[int | None, str]:
+    if isinstance(error, AppException):
+        detail = error.detail
+        if isinstance(detail, dict) and isinstance(detail.get("files"), list) and detail["files"]:
+            first_file = detail["files"][0]
+            if isinstance(first_file, dict):
+                reason = first_file.get("detail") or first_file.get("message") or error.message
+                code = first_file.get("code") or error.biz_code
+                return (int(code) if code is not None else None, str(reason))
+        return (int(error.biz_code), error.message)
+    return (None, str(error) or "解析失败")
+
+
+def _parse_result_item(
+    file_name: str,
+    file_path: str,
+    item_status: str,
+    reason: str | None = None,
+    error_code: int | None = None,
+    document_id: int | None = None,
+    document_library_type: str | None = None,
+    elapsed_seconds: int | None = None,
+) -> dict:
+    return {
+        "file_name": file_name,
+        "file_path": file_path,
+        "status": item_status,
+        "reason": reason,
+        "error_code": error_code,
+        "document_id": document_id,
+        "document_library_type": document_library_type,
+        "elapsed_seconds": elapsed_seconds,
+    }
+
+
+async def _serialize_parse_task(db: AsyncSession, task: ParseTask) -> ParseTaskResponse:
+    items_result = await db.execute(
+        select(ParseTaskItem)
+        .where(ParseTaskItem.task_id == task.id)
+        .order_by(ParseTaskItem.id)
+    )
+    items = items_result.scalars().all()
+    return ParseTaskResponse(
+        id=task.id,
+        user_id=task.user_id,
+        status=task.status,
+        total_count=task.total_count,
+        success_count=task.success_count,
+        failed_count=task.failed_count,
+        current_file_name=task.current_file_name,
+        submit_for_review=_task_bool(task.submit_for_review),
+        library_type=task.library_type,
+        tag=task.tag or [],
+        error_message=task.error_message,
+        created_time=task.created_time,
+        started_time=task.started_time,
+        finished_time=task.finished_time,
+        items=[ParseTaskItemResponse.model_validate(item) for item in items],
+    )
+
+
+async def _refresh_parse_task_counts(db: AsyncSession, task: ParseTask) -> None:
+    result = await db.execute(
+        select(ParseTaskItem.status, func.count(ParseTaskItem.id))
+        .where(ParseTaskItem.task_id == task.id)
+        .group_by(ParseTaskItem.status)
+    )
+    counts = {status_value: int(count) for status_value, count in result.all()}
+    task.success_count = counts.get("success", 0)
+    task.failed_count = counts.get("failed", 0)
+
+
+def _parse_task_last_activity_time(task: ParseTask, items: List[ParseTaskItem]) -> datetime | None:
+    active_item_times = [
+        item.started_time
+        for item in items
+        if item.status in PARSE_TASK_ITEM_ACTIVE_STATUSES and item.started_time
+    ]
+    if active_item_times:
+        return max(active_item_times)
+    return task.started_time or task.created_time
+
+
+def _parse_task_is_stale(task: ParseTask, items: List[ParseTaskItem]) -> bool:
+    if task.status not in PARSE_TASK_ACTIVE_STATUSES:
+        return False
+    last_activity = _parse_task_last_activity_time(task, items)
+    if not last_activity:
+        return False
+    return datetime.now() - last_activity > timedelta(minutes=PARSE_TASK_STALE_TIMEOUT_MINUTES)
+
+
+async def _fail_stale_parse_task_if_needed(db: AsyncSession, task: ParseTask) -> bool:
+    items_result = await db.execute(
+        select(ParseTaskItem)
+        .where(ParseTaskItem.task_id == task.id)
+        .order_by(ParseTaskItem.id)
+    )
+    items = list(items_result.scalars().all())
+    if not _parse_task_is_stale(task, items):
+        return False
+
+    now = datetime.now()
+    reason = (
+        f"解析任务超过 {PARSE_TASK_STALE_TIMEOUT_MINUTES} 分钟未完成，"
+        "已自动标记为失败；如果后台服务曾重启，请重新发起解析。"
+    )
+
+    for item in items:
+        if item.status not in PARSE_TASK_ITEM_ACTIVE_STATUSES:
+            continue
+
+        item.status = "failed"
+        item.error_reason = reason
+        item.error_code = int(BizCode.DOC_PARSE_FAILED)
+        if not item.started_time:
+            item.started_time = task.started_time or task.created_time or now
+        item.finished_time = now
+        item.elapsed_seconds = _parse_task_elapsed_seconds(item.started_time, item.finished_time)
+
+        source = await _get_source_document_by_path(db, item.file_path)
+        if source and source.status == SOURCE_STATUS_PARSING:
+            source.status = SOURCE_STATUS_PARSE_FAILED
+            source.parse_error = reason
+            source.review_id = None
+            source.review_library_type = "breakdown"
+            source.document_id = None
+            source.document_library_type = _normalize_library_type(task.library_type)
+            source.parse_started_time = None
+
+    await _refresh_parse_task_counts(db, task)
+    task.status = "finished"
+    task.current_file_name = None
+    task.error_message = "解析任务超时，已自动停止"
+    task.finished_time = now
+    if not task.started_time:
+        task.started_time = task.created_time or now
+    await db.commit()
+    return True
+
+
+async def _run_parse_task(task_id: int, user_id: int) -> None:
+    async with AsyncSessionLocal() as db:
+        task = await db.get(ParseTask, task_id)
+        user = await db.get(User, user_id)
+        if not task:
+            return
+        if not user:
+            task.status = "failed"
+            task.error_message = "解析任务用户不存在"
+            task.finished_time = datetime.now()
+            await db.commit()
+            return
+
+        task.status = "running"
+        task.started_time = datetime.now()
+        task.error_message = None
+        await db.commit()
+
+        item_result = await db.execute(
+            select(ParseTaskItem)
+            .where(ParseTaskItem.task_id == task_id)
+            .order_by(ParseTaskItem.id)
+        )
+        items = item_result.scalars().all()
+
+        for item in items:
+            item_id = item.id
+            item.status = "parsing"
+            item.error_reason = None
+            item.error_code = None
+            item.started_time = datetime.now()
+            item.finished_time = None
+            item.elapsed_seconds = None
+            task.current_file_name = item.file_name
+            await db.commit()
+
+            try:
+                analyze_request = AnalyzeRequest(
+                    file_list=[item.file_path],
+                    file_name=[item.file_name],
+                    submit_for_review=_task_bool(task.submit_for_review),
+                    library_type=task.library_type,
+                    tag=task.tag or [],
+                )
+                response = await analyze_files(analyze_request, db, user)
+                response_data = response.data
+                success_names = getattr(response_data, "success_origin_filename", []) or []
+                parse_results = getattr(response_data, "parse_results", []) or []
+                matched_result = next(
+                    (
+                        result
+                        for result in parse_results
+                        if getattr(result, "file_name", None) == item.file_name
+                    ),
+                    None,
+                )
+
+                item.finished_time = datetime.now()
+                item.elapsed_seconds = _parse_task_elapsed_seconds(item.started_time, item.finished_time)
+                source = await _get_source_document_by_path(db, item.file_path)
+                if source:
+                    item.source_document_id = source.id
+                    item.document_id = source.document_id
+                    item.document_library_type = source.document_library_type
+
+                if item.file_name in success_names:
+                    item.status = "success"
+                    item.error_reason = None
+                    item.error_code = None
+                else:
+                    item.status = "failed"
+                    item.error_reason = (
+                        getattr(matched_result, "reason", None)
+                        if matched_result
+                        else "解析失败"
+                    )
+                    item.error_code = (
+                        getattr(matched_result, "error_code", None)
+                        if matched_result
+                        else int(BizCode.DOC_PARSE_FAILED)
+                    )
+
+            except Exception as error:
+                await db.rollback()
+                task = await db.get(ParseTask, task_id)
+                item = await db.get(ParseTaskItem, item_id)
+                if not task or not item:
+                    return
+                error_code, reason = _parse_error_from_exception(error)
+                item.status = "failed"
+                item.error_reason = reason
+                item.error_code = error_code
+                item.finished_time = datetime.now()
+                item.elapsed_seconds = _parse_task_elapsed_seconds(item.started_time, item.finished_time)
+                await _mark_source_parse_failed(db, item.file_path, reason, task.library_type)
+
+            await _refresh_parse_task_counts(db, task)
+            await db.commit()
+
+        await _refresh_parse_task_counts(db, task)
+        task.status = "finished"
+        task.current_file_name = None
+        task.finished_time = datetime.now()
+        if task.failed_count and not task.success_count:
+            task.error_message = "全部文件解析失败"
+        elif task.failed_count:
+            task.error_message = "部分文件解析失败"
+        else:
+            task.error_message = None
+        await db.commit()
+
+
 async def _copy_source_to_knowledge_storage(
     document_base_dir: str, source_relative_path: str, origin_file_name: str
 ) -> str:
     return source_relative_path
+
+
+@router.post("/parse_tasks", summary="创建后台解析任务")
+async def create_parse_task(
+    file_list: ParseTaskCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not file_list.file_list or not file_list.file_name:
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="请求核心参数无效",
+        )
+    if len(file_list.file_list) != len(file_list.file_name):
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="请求核心参数无效",
+        )
+
+    submit_for_review = bool(file_list.submit_for_review)
+    if _is_knowledge_library(file_list.library_type) and submit_for_review:
+        raise AppException(
+            http_status=status.HTTP_400_BAD_REQUEST,
+            biz_code=BizCode.DOC_REQUEST_INVALID,
+            message="知识库导入暂不支持审核流程，请由管理员直接导入",
+        )
+    if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
+        raise AppException(
+            http_status=status.HTTP_403_FORBIDDEN,
+            biz_code=BizCode.FORBIDDEN,
+            message="仅技术人员可提交审核",
+        )
+    if not submit_for_review:
+        _require_admin_document_write(
+            current_user, "技术人员需提交解析审核，审核通过后才会写入文档库"
+        )
+
+    task = ParseTask(
+        user_id=current_user.id,
+        status="pending",
+        total_count=len(file_list.file_list),
+        success_count=0,
+        failed_count=0,
+        submit_for_review=1 if submit_for_review else 0,
+        library_type=_normalize_library_type(file_list.library_type),
+        tag=file_list.tag or [],
+        created_time=datetime.now(),
+    )
+    db.add(task)
+    await db.flush()
+    await db.refresh(task)
+
+    for stored_file_path, file_name in zip(file_list.file_list, file_list.file_name):
+        source = await _get_source_document_by_path(db, stored_file_path)
+        db.add(
+            ParseTaskItem(
+                task_id=task.id,
+                source_document_id=source.id if source else None,
+                file_name=file_name,
+                file_path=stored_file_path,
+                status="pending",
+                document_library_type=_normalize_library_type(file_list.library_type),
+            )
+        )
+
+    await db.commit()
+    await db.refresh(task)
+    background_tasks.add_task(_run_parse_task, task.id, current_user.id)
+    return Result.success_with_data(await _serialize_parse_task(db, task))
+
+
+@router.get("/parse_tasks/active", summary="获取当前用户正在解析的任务")
+async def get_active_parse_task(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    for _ in range(3):
+        result = await db.execute(
+            select(ParseTask)
+            .where(
+                ParseTask.user_id == current_user.id,
+                ParseTask.status.in_(["pending", "running"]),
+            )
+            .order_by(desc(ParseTask.id))
+            .limit(1)
+        )
+        task = result.scalar_one_or_none()
+        if not task:
+            return Result.success_with_data(None)
+        if await _fail_stale_parse_task_if_needed(db, task):
+            continue
+        return Result.success_with_data(await _serialize_parse_task(db, task))
+    return Result.success_with_data(None)
+
+
+@router.get("/parse_tasks/{task_id}", summary="获取解析任务进度")
+async def get_parse_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    task = await db.get(ParseTask, task_id)
+    if not task:
+        raise AppException(
+            http_status=status.HTTP_404_NOT_FOUND,
+            biz_code=BizCode.DOC_RESOURCE_NOT_FOUND,
+            message="解析任务不存在",
+        )
+    if task.user_id != current_user.id and not has_role(current_user, UserRole.ADMIN):
+        raise AppException(
+            http_status=status.HTTP_403_FORBIDDEN,
+            biz_code=BizCode.FORBIDDEN,
+            message="无权查看该解析任务",
+        )
+    await _fail_stale_parse_task_if_needed(db, task)
+    return Result.success_with_data(await _serialize_parse_task(db, task))
 
 
 async def document_convert_documentResponse(
@@ -844,6 +1239,8 @@ async def create_document(
         exclude_fields = {"library_type", "tag", "sections"}
         exclude_fields.update({"summary", "content"})
         document_payload = document.dict(exclude=exclude_fields)
+        if "title" in document_payload:
+            document_payload["title"] = normalize_document_title(document_payload.get("title"))
         document_payload.update(
             tag=_normalize_tags(document.tag),
             contributor_id=contributor_id,
@@ -1122,6 +1519,8 @@ async def update_document(
                 exclude={"library_type", "sections", "summary", "content"},
             ),
         )
+        if "title" in document_data:
+            document_data["title"] = normalize_document_title(document_data.get("title"))
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
@@ -1974,6 +2373,7 @@ async def analyze_files(file_list: AnalyzeRequest,
     success_file_url = []
     success_origin_filename = []
     error_origin_filename = []
+    parse_results = []
     has_invalid_request_error = False
     has_not_found_error = False
     has_server_error = False
@@ -2014,6 +2414,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "detail": claim_error,
                     }
                 )
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "failed",
+                        reason=claim_error,
+                        error_code=int(BizCode.DOC_REQUEST_INVALID),
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
+                )
                 logger.warning(
                     "document analyze skipped, file=%s, reason=%s",
                     file_name,
@@ -2026,6 +2436,16 @@ async def analyze_files(file_list: AnalyzeRequest,
             if file_ext not in ALLOWED_EXTENSIONS:
                 error_origin_filename.append(file_name)
                 has_invalid_request_error = True
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "failed",
+                        reason="文件格式不支持",
+                        error_code=int(BizCode.DOC_REQUEST_INVALID),
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
+                )
                 await _mark_source_parse_failed(
                     db, file, "文件格式不支持", file_list.library_type
                 )
@@ -2034,6 +2454,16 @@ async def analyze_files(file_list: AnalyzeRequest,
             if not os.path.exists(url):
                 error_origin_filename.append(file_name)
                 has_not_found_error = True
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "failed",
+                        reason="源文件不存在",
+                        error_code=int(BizCode.DOC_RESOURCE_NOT_FOUND),
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
+                )
                 await _mark_source_parse_failed(
                     db, file, "源文件不存在", file_list.library_type
                 )
@@ -2058,6 +2488,20 @@ async def analyze_files(file_list: AnalyzeRequest,
                             "detail": parser_detail or "知识库解析器未返回文档对象",
                         }
                     )
+                    parse_results.append(
+                        _parse_result_item(
+                            file_name,
+                            file,
+                            "failed",
+                            reason=parser_detail or "知识库解析器未返回文档对象",
+                            error_code=(
+                                int(parser_code)
+                                if parser_code is not None
+                                else int(BizCode.DOC_PARSE_FAILED)
+                            ),
+                            elapsed_seconds=int(time.perf_counter() - file_started),
+                        )
+                    )
                     await _mark_source_parse_failed(
                         db,
                         file,
@@ -2076,6 +2520,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                             "code": int(BizCode.DOC_PARSE_FAILED),
                             "detail": "知识库解析结果为空，未能提取有效标题或正文。",
                         }
+                    )
+                    parse_results.append(
+                        _parse_result_item(
+                            file_name,
+                            file,
+                            "failed",
+                            reason="知识库解析结果为空，未能提取有效标题或正文。",
+                            error_code=int(BizCode.DOC_PARSE_FAILED),
+                            elapsed_seconds=int(time.perf_counter() - file_started),
+                        )
                     )
                     await _mark_source_parse_failed(
                         db, file, "知识库解析结果为空。", file_list.library_type
@@ -2152,6 +2606,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.commit()
                 success_file_url.append(file)
                 success_origin_filename.append(file_name)
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "success",
+                        document_id=document.id,
+                        document_library_type="knowledge",
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
+                )
                 continue
 
             # print(url)
@@ -2218,6 +2682,20 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "detail": parser_detail or "解析器未返回文档对象",
                     }
                 )
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "failed",
+                        reason=parser_detail or "解析器未返回文档对象",
+                        error_code=(
+                            int(parser_code)
+                            if parser_code is not None
+                            else int(BizCode.DOC_PARSE_FAILED)
+                        ),
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
+                )
                 logger.warning(
                     "document parse returned None, file=%s, code=%s, detail=%s",
                     file_name,
@@ -2246,6 +2724,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                         "code": int(BizCode.DOC_PARSE_FAILED),
                         "detail": "AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。请补充故障现象、原因、排查和处理信息后重试。",
                     }
+                )
+                parse_results.append(
+                    _parse_result_item(
+                        file_name,
+                        file,
+                        "failed",
+                        reason="AI解析结果为空，可能该文档不是故障知识，或信息不足以形成故障分析结论。",
+                        error_code=int(BizCode.DOC_PARSE_FAILED),
+                        elapsed_seconds=int(time.perf_counter() - file_started),
+                    )
                 )
                 await _mark_source_parse_failed(
                     db,
@@ -2318,6 +2806,16 @@ async def analyze_files(file_list: AnalyzeRequest,
 
             success_file_url.append(file)
             success_origin_filename.append(file_name)
+            parse_results.append(
+                _parse_result_item(
+                    file_name,
+                    file,
+                    "success",
+                    document_id=getattr(document, "id", None),
+                    document_library_type=getattr(document, "library_type", created_library_type),
+                    elapsed_seconds=int(time.perf_counter() - file_started),
+                )
+            )
             logger.info(
                 "document analyze file done, file=%s, status=success, elapsed=%.2fs",
                 file_name,
@@ -2339,6 +2837,16 @@ async def analyze_files(file_list: AnalyzeRequest,
                     )
             await _mark_source_parse_failed(db, file, str(e), file_list.library_type)
             error_origin_filename.append(file_name)
+            parse_results.append(
+                _parse_result_item(
+                    file_name,
+                    file,
+                    "failed",
+                    reason=str(e) or "解析失败",
+                    error_code=int(BizCode.INTERNAL_ERROR),
+                    elapsed_seconds=int(time.perf_counter() - file_started),
+                )
+            )
             has_server_error = True
             logger.exception(
                 "document analyze file failed, file=%s, elapsed=%.2fs",
@@ -2354,42 +2862,16 @@ async def analyze_files(file_list: AnalyzeRequest,
     )
 
     if len(success_file_url) == 0 and len(error_origin_filename) > 0:
-        if has_server_error:
-            raise AppException(
-                http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                biz_code=BizCode.INTERNAL_ERROR,
-                message="服务器内部错误",
-            )
-        if has_not_found_error and not has_invalid_request_error:
-            raise AppException(
-                http_status=status.HTTP_404_NOT_FOUND,
-                biz_code=BizCode.DOC_RESOURCE_NOT_FOUND,
-                message="资源未找到",
-            )
-        if has_ai_service_unavailable_error:
-            raise AppException(
-                http_status=status.HTTP_502_BAD_GATEWAY,
-                biz_code=BizCode.AI_SERVICE_UNAVAILABLE,
-                message="AI服务不可用，请稍后重试",
-            )
-        if has_token_limit_error:
-            raise AppException(
-                http_status=status.HTTP_400_BAD_REQUEST,
-                biz_code=BizCode.DOC_TOKEN_LIMIT_EXCEEDED,
-                message="文件内容超出可解析长度，请缩短内容后重试",
-                detail={"files": parse_error_details},
-            )
-        raise AppException(
-            http_status=status.HTTP_400_BAD_REQUEST,
-            biz_code=BizCode.DOC_PARSE_FAILED,
-            message="文件解析失败",
-            detail={"files": parse_error_details},
+        logger.warning(
+            "document analyze request finished with all files failed, details=%s",
+            parse_error_details,
         )
 
     analyze_result = UploadDocumentResponse(
         success_file_url=success_file_url,
         success_origin_filename=success_origin_filename,
         error_origin_filename=error_origin_filename,
+        parse_results=parse_results,
     )
     print(success_file_url)
     print(error_origin_filename)

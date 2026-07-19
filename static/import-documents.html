@@ -141,6 +141,62 @@
         .error-item {
             border-left: 3px solid #ef4444;
         }
+        .parse-result-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border: 1px solid #e5edf6;
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+        .parse-result-table th,
+        .parse-result-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: left;
+            vertical-align: top;
+        }
+        .parse-result-table th {
+            color: #475569;
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .parse-result-table tr:last-child td {
+            border-bottom: 0;
+        }
+        .parse-status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .parse-status-success {
+            color: #047857;
+            background: #ecfdf5;
+        }
+        .parse-status-failed {
+            color: #b91c1c;
+            background: #fef2f2;
+        }
+        .parse-status-parsing,
+        .parse-status-running {
+            color: #2563eb;
+            background: #eff6ff;
+        }
+        .parse-status-pending {
+            color: #64748b;
+            background: #f8fafc;
+        }
+        .parse-reason {
+            max-width: 420px;
+            color: #64748b;
+            line-height: 1.45;
+            word-break: break-word;
+        }
         .file-url {
             margin-left: 15px;
             font-size: 13px;
@@ -297,8 +353,17 @@
                 </div>
                 <div id="analyzeResult" class="result-section" style="display: none;">
                     <div class="result-title">解析结果</div>
-                    <div class="success-list" id="analyzeSuccessList"></div>
-                    <div class="error-list" id="analyzeErrorList"></div>
+                    <table class="parse-result-table" id="parseResultTable" style="display: none;">
+                        <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>状态</th>
+                            <th>失败原因</th>
+                            <th>耗时</th>
+                        </tr>
+                        </thead>
+                        <tbody id="parseResultBody"></tbody>
+                    </table>
                     <div class="action-bar" style="justify-content: flex-end;">
                         <a href="main.html" class="btn btn-primary" id="finishBtn">完成，返回知识库</a>
                     </div>
@@ -360,6 +425,117 @@
         return TagSelector.getSelected('documentTags');
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getParseStatusText(status) {
+        const map = {
+            pending: '等待中',
+            parsing: '解析中',
+            running: '解析中',
+            success: '成功',
+            failed: '失败',
+            finished: '已完成'
+        };
+        return map[status] || status || '未知';
+    }
+
+    function formatElapsedSeconds(seconds) {
+        if (seconds === null || seconds === undefined || seconds === '') return '-';
+        const value = Number(seconds);
+        if (!Number.isFinite(value)) return '-';
+        return `${value}s`;
+    }
+
+    function showAnalyzeStep() {
+        const step1Content = document.getElementById('step1-content');
+        const step2Content = document.getElementById('step2-content');
+        const step1Indicator = document.getElementById('step1');
+        const step2Indicator = document.getElementById('step2');
+
+        if (step1Content) step1Content.style.display = 'none';
+        if (step2Content) step2Content.style.display = 'block';
+        if (step1Indicator) {
+            step1Indicator.classList.remove('active');
+            step1Indicator.classList.add('completed');
+        }
+        if (step2Indicator) step2Indicator.classList.add('active');
+    }
+
+    function setFinishButtonEnabled(enabled) {
+        const finishBtn = document.getElementById('finishBtn');
+        if (!finishBtn) return;
+
+        finishBtn.classList.toggle('disabled', !enabled);
+        finishBtn.setAttribute('aria-disabled', String(!enabled));
+        finishBtn.style.pointerEvents = enabled ? '' : 'none';
+        finishBtn.style.opacity = enabled ? '' : '0.6';
+        finishBtn.title = enabled ? '' : '解析完成后才能返回';
+    }
+
+    function buildParseResultItems(result, fallbackFileNames = []) {
+        const parseResults = result && Array.isArray(result.parse_results) ? result.parse_results : [];
+        if (parseResults.length > 0) return parseResults;
+
+        const successNames = new Set((result && result.success_origin_filename) || []);
+        const errorNames = new Set((result && result.error_origin_filename) || []);
+        return fallbackFileNames.map(name => ({
+            file_name: name,
+            status: successNames.has(name) ? 'success' : 'failed',
+            reason: errorNames.has(name) ? '解析失败' : '-',
+            elapsed_seconds: null
+        }));
+    }
+
+    function renderAnalyzeResult(result, fallbackFileNames = []) {
+        const resultSection = document.getElementById('analyzeResult');
+        const resultTable = document.getElementById('parseResultTable');
+        const resultBody = document.getElementById('parseResultBody');
+        const items = buildParseResultItems(result, fallbackFileNames);
+
+        resultSection.style.display = 'block';
+        resultTable.style.display = items.length ? 'table' : 'none';
+        resultBody.innerHTML = items.map(item => {
+            const status = item.status || 'failed';
+            const reason = item.error_reason || item.reason || '-';
+            return `
+                <tr>
+                    <td>${escapeHtml(item.file_name || '')}</td>
+                    <td><span class="parse-status-badge parse-status-${escapeHtml(status)}">${escapeHtml(getParseStatusText(status))}</span></td>
+                    <td class="parse-reason">${escapeHtml(reason)}</td>
+                    <td>${escapeHtml(formatElapsedSeconds(item.elapsed_seconds))}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = uploadedFiles.length === 0;
+            analyzeBtn.innerHTML = '开始解析';
+        }
+        if (selectAllCheckbox) {
+            selectAllCheckbox.disabled = uploadedFiles.length === 0;
+        }
+        setFinishButtonEnabled(true);
+
+        const responseSuccessNames = result && Array.isArray(result.success_origin_filename)
+            ? result.success_origin_filename
+            : [];
+        const itemSuccessNames = items.filter(item => item.status === 'success').map(item => item.file_name);
+        const successNames = new Set(responseSuccessNames.length ? responseSuccessNames : itemSuccessNames);
+        if (successNames.size > 0 && uploadedFiles.length > 0) {
+            uploadedFiles = uploadedFiles.filter(file => !successNames.has(file.name));
+            renderUploadedFilesList();
+        }
+    }
+
     // 初始化
     document.addEventListener('DOMContentLoaded', function() {
         Utils.checkLogin();
@@ -390,6 +566,7 @@
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const finishBtn = document.getElementById('finishBtn');
+        setFinishButtonEnabled(false);
         if (isReviewMode && finishBtn) {
             finishBtn.href = 'my-submissions.html';
             finishBtn.textContent = '完成，返回我的提交';
@@ -687,6 +864,8 @@
             const container = document.getElementById('uploadedFilesList');
             if (!uploadedFiles.length) {
                 container.innerHTML = '<div class="file-item">没有已上传的文件</div>';
+                analyzeBtn.disabled = true;
+                document.getElementById('selectAllCheckbox').disabled = true;
                 return;
             }
             let html = '';
@@ -742,53 +921,26 @@
 
             analyzeBtn.disabled = true;
             analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
+            selectAllCheckbox.disabled = true;
+            setFinishButtonEnabled(false);
 
             try {
-                const result = await documentAPI.analyzeFiles(fileList, fileNames, isReviewMode, document.getElementById('libraryType').value, parseDocumentTags());
-                const successNames = result.success_origin_filename || [];
-                const errorNames = result.error_origin_filename || [];
-
-                // 显示解析结果
-                document.getElementById('analyzeResult').style.display = 'block';
-                const successDiv = document.getElementById('analyzeSuccessList');
-                const errorDiv = document.getElementById('analyzeErrorList');
-
-                successDiv.innerHTML = successNames.length
-                    ? '<div style="font-weight:500;">解析成功：</div>' + successNames.map(n => `<div class="success-item">${n}</div>`).join('')
-                    : '';
-                errorDiv.innerHTML = errorNames.length
-                    ? '<div style="font-weight:500; color:#ef4444;">解析失败：</div>' + errorNames.map(n => `<div class="error-item">${n}</div>`).join('')
-                    : '';
-
-                // 从 uploadedFiles 中移除已解析成功的文件
-                uploadedFiles = uploadedFiles.filter(f => !successNames.includes(f.name));
-
-                // 重新渲染已上传文件列表
-                renderUploadedFilesList();
-
-                // 如果列表为空，则隐藏开始解析按钮和全选选项，或显示提示
-                if (uploadedFiles.length === 0) {
-                    // 禁用解析按钮，隐藏全选
-                    analyzeBtn.disabled = true;
-                    document.getElementById('selectAllCheckbox').disabled = true;
-                    // 在列表区域显示提示
-                    document.getElementById('uploadedFilesList').innerHTML = '<div class="file-item">没有待解析的文件。</div>';
-                } else {
-                    // 重置全选为勾选状态，方便继续解析剩余文件
-                    document.getElementById('selectAllCheckbox').checked = true;
-                    document.getElementById('selectAllCheckbox').disabled = false;
-                }
-
-                Utils.showMessage(`解析完成，成功 ${successNames.length} 个，失败 ${errorNames.length} 个`, 'info');
+                const result = await documentAPI.analyzeFiles(
+                    fileList,
+                    fileNames,
+                    isReviewMode,
+                    document.getElementById('libraryType').value,
+                    parseDocumentTags()
+                );
+                renderAnalyzeResult(result, fileNames);
+                const successCount = (result.success_origin_filename || []).length;
+                const failedCount = (result.error_origin_filename || []).length;
+                Utils.showMessage(`解析完成，成功 ${successCount} 个，失败 ${failedCount} 个`, failedCount ? 'warning' : 'success');
             } catch (error) {
                 Utils.showMessage('解析失败：' + error.message, 'error');
-            } finally {
                 analyzeBtn.innerHTML = '开始解析';
-                analyzeBtn.disabled = false; // 如果列表为空，后续在判断中会重新禁用，这里先启用
-                // 若列表为空，则再次禁用（避免按钮可点击但无文件）
-                if (uploadedFiles.length === 0) {
-                    analyzeBtn.disabled = true;
-                }
+                analyzeBtn.disabled = uploadedFiles.length === 0;
+                selectAllCheckbox.disabled = uploadedFiles.length === 0;
             }
         });
 
@@ -809,11 +961,7 @@
         }
 
         function switchToAnalyzeStep() {
-            step1Content.style.display = 'none';
-            step2Content.style.display = 'block';
-            step1Indicator.classList.remove('active');
-            step1Indicator.classList.add('completed');
-            step2Indicator.classList.add('active');
+            showAnalyzeStep();
             renderUploadedFilesList();
         }
 

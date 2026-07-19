@@ -3,18 +3,78 @@ import json
 import mimetypes
 import re
 import uuid
+import os
+import sys
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from datetime import datetime
+from html import unescape
+from html.parser import HTMLParser as StdHTMLParser
+from urllib.parse import unquote
+"""
+PDF 解析器：普通 PDF 使用 PyMuPDF，扫描 PDF 自动使用 MinerU 提取文本。
+需要运行：python -m pip install uv
+python -m uv pip install -U "mineru[all]"来安装相关库，还有一个库的版本要求：python -m pip install setuptools==80.9.0
+"""
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from PIL import Image
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.title_utils import normalize_document_title
 import pymupdf
-import os
 from openai import OpenAI
 
 from utils.error_codes import BizCode
-"""PDF 解析器：使用 PyMuPDF 提取文本和图片。"""
+"""PDF 解析器：普通 PDF 使用 PyMuPDF，扫描 PDF 自动使用 MinerU 提取文本。"""
+
+
+class _TableTextParser(StdHTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.rows = []
+        self._current_row = None
+        self._current_cell = None
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag == "tr":
+            self._current_row = []
+        elif tag in {"td", "th"} and self._current_row is not None:
+            self._current_cell = []
+
+    def handle_data(self, data):
+        if self._current_cell is not None:
+            self._current_cell.append(data)
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag in {"td", "th"} and self._current_cell is not None and self._current_row is not None:
+            cell = " ".join("".join(self._current_cell).split())
+            self._current_row.append(cell)
+            self._current_cell = None
+        elif tag == "tr" and self._current_row is not None:
+            if any(cell for cell in self._current_row):
+                self.rows.append(self._current_row)
+            self._current_row = None
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 
 class PdfParser:
     def __init__(self):
@@ -22,11 +82,53 @@ class PdfParser:
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/source_documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.model_image_max_size = int(os.getenv("MODEL_IMAGE_MAX_SIZE", 1024))
+
+        # =========================
+        # MinerU 配置
+        # =========================
+        # 是否启用 MinerU 自动解析扫描 PDF。
+        self.mineru_enabled = _env_bool("MINERU_ENABLED", True)
+
+        # 可以在 .env 中手动指定：
+        # MINERU_EXE=C:/xxx/app-main/.venv/Scripts/mineru.exe
+        # 不指定时，会自动寻找当前虚拟环境中的 mineru.exe 或 PATH 中的 mineru。
+        self.mineru_exe = os.getenv("MINERU_EXE", "").strip()
+
+        # MinerU 3.x 默认 backend 是 hybrid-engine，通常需要 CUDA。
+        # 当前系统用于扫描 PDF 的 OCR，默认使用 pipeline + ocr，CPU 环境也能运行。
+        self.mineru_backend = os.getenv("MINERU_BACKEND", "pipeline").strip() or "pipeline"
+        self.mineru_method = os.getenv("MINERU_METHOD", "ocr").strip() or "ocr"
+        self.mineru_lang = os.getenv("MINERU_LANG", "ch").strip() or "ch"
+        self.mineru_formula_enable = _env_bool("MINERU_FORMULA_ENABLE", False)
+        self.mineru_table_enable = _env_bool("MINERU_TABLE_ENABLE", True)
+        self.mineru_temp_dir = os.getenv(
+            "MINERU_TEMP_DIR",
+            os.path.join(self.document_base_dir, "runtime", "mineru_tmp"),
+        ).strip()
+        self.mineru_keep_output = _env_bool("MINERU_KEEP_OUTPUT", False)
+        self.mineru_output_dir = os.getenv(
+            "MINERU_OUTPUT_DIR",
+            os.path.join(self.document_base_dir, "runtime", "mineru_output"),
+        ).strip()
+        self.mineru_llm_max_token = int(os.getenv("MINERU_LLM_MAX_TOKEN", 8000))
+
+        # 扫描件判断参数：
+        # 单页有效文字少于该值，认为这一页没有有效文本层。
+        self.scan_page_min_chars = int(os.getenv("PDF_SCAN_PAGE_MIN_CHARS", 30))
+
+        # 有效文本页比例低于该值，认为整个 PDF 主要是扫描件。
+        self.scan_text_page_ratio = float(os.getenv("PDF_SCAN_TEXT_PAGE_RATIO", 0.5))
+
+        # MinerU 最大执行时间，默认 30 分钟。
+        self.mineru_timeout = int(os.getenv("MINERU_TIMEOUT", 1800))
+        self.mineru_page_image_dpi = int(os.getenv("MINERU_PAGE_IMAGE_DPI", 144))
+        self.mineru_page_image_max_pages = int(os.getenv("MINERU_PAGE_IMAGE_MAX_PAGES", 30))
+
         self.last_error_code = None
         self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -45,6 +147,30 @@ class PdfParser:
         document = self.file2document(text, image_urls, image_names, section_image_indexes)
 
         return document
+
+    def parse_with_mineru(self, pdf_url: str, include_page_images: bool = False):
+        self.last_error_code = None
+        self.last_error_detail = None
+        if not self.mineru_enabled:
+            message = "MINERU_ENABLED=0, MinerU parsing is disabled."
+            self._set_last_error(BizCode.DOC_PARSE_FAILED, message)
+            raise RuntimeError(message)
+
+        try:
+            mineru_text, image_urls, image_names, section_image_indexes = self.parse_pdf_by_mineru_with_assets(
+                pdf_url,
+                include_page_images=include_page_images,
+            )
+            return self.file2document(
+                mineru_text,
+                image_urls,
+                image_names,
+                section_image_indexes,
+            )
+        except Exception as e:
+            if self.last_error_code is None:
+                self._set_last_error(BizCode.DOC_PARSE_FAILED, str(e))
+            raise
 
     def _set_last_error(self, code: int, message: str):
         self.last_error_code = int(code)
@@ -71,14 +197,812 @@ class PdfParser:
         return any(k in msg for k in keywords)
 
     def get_pdf_text(self, pdf_url: str):
+        """使用 PyMuPDF 提取 PDF 自带文本层。"""
         if not os.path.exists(pdf_url):
             raise FileNotFoundError(pdf_url)
+
         doc = pymupdf.open(pdf_url)
-        text = ""
-        for page in doc:
-            text += page.get_text().strip()
-        # print(text)
-        return text
+        try:
+            text_parts = []
+            for page in doc:
+                page_text = page.get_text("text", sort=True).strip()
+                if page_text:
+                    text_parts.append(page_text)
+            return "\n\n".join(text_parts)
+        finally:
+            doc.close()
+
+    def is_scanned_pdf(self, pdf_url: str) -> bool:
+        """
+        判断 PDF 是否主要为扫描件。
+
+        判断方式：
+        1. 逐页提取文本层；
+        2. 单页有效字符数 >= scan_page_min_chars，认为该页存在有效文本；
+        3. 有效文本页比例 < scan_text_page_ratio，则认为是扫描 PDF。
+
+        注意：
+        这只是工程上的启发式判断，可以通过 .env 调整阈值。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        doc = pymupdf.open(pdf_url)
+        try:
+            total_pages = len(doc)
+            if total_pages == 0:
+                return False
+
+            text_pages = 0
+            total_chars = 0
+
+            for page in doc:
+                page_text = page.get_text("text", sort=True).strip()
+                clean_text = re.sub(r"\s+", "", page_text)
+                char_count = len(clean_text)
+                total_chars += char_count
+
+                if char_count >= self.scan_page_min_chars:
+                    text_pages += 1
+
+            text_page_ratio = text_pages / total_pages
+
+            print(
+                f"[PDF类型检测] 总页数={total_pages}, "
+                f"有效文本页={text_pages}, "
+                f"有效文本页比例={text_page_ratio:.2%}, "
+                f"总文本字符数={total_chars}"
+            )
+
+            is_scanned = text_page_ratio < self.scan_text_page_ratio
+
+            if is_scanned:
+                print("[PDF类型检测] 判定为扫描型 PDF，将优先使用 MinerU。")
+            else:
+                print("[PDF类型检测] 判定为普通文本型 PDF，使用 PyMuPDF。")
+
+            return is_scanned
+        finally:
+            doc.close()
+
+    def _resolve_mineru_executable(self) -> str:
+        """
+        自动寻找 MinerU 可执行文件。
+
+        查找顺序：
+        1. .env 中的 MINERU_EXE；
+        2. 当前 Python 环境 Scripts 目录下的 mineru.exe；
+        3. 系统 PATH 中的 mineru。
+        """
+        if self.mineru_exe:
+            mineru_path = os.path.abspath(os.path.expanduser(self.mineru_exe))
+            if os.path.exists(mineru_path):
+                return mineru_path
+            raise FileNotFoundError(
+                f"MINERU_EXE 指定的文件不存在：{mineru_path}"
+            )
+
+        # 当前正在运行的 Python，例如：
+        # app-main/.venv/Scripts/python.exe
+        python_exe = Path(sys.executable)
+        candidates = []
+
+        if os.name == "nt":
+            candidates.extend([
+                python_exe.parent / "mineru.exe",
+                python_exe.parent / "mineru.cmd",
+                python_exe.parent / "mineru.bat",
+            ])
+        else:
+            candidates.append(python_exe.parent / "mineru")
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        path_command = shutil.which("mineru")
+        if path_command:
+            return path_command
+
+        raise FileNotFoundError(
+            "没有找到 MinerU 可执行文件。请确认已在当前虚拟环境安装 MinerU，"
+            "或者在 .env 中设置 MINERU_EXE。"
+        )
+
+    def _find_mineru_markdown(self, output_dir: str) -> str:
+        """在 MinerU 输出目录中寻找生成的 Markdown 文件。"""
+        markdown_files = list(Path(output_dir).rglob("*.md"))
+
+        if not markdown_files:
+            raise FileNotFoundError(
+                f"MinerU 已执行，但在输出目录中没有找到 .md 文件：{output_dir}"
+            )
+
+        # 优先选择内容较多的 Markdown，避免误取辅助说明文件。
+        markdown_file = max(
+            markdown_files,
+            key=lambda path: (path.stat().st_size, path.stat().st_mtime)
+        )
+
+        print(f"[MinerU] 使用解析结果：{markdown_file}")
+        return str(markdown_file)
+
+    def _clean_mineru_markdown(self, markdown_text: str) -> str:
+        """
+        对 MinerU Markdown 做轻量清洗。
+
+        保留标题、列表、表格和图片位置标记，仅合并过多空行。
+        """
+        if not markdown_text:
+            return ""
+
+        # 合并过多空行
+        markdown_text = re.sub(r"\n{4,}", "\n\n\n", markdown_text)
+
+        return markdown_text.strip()
+
+    def _is_mineru_chunked_text(self, text: str) -> bool:
+        return (text or "").lstrip().startswith("[MinerU切块保真输入]")
+
+    def _is_mineru_heading_line(self, line: str) -> bool:
+        stripped = (line or "").strip()
+        if not stripped:
+            return False
+        if re.match(r"^#{1,6}\s+\S+", stripped):
+            return True
+        normalized = stripped.lstrip("#").strip()
+        if self._section_from_mineru_heading(normalized) is None:
+            return False
+        compact = "".join(normalized.split())
+        has_section_marker = bool(
+            re.match(
+                r"^(?:第?\s*[一二三四五六七八九十百千万]+\s*[章节、.．)]?|[（(]?\s*[①②③④⑤⑥⑦⑧⑨⑩]\s*[)）]?|[（(]?\s*\d+(?:\.\d+)*\s*[)）.．、]?)\s*",
+                normalized,
+            )
+        )
+        return has_section_marker or len(compact) <= 30 or (
+            normalized.endswith(("：", ":")) and len(compact) <= 80
+        )
+
+    def _is_mineru_table_line(self, line: str) -> bool:
+        return bool(re.match(r"^\s*<table\b", line or "", flags=re.IGNORECASE))
+
+    def _normalize_mineru_heading_text(self, text: str) -> str:
+        raw_text = (text or "").strip()
+        first_line = raw_text.splitlines()[0].strip() if raw_text else ""
+        first_line = re.sub(r"^#{1,6}\s*", "", first_line).strip()
+        first_line = re.sub(r"<[^>]+>", "", first_line)
+        first_line = re.sub(
+            r"^(?:第?\s*[一二三四五六七八九十百千万]+\s*[章节、.．)]?|[（(]?\s*[①②③④⑤⑥⑦⑧⑨⑩]\s*[)）]?|[（(]?\s*\d+(?:\.\d+)*\s*[)）.．、]?)\s*",
+            "",
+            first_line,
+        ).strip()
+        first_line = re.sub(r"[：:]\s*$", "", first_line)
+        return "".join(first_line.split())
+
+    def _section_from_mineru_heading(self, title: str):
+        normalized = self._normalize_mineru_heading_text(title)
+        if not normalized:
+            return None
+
+        if any(keyword in normalized for keyword in ("基本信息", "不合格描述", "问题描述", "问题简介", "问题概述", "故障描述")):
+            return "problem_intro"
+        if any(keyword in normalized for keyword in ("不合格调查", "原因分析", "问题原因", "故障原因")) or normalized == "原因":
+            return "causes"
+        if any(keyword in normalized for keyword in ("不合格涉及范围", "影响范围", "故障评估", "问题评估", "评估")):
+            return "evaluation"
+        if any(keyword in normalized for keyword in ("检查步骤", "检测步骤", "排查步骤", "检查方法", "检测方法", "排查方法")):
+            return "inspection"
+        if any(keyword in normalized for keyword in ("改善措施", "纠正措施", "处置方案", "处理方案", "解决方案", "维修方案", "问题解决", "解决措施", "跟进处置", "改善结果")):
+            return "solutions"
+        if any(keyword in normalized for keyword in ("原因分类", "关键要点", "注意事项", "经验总结", "总结", "结论")):
+            return "key_points"
+        return None
+
+    def _extract_image_position_indexes(self, text: str):
+        indexes = []
+        for match in re.finditer(r"<image_position\s+indexes?=\"([\d,\s]+)\"\s*/>", text or ""):
+            for value in match.group(1).split(","):
+                value = value.strip()
+                if value.isdigit():
+                    index = int(value)
+                    if index not in indexes:
+                        indexes.append(index)
+        return indexes
+
+    def _mineru_chunk_type(self, chunk_text: str) -> str:
+        if self._is_mineru_table_line(chunk_text):
+            return "table"
+        image_indexes = self._extract_image_position_indexes(chunk_text)
+        text_without_images = re.sub(r"<image_position\s+indexes?=\"[\d,\s]+\"\s*/>", "", chunk_text or "").strip()
+        if image_indexes and text_without_images:
+            return "text_with_images"
+        if image_indexes:
+            return "image"
+        return "text"
+
+    def _build_mineru_markdown_chunks(self, markdown_text: str):
+        """
+        将 MinerU Markdown 转为保真语义块。
+
+        规则：
+        - 表格保持原始 HTML table，不拆单元格；
+        - 标题、编号段落、带图片说明的段落作为自然边界；
+        - <image_position> 绑定到前一个文本块；
+        - 长段落只在自然边界处切，不改写原文。
+        """
+        clean_text = self._clean_mineru_markdown(markdown_text)
+        lines = clean_text.splitlines()
+        chunks = []
+        current_lines = []
+        current_title = ""
+        current_section = ""
+        active_title = ""
+        active_section = ""
+        current_start_line = None
+        target_chars = 1400
+
+        def flush():
+            nonlocal current_lines, current_title, current_section, current_start_line
+            text = "\n".join(current_lines).strip()
+            if not text:
+                current_lines = []
+                current_title = ""
+                current_section = ""
+                current_start_line = None
+                return
+            chunks.append({
+                "chunk_index": len(chunks) + 1,
+                "title": current_title or active_title,
+                "section_hint": current_section or active_section,
+                "type": self._mineru_chunk_type(text),
+                "text": text,
+                "image_indexes": self._extract_image_position_indexes(text),
+                "line_start": current_start_line,
+                "line_end": current_start_line + len(current_lines) - 1 if current_start_line is not None else None,
+                "char_count": len(text),
+            })
+            current_lines = []
+            current_title = ""
+            current_section = ""
+            current_start_line = None
+
+        for line_number, raw_line in enumerate(lines, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            is_image_position = bool(re.fullmatch(r"<image_position\s+indexes?=\"[\d,\s]+\"\s*/>", line))
+            is_table = self._is_mineru_table_line(line)
+            is_heading = self._is_mineru_heading_line(line)
+
+            if is_table:
+                flush()
+                current_lines = [line]
+                current_title = active_title
+                current_section = active_section
+                current_start_line = line_number
+                flush()
+                continue
+
+            if is_image_position:
+                if current_lines:
+                    current_lines.append(line)
+                elif chunks:
+                    chunks[-1]["text"] = chunks[-1]["text"].rstrip() + "\n" + line
+                    chunks[-1]["image_indexes"] = self._extract_image_position_indexes(chunks[-1]["text"])
+                    chunks[-1]["type"] = self._mineru_chunk_type(chunks[-1]["text"])
+                    chunks[-1]["char_count"] = len(chunks[-1]["text"])
+                else:
+                    current_lines = [line]
+                    current_title = active_title
+                    current_section = active_section
+                    current_start_line = line_number
+                continue
+
+            if is_heading:
+                flush()
+                active_title = line.lstrip("#").strip()
+                heading_section = self._section_from_mineru_heading(line)
+                if heading_section:
+                    active_section = heading_section
+                current_lines = [line]
+                current_title = active_title
+                current_section = active_section
+                current_start_line = line_number
+                continue
+
+            if not current_lines:
+                current_lines = [line]
+                current_title = active_title
+                current_section = active_section
+                current_start_line = line_number
+                continue
+
+            if len("\n".join(current_lines)) >= target_chars:
+                flush()
+                current_lines = [line]
+                current_title = active_title
+                current_section = active_section
+                current_start_line = line_number
+            else:
+                current_lines.append(line)
+
+        flush()
+        return chunks
+
+    def _format_mineru_chunks_for_llm(self, chunks):
+        parts = [
+            "[MinerU切块保真输入]",
+            "说明：以下块来自 MinerU Markdown，是后续 JSON 的唯一原文依据。请按块处理，不要概括压缩。",
+            "",
+        ]
+        for chunk in chunks:
+            title = chunk.get("title") or "未命名段落"
+            section_hint = chunk.get("section_hint") or "未判定"
+            image_indexes = chunk.get("image_indexes") or []
+            image_text = ",".join(str(index) for index in image_indexes) if image_indexes else "无"
+            parts.extend([
+                f"[块 {chunk['chunk_index']:03d}]",
+                f"标题: {title}",
+                f"章节归属字段: {section_hint}",
+                f"类型: {chunk.get('type') or 'text'}",
+                f"图片索引: {image_text}",
+                "原文:",
+                chunk.get("text") or "",
+                "[/块]",
+                "",
+            ])
+        return "\n".join(parts).strip()
+
+    def _write_mineru_chunks_debug(self, markdown_file: str, chunks, llm_text: str):
+        try:
+            output_dir = Path(markdown_file).parent
+            with open(output_dir / "mineru_llm_chunks.json", "w", encoding="utf-8") as f:
+                json.dump(chunks, f, ensure_ascii=False, indent=2)
+            with open(output_dir / "mineru_llm_input.md", "w", encoding="utf-8") as f:
+                f.write(llm_text)
+        except Exception as e:
+            print(f"[MinerU] 写入切块调试文件失败：{e}")
+
+    def _resolve_mineru_image_path(self, markdown_file: str, raw_target: str):
+        """将 MinerU Markdown 中的图片引用解析为本地文件路径。"""
+        target = (raw_target or "").strip()
+        if not target:
+            return None
+        if target.startswith("<") and target.endswith(">"):
+            target = target[1:-1].strip()
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target) and not re.match(r"^[a-zA-Z]:[\\/]", target):
+            return None
+
+        match = re.match(
+            r"(.+?\.(?:png|jpg|jpeg|webp|bmp|gif))(?:\s+['\"].*['\"])?$",
+            target,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            target = match.group(1)
+
+        target = unquote(target.split("#", 1)[0].split("?", 1)[0])
+        image_path = Path(target)
+        if not image_path.is_absolute():
+            image_path = Path(markdown_file).parent / image_path
+
+        if image_path.exists() and image_path.is_file():
+            return image_path
+        return None
+
+    def _copy_mineru_image_to_upload(self, source_path: Path, copied_images, image_urls, image_names):
+        source_key = str(source_path.resolve())
+        if source_key in copied_images:
+            return copied_images[source_key]
+
+        ext = source_path.suffix.lower() or ".png"
+        unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}{ext}"
+        upload_dir = Path(self.document_base_dir) / self.image_dir
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / unique_filename
+        shutil.copy2(source_path, destination)
+
+        image_urls.append(str(destination))
+        image_names.append(unique_filename)
+        image_index = len(image_urls)
+        copied_images[source_key] = image_index
+        return image_index
+
+    def _prepare_mineru_markdown_assets(self, markdown_text: str, markdown_file: str):
+        """
+        使用 MinerU 生成的图片作为唯一图片来源。
+
+        Markdown 中出现的图片会复制到 upload/images，并替换成
+        <image_position indexes="n" />，让大模型能把文本位置和后续
+        base64 图片顺序对应起来。
+        """
+        image_urls = []
+        image_names = []
+        copied_images = {}
+
+        def register_image(raw_target: str):
+            source_path = self._resolve_mineru_image_path(markdown_file, raw_target)
+            if source_path is None:
+                return None
+            return self._copy_mineru_image_to_upload(
+                source_path,
+                copied_images,
+                image_urls,
+                image_names,
+            )
+
+        def replace_markdown_image(match):
+            image_index = register_image(match.group(1))
+            if image_index is None:
+                return "\n[图片]\n"
+            return f"\n{self._format_image_position_hint([image_index])}\n"
+
+        markdown_text = re.sub(
+            r"!\[[^\]]*\]\(([^\)]+)\)",
+            replace_markdown_image,
+            markdown_text,
+        )
+
+        def replace_html_image(match):
+            image_index = register_image(match.group(1))
+            if image_index is None:
+                return "\n[图片]\n"
+            return f"\n{self._format_image_position_hint([image_index])}\n"
+
+        markdown_text = re.sub(
+            r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*>",
+            replace_html_image,
+            markdown_text,
+            flags=re.IGNORECASE,
+        )
+
+        return self._clean_mineru_markdown(markdown_text), image_urls, image_names
+
+    def _build_mineru_section_image_indexes(self, markdown_text: str):
+        """
+        根据 MinerU Markdown 中的标题/小节位置，确定图片属于哪个七段字段。
+
+        MinerU 没有 PyMuPDF 的坐标信息，但 Markdown 顺序是可靠的：
+        图片占位符出现在哪个业务小节之后，就归入该小节。
+        """
+        section_image_indexes = self._empty_section_image_indexes()
+        current_section = None
+
+        for raw_line in self._clean_mineru_markdown(markdown_text).splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            if self._is_mineru_heading_line(line):
+                detected_section = self._section_from_mineru_heading(line)
+                if detected_section:
+                    current_section = detected_section
+
+            image_indexes = self._extract_image_position_indexes(line)
+            if current_section and image_indexes:
+                target_indexes = section_image_indexes[current_section]
+                for image_index in image_indexes:
+                    if image_index not in target_indexes:
+                        target_indexes.append(image_index)
+
+        return section_image_indexes
+
+    def _section_from_ppt_page_title(self, title: str):
+        normalized = self._normalize_mineru_heading_text(title)
+        if not normalized:
+            return None
+        if any(keyword in normalized for keyword in ("客户反馈", "客诉", "批次信息", "信息描述", "背景", "问题描述")):
+            return "problem_intro"
+        if any(keyword in normalized for keyword in ("结论", "总结")):
+            return "key_points"
+        if any(keyword in normalized for keyword in ("改善", "措施", "方案", "处理", "建议")):
+            return "solutions"
+        if any(keyword in normalized for keyword in ("影响", "风险", "评估", "范围")):
+            return "evaluation"
+        if any(keyword in normalized for keyword in ("原因", "根因", "异常分析", "分析")):
+            return "causes"
+        if any(keyword in normalized for keyword in ("上机情况", "使用情况", "测序", "质检", "检测", "排查", "数据", "调查", "验证", "情况")):
+            return "inspection"
+        return None
+
+    def _infer_ppt_page_sections_from_markdown(self, markdown_text: str):
+        page_sections = {}
+        for raw_line in (markdown_text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            match = re.match(r"^#{1,6}\s*0*([1-9]\d?)\s*[\.\-、\s]*(.+)$", line)
+            if not match:
+                continue
+            page_number = int(match.group(1))
+            section = self._section_from_ppt_page_title(match.group(2))
+            if section:
+                page_sections[page_number] = section
+        return page_sections
+
+    def _render_pdf_pages_to_upload_images(self, pdf_url: str, image_urls, image_names):
+        page_images = []
+        doc = pymupdf.open(pdf_url)
+        try:
+            page_count = min(len(doc), max(self.mineru_page_image_max_pages, 0))
+            scale = max(self.mineru_page_image_dpi, 72) / 72
+            matrix = pymupdf.Matrix(scale, scale)
+            upload_dir = Path(self.document_base_dir) / self.image_dir
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            for page_index in range(page_count):
+                page = doc[page_index]
+                pix = page.get_pixmap(matrix=matrix, alpha=False)
+                unique_filename = (
+                    f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_"
+                    f"{uuid.uuid4().hex}_page_{page_index + 1}.png"
+                )
+                image_path = upload_dir / unique_filename
+                pix.save(str(image_path))
+                pix = None
+                image_urls.append(str(image_path))
+                image_names.append(unique_filename)
+                page_images.append({
+                    "page": page_index + 1,
+                    "image_index": len(image_urls),
+                })
+        finally:
+            doc.close()
+        return page_images
+
+    def _append_pdf_page_image_markers(self, markdown_text: str, page_images):
+        if not page_images:
+            return markdown_text
+        parts = [markdown_text.rstrip(), "", "## 原始页面图"]
+        for item in page_images:
+            parts.extend([
+                "",
+                f"第{item['page']}页原始页面图：",
+                self._format_image_position_hint([item["image_index"]]),
+            ])
+        return "\n".join(parts).strip()
+
+    def _apply_pdf_page_images_to_sections(self, markdown_text: str, page_images, section_image_indexes):
+        if not page_images:
+            return section_image_indexes
+        page_sections = self._infer_ppt_page_sections_from_markdown(markdown_text)
+        for item in page_images:
+            section = page_sections.get(item["page"]) or "inspection"
+            target_indexes = section_image_indexes.setdefault(section, [])
+            image_index = item["image_index"]
+            if image_index not in target_indexes:
+                target_indexes.append(image_index)
+        return section_image_indexes
+
+    def _create_mineru_output_dir(self, pdf_url: str) -> str:
+        """创建可持久保存的 MinerU 输出目录。"""
+        os.makedirs(self.mineru_output_dir, exist_ok=True)
+        file_stem = Path(pdf_url).stem
+        safe_stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", file_stem).strip(" ._")
+        if not safe_stem:
+            safe_stem = "document"
+        safe_stem = safe_stem[:80]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(self.mineru_output_dir) / f"{timestamp}_{uuid.uuid4().hex[:8]}_{safe_stem}"
+        output_dir.mkdir(parents=True, exist_ok=False)
+        return str(output_dir)
+
+    def _write_mineru_run_info(
+        self,
+        output_dir: str,
+        command,
+        env,
+        pdf_url: str,
+        status: str,
+        stdout: str = "",
+        stderr: str = "",
+        returncode=None,
+    ):
+        """保存 MinerU 实际运行命令和关键环境，便于排查输出差异。"""
+        try:
+            output_path = Path(output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+            important_env_names = [
+                "MODELSCOPE_CACHE",
+                "MINERU_TOOLS_CONFIG_JSON",
+                "MINERU_MODEL_SOURCE",
+                "MINERU_FORMULA_ENABLE",
+                "MINERU_TABLE_ENABLE",
+                "TMP",
+                "TEMP",
+                "TMPDIR",
+            ]
+            run_info = {
+                "status": status,
+                "returncode": returncode,
+                "pdf_url": os.path.abspath(pdf_url),
+                "output_dir": str(output_path),
+                "command": command,
+                "command_line": " ".join(f'"{item}"' if " " in item else item for item in command),
+                "env": {name: env.get(name) for name in important_env_names},
+                "time": datetime.now().isoformat(timespec="seconds"),
+            }
+            with open(output_path / "mineru_run_info.json", "w", encoding="utf-8") as f:
+                json.dump(run_info, f, ensure_ascii=False, indent=2)
+            if stdout:
+                with open(output_path / "mineru_stdout.log", "w", encoding="utf-8") as f:
+                    f.write(stdout)
+            if stderr:
+                with open(output_path / "mineru_stderr.log", "w", encoding="utf-8") as f:
+                    f.write(stderr)
+        except Exception as e:
+            print(f"[MinerU] 写入运行信息失败：{e}")
+
+    def parse_pdf_by_mineru_with_assets(self, pdf_url: str, include_page_images: bool = False):
+        """
+        调用 MinerU CLI 解析扫描 PDF，并返回 Markdown 文本和 MinerU 图片。
+
+        MINERU_KEEP_OUTPUT=1 时，MinerU 原始输出会保存到 MINERU_OUTPUT_DIR；
+        否则仍使用临时目录，读取完成后自动删除。
+        给大模型使用的图片会复制到 upload/images。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        mineru_exe = self._resolve_mineru_executable()
+
+        print(f"[MinerU] 可执行文件：{mineru_exe}")
+        print(f"[MinerU] 开始解析：{pdf_url}")
+
+        os.makedirs(self.mineru_temp_dir, exist_ok=True)
+
+        temp_output_context = None
+        if self.mineru_keep_output:
+            temp_output_dir = self._create_mineru_output_dir(pdf_url)
+            print(f"[MinerU] 输出目录保留：{temp_output_dir}")
+        else:
+            temp_output_context = tempfile.TemporaryDirectory(prefix="mineru_", dir=self.mineru_temp_dir)
+            temp_output_dir = temp_output_context.name
+            print(f"[MinerU] 临时输出目录：{temp_output_dir}")
+
+        try:
+            command = [
+                mineru_exe,
+                "-p",
+                os.path.abspath(pdf_url),
+                "-o",
+                temp_output_dir,
+                "-b",
+                self.mineru_backend,
+            ]
+            if self.mineru_backend == "pipeline" or self.mineru_backend.startswith("hybrid"):
+                command.extend(["-m", self.mineru_method])
+            if self.mineru_backend == "pipeline":
+                command.extend(["-l", self.mineru_lang])
+            command.extend([
+                "-f",
+                str(self.mineru_formula_enable).lower(),
+                "-t",
+                str(self.mineru_table_enable).lower(),
+            ])
+
+            print("[MinerU] 执行命令：", " ".join(f'"{item}"' if " " in item else item for item in command))
+
+            try:
+                env = os.environ.copy()
+                env["TMP"] = self.mineru_temp_dir
+                env["TEMP"] = self.mineru_temp_dir
+                env["TMPDIR"] = self.mineru_temp_dir
+                env["MINERU_FORMULA_ENABLE"] = str(self.mineru_formula_enable).lower()
+                env["MINERU_TABLE_ENABLE"] = str(self.mineru_table_enable).lower()
+                self._write_mineru_run_info(
+                    temp_output_dir,
+                    command,
+                    env,
+                    pdf_url,
+                    status="running",
+                )
+                result = subprocess.run(
+                    command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.mineru_timeout,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired as e:
+                self._write_mineru_run_info(
+                    temp_output_dir,
+                    command,
+                    env,
+                    pdf_url,
+                    status="timeout",
+                )
+                raise RuntimeError(
+                    f"MinerU 解析超时，超过 {self.mineru_timeout} 秒。"
+                ) from e
+            except subprocess.CalledProcessError as e:
+                stderr = (e.stderr or "").strip()
+                stdout = (e.stdout or "").strip()
+                self._write_mineru_run_info(
+                    temp_output_dir,
+                    command,
+                    env,
+                    pdf_url,
+                    status="failed",
+                    stdout=stdout,
+                    stderr=stderr,
+                    returncode=e.returncode,
+                )
+                detail = stderr or stdout or str(e)
+                if "os error 1455" in detail.lower():
+                    detail = (
+                        "Windows 页面文件/虚拟内存不足，MinerU 在加载模型时失败。"
+                        "可以增大系统页面文件，或关闭 MINERU_FORMULA_ENABLE 以避免加载 MFR 公式模型。\n"
+                        f"{detail}"
+                    )
+                raise RuntimeError(
+                    f"MinerU 解析失败：{detail}"
+                ) from e
+
+            if result.stdout:
+                print("[MinerU] 输出：")
+                print(result.stdout[-3000:])
+            self._write_mineru_run_info(
+                temp_output_dir,
+                command,
+                env,
+                pdf_url,
+                status="success",
+                stdout=result.stdout,
+                stderr=result.stderr,
+                returncode=result.returncode,
+            )
+
+            markdown_file = self._find_mineru_markdown(temp_output_dir)
+
+            with open(markdown_file, "r", encoding="utf-8") as f:
+                markdown_text = f.read()
+
+            markdown_text, image_urls, image_names = self._prepare_mineru_markdown_assets(
+                markdown_text,
+                markdown_file,
+            )
+            section_image_indexes = self._build_mineru_section_image_indexes(markdown_text)
+            if include_page_images:
+                page_images = self._render_pdf_pages_to_upload_images(
+                    pdf_url,
+                    image_urls,
+                    image_names,
+                )
+                section_image_indexes = self._apply_pdf_page_images_to_sections(
+                    markdown_text,
+                    page_images,
+                    section_image_indexes,
+                )
+                markdown_text = self._append_pdf_page_image_markers(markdown_text, page_images)
+
+            if not markdown_text.strip():
+                raise RuntimeError("MinerU 解析完成，但提取到的文本为空。")
+
+            try:
+                with open(Path(markdown_file).parent / "mineru_llm_input.md", "w", encoding="utf-8") as f:
+                    f.write(markdown_text)
+            except Exception as e:
+                print(f"[MinerU] 写入 LLM Markdown 输入调试文件失败：{e}")
+
+            print(
+                f"[MinerU] 解析成功，原文长度：{len(markdown_text)}，"
+                f"LLM输入长度：{len(markdown_text)}，图片数：{len(image_urls)}"
+            )
+            return markdown_text, image_urls, image_names, section_image_indexes
+        finally:
+            if temp_output_context is not None:
+                temp_output_context.cleanup()
+
+    def parse_pdf_by_mineru(self, pdf_url: str) -> str:
+        """兼容旧调用：只返回 MinerU Markdown 文本。"""
+        markdown_text, _image_urls, _image_names, _section_image_indexes = self.parse_pdf_by_mineru_with_assets(pdf_url)
+        return markdown_text
 
     def _build_image_file(self, doc, xref: int):
         pix = pymupdf.Pixmap(doc, xref)
@@ -106,7 +1030,7 @@ class PdfParser:
         if not text:
             return ""
         text = re.sub(r"[【\[]\s*图片\s*\d+\s*[】\]]", "", text)
-        text = re.sub(r"<image_position\s+indexes?=\"[\d,]+\"\s*/>", "", text)
+        text = re.sub(r"<image_position\s+indexes?=\"[\d,\s]+\"\s*/>", "", text)
         text = re.sub(r"\s{2,}", " ", text)
         return text.strip()
 
@@ -332,6 +1256,50 @@ class PdfParser:
             ]
 
     def get_pdf_layout_content(self, pdf_url: str):
+        """
+        PDF 自动解析入口。
+
+        普通文本型 PDF：
+            PyMuPDF 提取文本 + 图片 + 版面位置。
+
+        扫描型 PDF：
+            MinerU 提取 OCR/版面 Markdown 和图片；
+            如果 MinerU 失败，则自动回退到 PyMuPDF，避免整个上传流程直接中断。
+        """
+        if not os.path.exists(pdf_url):
+            raise FileNotFoundError(pdf_url)
+
+        use_mineru = False
+
+        if self.mineru_enabled:
+            try:
+                use_mineru = self.is_scanned_pdf(pdf_url)
+            except Exception as e:
+                print(f"[PDF类型检测] 判断失败，继续使用 PyMuPDF：{e}")
+        else:
+            print("[MinerU] MINERU_ENABLED=0，已禁用 MinerU。")
+
+        # 普通 PDF：完全沿用原来的版面提取逻辑。
+        if not use_mineru:
+            return self._get_pdf_layout_content_by_pymupdf(pdf_url)
+
+        # 扫描 PDF：
+        # MinerU 成功后，文本和图片都只使用 MinerU 输出，避免混用 PyMuPDF 结果。
+        try:
+            mineru_text, image_urls, image_names, section_image_indexes = self.parse_pdf_by_mineru_with_assets(pdf_url)
+
+            return (
+                mineru_text,
+                image_urls,
+                image_names,
+                section_image_indexes,
+            )
+
+        except Exception as e:
+            print(f"[MinerU] 解析失败，自动回退到 PyMuPDF：{e}")
+            return self._get_pdf_layout_content_by_pymupdf(pdf_url)
+
+    def _get_pdf_layout_content_by_pymupdf(self, pdf_url: str):
         if not os.path.exists(pdf_url):
             raise FileNotFoundError(pdf_url)
 
@@ -524,13 +1492,16 @@ class PdfParser:
 }
 
 要求：
-1. 仅输出 JSON，不要输出 markdown 或其他解释。
-2. title 不可为空；其他字段没有内容时用空字符串，图片字段没有内容时用空列表 []。
-3. 图片编号从 1 开始，不得编造新的图片编号。
-4. 图片归属优先依据原文位置：图片位于哪个小节下，就归入对应 image_urls_* 字段，不要只凭图片语义移动到其他字段。
-5. 文本中的 <image_position indexes=\"1,2\" /> 是图片位置标记，表示此处对应第 1、2 张图片。它只能用于填写 image_urls_* 字段，禁止写入 title、problem_intro、causes、evaluation、inspection、solutions、key_points 等正文结果中。
-6. 正文字段中不要出现“图片1”“【图片1】”“第1张配图”或 image_position 标记。
-7. 内容应连贯、详细，尽量保留文档原意，但不要大量重复。
+1. 所有内容必须严格来源于提供的文本和图片。禁止任何形式的脑补、推理、常识补充或添加原文未提及的修饰词与解释。要求最大限度利用文本和图片，文本内容分块后不丢失任何信息。
+2. 仅输出 JSON，不要输出 markdown 或其他解释。
+3. title 不可为空，且必须控制在 100 个字符以内；其他字段没有内容时用空字符串，图片字段没有内容时用空列表 []。
+4. 图片编号从 1 开始，不得编造新的图片编号。
+5. 图片归属优先依据原文位置：图片位于哪个小节下，就归入对应 image_urls_* 字段，不要只凭图片语义移动到其他字段。
+6. 文本中的 <image_position indexes=\"1,2\" /> 是图片位置标记，表示此处对应第 1、2 张图片。它只能用于填写 image_urls_* 字段，禁止写入 title、problem_intro、causes、evaluation、inspection、solutions、key_points 等正文结果中。
+7. 正文字段中不要出现“图片1”“【图片1】”“第1张配图”或 image_position 标记。
+8. 这是保真抽取任务，不是摘要任务。不要删掉日期、编号、指标、标准值、实际值、批号、仪器号、人员、结论、措施、表格内容。
+9. 不要删掉图表前后的原文引导语，例如“如下”“异常热图如下”“结果如下”“压力曲线排查结果如下”，这些属于正文内容。
+10. 内容应按字段组织，保持原文事实和顺序；除删除 image_position 标记外，不要为了简洁压缩原文。
 
 [文本内容]
 {text}
@@ -545,7 +1516,7 @@ class PdfParser:
             print(image)
             if token_cnt >= self.input_token - 1000:
                 break
-            compress_image = self.compress_image(image)
+            compress_image = self.compress_image(image, max_size=self.model_image_max_size)
             mime_type, _ = mimetypes.guess_type(compress_image)
             if mime_type is None:
                 ext = os.path.splitext(compress_image)[1].lower()
@@ -583,6 +1554,448 @@ class PdfParser:
             used_indexes.update(image_indexes)
         return result, used_indexes
 
+    def _append_image_indexes_to_result_field(self, result, field: str, image_indexes, image_names):
+        append_value = self._image_indexes_to_urls(image_indexes, image_names)
+        if not append_value:
+            return
+        existing_value = result.get(field)
+        if existing_value:
+            existing_parts = [part.strip() for part in str(existing_value).split(",") if part.strip()]
+            append_parts = [part.strip() for part in append_value.split(",") if part.strip()]
+            merged = existing_parts + [part for part in append_parts if part not in existing_parts]
+            result[field] = ", ".join(merged)
+        else:
+            result[field] = append_value
+
+    def _is_mineru_markdown_text(self, text: str) -> bool:
+        text = text or ""
+        if re.search(r"(?im)^#{1,6}\s+\S+", text):
+            return True
+        return bool(re.search(r"(?i)<table\b", text))
+
+    def _clean_mineru_markdown_result_line(self, line: str) -> str:
+        line = re.sub(r"<image_position\s+indexes?=\"[\d,\s]+\"\s*/>", "", line or "").strip()
+        if not line:
+            return ""
+        if self._is_mineru_table_line(line):
+            return self._html_table_to_text(line)
+        line = re.sub(r"^#{1,6}\s*", "", line).strip()
+        return self._clean_image_references(line)
+
+    def _format_html_table_row(self, cells):
+        cells = [unescape(str(cell or "").strip()) for cell in cells if str(cell or "").strip()]
+        if not cells:
+            return ""
+        if len(cells) == 1:
+            return cells[0]
+        if len(cells) % 2 == 0:
+            pairs = []
+            for index in range(0, len(cells), 2):
+                key = cells[index]
+                value = cells[index + 1]
+                if key and value:
+                    pairs.append(f"{key}：{value}")
+                else:
+                    pairs.append(f"{key}{value}".strip())
+            return "；".join(part for part in pairs if part)
+        return "；".join(cells)
+
+    def _strip_form_placeholder_text(self, text: str) -> str:
+        text = re.sub(r"[（(](?:需描述|写明|填写|打印时删除).*?[）)]", "", text or "")
+        text = re.sub(r"\s+", " ", text)
+        return text.strip(" ；;，,")
+
+    def _split_compact_form_fields(self, text: str, labels) -> str:
+        clean_text = self._strip_form_placeholder_text(text)
+        if not clean_text:
+            return ""
+        pattern = "|".join(re.escape(label) for label in labels)
+        clean_text = re.sub(rf"(?<!^)(?=({pattern})\s*[：:])", "\n", clean_text)
+        lines = []
+        for item in clean_text.splitlines():
+            item = item.strip(" ；;")
+            if item:
+                lines.append(item)
+        return "\n".join(lines)
+
+    def _format_disposal_options(self, text: str) -> str:
+        clean_text = self._strip_form_placeholder_text(text)
+        option_pattern = r"([☑✓✔√□☐]?\s*(?:挑选|退货|报废|返工|让步|其他)\s*[：:])"
+        parts = re.split(option_pattern, clean_text)
+        if len(parts) < 3:
+            return clean_text
+
+        has_selected = any(mark in clean_text for mark in ("☑", "✓", "✔", "√"))
+        lines = []
+        for index in range(1, len(parts), 2):
+            label_part = parts[index].strip()
+            content = parts[index + 1].strip(" ；;") if index + 1 < len(parts) else ""
+            mark_match = re.match(r"^([☑✓✔√□☐])?\s*(.*?)\s*[：:]$", label_part)
+            if not mark_match:
+                continue
+            mark = mark_match.group(1) or ""
+            label = mark_match.group(2)
+            if mark in {"☑", "✓", "✔", "√"}:
+                state = "已选"
+            elif mark in {"□", "☐"} or has_selected:
+                state = "未选"
+            else:
+                state = ""
+
+            value_parts = [state] if state else []
+            if content:
+                value_parts.append(content)
+            value = "；".join(value_parts) if value_parts else "未填写"
+            lines.append(f"- {label}：{value}")
+        return "\n".join(lines)
+
+    def _is_form_table_rows(self, rows) -> bool:
+        joined = "\n".join(" ".join(row) for row in rows)
+        return any(keyword in joined for keyword in ("处置方案", "评审会签", "调查人/日期", "跟进处置和改善结果"))
+
+    def _format_form_table_rows(self, rows) -> str:
+        lines = ["表单内容："]
+        in_review_table = False
+        review_departments = {"工程技术", "QC", "Qc", "qc", "生产", "SQE", "PMC", "采购", "研发", "其他", "其他："}
+
+        for row in rows:
+            raw_cells = [unescape(str(cell or "").strip()) for cell in row]
+            cells = [cell for cell in raw_cells if cell]
+            if not cells:
+                continue
+
+            if len(raw_cells) >= 3 and raw_cells[0] == "部门" and raw_cells[1] == "签字" and raw_cells[2] == "日期":
+                if not lines or lines[-1] != "评审会签：":
+                    lines.append("评审会签：")
+                in_review_table = True
+                continue
+
+            if in_review_table and raw_cells[0] in review_departments:
+                department = raw_cells[0].rstrip("：:")
+                department = "QC" if department.lower() == "qc" else department
+                signer = raw_cells[1] if len(raw_cells) > 1 else ""
+                date = raw_cells[2] if len(raw_cells) > 2 else ""
+                if signer or date:
+                    parts = []
+                    if signer:
+                        parts.append(f"签字：{signer}")
+                    if date:
+                        parts.append(f"日期：{date}")
+                    lines.append(f"- {department}：" + "；".join(parts))
+                else:
+                    lines.append(f"- {department}：未填写")
+                continue
+            elif in_review_table:
+                in_review_table = False
+
+            text = " ".join(cells)
+            text = re.sub(r"QA[：:]\s*[\]\|]?\s*", "QA：", text)
+
+            if "调查人/日期" in text:
+                split_text = self._split_compact_form_fields(
+                    text,
+                    ["调查人/日期", "调查部门负责人/日期", "QA/日期"],
+                )
+                lines.append("调查信息：")
+                lines.extend(split_text.splitlines())
+                continue
+
+            if text.startswith("注"):
+                lines.append(text)
+                continue
+
+            if text == "处置方案":
+                lines.append("处置方案：")
+                continue
+
+            if any(option in text for option in ("挑选", "退货", "报废", "返工", "让步", "其他")) and (
+                "复检" in text or "让步分析报告" in text or "退货" in text
+            ):
+                formatted_options = self._format_disposal_options(text)
+                if formatted_options:
+                    lines.extend(formatted_options.splitlines())
+                continue
+
+            if text == "评审会签":
+                lines.append("评审会签：")
+                in_review_table = True
+                continue
+
+            if text.startswith("批准人"):
+                split_text = self._split_compact_form_fields(text, ["批准人", "日期"])
+                lines.extend(split_text.splitlines())
+                in_review_table = False
+                continue
+
+            if text.startswith("受托生产相关"):
+                text = re.sub(r"^受托生产相关\s*", "受托生产相关：", text)
+                split_text = self._split_compact_form_fields(text, ["受托生产相关", "批准人（委托方）", "日期"])
+                lines.extend(split_text.splitlines())
+                continue
+
+            if text == "跟进处置和改善结果":
+                lines.append("跟进处置和改善结果：")
+                continue
+
+            if text.startswith("需跟进点"):
+                text = self._strip_form_placeholder_text(text)
+                lines.append(text)
+                continue
+
+            if text.startswith("QA") and "确认关闭日期" in text:
+                split_text = self._split_compact_form_fields(text, ["QA", "确认关闭日期"])
+                lines.extend(split_text.splitlines())
+                continue
+
+            lines.append(self._format_html_table_row(cells))
+
+        return "\n".join(line for line in lines if line)
+
+    def _format_header_data_table_rows(self, rows):
+        if len(rows) < 2:
+            return None
+        header = [str(cell or "").strip() for cell in rows[0]]
+        if len(header) < 2 or any(not cell for cell in header):
+            return None
+        data_rows = rows[1:]
+        if not data_rows or not all(len(row) == len(header) for row in data_rows):
+            return None
+        if any("：" in cell or ":" in cell for cell in header):
+            return None
+
+        lines = []
+        for row_index, row in enumerate(data_rows, start=1):
+            parts = []
+            for key, value in zip(header, row):
+                value = str(value or "").strip()
+                parts.append(f"{key}：{value}" if value else f"{key}：")
+            prefix = f"第{row_index}行：" if len(data_rows) > 1 else ""
+            lines.append(prefix + "；".join(parts))
+        return "\n".join(lines)
+
+    def _html_table_to_text(self, table_html: str) -> str:
+        parser = _TableTextParser()
+        try:
+            parser.feed(table_html or "")
+        except Exception:
+            plain_text = re.sub(r"<[^>]+>", " ", table_html or "")
+            return " ".join(unescape(plain_text).split())
+
+        if self._is_form_table_rows(parser.rows):
+            return self._format_form_table_rows(parser.rows)
+
+        header_data_text = self._format_header_data_table_rows(parser.rows)
+        if header_data_text:
+            return "表格内容：\n" + header_data_text
+
+        lines = []
+        for row in parser.rows:
+            line = self._format_html_table_row(row)
+            if line:
+                lines.append(line)
+        if not lines:
+            plain_text = re.sub(r"<[^>]+>", " ", table_html or "")
+            fallback = " ".join(unescape(plain_text).split())
+            return fallback
+        return "表格内容：\n" + "\n".join(lines)
+
+    def _normalize_html_tables_in_text(self, text: str) -> str:
+        if not text:
+            return ""
+        return re.sub(
+            r"<table\b.*?</table>",
+            lambda match: "\n" + self._html_table_to_text(match.group(0)) + "\n",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
+    def _build_mineru_markdown_section_texts(self, markdown_text: str):
+        section_texts = {section: [] for section in self._empty_section_image_indexes().keys()}
+        current_section = None
+
+        for raw_line in self._clean_mineru_markdown(markdown_text).splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if re.match(r"^#{1,6}\s*原始页面图\s*$", line):
+                current_section = None
+                continue
+            if re.match(r"^第\d+页原始页面图[:：]?$", line):
+                continue
+
+            detected_section = None
+            if self._is_mineru_heading_line(line):
+                detected_section = self._section_from_mineru_heading(line)
+            elif self._is_mineru_table_line(line):
+                detected_section = self._section_from_mineru_heading(line)
+
+            if detected_section:
+                current_section = detected_section
+
+            clean_line = self._clean_mineru_markdown_result_line(line)
+            if current_section and clean_line:
+                section_texts[current_section].append(clean_line)
+
+        return {
+            section: "\n".join(parts).strip()
+            for section, parts in section_texts.items()
+            if parts
+        }
+
+    def _apply_mineru_markdown_section_texts(self, result, markdown_text: str):
+        section_texts = self._build_mineru_markdown_section_texts(markdown_text)
+        if not section_texts:
+            return result
+
+        forced_texts = []
+        for section, section_text in section_texts.items():
+            if section_text:
+                result[section] = section_text
+                forced_texts.append(section_text)
+
+        for field in ("problem_intro", "causes", "evaluation", "inspection", "solutions", "key_points"):
+            if field in section_texts:
+                continue
+            if self._is_duplicate_of_section_texts(result.get(field), forced_texts):
+                result[field] = ""
+
+        return result
+
+    def _extract_mineru_input_blocks(self, text: str):
+        if not self._is_mineru_chunked_text(text or ""):
+            return []
+
+        blocks = []
+        pattern = re.compile(r"\[块\s+(\d+)\]\s*(.*?)(?=\n\[块\s+\d+\]|\Z)", re.DOTALL)
+        for match in pattern.finditer(text or ""):
+            body = match.group(2).strip()
+            title_match = re.search(r"^标题:\s*(.*)$", body, flags=re.MULTILINE)
+            section_match = re.search(r"^章节归属字段:\s*(.*)$", body, flags=re.MULTILINE)
+            image_match = re.search(r"^图片索引:\s*(.*)$", body, flags=re.MULTILINE)
+            original_match = re.search(r"原文:\s*\n(.*)", body, flags=re.DOTALL)
+            original = original_match.group(1).strip() if original_match else ""
+            original = re.sub(r"\n?\[/块\]\s*$", "", original).strip()
+
+            image_indexes = []
+            image_text = image_match.group(1).strip() if image_match else ""
+            for value in re.findall(r"\d+", image_text):
+                index = int(value)
+                if index not in image_indexes:
+                    image_indexes.append(index)
+            for index in self._extract_image_position_indexes(original):
+                if index not in image_indexes:
+                    image_indexes.append(index)
+
+            blocks.append({
+                "chunk_index": int(match.group(1)),
+                "title": title_match.group(1).strip() if title_match else "",
+                "section": section_match.group(1).strip() if section_match else "",
+                "image_indexes": image_indexes,
+                "text": original,
+            })
+        return blocks
+
+    def _clean_mineru_section_text(self, raw_text: str, title: str, section: str) -> str:
+        lines = [line.strip() for line in (raw_text or "").splitlines() if line.strip()]
+        if lines:
+            first_section = self._section_from_mineru_heading(lines[0])
+            first_norm = self._normalize_mineru_heading_text(lines[0])
+            title_norm = self._normalize_mineru_heading_text(title)
+            if first_section == section or (title_norm and first_norm == title_norm):
+                lines = lines[1:]
+        return self._clean_image_references("\n".join(lines))
+
+    def _normalize_text_for_duplicate_check(self, text: str) -> str:
+        return re.sub(r"\W+", "", text or "", flags=re.UNICODE)
+
+    def _is_duplicate_of_section_texts(self, candidate: str, section_texts) -> bool:
+        candidate_norm = self._normalize_text_for_duplicate_check(candidate)
+        if len(candidate_norm) < 30:
+            return False
+        for source in section_texts:
+            source_norm = self._normalize_text_for_duplicate_check(source)
+            if len(source_norm) < 30:
+                continue
+            if candidate_norm in source_norm or source_norm in candidate_norm:
+                return True
+        return False
+
+    def _apply_mineru_section_hints(self, result, text: str, image_names):
+        blocks = self._extract_mineru_input_blocks(text)
+        if not blocks:
+            return result, set()
+
+        section_names = set(self._empty_section_image_indexes().keys())
+        section_data = {}
+        for block in blocks:
+            section = block.get("section")
+            if section not in section_names:
+                continue
+
+            data = section_data.setdefault(section, {"parts": [], "image_indexes": []})
+            content = self._clean_mineru_section_text(
+                block.get("text") or "",
+                block.get("title") or "",
+                section,
+            )
+            if content:
+                data["parts"].append(content)
+            for image_index in block.get("image_indexes") or []:
+                if image_index not in data["image_indexes"]:
+                    data["image_indexes"].append(image_index)
+
+        if not section_data:
+            return result, set()
+
+        force_sections = {"causes"}
+        used_image_indexes = set()
+        forced_texts = []
+        for section, data in section_data.items():
+            should_apply = section in force_sections or not str(result.get(section) or "").strip()
+            if data["parts"] and should_apply:
+                result[section] = "\n".join(data["parts"])
+                forced_texts.append(result[section])
+            image_field = f"image_urls_{section}"
+            image_urls = self._image_indexes_to_urls(data["image_indexes"], image_names)
+            if image_urls and (section in force_sections or not result.get(image_field)):
+                result[image_field] = image_urls
+                used_image_indexes.update(data["image_indexes"])
+
+        for field in ("problem_intro", "causes", "evaluation", "inspection", "solutions", "key_points"):
+            if field in section_data:
+                continue
+            if self._is_duplicate_of_section_texts(result.get(field), forced_texts):
+                result[field] = ""
+                image_field = f"image_urls_{field}"
+                if image_field in result:
+                    result[image_field] = None
+
+        return result, used_image_indexes
+
+    def _coerce_image_field_indexes_to_urls(self, result, image_names, used_image_indexes=None):
+        used_indexes = set(used_image_indexes or set())
+        for key in list(result.keys()):
+            if "image" not in key:
+                continue
+            value = result.get(key)
+            if not isinstance(value, list):
+                continue
+
+            urls = []
+            for image_index in value:
+                if isinstance(image_index, str) and image_index.strip().isdigit():
+                    image_index = int(image_index.strip())
+                if not isinstance(image_index, int):
+                    continue
+                if image_index <= 0 or image_index > len(image_names):
+                    continue
+                if image_index in used_indexes:
+                    continue
+                urls.append(self.image_dir + "/" + image_names[image_index - 1])
+                used_indexes.add(image_index)
+            result[key] = ", ".join(urls) if urls else None
+        return result, used_indexes
+
     def _clean_result_text_fields(self, result):
         text_fields = [
             "title",
@@ -596,6 +2009,7 @@ class PdfParser:
         for field in text_fields:
             value = result.get(field)
             if isinstance(value, str):
+                value = self._normalize_html_tables_in_text(value)
                 result[field] = self._clean_image_references(value)
         return result
 
@@ -606,49 +2020,53 @@ class PdfParser:
                 api_key=self.api_key
             )
 
+            text_value = text or ""
+            is_mineru_markdown = self._is_mineru_markdown_text(text_value)
             messages = self.generate_message(text, image_urls)
+            has_rich_pdf_input = is_mineru_markdown or "<image_position" in text_value
+            max_tokens = max(self.max_token, self.mineru_llm_max_token) if has_rich_pdf_input else self.max_token
 
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=max_tokens
             )
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
+            result["title"] = normalize_document_title(result.get("title"))
             result = self._clean_result_text_fields(result)
+            if is_mineru_markdown:
+                result = self._apply_mineru_markdown_section_texts(result, text_value)
+                result = self._clean_result_text_fields(result)
 
-            result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
+            used_image_indexes = set()
+            result, section_image_used_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
+            used_image_indexes.update(section_image_used_indexes)
 
-            if not used_image_indexes:
-                flag = [0] * len(image_names)
-                for key in result.keys():
-                    if "image" in key:
-                        image_url_content = ""
-                        for image_index in result[key]:
-                            if image_index > len(image_urls) or flag[image_index - 1] == 1:
-                                continue
-                            url = image_names[image_index - 1]
-                            flag[image_index - 1] = 1
-                            url = self.image_dir + "/" + url
-                            image_url_content += url + ", "
-                        image_url_content = image_url_content.rstrip(", ")
-                        if len(result[key]) == 0:
-                            image_url_content = None
-                        result[key] = image_url_content
-                used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
+            result, used_image_indexes = self._coerce_image_field_indexes_to_urls(
+                result,
+                image_names,
+                used_image_indexes,
+            )
+
             document = Document(**result,
                                 is_vectorized=0)
             if len(image_urls) > 0:
                 for i in range(len(image_urls)):
                     if i + 1 not in used_image_indexes:
                         os.remove(image_urls[i])
+                        # 删除该原图可能生成的压缩副本。
+                        # compress_image() 的命名格式为：
+                        # 原文件名_compressed_512.ext
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)
-                        new_path = f"{name}_compressed.{ext}"
-                        new_path = os.path.join(dir_name, new_path)
-                        if os.path.exists(new_path):
-                            os.remove(new_path)
+                        compressed_path = os.path.join(
+                            dir_name,
+                            f"{name}_compressed_512{ext}"
+                        )
+                        if os.path.exists(compressed_path):
+                            os.remove(compressed_path)
 
             return document
 
@@ -666,4 +2084,20 @@ class PdfParser:
 pdf_parser = PdfParser()
 
 if __name__ == "__main__":
-    pass
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    pdf_path = r"C:\Users\exile\xwechat_files\wxid_rgs337i28sad22_66b4\msg\file\2026-07\(其他-TS相关-NCMR报告&让步放行报告)-SJ240605 不合格品报告 20241128.pdf"
+
+    try:
+        text = pdf_parser.parse_pdf_by_mineru(pdf_path)
+
+        print("=" * 50)
+        print("MinerU解析成功")
+        print("=" * 50)
+
+        print(text)
+
+    except Exception as e:
+        print("MinerU解析失败：")
+        print(e)

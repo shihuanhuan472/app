@@ -2,6 +2,7 @@ import base64
 import os
 import requests
 from openai import OpenAI
+from utils.ai_endpoint import get_ai_base_url
 
 def image_to_base64(image: str, dir: str = None):
     if dir is not None:
@@ -51,10 +52,9 @@ def get_ai_answer():
         }
     ]
     #
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     client = OpenAI(
-        base_url=f"http://{server_ip}:8000/v1",
+        base_url=get_ai_base_url(),
         api_key=api_key
     )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-4B-Instruct")

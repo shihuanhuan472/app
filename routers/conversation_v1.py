@@ -11,7 +11,7 @@ import json
 import mimetypes
 import os
 from openai import OpenAI, AsyncOpenAI
-from qwen_token_counter import get_token_count
+from utils.token_counter import get_token_count
 # from sqlalchemy import desc, and_, asc, func
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse

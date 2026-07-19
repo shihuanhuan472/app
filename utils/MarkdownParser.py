@@ -12,11 +12,15 @@ from urllib.parse import unquote, urlparse
 import requests
 from PIL import Image
 from openai import OpenAI
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 
 
 """
@@ -547,6 +551,7 @@ class MarkdownParser:
 
             if not result.get("title"):
                 result["title"] = self._build_fallback_title(text)
+            result["title"] = normalize_document_title(result.get("title"))
 
             result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 

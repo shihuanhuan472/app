@@ -3,6 +3,7 @@ import asyncio
 import json
 import mimetypes
 import os
+import time
 import uuid
 import base64
 from functools import lru_cache
@@ -12,7 +13,6 @@ from PIL import Image
 from openai import OpenAI, AsyncOpenAI
 from datetime import datetime
 from pathlib import Path
-from qwen_token_counter import get_token_count
 from fastapi import APIRouter, Depends, status, UploadFile, Query, File
 from sqlalchemy import func, and_
 # from sqlalchemy.orm import Session
@@ -33,6 +33,13 @@ from dependencies import get_current_active_user
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.ai_endpoint import get_ai_base_url, get_ai_base_url_alt
+from utils.desensitize import (
+    desensitize_json_payload_string,
+    desensitize_text,
+    desensitize_value,
+    max_sensitive_term_length,
+)
+from utils.token_counter import get_token_count
 from utils.VectorService import VectorService
 from fastapi.responses import StreamingResponse
 
@@ -50,6 +57,7 @@ def _normalize_library_type(library_type: str) -> str:
 def _get_document_model(library_type: str):
     """根据库类型选择消息提示词要读取的文档表。"""
     return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
 
 def image_to_base64(image: str, dir: str = None):
     """将图片读取并编码为 base64 字符串。"""
@@ -214,9 +222,14 @@ def _message_to_chat_message_dict(message: Message) -> Dict[str, Any]:
     """
     created_time = message.created_time.isoformat() if message.created_time else None
     content_text = (
-        _sanitize_answer_images_for_display(message.content_text)
+        desensitize_text(_sanitize_answer_images_for_display(message.content_text))
         if message.role == 0
         else message.content_text
+    )
+    ai_reference_doc_ids = (
+        desensitize_json_payload_string(message.ai_reference_doc_ids)
+        if message.role == 0
+        else message.ai_reference_doc_ids
     )
     return {
         "id": message.id,
@@ -227,7 +240,7 @@ def _message_to_chat_message_dict(message: Message) -> Dict[str, Any]:
         "content": content_text,
         "content_text": content_text,
         "user_uploaded_images": message.user_uploaded_images,
-        "ai_reference_doc_ids": message.ai_reference_doc_ids,
+        "ai_reference_doc_ids": ai_reference_doc_ids,
         "created_time": created_time,
     }
 
@@ -507,8 +520,8 @@ def _reference_doc_ids_to_api_reference(reference_docs: List[Dict[str, Any]]) ->
         images = _collect_reference_image_paths([doc], max_images=3)
         item = {
             "doc_id": f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc_id)}",
-            "doc_name": doc.get("title", ""),
-            "title": doc.get("title", ""),
+            "doc_name": desensitize_text(doc.get("title", "")),
+            "title": desensitize_text(doc.get("title", "")),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "score": doc.get("score", 0.0),
         }
@@ -779,8 +792,13 @@ async def stream_ai_response(
     data = {}
     data["id"] = id
     data["session_id"] = session_id
-    data["reference"] = _reference_doc_ids_to_api_reference(reference_docs) if api_v1 else (None if not reference_ids_str else reference_ids_str)
-    data["reference_docs"] = reference_docs or []
+    safe_reference_docs = desensitize_value(reference_docs or [])
+    data["reference"] = (
+        _reference_doc_ids_to_api_reference(safe_reference_docs)
+        if api_v1
+        else (None if not reference_ids_str else reference_ids_str)
+    )
+    data["reference_docs"] = safe_reference_docs
 
     def _format_stream_event(payload: Dict[str, Any], is_error: bool = False) -> str:
         if api_v1:
@@ -802,6 +820,9 @@ async def stream_ai_response(
                     await db.commit()
 
     try:
+        stream_start = time.perf_counter()
+        yield ": stream-start\n\n"
+        print("[AI流式] 已建立SSE连接，开始请求模型")
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
@@ -810,13 +831,27 @@ async def stream_ai_response(
         )
         full_content = ""
         last_stream_content = None
+        hold_chars = max(0, max_sensitive_term_length() - 1)
+        first_chunk_logged = False
 
         async for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
+                if not first_chunk_logged:
+                    first_chunk_logged = True
+                    print(f"[AI流式] 首个chunk耗时: {time.perf_counter() - stream_start:.3f}s")
                 content = chunk.choices[0].delta.content
                 full_content += content
                 stream_content = _strip_image_references_for_stream(full_content)
-                if stream_content == last_stream_content:
+
+                if hold_chars and len(stream_content) > hold_chars:
+                    display_source = stream_content[:-hold_chars]
+                elif hold_chars:
+                    display_source = ""
+                else:
+                    display_source = stream_content
+
+                stream_content = desensitize_text(display_source)
+                if not stream_content or stream_content == last_stream_content:
                     continue
                 last_stream_content = stream_content
                 data["answer"] = stream_content
@@ -834,8 +869,8 @@ async def stream_ai_response(
             processed = await _append_reference_images_to_answer(final_content, reference_docs or [])
             if final_content.strip() and not processed.strip():
                 processed = "已检索到相关文档，但模型仅返回了不可访问的图片引用，未生成有效文字回答。"
-            if processed != final_content:
-                final_content = processed
+            final_content = desensitize_text(processed)
+            if final_content:
                 data["answer"] = final_content
                 data["final"] = True
                 if not api_v1:
@@ -852,6 +887,7 @@ async def stream_ai_response(
             await persist_ai_content(final_content, with_token_count=True)
             yield _format_stream_event(data)
         elif not already_persisted:
+            final_content = desensitize_text(final_content)
             await persist_ai_content(final_content, with_token_count=True)
 
         final_data = {"code": 1, "data": "true"}
@@ -1300,7 +1336,7 @@ async def generate_messages(db, id, message_now, documents_id):
             token_tmp = 0
             role = "user" if message.role == 1 else "assistant"
             msg_text = []
-            msg_text.append({"type": "text", "text": message.content_text})
+            msg_text.append({"type": "text", "text": desensitize_text(message.content_text)})
 
             had_cached_token = int(getattr(message, "token_count", 0) or 0) > 0 or not message.content_text
             token_tmp += await _get_or_update_text_token_count(db, message)
@@ -1348,7 +1384,10 @@ async def generate_messages(db, id, message_now, documents_id):
     prompt = await get_prompt(db, documents_id, tokens_tmp)
 
     constrain_tip = "\n回答只依据知识文档内容，不添加文档外信息；只要有知识文档，就基于已有内容整理答案，不回复知识库无相关内容；文档信息不完整时，围绕已有依据回答，避免强调文档不足；仅无知识文档时提示知识库无相关内容。要求有关问题内容的回答完全按照我提供的文档内容。"
-    msg_content = [{"type": "text", "text": f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"}]
+    msg_content = [{
+        "type": "text",
+        "text": desensitize_text(f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"),
+    }]
 
     # 添加文档中命中的参考图片，让多模态模型可结合图片内容回答；最终展示仍由后端追加 Markdown 图片保证稳定。
     doc_image_urls = _collect_reference_image_paths(
@@ -1384,7 +1423,6 @@ async def generate_messages(db, id, message_now, documents_id):
             print(f"添加文档图片失败 {image}: {e}")
 
     print(f"[图片排查][generate_messages] msg_content_types={[item.get('type') for item in msg_content]}")
-    print(msg_content)
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = _split_uploaded_images(message_now.user_uploaded_images)
         for image in images:
@@ -1416,6 +1454,8 @@ async def generate_messages(db, id, message_now, documents_id):
 async def get_new_title_by_ai(content):
     """使用大模型为新会话生成简短标题。"""
 
+    content = desensitize_text(content)
+
     messages = [{
         "role": "user",
         "content": f"请根据下面的内容，生成一个10字以内的对话标题，要求正式简洁，并且只给出标题，不要有任何多余内容。\n内容：{content}"
@@ -1435,6 +1475,7 @@ async def get_new_title_by_ai(content):
         return response.choices[0].message.content
 
     new_title = await asyncio.to_thread(_call_openai)
+    new_title = desensitize_text(new_title)
     print("new_title: ", new_title)
     if len(new_title) > 15 or len(new_title) == 0:
         new_title = "新对话"
@@ -1757,6 +1798,7 @@ async def get_prompt(db, document_ids, max_tokens):
 解决方案：{document.solutions}
 关键要点：{document.key_points}
         """
+        doc_prompt = desensitize_text(doc_prompt)
         token_tmp = _count_text_tokens_cached(doc_prompt)
 
         if tokens + token_tmp >= max_tokens:
@@ -1781,7 +1823,7 @@ async def get_prompt(db, document_ids, max_tokens):
         has_reference_images = bool(_collect_reference_image_paths(reference_image_docs, max_images=1))
         if has_reference_images:
             final_prompt += "\n如需结合文档配图，请在文字中说明“见下方参考图片”，不要输出任何图片路径、服务器路径或 Markdown 图片语法；图片由系统在回答结束后统一展示。"
-        return final_prompt
+        return desensitize_text(final_prompt)
 
     return ""
 
@@ -1822,7 +1864,7 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
         })
     if not payload:
         return ""
-    return json.dumps(payload, ensure_ascii=False)
+    return json.dumps(desensitize_value(payload), ensure_ascii=False)
 
 async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str, Any]]] = None):
     """
@@ -1858,6 +1900,7 @@ async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str
 
     # 图片路径替换为 Web URL，并在必要时追加参考图片 Markdown。
     final_ans = await _append_reference_images_to_answer(final_ans, reference_docs or [])
+    final_ans = desensitize_text(final_ans)
 
     result = await db.execute(select(Message).where(Message.id == id))
     ai_msg = result.scalar_one_or_none()
@@ -1887,7 +1930,15 @@ async def get_by_conversation(id: int,
         )
         messages = msg_result.scalars().all()
 
-        message_response = [MessageResponse.from_orm(message) for message in messages]
+        message_response = []
+        for message in messages:
+            item = MessageResponse.from_orm(message).dict()
+            if message.role == 0:
+                item["content_text"] = desensitize_text(
+                    _sanitize_answer_images_for_display(message.content_text)
+                )
+                item["ai_reference_doc_ids"] = desensitize_json_payload_string(message.ai_reference_doc_ids)
+            message_response.append(item)
         return Result.success_with_data(message_response)
     except Exception as e:
         if isinstance(e, AppException):

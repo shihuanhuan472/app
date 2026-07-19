@@ -1,5 +1,5 @@
 # schemas.py
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List, TypeVar, Generic
 from datetime import datetime
 
@@ -274,10 +274,22 @@ class DeleteImageRequest(BaseModel):
     image_url: str
 
 
+class ParseResultItem(BaseModel):
+    file_name: str
+    file_path: Optional[str] = None
+    status: str
+    reason: Optional[str] = None
+    error_code: Optional[int] = None
+    document_id: Optional[int] = None
+    document_library_type: Optional[str] = None
+    elapsed_seconds: Optional[int] = None
+
+
 class UploadDocumentResponse(BaseModel):
     success_origin_filename: List[str]
     success_file_url: List[str]
     error_origin_filename: List[str]
+    parse_results: Optional[List[ParseResultItem]] = None
 
 
 class UploadDocumentRequestNew(BaseModel):
@@ -320,6 +332,49 @@ class AnalyzeRequest(BaseModel):
     submit_for_review: Optional[bool] = False
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+
+
+class ParseTaskCreate(AnalyzeRequest):
+    pass
+
+
+class ParseTaskItemResponse(BaseModel):
+    id: int
+    source_document_id: Optional[int] = None
+    file_name: str
+    file_path: str
+    status: str
+    error_reason: Optional[str] = None
+    error_code: Optional[int] = None
+    document_id: Optional[int] = None
+    document_library_type: Optional[str] = "breakdown"
+    started_time: Optional[datetime] = None
+    finished_time: Optional[datetime] = None
+    elapsed_seconds: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ParseTaskResponse(BaseModel):
+    id: int
+    user_id: int
+    status: str
+    total_count: int
+    success_count: int
+    failed_count: int
+    current_file_name: Optional[str] = None
+    submit_for_review: bool = False
+    library_type: str = "breakdown"
+    tag: Optional[List[Any]] = None
+    error_message: Optional[str] = None
+    created_time: Optional[datetime] = None
+    started_time: Optional[datetime] = None
+    finished_time: Optional[datetime] = None
+    items: List[ParseTaskItemResponse] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
 
 
 # 对话相关的Schema

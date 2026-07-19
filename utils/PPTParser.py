@@ -2,31 +2,61 @@ import base64
 import json
 import mimetypes
 import uuid
+import shutil
+import subprocess
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from PIL import Image
 from openai import OpenAI
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url_alt
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 import os
 
 """
 解析ppt，使用python-pptx提取ppt中的图像和文本
 """
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
 class PPTParser:
+    NATIVE_TEXT_MIN_CHARS = 80
+    IMAGE_AREA_RATIO = 0.6
+    DOCUMENT_ROUTE_RATIO = 0.7
+
     def __init__(self):
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.model_image_max_size = int(os.getenv("MODEL_IMAGE_MAX_SIZE", 1024))
+        self.ppt_native_text_min_chars = self.NATIVE_TEXT_MIN_CHARS
+        self.ppt_image_area_ratio = self.IMAGE_AREA_RATIO
+        self.ppt_document_route_ratio = self.DOCUMENT_ROUTE_RATIO
+        self.ppt_to_pdf_enabled = _env_bool("PPT_TO_PDF_ENABLED", True)
+        self.ppt_soffice_exe = os.getenv("PPT_SOFFICE_EXE", "").strip()
+        self.ppt_keep_converted_pdf = _env_bool("PPT_KEEP_CONVERTED_PDF", False)
+        self.ppt_parse_mode = os.getenv("PPT_PARSE_MODE", "mineru_first").strip().lower() or "mineru_first"
+        if self.ppt_parse_mode not in {"mineru", "mineru_first", "pdf_mineru", "always", "auto", "strategy", "native"}:
+            self.ppt_parse_mode = "mineru_first"
+        self.last_parse_strategy = None
         self.last_error_code = None
         self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -41,6 +71,31 @@ class PPTParser:
     def parse(self, file_path: str):
         self.last_error_code = None
         self.last_error_detail = None
+        self.last_parse_strategy = {
+            "strategy": "native" if self.ppt_parse_mode == "native" else "pdf_mineru_first",
+            "reason": "PPT 默认先转 PDF 后使用 MinerU 解析 Markdown。",
+        }
+
+        if self.ppt_parse_mode != "native":
+            document = self._parse_with_mineru_if_available(file_path)
+            if document is not None:
+                return document
+
+        try:
+            strategy = self.get_parse_strategy(file_path)
+            self.last_parse_strategy = strategy
+            print(
+                "[PPTParser] fallback strategy={strategy} image_page_ratio={image_ratio:.2f} "
+                "native_page_ratio={native_ratio:.2f} slides={slides}".format(
+                    strategy=strategy["strategy"],
+                    image_ratio=strategy["image_page_ratio"],
+                    native_ratio=strategy["native_page_ratio"],
+                    slides=strategy["slide_count"],
+                )
+            )
+        except Exception as error:
+            print(f"[PPTParser] 原生 PPT 策略分析失败，继续尝试原生解析：{error}")
+
         text, image_urls, image_names, section_image_indexes = self.get_content(file_path)
         document = self.file2document(text, image_urls, image_names, section_image_indexes)
         return document
@@ -72,12 +127,12 @@ class PPTParser:
     def _detect_section(self, text: str):
         normalized = "".join((text or "").split())
         section_keywords = [
-            ("problem_intro", ["问题描述", "问题简介"]),
-            ("causes", ["原因分析", "原因"]),
-            ("evaluation", ["故障评估", "评估"]),
-            ("inspection", ["检查步骤", "检查"]),
-            ("solutions", ["解决方案", "问题解决", "解决"]),
-            ("key_points", ["关键要点", "总结"]),
+            ("problem_intro", ["问题描述", "问题简介", "现场问题描述", "客户反馈", "问题现象", "调查报告"]),
+            ("causes", ["原因分析", "推测原因", "根因", "原因"]),
+            ("evaluation", ["故障评估", "评估", "影响范围", "风险评估"]),
+            ("inspection", ["检查步骤", "检查", "排查记录", "排查", "测试记录", "验证记录"]),
+            ("solutions", ["解决方案", "问题解决", "解决", "改善措施", "纠正措施", "建议"]),
+            ("key_points", ["关键要点", "总结", "结论"]),
         ]
         for section, keywords in section_keywords:
             if any(keyword in normalized for keyword in keywords):
@@ -94,6 +149,232 @@ class PPTParser:
             "key_points": [],
         }
 
+    def _iter_shapes(self, shapes):
+        for shape in shapes:
+            yield shape
+            if getattr(shape, "shape_type", None) == MSO_SHAPE_TYPE.GROUP:
+                yield from self._iter_shapes(shape.shapes)
+
+    def _shape_text(self, shape) -> str:
+        parts = []
+        if getattr(shape, "has_text_frame", False):
+            for paragraph in shape.text_frame.paragraphs:
+                text = paragraph.text.strip()
+                if text:
+                    parts.append(text)
+        if getattr(shape, "has_table", False):
+            table_text = self._table_to_markdown(shape.table)
+            if table_text:
+                parts.append(table_text)
+        return "\n".join(parts)
+
+    def _shape_area_ratio(self, shape, slide_width: int, slide_height: int) -> float:
+        slide_area = max(int(slide_width) * int(slide_height), 1)
+        width = int(getattr(shape, "width", 0) or 0)
+        height = int(getattr(shape, "height", 0) or 0)
+        return min(max(width * height, 0) / slide_area, 1.0)
+
+    def _is_picture_shape(self, shape) -> bool:
+        return getattr(shape, "shape_type", None) == MSO_SHAPE_TYPE.PICTURE
+
+    def _table_to_markdown(self, table) -> str:
+        rows = []
+        for row in table.rows:
+            values = []
+            for cell in row.cells:
+                value = " ".join((cell.text or "").split())
+                values.append(value.replace("|", "\\|"))
+            if any(values):
+                rows.append(values)
+        if not rows:
+            return ""
+        max_cols = max(len(row) for row in rows)
+        normalized_rows = [row + [""] * (max_cols - len(row)) for row in rows]
+        header = normalized_rows[0]
+        separator = ["---"] * max_cols
+        lines = [
+            "| " + " | ".join(header) + " |",
+            "| " + " | ".join(separator) + " |",
+        ]
+        for row in normalized_rows[1:]:
+            lines.append("| " + " | ".join(row) + " |")
+        return "\n".join(lines)
+
+    def _analyze_slide(self, slide, slide_index: int, slide_width: int, slide_height: int):
+        native_chars = 0
+        text_shape_count = 0
+        table_count = 0
+        picture_count = 0
+        max_picture_area_ratio = 0.0
+
+        for shape in self._iter_shapes(slide.shapes):
+            text = self._shape_text(shape)
+            if text:
+                text_shape_count += 1
+                native_chars += len(text)
+            if getattr(shape, "has_table", False):
+                table_count += 1
+            if self._is_picture_shape(shape):
+                picture_count += 1
+                max_picture_area_ratio = max(
+                    max_picture_area_ratio,
+                    self._shape_area_ratio(shape, slide_width, slide_height),
+                )
+
+        is_image_page = (
+            native_chars < self.ppt_native_text_min_chars
+            and table_count == 0
+            and picture_count > 0
+            and max_picture_area_ratio >= self.ppt_image_area_ratio
+        )
+        is_native_page = native_chars >= self.ppt_native_text_min_chars or table_count > 0
+        return {
+            "slide_index": slide_index,
+            "native_chars": native_chars,
+            "text_shape_count": text_shape_count,
+            "table_count": table_count,
+            "picture_count": picture_count,
+            "max_picture_area_ratio": round(max_picture_area_ratio, 4),
+            "is_image_page": is_image_page,
+            "is_native_page": is_native_page,
+        }
+
+    def get_parse_strategy(self, file_path: str):
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(file_path)
+        prs = Presentation(file_path)
+        slide_count = len(prs.slides)
+        slide_stats = [
+            self._analyze_slide(
+                slide,
+                slide_index,
+                int(prs.slide_width),
+                int(prs.slide_height),
+            )
+            for slide_index, slide in enumerate(prs.slides, start=1)
+        ]
+        image_page_count = sum(1 for item in slide_stats if item["is_image_page"])
+        native_page_count = sum(1 for item in slide_stats if item["is_native_page"])
+        denominator = max(slide_count, 1)
+        image_page_ratio = image_page_count / denominator
+        native_page_ratio = native_page_count / denominator
+
+        if image_page_ratio >= self.ppt_document_route_ratio:
+            strategy = "mineru"
+            reason = "图片型页面占比达到阈值，适合转 PDF 后用 MinerU OCR"
+        elif native_page_ratio >= self.ppt_document_route_ratio:
+            strategy = "native"
+            reason = "原生文本/表格页面占比达到阈值，适合直接读取 PPT 结构"
+        else:
+            strategy = "mixed"
+            reason = "原生页面和图片型页面混合，优先尝试 MinerU，失败后用原生结构兜底"
+
+        return {
+            "strategy": strategy,
+            "reason": reason,
+            "slide_count": slide_count,
+            "image_page_count": image_page_count,
+            "native_page_count": native_page_count,
+            "image_page_ratio": image_page_ratio,
+            "native_page_ratio": native_page_ratio,
+            "thresholds": {
+                "native_text_min_chars": self.ppt_native_text_min_chars,
+                "image_area_ratio": self.ppt_image_area_ratio,
+                "document_route_ratio": self.ppt_document_route_ratio,
+            },
+            "slides": slide_stats,
+        }
+
+    def _resolve_soffice_executable(self) -> str:
+        if self.ppt_soffice_exe:
+            candidate = os.path.abspath(os.path.expanduser(self.ppt_soffice_exe))
+            if os.path.exists(candidate):
+                return candidate
+        for command in ("soffice", "libreoffice"):
+            resolved = shutil.which(command)
+            if resolved:
+                return resolved
+        return ""
+
+    def _convert_ppt_to_pdf(self, file_path: str) -> str:
+        soffice = self._resolve_soffice_executable()
+        if not soffice:
+            raise RuntimeError(
+                "未找到 LibreOffice/soffice，无法将 PPT 转 PDF 后交给 MinerU。"
+                "请安装 LibreOffice，或设置 PPT_SOFFICE_EXE 指向 soffice.exe。"
+            )
+
+        output_parent = Path(self.document_base_dir) / "runtime" / "ppt_pdf"
+        output_parent.mkdir(parents=True, exist_ok=True)
+        if self.ppt_keep_converted_pdf:
+            output_dir = output_parent / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            cleanup_context = None
+        else:
+            cleanup_context = tempfile.TemporaryDirectory(prefix="ppt_pdf_", dir=str(output_parent))
+            output_dir = Path(cleanup_context.name)
+
+        command = [
+            soffice,
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(output_dir),
+            os.path.abspath(file_path),
+        ]
+        completed = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+            check=False,
+        )
+        if completed.returncode != 0:
+            if cleanup_context is not None:
+                cleanup_context.cleanup()
+            raise RuntimeError(
+                "PPT 转 PDF 失败：{stderr}".format(stderr=completed.stderr.strip() or completed.stdout.strip())
+            )
+
+        pdf_candidates = sorted(output_dir.glob("*.pdf"), key=lambda path: path.stat().st_mtime, reverse=True)
+        if not pdf_candidates:
+            if cleanup_context is not None:
+                cleanup_context.cleanup()
+            raise RuntimeError("PPT 转 PDF 未生成 PDF 文件。")
+
+        pdf_path = str(pdf_candidates[0])
+        if cleanup_context is not None:
+            # MinerU 需要在该函数返回后读取 PDF，因此先复制到持久目录。
+            keep_dir = output_parent / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            keep_dir.mkdir(parents=True, exist_ok=True)
+            keep_pdf_path = keep_dir / pdf_candidates[0].name
+            shutil.copy2(pdf_path, keep_pdf_path)
+            cleanup_context.cleanup()
+            pdf_path = str(keep_pdf_path)
+        return pdf_path
+
+    def _parse_with_mineru_if_available(self, file_path: str):
+        if not self.ppt_to_pdf_enabled:
+            print("[PPTParser] PPT_TO_PDF_ENABLED 未启用，改用原生 PPT 解析。")
+            return None
+        pdf_path = None
+        try:
+            pdf_path = self._convert_ppt_to_pdf(file_path)
+            print(f"[PPTParser] PPT 已转换为 PDF，交给 MinerU：{pdf_path}")
+            from utils.PdfParser import pdf_parser
+
+            return pdf_parser.parse_with_mineru(pdf_path, include_page_images=True)
+        except Exception as error:
+            print(f"[PPTParser] MinerU 路由失败，改用原生 PPT 解析：{error}")
+            return None
+        finally:
+            if pdf_path and not self.ppt_keep_converted_pdf:
+                shutil.rmtree(str(Path(pdf_path).parent), ignore_errors=True)
+
     def get_content(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
@@ -104,25 +385,21 @@ class PPTParser:
         base_url = os.path.join(self.document_base_dir, self.image_dir)
 
         for slide_index, slide in enumerate(prs.slides):
-            for shape in slide.shapes:
+            for shape in self._iter_shapes(slide.shapes):
                 try:
                     left = int(getattr(shape, "left", 0) or 0)
                     top = int(getattr(shape, "top", 0) or 0)
-                    if shape.has_text_frame:
-                        shape_text = "\n".join(
-                            paragraph.text.strip()
-                            for paragraph in shape.text_frame.paragraphs
-                            if paragraph.text.strip()
-                        )
-                        if shape_text:
-                            layout_items.append({
-                                "type": "text",
-                                "slide": slide_index,
-                                "top": top,
-                                "left": left,
-                                "content": shape_text,
-                            })
-                    if hasattr(shape, "shape_type") and shape.shape_type == 13:
+                    shape_text = self._shape_text(shape)
+                    if shape_text:
+                        item_type = "table" if getattr(shape, "has_table", False) else "text"
+                        layout_items.append({
+                            "type": item_type,
+                            "slide": slide_index,
+                            "top": top,
+                            "left": left,
+                            "content": shape_text,
+                        })
+                    if self._is_picture_shape(shape):
                         image = shape.image
                         ext = image.ext or "png"
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -151,8 +428,9 @@ class PPTParser:
         for item in layout_items:
             if item["slide"] != current_slide:
                 current_slide = item["slide"]
+                current_section = None
                 text_parts.append(f"\n【第{current_slide + 1}页】")
-            if item["type"] == "text":
+            if item["type"] in {"text", "table"}:
                 detected_section = self._detect_section(item["content"])
                 if detected_section:
                     current_section = detected_section
@@ -164,6 +442,7 @@ class PPTParser:
                     section_image_indexes[current_section].append(image_index)
 
         return "\n".join(text_parts), image_urls, image_names, section_image_indexes
+
     def image_to_base64(self, image: str):
         with open(image, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode("utf-8")
@@ -254,7 +533,7 @@ class PPTParser:
             print(image)
             if token_cnt >= self.input_token - 1000:
                 break
-            compress_image = self.compress_image(image)
+            compress_image = self.compress_image(image, max_size=self.model_image_max_size)
             mime_type, _ = mimetypes.guess_type(compress_image)
             if mime_type is None:
                 ext = os.path.splitext(compress_image)[1].lower()
@@ -312,22 +591,26 @@ class PPTParser:
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
-            flag = [0] * len(image_urls)
-            for key in result.keys():
-                if "image" in key:
-                    image_url_content = ""
-                    for image_index in result[key]:
-                        if image_index > len(image_urls) or flag[image_index - 1] == 1:
-                            continue
-                        url = image_names[image_index - 1]
-                        url = self.image_dir + "/" + url
-                        image_url_content += url + ", "
-                        flag[image_index - 1] = 1
-                    image_url_content = image_url_content.rstrip(", ")
-                    if len(result[key]) == 0:
-                        image_url_content = None
-                    result[key] = image_url_content
-            used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
+            result["title"] = normalize_document_title(result.get("title"))
+            result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
+
+            if not used_image_indexes:
+                flag = [0] * len(image_urls)
+                for key in result.keys():
+                    if "image" in key:
+                        image_url_content = ""
+                        for image_index in result[key]:
+                            if image_index > len(image_urls) or flag[image_index - 1] == 1:
+                                continue
+                            url = image_names[image_index - 1]
+                            url = self.image_dir + "/" + url
+                            image_url_content += url + ", "
+                            flag[image_index - 1] = 1
+                        image_url_content = image_url_content.rstrip(", ")
+                        if len(result[key]) == 0:
+                            image_url_content = None
+                        result[key] = image_url_content
+                used_image_indexes = {i + 1 for i, used in enumerate(flag) if used == 1}
             document = Document(**result,
                                 is_vectorized=0)
 
@@ -337,10 +620,9 @@ class PPTParser:
                         os.remove(image_urls[i])
                         dir_name, filename = os.path.split(image_urls[i])
                         name, ext = os.path.splitext(filename)
-                        new_path = f"{name}_compressed.{ext}"
-                        new_path = os.path.join(dir_name, new_path)
-                        if os.path.exists(new_path):
-                            os.remove(new_path)
+                        compressed_path = os.path.join(dir_name, f"{name}_compressed_512{ext}")
+                        if os.path.exists(compressed_path):
+                            os.remove(compressed_path)
 
             return document
 

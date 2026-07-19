@@ -11,6 +11,7 @@ from qwen_token_counter import get_token_count
 from openai import OpenAI
 from models import Document, Message
 from utils.VectorService import VectorService
+from utils.ai_endpoint import get_ai_base_url
 from database import AsyncSessionLocal
 
 db = AsyncSessionLocal()
@@ -61,10 +62,9 @@ def get_ai_answer(messages):
     流程：获取相关文档id列表（并得到字符串版） -> 生成提示词 -> 生成消息
           -> 消息丢给ai得到回答 -> 返回答案和相关文档id（字符串）
     """
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     client = OpenAI(
-        base_url=f"http://{server_ip}:8000/v1",
+        base_url=get_ai_base_url(),
         api_key=api_key
     )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")

@@ -26,6 +26,7 @@ from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
 from utils.tag_service import normalize_tag_values, set_document_tag_names
+from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
 from knowledge_parsers import knowledge_parser
@@ -489,7 +490,7 @@ async def _sections_from_source_file(source: SourceDocument, review: Document_re
     if not parsed:
         return None
     if parsed.title and not review.title:
-        review.title = parsed.title
+        review.title = normalize_document_title(parsed.title)
     if getattr(parsed, "image_urls", None) and not getattr(review, "image_urls", None):
         review.image_urls = ", ".join(str(url).strip() for url in parsed.image_urls if str(url).strip())
     sections = _serialize_review_sections(getattr(parsed, "sections", None))
@@ -632,6 +633,8 @@ async def create_review(
 
     if request.action_type == 3 and not request.title and target_document:
         request.title = target_document.title
+    if request.title:
+        request.title = normalize_document_title(request.title)
 
     await _validate_review_images(request)
 
