@@ -1,0 +1,964 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档审核 - 维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
+    <script src="js/review-detail-renderer.js"></script>
+    <style>
+        .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+        .tab-btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #374151;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .tab-btn.active { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+        }
+        .status-0 { color: #92400e; background: #fef3c7; }
+        .status-1 { color: #065f46; background: #d1fae5; }
+        .status-2 { color: #991b1b; background: #fee2e2; }
+        .status-3 { color: #374151; background: #e5e7eb; }
+
+        .type-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 20px;
+            font-weight: 600;
+            color: #1d4ed8;
+            background: #dbeafe;
+        }
+
+        .review-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 1100;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .review-modal-content {
+            width: min(980px, 95vw);
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+            padding: 20px;
+        }
+        .review-section { margin-bottom: 16px; }
+        .review-section h4 {
+            margin-bottom: 8px;
+            color: #1f2937;
+            font-size: 15px;
+        }
+        .review-text {
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #60a5fa;
+            padding: 10px 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #374151;
+            line-height: 1.65;
+        }
+        .knowledge-section-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .knowledge-section-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff;
+        }
+        .knowledge-section-title {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+        .knowledge-section-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .image-item {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+        }
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
+        }
+        .review-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+        .review-textarea {
+            width: 100%;
+            min-height: 90px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 10px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .batch-review-toolbar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .batch-review-toolbar.visible { display: flex; }
+        .batch-review-left,
+        .batch-review-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .batch-review-select {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .batch-review-count {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .review-card-title-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            min-width: 0;
+        }
+        .review-select {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 24px;
+            flex: 0 0 auto;
+        }
+        .review-select input,
+        .batch-review-select input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+
+        .review-image-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .review-image-item {
+            width: 92px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: #f9fafb;
+            overflow: hidden;
+        }
+
+        .review-image-item img {
+            display: block;
+            width: 92px;
+            height: 68px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .review-image-item span {
+            display: block;
+            padding: 4px 6px;
+            color: #64748b;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1300;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .document-image-modal-content {
+            position: relative;
+            max-width: min(960px, 94vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .document-image-modal-content img {
+            max-width: 100%;
+            max-height: 82vh;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .document-image-modal-close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: #fff;
+            color: #111827;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 34px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+        }
+
+        .document-image-modal-caption {
+            max-width: 100%;
+            color: #f8fafc;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="document-image-modal" id="documentImageModal">
+        <div class="document-image-modal-content">
+            <button type="button" class="document-image-modal-close" onclick="closeDocumentImagePreview()" title="关闭">&times;</button>
+            <img id="documentImageModalImg" src="" alt="图片预览">
+            <div class="document-image-modal-caption" id="documentImageModalCaption"></div>
+        </div>
+    </div>
+
+    <div class="review-modal" id="reviewModal">
+        <div class="review-modal-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="margin:0;color:#111827;">审核详情</h3>
+                <button class="btn btn-secondary btn-sm" id="closeReviewModalBtn" onclick="closeReviewModal()">关闭</button>
+            </div>
+            <div id="reviewModalBody"></div>
+        </div>
+    </div>
+
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
+                <a href="document-review.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-check-circle"></i></span><span>文档审核</span></a>
+                <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
+                <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+                <a href="user-profile.html" class="nav-item"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div>
+                        <div class="user-name" id="userName">当前用户</div>
+                        <div class="user-role" id="userRole">审核人员</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">文档审核</div>
+                    <div class="page-subtitle">审核新增、修改与删除申请</div>
+                </div>
+            </div>
+
+            <div class="document-container">
+                <div class="tabs">
+                    <button class="tab-btn active" id="pendingTabBtn" onclick="switchTab('pending')">待审核</button>
+                    <button class="tab-btn" id="allTabBtn" onclick="switchTab('all')">全部记录</button>
+                </div>
+                <div class="batch-review-toolbar" id="batchReviewToolbar">
+                    <div class="batch-review-left">
+                        <label class="batch-review-select" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="batchSelectAll" onchange="toggleSelectAllReviews(this.checked)">
+                            <span>全选当前待审核</span>
+                        </label>
+                        <span class="batch-review-count" id="batchSelectedCount">已选择 0 项</span>
+                    </div>
+                    <div class="batch-review-actions">
+                        <button class="btn btn-danger btn-sm" id="batchRejectBtn" onclick="batchRejectReviews()" disabled>
+                            <i class="fas fa-times"></i> 批量驳回
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="batchApproveBtn" onclick="batchApproveReviews()" disabled>
+                            <i class="fas fa-check"></i> 批量通过
+                        </button>
+                    </div>
+                </div>
+                <div class="document-grid" id="reviewList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statusMap = {0: '待审核', 1: '已通过', 2: '已驳回', 3: '已撤回'};
+        const actionMap = {1: '新增', 2: '修改', 3: '删除'};
+        let currentTab = 'pending';
+        let currentReviews = [];
+        let rawReviews = [];
+        let reviewSubmitting = false;
+        let batchReviewSubmitting = false;
+        const selectedReviewIds = new Set();
+
+        function escapeHtml(text) {
+            const value = text == null ? '' : String(text);
+            return value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getReviewLibraryType(item) {
+            return ReviewDetailRenderer.getReviewLibraryType(item);
+        }
+
+        function getReviewStorageType(item) {
+            return ReviewDetailRenderer.getReviewStorageType(item);
+        }
+
+        function getReviewKey(item) {
+            return `${getReviewStorageType(item)}:${item.id}`;
+        }
+
+        function parseReviewKey(key) {
+            const [reviewLibraryType, rawId] = String(key || '').split(':');
+            const reviewId = Number(rawId);
+            return {
+                reviewId,
+                reviewLibraryType: reviewLibraryType === 'knowledge' ? 'knowledge' : 'breakdown'
+            };
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replace(/\n/g, '&#10;');
+        }
+
+        function getFullImageUrl(relativeUrl) {
+            if (!relativeUrl) return '';
+            if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(relativeUrl)) return relativeUrl;
+            if (API_CONFIG.getAssetUrl) return API_CONFIG.getAssetUrl(relativeUrl);
+            const base = (API_CONFIG.STATIC_BASE_URL || API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') || '').replace(/\/$/, '');
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+        }
+
+        function normalizeImageUrls(imageUrls) {
+            if (Array.isArray(imageUrls)) {
+                return imageUrls.map(url => String(url || '').trim()).filter(Boolean);
+            }
+            if (typeof imageUrls === 'string' && imageUrls.trim() && imageUrls !== 'null') {
+                try {
+                    const parsed = JSON.parse(imageUrls);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(url => String(url || '').trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return imageUrls.split(',').map(url => url.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function renderImageGrid(imageUrls) {
+            const urls = normalizeImageUrls(imageUrls);
+            if (!urls.length) return '';
+            return `
+                <div class="review-image-grid">
+                    ${urls.map((url, index) => {
+                        const displayUrl = getFullImageUrl(url);
+                        return `
+                            <div class="review-image-item">
+                                <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="图片${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/92x68?text=加载失败'">
+                                <span title="${escapeAttribute(url)}">图片${index + 1}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function openDocumentImagePreview(imageUrl, caption = '图片预览') {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            const captionEl = document.getElementById('documentImageModalCaption');
+            if (!modal || !img) return;
+
+            img.src = getFullImageUrl(imageUrl);
+            img.alt = caption || '图片预览';
+            if (captionEl) captionEl.textContent = caption || '';
+            modal.style.display = 'flex';
+        }
+
+        function closeDocumentImagePreview() {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            if (modal) modal.style.display = 'none';
+            if (img) img.src = '';
+        }
+
+        function canReview(user) {
+            if (!user) return false;
+            return Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
+        }
+
+        function setTabButtonState() {
+            const pendingBtn = document.getElementById('pendingTabBtn');
+            const allBtn = document.getElementById('allTabBtn');
+            if (pendingBtn) pendingBtn.classList.toggle('active', currentTab === 'pending');
+            if (allBtn) allBtn.classList.toggle('active', currentTab === 'all');
+        }
+
+        async function switchTab(tab) {
+            currentTab = tab;
+            selectedReviewIds.clear();
+            setTabButtonState();
+            updateBatchReviewToolbar();
+            await loadReviewList();
+        }
+
+        async function loadReviewList() {
+            const list = document.getElementById('reviewList');
+            list.innerHTML = `
+                <div class="document-loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载审核列表...</p>
+                </div>
+            `;
+
+            try {
+                const data = currentTab === 'pending'
+                    ? await reviewAPI.getReviewPendingList()
+                    : await reviewAPI.getReviewAllList();
+
+                rawReviews = Array.isArray(data) ? data : [];
+                currentReviews = currentTab === 'pending'
+                    ? buildPendingDisplayList(rawReviews)
+                    : rawReviews;
+                selectedReviewIds.clear();
+
+                renderReviewList();
+            } catch (error) {
+                list.innerHTML = `
+                    <div class="document-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                        <p style="color: #666; margin-bottom: 20px;">加载审核列表失败：${escapeHtml(error.message || '未知错误')}</p>
+                    </div>
+                `;
+                updateBatchReviewToolbar();
+            }
+        }
+
+        function buildPendingDisplayList(items) {
+            const latestByKey = new Map();
+            const mergedCountByKey = new Map();
+
+            items.forEach(item => {
+                const key = getPendingGroupKey(item);
+                if (!latestByKey.has(key)) {
+                    latestByKey.set(key, item);
+                    mergedCountByKey.set(key, 0);
+                    return;
+                }
+                mergedCountByKey.set(key, (mergedCountByKey.get(key) || 0) + 1);
+            });
+
+            const displayItems = [];
+            latestByKey.forEach((item, key) => {
+                displayItems.push({
+                    ...item,
+                    _merged_count: mergedCountByKey.get(key) || 0
+                });
+            });
+
+            return displayItems;
+        }
+
+        function getPendingGroupKey(item) {
+            const actionType = Number(item.action_type);
+            const documentId = Number(item.document_id);
+            const contributorId = Number(item.contributor_id);
+            if ((actionType === 2 || actionType === 3) && Number.isFinite(documentId) && documentId > 0) {
+                return `${getReviewLibraryType(item)}-doc-${documentId}-action-${actionType}-user-${Number.isFinite(contributorId) ? contributorId : 'na'}`;
+            }
+            return `review-${getReviewKey(item)}`;
+        }
+
+        function getSelectableReviewIds() {
+            if (currentTab !== 'pending') return [];
+            return currentReviews
+                .filter(item => Number(item.status) === 0)
+                .map(item => getReviewKey(item));
+        }
+
+        function updateBatchReviewToolbar() {
+            const toolbar = document.getElementById('batchReviewToolbar');
+            const selectAll = document.getElementById('batchSelectAll');
+            const countText = document.getElementById('batchSelectedCount');
+            const approveBtn = document.getElementById('batchApproveBtn');
+            const rejectBtn = document.getElementById('batchRejectBtn');
+            if (!toolbar) return;
+
+            const selectableIds = getSelectableReviewIds();
+            const selectableSet = new Set(selectableIds);
+            Array.from(selectedReviewIds).forEach(id => {
+                if (!selectableSet.has(id)) selectedReviewIds.delete(id);
+            });
+
+            const hasSelectable = selectableIds.length > 0;
+            toolbar.classList.toggle('visible', currentTab === 'pending' && hasSelectable);
+
+            const selectedCount = selectedReviewIds.size;
+            if (selectAll) {
+                selectAll.checked = hasSelectable && selectedCount === selectableIds.length;
+                selectAll.indeterminate = selectedCount > 0 && selectedCount < selectableIds.length;
+                selectAll.disabled = batchReviewSubmitting || !hasSelectable;
+            }
+            if (countText) {
+                countText.textContent = `已选择 ${selectedCount} 项`;
+            }
+            [approveBtn, rejectBtn].forEach(btn => {
+                if (btn) btn.disabled = batchReviewSubmitting || selectedCount === 0;
+            });
+
+            document.querySelectorAll('.review-select input').forEach(input => {
+                input.disabled = batchReviewSubmitting;
+            });
+        }
+
+        function toggleReviewSelection(reviewId, checked) {
+            const id = String(reviewId || '');
+            if (!id || batchReviewSubmitting) return;
+            if (checked) {
+                selectedReviewIds.add(id);
+            } else {
+                selectedReviewIds.delete(id);
+            }
+            updateBatchReviewToolbar();
+        }
+
+        function toggleSelectAllReviews(checked) {
+            if (batchReviewSubmitting) return;
+            const selectableIds = getSelectableReviewIds();
+            selectedReviewIds.clear();
+            if (checked) {
+                selectableIds.forEach(id => selectedReviewIds.add(id));
+            }
+            renderReviewList();
+        }
+
+        function setBatchReviewSubmitting(submitting, actionType = 'approve') {
+            batchReviewSubmitting = submitting;
+            const approveBtn = document.getElementById('batchApproveBtn');
+            const rejectBtn = document.getElementById('batchRejectBtn');
+
+            if (approveBtn) {
+                approveBtn.disabled = submitting || selectedReviewIds.size === 0;
+                approveBtn.innerHTML = submitting && actionType === 'approve'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 批量通过中...'
+                    : '<i class="fas fa-check"></i> 批量通过';
+            }
+            if (rejectBtn) {
+                rejectBtn.disabled = submitting || selectedReviewIds.size === 0;
+                rejectBtn.innerHTML = submitting && actionType === 'reject'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 批量驳回中...'
+                    : '<i class="fas fa-times"></i> 批量驳回';
+            }
+            updateBatchReviewToolbar();
+        }
+
+        async function batchProcessReviews(actionType) {
+            if (batchReviewSubmitting || reviewSubmitting) return;
+            const ids = Array.from(selectedReviewIds);
+            if (!ids.length) {
+                Utils.showMessage('请先选择要审核的记录', 'warning');
+                return;
+            }
+
+            const isApprove = actionType === 'approve';
+            const actionText = isApprove ? '通过' : '驳回';
+            const comment = window.prompt(`请输入批量${actionText}意见（可选）`, '');
+            if (comment === null) return;
+            if (!window.confirm(`确认批量${actionText}选中的 ${ids.length} 条审核记录？`)) return;
+
+            setBatchReviewSubmitting(true, actionType);
+            const failedItems = [];
+            let successCount = 0;
+
+            for (const reviewId of ids) {
+                const parsed = parseReviewKey(reviewId);
+                try {
+                    if (isApprove) {
+                        await reviewAPI.approveReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
+                    } else {
+                        await reviewAPI.rejectReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
+                    }
+                    successCount += 1;
+                } catch (error) {
+                    failedItems.push({ reviewId, message: error.message || '未知错误' });
+                }
+            }
+
+            selectedReviewIds.clear();
+            setBatchReviewSubmitting(false, actionType);
+            await loadReviewList();
+
+            if (failedItems.length) {
+                console.error('批量审核失败记录:', failedItems);
+                Utils.showMessage(`批量${actionText}完成：成功 ${successCount} 条，失败 ${failedItems.length} 条`, 'warning');
+            } else {
+                Utils.showMessage(`批量${actionText}成功，共处理 ${successCount} 条`, 'success');
+            }
+        }
+
+        async function batchApproveReviews() {
+            await batchProcessReviews('approve');
+        }
+
+        async function batchRejectReviews() {
+            await batchProcessReviews('reject');
+        }
+
+        function renderReviewList() {
+            const list = document.getElementById('reviewList');
+            if (!currentReviews.length) {
+                list.innerHTML = `
+                    <div class="document-empty">
+                        <i class="fas fa-check-circle" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
+                        <p style="color: #666;">暂无审核记录</p>
+                    </div>
+                `;
+                updateBatchReviewToolbar();
+                return;
+            }
+
+            let html = '';
+            currentReviews.forEach(item => {
+                const reviewKey = getReviewKey(item);
+                const statusText = statusMap[item.status] || `状态${item.status}`;
+                const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
+                const dateText = item.first_edit_date ? String(item.first_edit_date).slice(0, 10) : '未知日期';
+                const content = escapeHtml(ReviewDetailRenderer.getPreviewText(item, 100));
+                const comment = escapeHtml(item.review_comment || '无');
+                const isSelectable = currentTab === 'pending' && Number(item.status) === 0;
+                const isChecked = selectedReviewIds.has(reviewKey) ? 'checked' : '';
+                const selectHtml = isSelectable
+                    ? `
+                        <label class="review-select" onclick="event.stopPropagation()" title="选择该审核记录">
+                            <input type="checkbox" ${isChecked} onchange="toggleReviewSelection('${reviewKey}', this.checked)">
+                        </label>
+                    `
+                    : '';
+                const mergedHint = item._merged_count > 0
+                    ? `<div style="font-size:12px; color:#6b7280; margin-bottom:8px;">已合并重复待审 ${item._merged_count} 条（仅展示最新）</div>`
+                    : '';
+
+                html += `
+                    <div class="document-item" onclick="openReviewModal('${reviewKey}')">
+                        <div class="document-item-header">
+                            <div class="review-card-title-row">
+                                ${selectHtml}
+                                <div class="document-item-title">${escapeHtml(item.title || '未命名提交')}</div>
+                            </div>
+                        </div>
+                        <div class="document-item-content">${content}</div>
+                        <div style="display:flex; gap:8px; margin-bottom:10px;">
+                            <span class="type-pill">${actionText}</span>
+                            <span class="status-pill status-${item.status}">${statusText}</span>
+                        </div>
+                        <div style="font-size:13px; color:#666; margin-bottom:8px;">审核意见：${comment}</div>
+                        ${mergedHint}
+                        <div class="document-item-footer">
+                            <div class="document-item-author">
+                                <i class="fas fa-user"></i>
+                                <span>${escapeHtml(item.contributor_name || '未知')}</span>
+                            </div>
+                            <div class="document-item-date">${dateText}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html;
+            updateBatchReviewToolbar();
+        }
+
+        function getReviewById(reviewId) {
+            const key = String(reviewId || '');
+            return currentReviews.find(item => getReviewKey(item) === key) || null;
+        }
+
+        function renderSection(title, value, imageUrls = null) {
+            return `
+                <div class="review-section">
+                    <h4>${title}</h4>
+                    <div class="review-text">${escapeHtml(value || '无')}</div>
+                    ${renderImageGrid(imageUrls)}
+                </div>
+            `;
+        }
+
+        function renderKnowledgeSections(item) {
+            return ReviewDetailRenderer.renderKnowledgeSections(item, {
+                sectionClass: 'review-section',
+                headingTag: 'h4',
+                textClass: 'review-text',
+                emptyClass: 'review-text',
+                imageGridClass: 'image-grid',
+                imageItemClass: 'image-item',
+                includeImages: true,
+                showImageCount: true,
+                previewLength: 1200,
+                emptyText: '\u65e0\u5185\u5bb9',
+                emptyKnowledgeMessage: '\u6682\u65e0\u7ae0\u8282\u5185\u5bb9'
+            });
+        }
+
+        function openReviewModal(reviewId) {
+            const item = getReviewById(reviewId);
+            if (!item) return;
+            const reviewKey = getReviewKey(item);
+
+            const statusText = statusMap[item.status] || `状态${item.status}`;
+            const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
+            const createdAt = item.first_edit_date ? Utils.formatDate(item.first_edit_date, 'YYYY-MM-DD HH:mm') : '未知';
+            const reviewedAt = item.reviewed_time ? Utils.formatDate(item.reviewed_time, 'YYYY-MM-DD HH:mm') : '未审核';
+            const canOperate = Number(item.status) === 0;
+
+            const libraryType = getReviewLibraryType(item);
+            const docLink = item.document_id
+                ? `<a href="document-detail.html?id=${item.document_id}&source=${encodeURIComponent(libraryType)}" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-link"></i> 查看当前文档</a>`
+                : '';
+            const knowledgeSectionsHtml = libraryType === 'knowledge' ? renderKnowledgeSections(item) : '';
+            const breakdownFieldsHtml = `
+                ${renderSection('问题描述', item.problem_intro, item.image_urls_problem_intro || item.image_urls)}
+                ${renderSection('原因分析', item.causes, item.image_urls_causes)}
+                ${renderSection('故障评估', item.evaluation, item.image_urls_evaluation)}
+                ${renderSection('检查步骤', item.inspection, item.image_urls_inspection)}
+                ${renderSection('解决方案', item.solutions, item.image_urls_solutions)}
+                ${renderSection('关键要点', item.key_points, item.image_urls_key_points)}
+            `;
+
+            const operateHtml = canOperate ? `
+                <div class="review-section">
+                    <h4>审核意见</h4>
+                    <textarea class="review-textarea" id="reviewCommentInput" placeholder="可填写审核意见（可选）"></textarea>
+                    <div class="review-actions">
+                        <button class="btn btn-danger" id="rejectBtn" onclick="rejectReview('${reviewKey}')"><i class="fas fa-times"></i> 驳回</button>
+                        <button class="btn btn-primary" id="approveBtn" onclick="approveReview('${reviewKey}')"><i class="fas fa-check"></i> 通过</button>
+                    </div>
+                </div>
+            ` : '';
+
+            document.getElementById('reviewModalBody').innerHTML = `
+                <div class="review-section">
+                    <h4>${escapeHtml(item.title || '未命名提交')}</h4>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <span class="type-pill">${actionText}</span>
+                        <span class="status-pill status-${item.status}">${statusText}</span>
+                        <span class="status-pill status-3">提交人：${escapeHtml(item.contributor_name || '未知')}</span>
+                        <span class="status-pill status-3">提交时间：${createdAt}</span>
+                        <span class="status-pill status-3">审核时间：${reviewedAt}</span>
+                    </div>
+                </div>
+                ${renderSection('审核意见（当前）', item.review_comment || '无')}
+                ${libraryType === 'knowledge' ? knowledgeSectionsHtml : breakdownFieldsHtml}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                    <div>${docLink}</div>
+                </div>
+                ${operateHtml}
+            `;
+
+            document.getElementById('reviewModal').style.display = 'flex';
+        }
+
+        function closeReviewModal(force = false) {
+            if (reviewSubmitting && !force) return;
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+
+        function getCommentInputValue() {
+            const input = document.getElementById('reviewCommentInput');
+            return input ? input.value.trim() : '';
+        }
+
+        function setReviewSubmitting(submitting, actionType = 'approve') {
+            reviewSubmitting = submitting;
+            const approveBtn = document.getElementById('approveBtn');
+            const rejectBtn = document.getElementById('rejectBtn');
+            const commentInput = document.getElementById('reviewCommentInput');
+            const closeBtn = document.getElementById('closeReviewModalBtn');
+
+            if (approveBtn) {
+                approveBtn.disabled = submitting;
+                approveBtn.innerHTML = submitting && actionType === 'approve'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 处理中...'
+                    : '<i class="fas fa-check"></i> 通过';
+            }
+            if (rejectBtn) {
+                rejectBtn.disabled = submitting;
+                rejectBtn.innerHTML = submitting && actionType === 'reject'
+                    ? '<i class="fas fa-spinner fa-spin"></i> 处理中...'
+                    : '<i class="fas fa-times"></i> 驳回';
+            }
+            if (commentInput) commentInput.disabled = submitting;
+            if (closeBtn) closeBtn.disabled = submitting;
+        }
+
+        async function approveReview(reviewId) {
+            if (reviewSubmitting) return;
+            const parsed = parseReviewKey(reviewId);
+            setReviewSubmitting(true, 'approve');
+            try {
+                const comment = getCommentInputValue();
+                await reviewAPI.approveReview(parsed.reviewId, comment || null, parsed.reviewLibraryType);
+                Utils.showMessage('审核通过成功', 'success');
+                closeReviewModal(true);
+                await loadReviewList();
+            } catch (error) {
+                Utils.showMessage('审核通过失败：' + (error.message || '未知错误'), 'error');
+            } finally {
+                setReviewSubmitting(false, 'approve');
+            }
+        }
+
+        async function rejectReview(reviewId) {
+            if (reviewSubmitting) return;
+            const parsed = parseReviewKey(reviewId);
+            setReviewSubmitting(true, 'reject');
+            try {
+                const comment = getCommentInputValue();
+                await reviewAPI.rejectReview(parsed.reviewId, comment || null, parsed.reviewLibraryType);
+                Utils.showMessage('驳回成功', 'success');
+                closeReviewModal(true);
+                await loadReviewList();
+            } catch (error) {
+                Utils.showMessage('驳回失败：' + (error.message || '未知错误'), 'error');
+            } finally {
+                setReviewSubmitting(false, 'reject');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            Utils.checkLogin();
+            Utils.loadUserInfo();
+            const currentUser = Utils.getCurrentUser();
+            if (!canReview(currentUser)) {
+                Utils.showMessage('当前账号没有文档审核权限', 'warning');
+                setTimeout(() => window.location.replace('main.html'), 400);
+                return;
+            }
+            await loadReviewList();
+        });
+
+        document.getElementById('reviewModal').addEventListener('click', function(e) {
+            if (e.target === this) closeReviewModal();
+        });
+
+        document.getElementById('documentImageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDocumentImagePreview();
+        });
+
+        document.addEventListener('click', function(e) {
+            const previewImg = e.target.closest('[data-image-preview-src]');
+            if (!previewImg) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openDocumentImagePreview(
+                previewImg.dataset.imagePreviewSrc || previewImg.getAttribute('src'),
+                previewImg.dataset.imagePreviewTitle || previewImg.getAttribute('alt') || '图片预览'
+            );
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            const imageModal = document.getElementById('documentImageModal');
+            if (imageModal && imageModal.style.display === 'flex') {
+                closeDocumentImagePreview();
+                return;
+            }
+            closeReviewModal();
+        });
+    </script>
+</body>
+</html>

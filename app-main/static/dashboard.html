@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据看板 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .dashboard-page {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .dashboard-toolbar {
+            align-items: center;
+        }
+
+        .dashboard-updated {
+            color: #6b7280;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card,
+        .dashboard-panel {
+            background: #fff;
+            border: 1px solid #e8edf5;
+            border-radius: 8px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+        }
+
+        .metric-card {
+            min-height: 128px;
+            padding: 18px;
+        }
+
+        .metric-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .metric-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .metric-icon.uploads {
+            color: #1971c2;
+            background: #e8f3ff;
+        }
+
+        .metric-icon.docs {
+            color: #be123c;
+            background: #fff1f4;
+        }
+
+        .metric-icon.tags,
+        .metric-icon.users {
+            color: #0f766e;
+            background: #e6f7f4;
+        }
+
+        .metric-icon.questions {
+            color: #7c3aed;
+            background: #f1eaff;
+        }
+
+        .metric-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #047857;
+            background: #ecfdf5;
+        }
+
+        .metric-change.is-negative {
+            color: #b42318;
+            background: #fff1f0;
+        }
+
+        .metric-label {
+            color: #667085;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            color: #111827;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .metric-note {
+            margin-top: 8px;
+            color: #98a2b3;
+            font-size: 12px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+            gap: 18px;
+        }
+
+        .dashboard-panel {
+            overflow: hidden;
+        }
+
+        .panel-header {
+            min-height: 58px;
+            padding: 16px 18px;
+            border-bottom: 1px solid #edf1f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .panel-title {
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .panel-subtitle {
+            margin-top: 4px;
+            color: #7a8594;
+            font-size: 12px;
+        }
+
+        .panel-filter {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px;
+            border: 1px solid #e5eaf2;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .panel-filter button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #667085;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .panel-filter button:hover {
+            color: #1971c2;
+            background: #eef6ff;
+        }
+
+        .panel-filter button.active {
+            color: #1971c2;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        }
+
+        .chart-area,
+        .token-breakdown {
+            padding: 18px;
+        }
+
+        .line-chart {
+            width: 100%;
+            height: 240px;
+        }
+
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 8px;
+            color: #667085;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.uploaded-files {
+            background: #1971c2;
+        }
+
+        .legend-dot.questions {
+            background: #f97316;
+        }
+
+        .donut-row {
+            display: grid;
+            grid-template-columns: 150px minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
+        }
+
+        .donut {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: conic-gradient(#1971c2 0 46%, #f97316 46% 74%, #10b981 74% 91%, #e5e7eb 91% 100%);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .donut::after {
+            content: '';
+            width: 98px;
+            height: 98px;
+            border-radius: 50%;
+            background: #fff;
+            position: absolute;
+        }
+
+        .donut-center {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .donut-value {
+            color: #111827;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .donut-label {
+            margin-top: 2px;
+            color: #7a8594;
+            font-size: 12px;
+        }
+
+        .token-dev-state {
+            min-height: 208px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #667085;
+            text-align: center;
+        }
+
+        .token-dev-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1971c2;
+            background: #e8f3ff;
+            font-size: 20px;
+        }
+
+        .token-dev-title {
+            color: #111827;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .token-dev-desc {
+            max-width: 340px;
+            color: #7a8594;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .breakdown-list {
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+        }
+
+        .breakdown-item {
+            display: grid;
+            grid-template-columns: minmax(70px, 1fr) 80px;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .breakdown-label,
+        .breakdown-value {
+            color: #344054;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .breakdown-value {
+            color: #111827;
+            text-align: right;
+        }
+
+        .progress-track {
+            grid-column: 1 / -1;
+            height: 7px;
+            border-radius: 999px;
+            background: #eef2f7;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: inherit;
+        }
+
+        .progress-fill.blue {
+            background: #1971c2;
+        }
+
+        .progress-fill.orange {
+            background: #f97316;
+        }
+
+        .progress-fill.green {
+            background: #10b981;
+        }
+
+        .progress-fill.gray {
+            background: #94a3b8;
+        }
+
+        .mini-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 0 18px 18px;
+        }
+
+        .mini-stat {
+            padding: 14px;
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 1px solid #edf1f7;
+        }
+
+        .mini-stat-value {
+            color: #111827;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .mini-stat-label {
+            margin-top: 5px;
+            color: #7a8594;
+            font-size: 12px;
+        }
+
+        .lower-grid {
+            display: grid;
+            grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr) minmax(280px, 0.9fr);
+            gap: 18px;
+        }
+
+        .ranking-list,
+        .qa-list,
+        .status-list {
+            padding: 8px 18px 18px;
+        }
+
+        .ranking-row,
+        .qa-row,
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 0;
+            border-bottom: 1px solid #f0f3f8;
+        }
+
+        .ranking-row:last-child,
+        .qa-row:last-child,
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .rank-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: #f2f6fb;
+            color: #667085;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .rank-number.top {
+            color: #fff;
+            background: #1971c2;
+        }
+
+        .user-mini-avatar,
+        .qa-icon,
+        .status-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .user-mini-avatar {
+            border-radius: 50%;
+            background: #e8f3ff;
+            color: #1971c2;
+        }
+
+        .qa-icon {
+            background: #f4f0ff;
+            color: #7c3aed;
+        }
+
+        .status-icon.healthy {
+            color: #047857;
+            background: #ecfdf5;
+        }
+
+        .status-icon.warning {
+            color: #b45309;
+            background: #fffbeb;
+        }
+
+        .row-main {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .row-title {
+            color: #1f2937;
+            font-size: 14px;
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-desc {
+            margin-top: 4px;
+            color: #7a8594;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-value {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-pill {
+            min-width: 48px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .status-pill.healthy {
+            color: #047857;
+            background: #ecfdf5;
+        }
+
+        .status-pill.warning {
+            color: #b45309;
+            background: #fffbeb;
+        }
+
+        .dashboard-empty {
+            padding: 18px 0 10px;
+            color: #98a2b3;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 1280px) {
+            .metric-grid {
+                grid-template-columns: repeat(3, minmax(180px, 1fr));
+            }
+
+            .lower-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .lower-grid .dashboard-panel:nth-child(2) {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-grid {
+                grid-template-columns: repeat(2, minmax(160px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metric-grid,
+            .lower-grid,
+            .mini-stat-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .panel-filter {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .donut-row {
+                grid-template-columns: 1fr;
+                justify-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="dashboard.html" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                    <span>数据看板</span>
+                </a>
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <a href="user-profile.html" class="nav-item" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">管</div>
+                    <div>
+                        <div class="user-name" id="userName">管理员</div>
+                        <div class="user-role" id="userRole">系统管理员</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">数据看板</div>
+                    <div class="page-subtitle">文档、知识库、标签、问答与用户活跃分析</div>
+                </div>
+                <div class="header-actions dashboard-toolbar">
+                    <div class="dashboard-updated" id="dashboardUpdated">最后更新 --:--</div>
+                    <button type="button" class="btn btn-secondary" onclick="refreshDashboardMockData()">
+                        <i class="fas fa-rotate-right"></i> 刷新
+                    </button>
+                </div>
+            </div>
+
+            <div class="dashboard-page">
+                <section class="metric-grid" aria-label="核心指标">
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-icon uploads"><i class="fas fa-cloud-arrow-up"></i></div>
+                            <span class="metric-change"><i class="fas fa-arrow-up"></i> 8.6%</span>
+                        </div>
+                        <div class="metric-label">上传文件总数</div>
+                        <div class="metric-value">742</div>
+                        <div class="metric-note">今日上传 18 / 解析中 6</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-icon docs"><i class="fas fa-book"></i></div>
+                            <span class="metric-change"><i class="fas fa-arrow-up"></i> 4.7%</span>
+                        </div>
+                        <div class="metric-label">文档总数</div>
+                        <div class="metric-value">586</div>
+                        <div class="metric-note">知识库 392 / 故障库 186 / 审核中 8</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-icon tags"><i class="fas fa-tags"></i></div>
+                            <span class="metric-change"><i class="fas fa-arrow-up"></i> 7.1%</span>
+                        </div>
+                        <div class="metric-label">标签数量</div>
+                        <div class="metric-value">46</div>
+                        <div class="metric-note">今日新增 3 / 高频标签 12</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-icon questions"><i class="fas fa-comments"></i></div>
+                            <span class="metric-change"><i class="fas fa-arrow-up"></i> 21.4%</span>
+                        </div>
+                        <div class="metric-label">今日问答次数</div>
+                        <div class="metric-value">1,248</div>
+                        <div class="metric-note">成功率 97.6% / 命中率 91.3%</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-icon users"><i class="fas fa-user-check"></i></div>
+                            <span class="metric-change"><i class="fas fa-arrow-up"></i> 9.2%</span>
+                        </div>
+                        <div class="metric-label">今日活跃用户</div>
+                        <div class="metric-value">328</div>
+                        <div class="metric-note">今日内有有效操作的去重用户</div>
+                    </div>
+                </section>
+
+                <section class="dashboard-grid">
+                    <div class="dashboard-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-title">文档与问答趋势</div>
+                                <div class="panel-subtitle" id="trendSubtitle">最近 7 天上传文件与问答次数变化</div>
+                            </div>
+                            <div class="panel-filter" role="tablist" aria-label="趋势时间范围">
+                                <button type="button" class="chart-range-btn" data-range="today">今日</button>
+                                <button type="button" class="chart-range-btn active" data-range="week">7 天</button>
+                                <button type="button" class="chart-range-btn" data-range="month">30 天</button>
+                            </div>
+                        </div>
+                        <div class="chart-area">
+                            <svg class="line-chart" id="trendChart" viewBox="0 0 720 260" role="img" aria-label="最近七天上传文件与问答次数趋势图">
+                                <defs>
+                                    <linearGradient id="uploadFill" x1="0" x2="0" y1="0" y2="1">
+                                        <stop offset="0%" stop-color="#1971c2" stop-opacity="0.22"/>
+                                        <stop offset="100%" stop-color="#1971c2" stop-opacity="0"/>
+                                    </linearGradient>
+                                    <linearGradient id="questionFill" x1="0" x2="0" y1="0" y2="1">
+                                        <stop offset="0%" stop-color="#f97316" stop-opacity="0.20"/>
+                                        <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+                                    </linearGradient>
+                                </defs>
+                                <g stroke="#edf1f7" stroke-width="1">
+                                    <line x1="42" y1="36" x2="690" y2="36"/>
+                                    <line x1="42" y1="82" x2="690" y2="82"/>
+                                    <line x1="42" y1="128" x2="690" y2="128"/>
+                                    <line x1="42" y1="174" x2="690" y2="174"/>
+                                    <line x1="42" y1="220" x2="690" y2="220"/>
+                                </g>
+                                <path id="uploadAreaPath" d="M60 180 C110 162 130 130 170 136 C220 144 242 92 282 104 C330 118 354 80 402 84 C452 88 476 122 522 102 C578 78 610 60 672 50 L672 220 L60 220 Z" fill="url(#uploadFill)"/>
+                                <path id="questionAreaPath" d="M60 196 C112 184 140 158 178 166 C228 176 254 130 300 138 C344 146 372 112 414 118 C464 124 492 154 540 132 C590 110 620 92 672 76 L672 220 L60 220 Z" fill="url(#questionFill)"/>
+                                <path id="uploadLinePath" d="M60 180 C110 162 130 130 170 136 C220 144 242 92 282 104 C330 118 354 80 402 84 C452 88 476 122 522 102 C578 78 610 60 672 50" fill="none" stroke="#1971c2" stroke-width="4" stroke-linecap="round"/>
+                                <path id="questionLinePath" d="M60 196 C112 184 140 158 178 166 C228 176 254 130 300 138 C344 146 372 112 414 118 C464 124 492 154 540 132 C590 110 620 92 672 76" fill="none" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>
+                                <g id="trendPoints" fill="#fff" stroke-width="3"></g>
+                                <g id="trendYAxisLabels" fill="#7a8594" font-size="12" text-anchor="end"></g>
+                                <g id="trendXAxisLabels" fill="#7a8594" font-size="12"></g>
+                            </svg>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-dot uploaded-files"></span>上传文件</span>
+                                <span class="legend-item"><span class="legend-dot questions"></span>问答次数</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-title">Token 消耗构成</div>
+                                <div class="panel-subtitle">统计口径正在开发中</div>
+                            </div>
+                        </div>
+                        <div class="token-breakdown">
+                            <div class="token-dev-state">
+                                <div class="token-dev-icon"><i class="fas fa-code-branch"></i></div>
+                                <div class="token-dev-title">正在开发</div>
+                                <div class="token-dev-desc">上线后将基于 vLLM 接口返回的 usage 字段统计 Token 消耗。</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="lower-grid">
+                    <div class="dashboard-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-title">文档热度排行</div>
+                                <div class="panel-subtitle">按问答命中次数排序</div>
+                            </div>
+                        </div>
+                        <div class="ranking-list">
+                            <div class="ranking-row">
+                                <div class="rank-number top">1</div>
+                                <div class="user-mini-avatar">空</div>
+                                <div class="row-main">
+                                    <div class="row-title">空压机维护手册</div>
+                                    <div class="row-desc">知识库 · 今日命中 86 次</div>
+                                </div>
+                                <div class="row-value">86 次</div>
+                            </div>
+                            <div class="ranking-row">
+                                <div class="rank-number top">2</div>
+                                <div class="user-mini-avatar">变</div>
+                                <div class="row-main">
+                                    <div class="row-title">变频器故障代码表</div>
+                                    <div class="row-desc">故障库 · 今日命中 64 次</div>
+                                </div>
+                                <div class="row-value">64 次</div>
+                            </div>
+                            <div class="ranking-row">
+                                <div class="rank-number top">3</div>
+                                <div class="user-mini-avatar">液</div>
+                                <div class="row-main">
+                                    <div class="row-title">液压系统常见故障案例</div>
+                                    <div class="row-desc">故障库 · 今日命中 51 次</div>
+                                </div>
+                                <div class="row-value">51 次</div>
+                            </div>
+                            <div class="ranking-row">
+                                <div class="rank-number">4</div>
+                                <div class="user-mini-avatar">轴</div>
+                                <div class="row-main">
+                                    <div class="row-title">轴承异响诊断记录</div>
+                                    <div class="row-desc">知识库 · 今日命中 38 次</div>
+                                </div>
+                                <div class="row-value">38 次</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-title">最近问答记录</div>
+                                <div class="panel-subtitle">按时间倒序展示</div>
+                            </div>
+                        </div>
+                        <div class="qa-list">
+                            <div class="qa-row">
+                                <div class="qa-icon"><i class="fas fa-message"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">空压机压力波动过大应该先排查什么？</div>
+                                    <div class="row-desc">王工 · 2 分钟前 · 命中文档 3 篇</div>
+                                </div>
+                                <div class="status-pill healthy">成功</div>
+                            </div>
+                            <div class="qa-row">
+                                <div class="qa-icon"><i class="fas fa-message"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">上传的轴承异响图片能否判断磨损程度？</div>
+                                    <div class="row-desc">李四 · 7 分钟前 · 命中文档 2 篇</div>
+                                </div>
+                                <div class="status-pill healthy">成功</div>
+                            </div>
+                            <div class="qa-row">
+                                <div class="qa-icon"><i class="fas fa-message"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">变频器 E-13 报警对应哪些维护步骤？</div>
+                                    <div class="row-desc">赵主管 · 18 分钟前 · 命中文档 4 篇</div>
+                                </div>
+                                <div class="status-pill healthy">成功</div>
+                            </div>
+                            <div class="qa-row">
+                                <div class="qa-icon"><i class="fas fa-message"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">检索电机温升异常的历史维修案例</div>
+                                    <div class="row-desc">陈师傅 · 24 分钟前 · 命中文档 5 篇</div>
+                                </div>
+                                <div class="status-pill warning">重试</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-title">文档分类分析</div>
+                                <div class="panel-subtitle">知识库、故障库与审核中状态</div>
+                            </div>
+                        </div>
+                        <div class="status-list">
+                            <div class="status-row">
+                                <div class="status-icon healthy"><i class="fas fa-file-circle-check"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">知识库文档</div>
+                                    <div class="row-desc">通用维修知识与技术资料</div>
+                                </div>
+                                <div class="row-value">392</div>
+                            </div>
+                            <div class="status-row">
+                                <div class="status-icon healthy"><i class="fas fa-circle-plus"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">故障库文档</div>
+                                    <div class="row-desc">故障案例、处理记录与维修经验</div>
+                                </div>
+                                <div class="row-value">186</div>
+                            </div>
+                            <div class="status-row">
+                                <div class="status-icon warning"><i class="fas fa-clock"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">审核中文档</div>
+                                    <div class="row-desc">需要管理员或审核人员处理</div>
+                                </div>
+                                <div class="row-value">8</div>
+                            </div>
+                            <div class="status-row">
+                                <div class="status-icon warning"><i class="fas fa-triangle-exclamation"></i></div>
+                                <div class="row-main">
+                                    <div class="row-title">解析失败文档</div>
+                                    <div class="row-desc">建议优先排查文件格式和解析日志</div>
+                                </div>
+                                <div class="row-value">3</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const trendRanges = {
+            today: {
+                subtitle: '今日每 4 小时上传文件与问答次数变化',
+                ariaLabel: '今日上传文件与问答次数趋势图',
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '现在'],
+                uploadLine: 'M60 202 C120 190 150 176 178 180 C226 186 252 150 300 158 C348 166 376 122 420 130 C468 138 500 116 548 106 C600 94 628 82 672 72',
+                questionLine: 'M60 210 C110 198 148 186 180 190 C232 196 254 168 300 174 C356 182 380 144 422 150 C466 156 504 132 548 126 C604 118 632 98 672 92',
+                uploadPoints: [[60, 202], [178, 180], [300, 158], [420, 130], [548, 106], [672, 72]],
+                questionPoints: [[60, 210], [180, 190], [300, 174], [422, 150], [548, 126], [672, 92]]
+            },
+            week: {
+                subtitle: '最近 7 天上传文件与问答次数变化',
+                ariaLabel: '最近七天上传文件与问答次数趋势图',
+                labels: ['周三', '周四', '周五', '周六', '周日', '周一', '今日'],
+                uploadLine: 'M60 180 C110 162 130 130 170 136 C220 144 242 92 282 104 C330 118 354 80 402 84 C452 88 476 122 522 102 C578 78 610 60 672 50',
+                questionLine: 'M60 196 C112 184 140 158 178 166 C228 176 254 130 300 138 C344 146 372 112 414 118 C464 124 492 154 540 132 C590 110 620 92 672 76',
+                uploadPoints: [[60, 180], [170, 136], [282, 104], [402, 84], [522, 102], [672, 50]],
+                questionPoints: [[60, 196], [178, 166], [300, 138], [414, 118], [540, 132], [672, 76]]
+            },
+            month: {
+                subtitle: '最近 30 天上传文件与问答次数变化',
+                ariaLabel: '最近三十天上传文件与问答次数趋势图',
+                labels: ['6/8', '6/13', '6/18', '6/23', '6/28', '7/3', '今日'],
+                uploadLine: 'M60 194 C110 170 134 186 178 156 C230 120 258 140 302 108 C354 76 388 100 424 86 C470 72 506 112 548 88 C602 54 632 70 672 42',
+                questionLine: 'M60 206 C112 182 140 192 180 172 C232 146 260 160 302 130 C354 102 386 122 424 108 C472 96 506 130 548 112 C600 84 632 98 672 64',
+                uploadPoints: [[60, 194], [178, 156], [302, 108], [424, 86], [548, 88], [672, 42]],
+                questionPoints: [[60, 206], [180, 172], [302, 130], [424, 108], [548, 112], [672, 64]]
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = Utils.checkLogin();
+            if (!user) return;
+
+            const isAdmin = Utils.hasPermission(user, Utils.PERMISSION.ADMIN) || Utils.hasRole(user, Utils.ROLE.ADMIN);
+            if (!isAdmin) {
+                Utils.showMessage('仅管理员可访问数据看板', 'warning');
+                setTimeout(() => {
+                    window.location.href = 'main.html';
+                }, 800);
+                return;
+            }
+
+            Utils.loadUserInfo();
+            updateDashboardTime();
+            initTrendRangeButtons();
+        });
+
+        function initTrendRangeButtons() {
+            const buttons = document.querySelectorAll('.chart-range-btn');
+            buttons.forEach((button) => {
+                button.setAttribute('role', 'tab');
+                button.setAttribute('aria-selected', button.classList.contains('active') ? 'true' : 'false');
+                button.addEventListener('click', () => {
+                    setTrendRange(button.dataset.range);
+                });
+            });
+
+            setTrendRange('week');
+        }
+
+        function setTrendRange(range) {
+            const data = trendRanges[range] || trendRanges.week;
+            const buttons = document.querySelectorAll('.chart-range-btn');
+            buttons.forEach((button) => {
+                const isActive = button.dataset.range === range;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            const subtitle = document.getElementById('trendSubtitle');
+            const chart = document.getElementById('trendChart');
+            const uploadArea = document.getElementById('uploadAreaPath');
+            const questionArea = document.getElementById('questionAreaPath');
+            const uploadLine = document.getElementById('uploadLinePath');
+            const questionLine = document.getElementById('questionLinePath');
+            const points = document.getElementById('trendPoints');
+            const labels = document.getElementById('trendXAxisLabels');
+
+            if (subtitle) subtitle.textContent = data.subtitle;
+            if (chart) chart.setAttribute('aria-label', data.ariaLabel);
+            if (uploadArea) uploadArea.setAttribute('d', `${data.uploadLine} L672 220 L60 220 Z`);
+            if (questionArea) questionArea.setAttribute('d', `${data.questionLine} L672 220 L60 220 Z`);
+            if (uploadLine) uploadLine.setAttribute('d', data.uploadLine);
+            if (questionLine) questionLine.setAttribute('d', data.questionLine);
+            if (points) {
+                points.innerHTML = [
+                    ...data.uploadPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#1971c2"/>`),
+                    ...data.questionPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#f97316"/>`)
+                ].join('');
+            }
+            if (labels) {
+                const labelX = [48, 148, 250, 352, 454, 556, 654];
+                labels.innerHTML = data.labels.map((label, index) => {
+                    return `<text x="${labelX[index]}" y="244">${label}</text>`;
+                }).join('');
+            }
+        }
+
+        function updateDashboardTime() {
+            const updatedEl = document.getElementById('dashboardUpdated');
+            if (!updatedEl) return;
+
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            updatedEl.textContent = `最后更新 ${hours}:${minutes}`;
+        }
+
+        function refreshDashboardMockData() {
+            updateDashboardTime();
+            Utils.showMessage('数据看板已刷新', 'success');
+        }
+    </script>
+    <script>
+        const dashboardClient = new APIClient();
+        let dashboardData = null;
+        let dashboardCurrentRange = 'week';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = getStoredDashboardUser();
+            const isAdmin = user && (
+                Utils.hasPermission(user, Utils.PERMISSION.ADMIN) ||
+                Utils.hasRole(user, Utils.ROLE.ADMIN)
+            );
+            if (!isAdmin) return;
+            loadDashboardData(false);
+        });
+
+        function getStoredDashboardUser() {
+            try {
+                return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+            } catch (_) {
+                return null;
+            }
+        }
+
+        async function loadDashboardData(showToast) {
+            try {
+                const response = await dashboardClient.get('/admin/dashboard', true);
+                if (!response || response.code !== 1) {
+                    throw new Error((response && response.msg) || '数据看板接口返回异常');
+                }
+                dashboardData = response.data || {};
+                applyDashboardData(dashboardData);
+                if (showToast) {
+                    Utils.showMessage('数据看板已刷新', 'success');
+                }
+            } catch (error) {
+                console.error('加载数据看板失败:', error);
+                if (showToast) {
+                    Utils.showMessage(`数据看板刷新失败：${error.message}`, 'error');
+                }
+            }
+        }
+
+        function refreshDashboardMockData() {
+            loadDashboardData(true);
+        }
+
+        function applyDashboardData(data) {
+            updateDashboardTimeFromServer(data.updated_at);
+            applyMetricCards(data.metrics || {});
+            applyTrendRanges(data.trends || {});
+            applyTokenPanel(data.token_usage || {});
+            renderHotDocuments(data.hot_documents || []);
+            renderRecentQuestions(data.recent_questions || []);
+            renderDocumentCategories(data.document_categories || []);
+        }
+
+        function updateDashboardTimeFromServer(updatedAt) {
+            const updatedEl = document.getElementById('dashboardUpdated');
+            if (!updatedEl) return;
+            const date = updatedAt ? new Date(updatedAt) : new Date();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            updatedEl.textContent = `最后更新 ${hours}:${minutes}`;
+        }
+
+        function applyMetricCards(metrics) {
+            const uploads = metrics.uploads || {};
+            updateMetricCard(0, uploads.total, `今日上传 ${formatNumber(uploads.today)} / 解析中 ${formatNumber(uploads.parsing)}`, uploads.change_percent);
+
+            const docs = metrics.documents || {};
+            updateMetricCard(1, docs.total, `知识库 ${formatNumber(docs.knowledge)} / 故障库 ${formatNumber(docs.breakdown)} / 审核中 ${formatNumber(docs.pending_review)}`, docs.change_percent);
+
+            const tags = metrics.tags || {};
+            updateMetricCard(2, tags.total, `今日新增 ${formatNumber(tags.today)} / 高频标签 ${formatNumber(tags.high_frequency)}`, tags.change_percent);
+
+            const questions = metrics.questions || {};
+            updateMetricCard(3, questions.today, `成功率 ${formatPercentValue(questions.success_rate)} / 命中率 ${formatPercentValue(questions.hit_rate)}`, questions.change_percent);
+
+            const users = metrics.active_users || {};
+            updateMetricCard(4, users.today, '今日有登录、问答、上传或审核操作的去重用户', users.change_percent);
+        }
+
+        function updateMetricCard(index, value, note, changePercent) {
+            const card = document.querySelectorAll('.metric-card')[index];
+            if (!card) return;
+            const valueEl = card.querySelector('.metric-value');
+            const noteEl = card.querySelector('.metric-note');
+            const changeEl = card.querySelector('.metric-change');
+            if (valueEl) valueEl.textContent = formatNumber(value || 0);
+            if (noteEl) noteEl.textContent = note || '';
+            if (changeEl) {
+                const change = Number(changePercent || 0);
+                const isNegative = change < 0;
+                const icon = isNegative ? 'fa-arrow-down' : (change === 0 ? 'fa-minus' : 'fa-arrow-up');
+                changeEl.classList.toggle('is-negative', isNegative);
+                changeEl.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(change).toFixed(1)}%`;
+            }
+        }
+
+        function applyTrendRanges(trends) {
+            window.dashboardTrendRanges = trends || {};
+            setTrendRange(dashboardCurrentRange);
+        }
+
+        function setTrendRange(range) {
+            dashboardCurrentRange = range || 'week';
+            const data = (window.dashboardTrendRanges && window.dashboardTrendRanges[dashboardCurrentRange]) ||
+                ((typeof trendRanges !== 'undefined' && trendRanges[dashboardCurrentRange]) ? trendRanges[dashboardCurrentRange] : null);
+            if (!data) return;
+
+            document.querySelectorAll('.chart-range-btn').forEach((button) => {
+                const isActive = button.dataset.range === dashboardCurrentRange;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            if (Array.isArray(data.uploads) || Array.isArray(data.questions)) {
+                renderTrendChart(data);
+            } else {
+                renderLegacyTrendChart(data);
+            }
+        }
+
+        function renderTrendChart(data) {
+            const labels = Array.isArray(data.labels) ? data.labels : [];
+            const uploads = normalizeSeries(data.uploads, labels.length);
+            const questions = normalizeSeries(data.questions, labels.length);
+            const count = Math.max(labels.length, uploads.length, questions.length, 1);
+            const maxValue = getNiceAxisMax(Math.max(1, ...uploads, ...questions));
+            const uploadPoints = buildChartPoints(uploads, count, maxValue);
+            const questionPoints = buildChartPoints(questions, count, maxValue);
+
+            const subtitle = document.getElementById('trendSubtitle');
+            const chart = document.getElementById('trendChart');
+            const uploadArea = document.getElementById('uploadAreaPath');
+            const questionArea = document.getElementById('questionAreaPath');
+            const uploadLine = document.getElementById('uploadLinePath');
+            const questionLine = document.getElementById('questionLinePath');
+            const points = document.getElementById('trendPoints');
+            const yAxisLabels = document.getElementById('trendYAxisLabels');
+            const axisLabels = document.getElementById('trendXAxisLabels');
+
+            const uploadPath = pointsToPath(uploadPoints);
+            const questionPath = pointsToPath(questionPoints);
+            if (subtitle) subtitle.textContent = data.subtitle || '';
+            if (chart) chart.setAttribute('aria-label', data.aria_label || data.ariaLabel || '上传文件与问答次数趋势图');
+            if (uploadArea) uploadArea.setAttribute('d', areaPath(uploadPoints));
+            if (questionArea) questionArea.setAttribute('d', areaPath(questionPoints));
+            if (uploadLine) uploadLine.setAttribute('d', uploadPath);
+            if (questionLine) questionLine.setAttribute('d', questionPath);
+            if (points) {
+                points.innerHTML = [
+                    ...uploadPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#1971c2"/>`),
+                    ...questionPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#f97316"/>`)
+                ].join('');
+            }
+            if (yAxisLabels) {
+                yAxisLabels.innerHTML = buildYAxisLabels(maxValue);
+            }
+            if (axisLabels) {
+                const labelPoints = buildChartPoints(new Array(labels.length).fill(0), labels.length || 1, 1);
+                axisLabels.innerHTML = labels.map((label, index) => {
+                    const x = labelPoints[index] ? labelPoints[index][0] - 12 : 48;
+                    return `<text x="${x}" y="244">${escapeHtml(label)}</text>`;
+                }).join('');
+            }
+        }
+
+        function renderLegacyTrendChart(data) {
+            const subtitle = document.getElementById('trendSubtitle');
+            const chart = document.getElementById('trendChart');
+            const uploadArea = document.getElementById('uploadAreaPath');
+            const questionArea = document.getElementById('questionAreaPath');
+            const uploadLine = document.getElementById('uploadLinePath');
+            const questionLine = document.getElementById('questionLinePath');
+            const points = document.getElementById('trendPoints');
+            const yAxisLabels = document.getElementById('trendYAxisLabels');
+            const labels = document.getElementById('trendXAxisLabels');
+
+            if (subtitle) subtitle.textContent = data.subtitle;
+            if (chart) chart.setAttribute('aria-label', data.ariaLabel);
+            if (uploadArea) uploadArea.setAttribute('d', `${data.uploadLine} L672 220 L60 220 Z`);
+            if (questionArea) questionArea.setAttribute('d', `${data.questionLine} L672 220 L60 220 Z`);
+            if (uploadLine) uploadLine.setAttribute('d', data.uploadLine);
+            if (questionLine) questionLine.setAttribute('d', data.questionLine);
+            if (points) {
+                points.innerHTML = [
+                    ...data.uploadPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#1971c2"/>`),
+                    ...data.questionPoints.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" stroke="#f97316"/>`)
+                ].join('');
+            }
+            if (yAxisLabels) {
+                yAxisLabels.innerHTML = buildYAxisLabels(100);
+            }
+            if (labels) {
+                const labelX = [48, 148, 250, 352, 454, 556, 654];
+                labels.innerHTML = data.labels.map((label, index) => `<text x="${labelX[index]}" y="244">${escapeHtml(label)}</text>`).join('');
+            }
+        }
+
+        function normalizeSeries(series, count) {
+            const values = Array.isArray(series) ? series.map((value) => Number(value || 0)) : [];
+            const targetCount = Math.max(count, values.length, 1);
+            while (values.length < targetCount) values.push(0);
+            return values;
+        }
+
+        function buildChartPoints(values, count, maxValue) {
+            const xStart = 60;
+            const xEnd = 672;
+            const yTop = 42;
+            const yBottom = 220;
+            const height = yBottom - yTop;
+            const length = Math.max(count, values.length, 1);
+            return values.slice(0, length).map((value, index) => {
+                const x = length === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * index) / (length - 1);
+                const y = yBottom - (Math.max(0, Number(value || 0)) / maxValue) * height;
+                return [Math.round(x), Math.round(y)];
+            });
+        }
+
+        function getNiceAxisMax(value) {
+            const raw = Math.max(1, Number(value || 1));
+            const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+            const normalized = raw / magnitude;
+            let nice;
+            if (normalized <= 1) nice = 1;
+            else if (normalized <= 2) nice = 2;
+            else if (normalized <= 5) nice = 5;
+            else nice = 10;
+            return nice * magnitude;
+        }
+
+        function buildYAxisLabels(maxValue) {
+            const yPositions = [220, 174, 128, 82, 36];
+            return yPositions.map((y, index) => {
+                const value = (maxValue / 4) * index;
+                return `<text x="34" y="${y + 4}">${formatAxisValue(value)}</text>`;
+            }).join('');
+        }
+
+        function formatAxisValue(value) {
+            const number = Number(value || 0);
+            if (number >= 1000000) return `${trimFixed(number / 1000000)}M`;
+            if (number >= 1000) return `${trimFixed(number / 1000)}K`;
+            return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function pointsToPath(points) {
+            if (!points.length) return 'M60 220';
+            return points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`).join(' ');
+        }
+
+        function areaPath(points) {
+            if (!points.length) return 'M60 220 Z';
+            const first = points[0];
+            const last = points[points.length - 1];
+            return `${pointsToPath(points)} L${last[0]} 220 L${first[0]} 220 Z`;
+        }
+
+        function applyTokenPanel() {
+            const tokenPanel = document.querySelectorAll('.dashboard-grid .dashboard-panel')[1];
+            if (!tokenPanel) return;
+
+            const subtitle = tokenPanel.querySelector('.panel-subtitle');
+            const tokenBreakdown = tokenPanel.querySelector('.token-breakdown');
+
+            if (subtitle) subtitle.textContent = '统计口径正在开发中';
+            if (tokenBreakdown) {
+                tokenBreakdown.innerHTML = `
+                    <div class="token-dev-state">
+                        <div class="token-dev-icon"><i class="fas fa-code-branch"></i></div>
+                        <div class="token-dev-title">正在开发</div>
+                        <div class="token-dev-desc">上线后将基于 vLLM 接口返回的 usage 字段统计 Token 消耗。</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTokenBreakdown(container, rows, total) {
+            const maxTotal = Math.max(Number(total || 0), 1);
+            container.innerHTML = rows.map((row) => {
+                const color = normalizeProgressColor(row.color);
+                const percent = Math.max(0, Math.min(100, (Number(row.value || 0) / maxTotal) * 100));
+                return `
+                    <div class="breakdown-item">
+                        <div class="breakdown-label">${escapeHtml(row.label || '')}</div>
+                        <div class="breakdown-value">${formatCompact(row.value || 0)}</div>
+                        <div class="progress-track"><div class="progress-fill ${color}" style="width: ${percent.toFixed(1)}%;"></div></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function buildDonutGradient(rows, total) {
+            const colorMap = { blue: '#1971c2', orange: '#f97316', green: '#10b981', gray: '#94a3b8' };
+            const maxTotal = Number(total || 0);
+            if (!maxTotal) return '#e5e7eb';
+            let cursor = 0;
+            const segments = rows.map((row) => {
+                const value = Math.max(0, Number(row.value || 0));
+                const percent = (value / maxTotal) * 100;
+                const start = cursor;
+                cursor += percent;
+                return `${colorMap[normalizeProgressColor(row.color)] || colorMap.gray} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+            });
+            if (cursor < 100) segments.push(`#e5e7eb ${cursor.toFixed(2)}% 100%`);
+            return `conic-gradient(${segments.join(', ')})`;
+        }
+
+        function normalizeProgressColor(color) {
+            return ['blue', 'orange', 'green', 'gray'].includes(color) ? color : 'gray';
+        }
+
+        function renderHotDocuments(rows) {
+            const container = document.querySelector('.ranking-list');
+            if (!container) return;
+            if (!rows.length) {
+                container.innerHTML = '<div class="dashboard-empty">今天暂无文档命中记录</div>';
+                return;
+            }
+            container.innerHTML = rows.map((row, index) => `
+                <div class="ranking-row">
+                    <div class="rank-number ${index < 3 ? 'top' : ''}">${index + 1}</div>
+                    <div class="user-mini-avatar">${escapeHtml(firstChar(row.title))}</div>
+                    <div class="row-main">
+                        <div class="row-title">${escapeHtml(row.title || `文档 ${row.doc_id}`)}</div>
+                        <div class="row-desc">${escapeHtml(row.library_label || '')} · 今日命中 ${formatNumber(row.hit_count)} 次</div>
+                    </div>
+                    <div class="row-value">${formatNumber(row.hit_count)} 次</div>
+                </div>
+            `).join('');
+        }
+
+        function renderRecentQuestions(rows) {
+            const container = document.querySelector('.qa-list');
+            if (!container) return;
+            if (!rows.length) {
+                container.innerHTML = '<div class="dashboard-empty">暂无问答记录</div>';
+                return;
+            }
+            container.innerHTML = rows.map((row) => {
+                const statusClass = row.status === 'success' ? 'healthy' : 'warning';
+                return `
+                    <div class="qa-row">
+                        <div class="qa-icon"><i class="fas fa-message"></i></div>
+                        <div class="row-main">
+                            <div class="row-title">${escapeHtml(row.question || '未命名问题')}</div>
+                            <div class="row-desc">${escapeHtml(row.user_name || '用户')} · ${formatRelativeTime(row.created_time)} · 命中文档 ${formatNumber(row.reference_count)} 篇</div>
+                        </div>
+                        <div class="status-pill ${statusClass}">${escapeHtml(row.status_label || '')}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderDocumentCategories(rows) {
+            const container = document.querySelector('.status-list');
+            if (!container) return;
+            if (!rows.length) {
+                container.innerHTML = '<div class="dashboard-empty">暂无文档分类数据</div>';
+                return;
+            }
+            container.innerHTML = rows.map((row) => `
+                <div class="status-row">
+                    <div class="status-icon ${row.level === 'warning' ? 'warning' : 'healthy'}"><i class="fas ${getCategoryIcon(row)}"></i></div>
+                    <div class="row-main">
+                        <div class="row-title">${escapeHtml(row.title || '')}</div>
+                        <div class="row-desc">${escapeHtml(row.description || '')}</div>
+                    </div>
+                    <div class="row-value">${formatNumber(row.count || 0)}</div>
+                </div>
+            `).join('');
+        }
+
+        function firstChar(value) {
+            const chars = Array.from(String(value || '').trim());
+            return chars.length ? chars[0] : '-';
+        }
+
+        function getCategoryIcon(row) {
+            const key = String((row && row.key) || '').trim();
+            const iconMap = {
+                knowledge: 'fa-book',
+                breakdown: 'fa-circle-plus',
+                pending_review: 'fa-clock',
+                parse_failed: 'fa-triangle-exclamation'
+            };
+            return iconMap[key] || 'fa-file';
+        }
+
+        function formatRelativeTime(value) {
+            if (!value) return '时间未知';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '时间未知';
+            const diffMs = Date.now() - date.getTime();
+            const minutes = Math.max(0, Math.floor(diffMs / 60000));
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes} 分钟前`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} 小时前`;
+            return `${Math.floor(hours / 24)} 天前`;
+        }
+
+        function formatNumber(value) {
+            return new Intl.NumberFormat('zh-CN').format(Number(value || 0));
+        }
+
+        function formatCompact(value) {
+            const number = Number(value || 0);
+            if (number >= 1000000) return `${trimFixed(number / 1000000)}M`;
+            if (number >= 1000) return `${trimFixed(number / 1000)}K`;
+            return formatNumber(number);
+        }
+
+        function trimFixed(value) {
+            return value >= 10 ? value.toFixed(1).replace(/\.0$/, '') : value.toFixed(2).replace(/0$/, '').replace(/\.0$/, '');
+        }
+
+        function formatPercentValue(value) {
+            return `${Number(value || 0).toFixed(1)}%`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+    </script>
+</body>
+</html>

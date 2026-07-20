@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>角色组管理</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .role-layout { padding: 24px; }
+        .role-grid { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 18px; align-items: start; }
+        .role-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; }
+        .role-list { display: grid; gap: 10px; }
+        .role-item { width: 100%; text-align: left; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; padding: 12px; cursor: pointer; }
+        .role-item.active { border-color: #2563eb; background: #eff6ff; }
+        .role-item-title { font-weight: 700; color: #111827; }
+        .role-item-meta { margin-top: 6px; color: #64748b; font-size: 13px; }
+        .permission-grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
+        .permission-option { display: flex; align-items: center; gap: 8px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+        .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+        @media (max-width: 900px) { .role-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-tools"></i><span>维修辅助系统</span></div>
+        </div>
+        <nav class="nav-menu">
+            <a href="main.html" class="nav-item"><span class="nav-icon"><i class="fas fa-book"></i></span><span>知识库</span></a>
+            <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI助手</span></a>
+            <a href="user-management.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+            <a href="tag-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-tags"></i></span><span>标签管理</span></a>
+            <a href="user-profile.html" class="nav-item"><span class="nav-icon"><i class="fas fa-user"></i></span><span>个人资料</span></a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <h1>角色组管理</h1>
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">用户</div></div>
+            </div>
+        </header>
+
+        <section class="role-layout">
+            <div class="role-grid">
+                <div class="role-panel">
+                    <div class="section-header">
+                        <h2>角色组</h2>
+                        <button class="btn btn-primary btn-sm" onclick="RolePage.newRole()"><i class="fas fa-plus"></i> 新增</button>
+                    </div>
+                    <div class="role-list" id="roleList"></div>
+                </div>
+
+                <form class="role-panel" id="roleForm">
+                    <input type="hidden" id="roleId">
+                    <div class="form-group">
+                        <label class="required">角色名称</label>
+                        <input type="text" id="roleName" required placeholder="例如：技术专家">
+                    </div>
+                    <div class="form-group">
+                        <label>角色编码</label>
+                        <input type="text" id="roleCode" placeholder="例如：technical_expert">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <textarea id="roleDescription" rows="3" placeholder="描述这个角色的职责"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">权限</label>
+                        <div class="permission-grid">
+                            <label class="permission-option"><input type="checkbox" value="read_only"> 只读</label>
+                            <label class="permission-option"><input type="checkbox" value="read_write"> 读写</label>
+                            <label class="permission-option"><input type="checkbox" value="review"> 审核</label>
+                            <label class="permission-option"><input type="checkbox" value="admin"> 管理员</label>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 保存</button>
+                        <button type="button" class="btn btn-secondary" onclick="RolePage.newRole()">清空</button>
+                        <button type="button" class="btn btn-danger" id="deleteBtn" onclick="RolePage.deleteRole()">删除</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+const RolePage = {
+    roles: [],
+    selected: null,
+
+    async init() {
+        const user = Utils.checkLogin();
+        if (!user) return;
+        if (!Utils.hasPermission(user, Utils.PERMISSION.ADMIN)) {
+            Utils.showMessage('您没有权限访问此页面', 'error');
+            window.location.href = 'main.html';
+            return;
+        }
+        Utils.loadUserInfo();
+        document.getElementById('roleForm').addEventListener('submit', (event) => this.saveRole(event));
+        await this.loadRoles();
+        this.newRole();
+    },
+
+    async loadRoles() {
+        this.roles = await DataManager.getRoleGroups();
+        const list = document.getElementById('roleList');
+        list.innerHTML = this.roles.map(role => `
+            <button class="role-item" data-id="${role.id}" onclick="RolePage.selectRole(${role.id})">
+                <div class="role-item-title">${role.name}</div>
+                <div class="role-item-meta">${(role.permissions || []).join(' / ')}</div>
+            </button>
+        `).join('');
+    },
+
+    selectRole(id) {
+        this.selected = this.roles.find(role => Number(role.id) === Number(id));
+        if (!this.selected) return;
+        document.querySelectorAll('.role-item').forEach(item => item.classList.toggle('active', Number(item.dataset.id) === Number(id)));
+        document.getElementById('roleId').value = this.selected.id;
+        document.getElementById('roleName').value = this.selected.name || '';
+        document.getElementById('roleCode').value = this.selected.code || '';
+        document.getElementById('roleDescription').value = this.selected.description || '';
+        document.getElementById('deleteBtn').disabled = Number(this.selected.is_system) === 1;
+        this.setPermissions(this.selected.permissions || []);
+    },
+
+    newRole() {
+        this.selected = null;
+        document.getElementById('roleForm').reset();
+        document.getElementById('roleId').value = '';
+        document.getElementById('deleteBtn').disabled = true;
+        document.querySelectorAll('.role-item').forEach(item => item.classList.remove('active'));
+    },
+
+    getPermissions() {
+        return Array.from(document.querySelectorAll('.permission-option input:checked')).map(input => input.value);
+    },
+
+    setPermissions(permissions) {
+        const set = new Set(permissions || []);
+        document.querySelectorAll('.permission-option input').forEach(input => {
+            input.checked = set.has(input.value);
+        });
+    },
+
+    async saveRole(event) {
+        event.preventDefault();
+        const payload = {
+            name: document.getElementById('roleName').value.trim(),
+            code: document.getElementById('roleCode').value.trim(),
+            description: document.getElementById('roleDescription').value.trim(),
+            permissions: this.getPermissions()
+        };
+        if (!payload.name || payload.permissions.length === 0) {
+            Utils.showMessage('请填写角色名称并至少选择一个权限', 'warning');
+            return;
+        }
+        const id = document.getElementById('roleId').value;
+        if (id) {
+            payload.id = Number(id);
+            await DataManager.updateRoleGroup(payload);
+            Utils.showMessage('角色组已更新', 'success');
+        } else {
+            await DataManager.createRoleGroup(payload);
+            Utils.showMessage('角色组已创建', 'success');
+        }
+        await this.loadRoles();
+        this.newRole();
+    },
+
+    async deleteRole() {
+        if (!this.selected || this.selected.is_system) return;
+        if (!confirm(`确定删除角色组“${this.selected.name}”？`)) return;
+        await DataManager.updateRoleGroup({ id: this.selected.id, is_deleted: 1 });
+        Utils.showMessage('角色组已删除', 'success');
+        await this.loadRoles();
+        this.newRole();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => RolePage.init());
+</script>
+</body>
+</html>

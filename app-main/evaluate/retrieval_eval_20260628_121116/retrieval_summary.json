@@ -1,0 +1,16 @@
+{
+  "total_cases": 161,
+  "answered_cases": 0,
+  "answer_rate": 0.0,
+  "retrieval_cases": 161,
+  "retrieval_top1": 0.8634,
+  "retrieval_topk": 0.9565,
+  "retrieval_mrr": 0.9058,
+  "retrieval_misses": 7,
+  "average_retrieved_docs": 3.0,
+  "precision_at_k": 0.3188,
+  "recall_at_k": 0.9565,
+  "f1_at_k": 0.4783,
+  "mrr": 0.9058,
+  "map": 0.9058
+}

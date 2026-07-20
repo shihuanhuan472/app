@@ -1,0 +1,14 @@
+.venv/
+.python310/
+__pycache__/
+*.pyc
+.env
+upload/
+volumes/
+*.zip
+*.log
+*.err
+start_backend.cmd
+.idea/
+bge/
+minerU/

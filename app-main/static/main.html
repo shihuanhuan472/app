@@ -1,0 +1,1265 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档列表 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+</head>
+<body>
+    <div class="system-container">
+        <!-- 侧边导航栏 -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="document-review.html" class="nav-item" id="reviewCenterNav">
+                    <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+                    <span>文档审核</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 管理员显示这个 -->
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 技术人员显示这个 -->
+                <a href="user-profile.html" class="nav-item active" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">维修知识库</div>
+                    <div class="page-subtitle">技术文档与故障案例</div>
+                </div>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" id="searchInput" placeholder="可搜索标题，作者及问题描述...">
+                    </div>
+                    <label class="view-toggle" title="切换为文件列表样式，仅渲染当前分页数据">
+                        <input type="checkbox" id="listViewToggle" onchange="toggleDocumentView(this.checked)">
+                        <span>列式展示</span>
+                    </label>
+                    <a href="add-document.html" class="btn btn-primary" id="addDocumentBtn">
+                        <i class="fas fa-plus"></i> 添加文档
+                    </a>
+                    <a href="import-documents.html" class="btn btn-secondary" style="margin-right: 8px;" id="importDocumentsBtn">
+                        <i class="fas fa-upload"></i> 导入
+                    </a>
+                    <button type="button" class="btn btn-danger" id="batchDeleteBtn" onclick="toggleBatchDeleteMode()">
+                        <i class="fas fa-check-square"></i> 批量删除
+                    </button>
+                </div>
+            </div>
+
+            <!-- 文档列表（直接展示，不用card包装） -->
+            <div class="document-container">
+                <div class="document-grid" id="documentList">
+                    <!-- 文档卡片会动态加载 -->
+                </div>
+
+                <!-- 分页控件 -->
+                <div class="pagination" id="docPagination" style="margin-top: 40px;">
+                    <button class="pagination-btn" onclick="changeDocPage(docCurrentPage - 1)" id="docPrevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> 上一页
+                    </button>
+
+                    <div class="page-numbers" id="docPageNumbers">
+                        <!-- 页码会动态生成 -->
+                    </div>
+
+                    <button class="pagination-btn" onclick="changeDocPage(docCurrentPage + 1)" id="docNextBtn">
+                        下一页 <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                    <div class="page-info">
+                        <span id="docPageInfo">第 1 页，共 1 页</span>
+                        <select class="page-size-select" id="docPageSizeSelect" onchange="changeDocPageSize()">
+                            <option value="6">每页 6 篇</option>
+                            <option value="9" selected>每页 9 篇</option>
+                            <option value="12">每页 12 篇</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="batch-delete-bar" id="batchDeleteBar" hidden>
+        <div class="batch-delete-meta">
+            <div class="batch-delete-icon"><i class="fas fa-check"></i></div>
+            <div>
+                <div class="batch-delete-title">批量选择</div>
+                <div class="batch-delete-count">已选择 <strong id="batchSelectedCount">0</strong> 篇文档</div>
+            </div>
+        </div>
+        <div class="batch-delete-actions">
+            <button type="button" class="btn btn-secondary" onclick="selectCurrentPageDocuments()">
+                <i class="fas fa-layer-group"></i> 选择本页
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="exitBatchDeleteMode()">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button type="button" class="btn btn-danger" id="batchDeleteConfirmBtn" onclick="confirmBatchDelete()" disabled>
+                <i class="fas fa-trash"></i> 删除所选
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 文档分页变量
+        let docCurrentPage = 1;
+        let docPageSize = 9;
+        let docTotalPages = 1;
+        let isSearching = false;
+        let currentSearchQuery = '';
+        let lastRenderedDocuments = [];
+        let lastRenderedTotalCount = 0;
+        let documentViewMode = 'card';
+        const LIST_VIEW_PAGE_SIZE = 100;
+        let listViewCurrentPage = 1;
+        let listViewTotalPages = 1;
+        let listViewTotalCount = 0;
+        let listViewLoadingMore = false;
+        let listViewDocuments = [];
+        let listViewLibraryType = 'all';
+        let listViewTag = '';
+        let availableTags = [];
+        let batchDeleteMode = false;
+        let batchDeleteBusy = false;
+        const selectedDocuments = new Map();
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 检查登录状态
+            Utils.checkLogin();
+            Utils.loadUserInfo();
+            applyRoleActionButtons();
+
+            // 恢复分页设置
+            restorePageSettings();
+            restoreDocumentViewMode();
+            await loadAvailableTags();
+
+            // 显示加载状态
+            showLoading();
+
+            try {
+                // 加载文档列表（从第一页开始）
+                docCurrentPage = 1
+                await loadDocuments();
+            } catch (error) {
+                console.error('初始化失败:', error);
+                showError('加载文档失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+
+            // 搜索功能 - 实时搜索
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                // 使用更安全的事件处理
+                const handleSearchInput = (event) => {
+                    const target = event.target;
+                    if (!target) return;
+
+                    const query = (target.value || '').trim();
+                    console.log('搜索输入:', query);
+                    currentSearchQuery = query;
+
+                    if (query === '') {
+                        // 清空搜索时，重置到第一页并重新加载所有文档
+                        isSearching = false;
+                        docCurrentPage = 1;
+                        resetListViewState();
+                        loadDocuments();
+                    } else {
+                        // 执行搜索
+                        isSearching = true;
+                        docCurrentPage = 1;
+                        resetListViewState();
+                        searchDocuments(query);
+                    }
+                };
+
+                // 使用防抖函数
+                const debouncedSearch = Utils.debounce(handleSearchInput, 300);
+
+                // 绑定事件
+                searchInput.addEventListener('input', debouncedSearch);
+
+                // 可选：添加回车键搜索
+                searchInput.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        const query = (event.target.value || '').trim();
+                        if (query) {
+                            isSearching = true;
+                            docCurrentPage = 1;
+                            resetListViewState();
+                            searchDocuments(query);
+                        }
+                    }
+                });
+            }
+        });
+
+        // 显示加载状态
+        function showLoading() {
+            const container = document.getElementById('documentList');
+            if (container) {
+                container.innerHTML = `
+                    <div class="document-loading">
+                        <div class="loading-spinner"></div>
+                        <p>正在加载文档...</p>
+                    </div>
+                `;
+            }
+        }
+
+        function restorePageSettings() {
+            // 尝试从localStorage恢复每页显示数量
+            const savedPageSize = localStorage.getItem('docPageSize');
+            if (savedPageSize) {
+                docPageSize = parseInt(savedPageSize);
+                const pageSizeSelect = document.getElementById('docPageSizeSelect');
+                if (pageSizeSelect) {
+                    pageSizeSelect.value = docPageSize;
+                }
+            }
+
+            // 尝试从localStorage恢复当前页
+            const savedCurrentPage = localStorage.getItem('docCurrentPage');
+            if (savedCurrentPage) {
+                docCurrentPage = parseInt(savedCurrentPage);
+            }
+        }
+
+        function restoreDocumentViewMode() {
+            const savedViewMode = localStorage.getItem('documentViewMode');
+            documentViewMode = savedViewMode === 'list' ? 'list' : 'card';
+            const toggle = document.getElementById('listViewToggle');
+            if (toggle) {
+                toggle.checked = documentViewMode === 'list';
+            }
+        }
+
+        function toggleDocumentView(useListView) {
+            documentViewMode = useListView ? 'list' : 'card';
+            localStorage.setItem('documentViewMode', documentViewMode);
+            docCurrentPage = 1;
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+            resetListViewState();
+            refreshCurrentDocumentList();
+        }
+
+        function resetListViewState() {
+            listViewCurrentPage = 1;
+            listViewTotalPages = 1;
+            listViewTotalCount = 0;
+            listViewLoadingMore = false;
+            listViewDocuments = [];
+        }
+
+        function changeListLibraryType(value) {
+            listViewLibraryType = value || 'all';
+            resetListViewState();
+            loadListViewDocuments(false);
+        }
+
+        function changeListTag(value) {
+            listViewTag = value || '';
+            resetListViewState();
+            loadListViewDocuments(false);
+        }
+
+        async function loadAvailableTags() {
+            try {
+                if (typeof tagAPI === 'undefined') return;
+                const tags = await tagAPI.getAllTags();
+                availableTags = Array.isArray(tags) ? tags : [];
+            } catch (error) {
+                console.warn('加载标签筛选失败:', error);
+                availableTags = [];
+            }
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            // 由displayDocuments函数处理
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const container = document.getElementById('documentList');
+            if (container) {
+                container.innerHTML = `
+                    <div class="document-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                        <p style="color: #666; margin-bottom: 20px;">${message}</p>
+                        <button class="btn btn-primary" onclick="location.reload()">
+                            <i class="fas fa-redo"></i> 重新加载
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // 加载普通文档列表
+        async function loadDocuments() {
+            if (documentViewMode === 'list') {
+                await loadListViewDocuments(false);
+                return;
+            }
+
+            try {
+                console.log(`加载第 ${docCurrentPage} 页，每页 ${docPageSize} 条`);
+
+                // 调用 API 获取分页数据
+                const pageData = await documentAPI.getDocumentsPage(docCurrentPage, docPageSize);
+                console.log('获取到的分页数据:', pageData);
+
+                if (pageData && pageData.documents) {
+                    // 转换数据格式
+                    const currentPageDocuments = pageData.documents.map(normalizeApiDocument);
+
+                    console.log('转换后的当前页文档数据:', currentPageDocuments);
+
+                    // 更新分页信息
+                    docTotalPages = pageData.total_pages || 1;
+                    const totalCount = pageData.total_count || 0;
+
+                    // 显示文档
+                    displayDocuments(currentPageDocuments, totalCount);
+                } else {
+                    console.error('获取的文档数据格式不正确:', pageData);
+                    showError('获取文档数据格式错误');
+                }
+
+            } catch (error) {
+                console.error('加载文档失败:', error);
+                showError('加载文档失败: ' + error.message);
+            }
+        }
+
+        async function loadListViewDocuments(loadMore) {
+            if (listViewLoadingMore) return;
+            if (loadMore && listViewCurrentPage >= listViewTotalPages) return;
+
+            if (!loadMore) {
+                resetListViewState();
+                showLoading();
+            }
+            listViewLoadingMore = true;
+            updateListLoadingState();
+
+            try {
+                const nextPage = loadMore ? listViewCurrentPage + 1 : 1;
+                const selectedTags = listViewTag ? [listViewTag] : [];
+                const result = isSearching && currentSearchQuery
+                    ? await documentAPI.searchDocumentsPage(currentSearchQuery, nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags)
+                    : await documentAPI.getDocumentsPage(nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags);
+
+                const pageDocuments = Array.isArray(result && result.documents)
+                    ? result.documents.map(normalizeApiDocument)
+                    : [];
+
+                listViewCurrentPage = nextPage;
+                listViewTotalPages = result.total_pages || 1;
+                listViewTotalCount = result.total_count || pageDocuments.length;
+                listViewDocuments = loadMore
+                    ? listViewDocuments.concat(pageDocuments)
+                    : pageDocuments;
+
+                docTotalPages = listViewTotalPages;
+                if (loadMore) {
+                    appendDocumentListRows(pageDocuments);
+                } else {
+                    displayDocuments(listViewDocuments, listViewTotalCount);
+                }
+            } catch (error) {
+                console.error('加载列式文档失败:', error);
+                if (!loadMore) {
+                    showError('加载文档失败: ' + error.message);
+                } else {
+                    Utils.showMessage('加载更多文档失败，请稍后重试', 'error');
+                }
+            } finally {
+                listViewLoadingMore = false;
+                updateListLoadingState();
+            }
+        }
+
+        function normalizeApiDocument(doc) {
+            const currentUser = Utils.getCurrentUser();
+            const currentUserId = currentUser ? currentUser.id : null;
+
+            let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
+            if (currentUserId && currentUserId == doc.contributor_id) {
+                authorName = '我';
+            }
+
+            return {
+                id: doc.id,
+                title: doc.title || '无标题',
+                content: doc.library_type === 'knowledge'
+                    ? getKnowledgePreview(doc)
+                    : (doc.problem_intro || ''),
+                author: authorName,
+                date: formatDate(doc.first_edit_date),
+                libraryType: doc.library_type || 'breakdown',
+                tags: doc.tag || [],
+                fullData: doc
+            };
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '未知日期';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            } catch {
+                return dateString;
+            }
+        }
+
+        // 搜索文档 - 调用后端API
+        async function searchDocuments(query) {
+            if (!query.trim()) {
+                // 清空搜索时恢复所有文档
+                isSearching = false;
+                docCurrentPage = 1;
+                resetListViewState();
+                await loadDocuments();
+                return;
+            }
+
+            if (documentViewMode === 'list') {
+                isSearching = true;
+                currentSearchQuery = query;
+                await loadListViewDocuments(false);
+                return;
+            }
+
+            try {
+                console.log(`搜索文档: "${query}"`);
+                showLoading();
+
+                // 调用后端搜索API（分页）
+                const result = await documentAPI.searchDocumentsPage(query, docCurrentPage, docPageSize);
+
+                isSearching = true;
+                currentSearchQuery = query;
+
+                if (result && result.documents) {
+                    // 转换数据格式
+                    const searchResults = result.documents.map(normalizeApiDocument);
+
+                    // 更新分页信息
+                    docTotalPages = result.total_pages || 1;
+                    const totalCount = result.total_count || 0;
+
+                    // 显示搜索结果
+                    displayDocuments(searchResults, totalCount);
+                } else {
+                    displayDocuments([], 0);
+                }
+            } catch (error) {
+                console.error('搜索失败:', error);
+                showError('搜索失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 将后端库类型转换为页面显示文案，避免列表只显示标题时无法区分故障库和知识库。
+        function getLibraryLabel(libraryType) {
+            return libraryType === 'knowledge' ? '知识库' : '故障库';
+        }
+
+        // 将后端库类型转换为样式类名，保证不同库类型可以用不同徽标颜色区分。
+        function getLibraryBadgeClass(libraryType) {
+            return libraryType === 'knowledge' ? 'knowledge' : 'breakdown';
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getKnowledgePreview(doc) {
+            const sections = Array.isArray(doc.sections) ? doc.sections : [];
+            const firstSection = sections
+                .slice()
+                .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
+                .find(section => String(section.plain_text || '').trim());
+            if (!firstSection) return '暂无章节内容';
+            const title = firstSection.section_title ? `${firstSection.section_title}：` : '';
+            return `${title}${firstSection.plain_text || ''}`;
+        }
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function renderDocumentTags(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            if (!normalizedTags.length) return '';
+            return `
+                <div class="document-item-tags">
+                    ${normalizedTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+            `;
+        }
+
+        function renderInlineTags(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            if (!normalizedTags.length) return '<span class="document-list-muted">-</span>';
+            const visibleTags = normalizedTags.slice(0, 3);
+            const extraCount = normalizedTags.length - visibleTags.length;
+            return `
+                <div class="document-list-tags">
+                    ${visibleTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+                    ${extraCount > 0 ? `<span class="document-list-extra">+${extraCount}</span>` : ''}
+                </div>
+            `;
+        }
+
+        function getSelectionKey(id, libraryType) {
+            return `${libraryType || 'breakdown'}:${id}`;
+        }
+
+        function escapeCssValue(value) {
+            if (window.CSS && typeof window.CSS.escape === 'function') {
+                return window.CSS.escape(String(value));
+            }
+            return String(value).replace(/["\\]/g, '\\$&');
+        }
+
+        function isBatchDeleteAllowed() {
+            const user = Utils.getCurrentUser();
+            return !!user && Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
+        }
+
+        function toggleBatchDeleteMode() {
+            if (batchDeleteBusy) return;
+            if (!batchDeleteMode && !isBatchDeleteAllowed()) {
+                Utils.showMessage('只有系统管理员可以批量删除文档', 'warning');
+                return;
+            }
+            batchDeleteMode ? exitBatchDeleteMode() : enterBatchDeleteMode();
+        }
+
+        function enterBatchDeleteMode() {
+            batchDeleteMode = true;
+            selectedDocuments.clear();
+            document.body.classList.add('batch-delete-active');
+            updateBatchDeleteControls();
+            displayDocuments(lastRenderedDocuments, lastRenderedTotalCount);
+        }
+
+        function exitBatchDeleteMode() {
+            if (batchDeleteBusy) return;
+            batchDeleteMode = false;
+            selectedDocuments.clear();
+            document.body.classList.remove('batch-delete-active');
+            updateBatchDeleteControls();
+            displayDocuments(lastRenderedDocuments, lastRenderedTotalCount);
+        }
+
+        function updateBatchDeleteControls() {
+            const count = selectedDocuments.size;
+            const bar = document.getElementById('batchDeleteBar');
+            const countEl = document.getElementById('batchSelectedCount');
+            const confirmBtn = document.getElementById('batchDeleteConfirmBtn');
+            const toggleBtn = document.getElementById('batchDeleteBtn');
+
+            if (bar) bar.hidden = !batchDeleteMode;
+            if (countEl) countEl.textContent = count;
+            if (confirmBtn) {
+                confirmBtn.disabled = count === 0 || batchDeleteBusy;
+                confirmBtn.innerHTML = batchDeleteBusy
+                    ? '<i class="fas fa-spinner fa-spin"></i> 删除中'
+                    : '<i class="fas fa-trash"></i> 删除所选';
+            }
+            if (toggleBtn) {
+                toggleBtn.classList.toggle('is-active', batchDeleteMode);
+                toggleBtn.innerHTML = batchDeleteMode
+                    ? '<i class="fas fa-times"></i> 退出批量'
+                    : '<i class="fas fa-check-square"></i> 批量删除';
+            }
+        }
+
+        function handleDocumentCardClick(event, card) {
+            if (!card) return;
+            const id = card.dataset.id;
+            const libraryType = card.dataset.libraryType || 'breakdown';
+            const title = card.dataset.title || '无标题';
+
+            if (batchDeleteMode) {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleDocumentSelection(id, libraryType, title);
+                return;
+            }
+
+            window.location.href = `document-detail.html?id=${encodeURIComponent(id)}&source=${encodeURIComponent(libraryType)}`;
+        }
+
+        function toggleDocumentSelection(id, libraryType, title) {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const key = getSelectionKey(id, libraryType);
+            if (selectedDocuments.has(key)) {
+                selectedDocuments.delete(key);
+            } else {
+                selectedDocuments.set(key, { id, libraryType, title });
+            }
+            syncDocumentSelectionState(id, libraryType);
+            updateBatchDeleteControls();
+        }
+
+        function syncDocumentSelectionState(id, libraryType) {
+            const selector = `.document-item[data-id="${escapeCssValue(id)}"][data-library-type="${escapeCssValue(libraryType || 'breakdown')}"]`;
+            document.querySelectorAll(selector).forEach(card => {
+                const selected = selectedDocuments.has(getSelectionKey(id, libraryType));
+                card.classList.toggle('selected', selected);
+                const check = card.querySelector('.document-select-check');
+                if (check) {
+                    check.classList.toggle('selected', selected);
+                    check.setAttribute('aria-checked', selected ? 'true' : 'false');
+                }
+            });
+        }
+
+        function renderDocumentCard(doc) {
+            let content = doc.content || '';
+            if (content.length > 100) {
+                content = content.substring(0, 100) + '...';
+            }
+            content = escapeHtml(content);
+
+            const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+            const libraryLabel = getLibraryLabel(libraryType);
+            const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+            const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
+            const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+
+            return `
+                <div class="document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
+                     data-id="${escapeHtml(doc.id)}"
+                     data-library-type="${escapeHtml(libraryType)}"
+                     data-title="${escapeHtml(doc.title)}"
+                     onclick="handleDocumentCardClick(event, this)">
+                    ${batchDeleteMode ? `
+                        <button type="button"
+                                class="document-select-check ${selected ? 'selected' : ''}"
+                                aria-label="选择 ${escapeHtml(doc.title)}"
+                                aria-checked="${selected ? 'true' : 'false'}"
+                                onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    ` : ''}
+                    <div class="document-item-header">
+                        <div class="document-item-title-row">
+                            <div class="document-item-title">${escapeHtml(doc.title)}</div>
+                            <span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span>
+                        </div>
+                    </div>
+
+                    <div class="document-item-content">
+                        ${content}
+                    </div>
+
+                    <div class="document-item-footer">
+                        <div class="document-item-author">
+                            <i class="fas fa-user"></i>
+                            <span>${escapeHtml(doc.author)}</span>
+                            ${tagHtml}
+                        </div>
+                        <div class="document-item-date">
+                            ${escapeHtml(doc.date)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDocumentListRow(doc) {
+            const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+            const libraryLabel = getLibraryLabel(libraryType);
+            const libraryBadgeClass = getLibraryBadgeClass(libraryType);
+            const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+            const iconClass = libraryType === 'knowledge' ? 'fa-file-lines' : 'fa-file-medical';
+
+            return `
+                <div class="document-list-row document-item ${batchDeleteMode ? 'selection-mode' : ''} ${selected ? 'selected' : ''}"
+                     data-id="${escapeHtml(doc.id)}"
+                     data-library-type="${escapeHtml(libraryType)}"
+                     data-title="${escapeHtml(doc.title)}"
+                     onclick="handleDocumentCardClick(event, this)">
+                    <div class="document-list-check-cell">
+                        ${batchDeleteMode ? `
+                            <button type="button"
+                                    class="document-select-check ${selected ? 'selected' : ''}"
+                                    aria-label="选择 ${escapeHtml(doc.title)}"
+                                    aria-checked="${selected ? 'true' : 'false'}"
+                                    onclick="handleDocumentCardClick(event, this.closest('.document-item'))">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="document-list-name">
+                        <i class="fas ${iconClass}"></i>
+                        <div class="document-list-title-wrap">
+                            <div class="document-list-title">${escapeHtml(doc.title)}</div>
+                            <div class="document-list-summary">${escapeHtml(doc.content || '暂无摘要')}</div>
+                        </div>
+                    </div>
+                    <div><span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span></div>
+                    <div>${renderInlineTags(doc.tags || (doc.fullData && doc.fullData.tag))}</div>
+                    <div class="document-list-author">${escapeHtml(doc.author)}</div>
+                    <div class="document-list-date">${escapeHtml(doc.date)}</div>
+                </div>
+            `;
+        }
+
+        function getListViewStatusText(totalCount, visibleCount) {
+            if (totalCount === 0) return '没有符合条件的文档';
+            if (listViewLoadingMore) return '正在加载更多...';
+            if (visibleCount >= totalCount || listViewCurrentPage >= listViewTotalPages) return '已加载全部文档';
+            return '向下滚动加载更多';
+        }
+
+        function renderDocumentList(documents, totalCount) {
+            const visibleCount = Array.isArray(documents) ? documents.length : 0;
+            return `
+                <div class="document-list-table" role="table" aria-label="文档列式列表">
+                    <div class="document-list-meta">
+                        <span>共 ${totalCount} 篇文档</span>
+                        <div class="document-list-tools">
+                            <label class="document-list-filter">
+                                <span>类型</span>
+                                <select onclick="event.stopPropagation()" onchange="changeListLibraryType(this.value)">
+                                    <option value="all" ${listViewLibraryType === 'all' ? 'selected' : ''}>全部</option>
+                                    <option value="breakdown" ${listViewLibraryType === 'breakdown' ? 'selected' : ''}>故障库</option>
+                                    <option value="knowledge" ${listViewLibraryType === 'knowledge' ? 'selected' : ''}>知识库</option>
+                                </select>
+                            </label>
+                            <label class="document-list-filter">
+                                <span>标签</span>
+                                <select onclick="event.stopPropagation()" onchange="changeListTag(this.value)">
+                                    <option value="" ${listViewTag === '' ? 'selected' : ''}>全部</option>
+                                    ${availableTags.map(tag => {
+                                        const name = typeof tag === 'string' ? tag : tag.name;
+                                        return `<option value="${escapeHtml(name)}" ${listViewTag === name ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                                    }).join('')}
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="document-list-head" role="row">
+                        <div></div>
+                        <div><i class="far fa-square"></i> 文件名</div>
+                        <div>类型</div>
+                        <div>标签</div>
+                        <div>作者</div>
+                        <div>日期</div>
+                    </div>
+                    <div class="document-list-body">
+                        ${visibleCount === 0 ? `
+                            <div class="document-list-empty">
+                                <i class="fas fa-filter"></i>
+                                <span>没有符合条件的文档</span>
+                            </div>
+                        ` : documents.map(renderDocumentListRow).join('')}
+                        <div class="document-list-loading" id="documentListLoading">
+                            ${getListViewStatusText(totalCount, visibleCount)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function attachListScrollHandler() {
+            if (documentViewMode !== 'list') return;
+            const body = document.querySelector('.document-list-body');
+            if (!body) return;
+            body.addEventListener('scroll', handleListViewScroll, { passive: true });
+        }
+
+        function handleListViewScroll(event) {
+            if (documentViewMode !== 'list' || listViewLoadingMore) return;
+            if (listViewCurrentPage >= listViewTotalPages) return;
+
+            const el = event.currentTarget;
+            const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceToBottom < 120) {
+                loadListViewDocuments(true);
+            }
+        }
+
+        function updateListLoadingState() {
+            if (documentViewMode !== 'list') return;
+            const loadingEl = document.getElementById('documentListLoading');
+            if (!loadingEl) return;
+            const visibleCount = listViewDocuments.length;
+            loadingEl.textContent = getListViewStatusText(listViewTotalCount, visibleCount);
+        }
+
+        function appendDocumentListRows(documents) {
+            const body = document.querySelector('.document-list-body');
+            const loadingEl = document.getElementById('documentListLoading');
+            if (!body || !documents.length) {
+                updateListLoadingState();
+                return;
+            }
+            const html = documents.map(renderDocumentListRow).join('');
+            if (loadingEl) {
+                loadingEl.insertAdjacentHTML('beforebegin', html);
+            } else {
+                body.insertAdjacentHTML('beforeend', html);
+            }
+            updateListLoadingState();
+            updateBatchDeleteControls();
+        }
+
+        function selectCurrentPageDocuments() {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const docs = Array.isArray(lastRenderedDocuments) ? lastRenderedDocuments : [];
+            const allCurrentSelected = docs.length > 0 && docs.every(doc => {
+                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+                return selectedDocuments.has(getSelectionKey(doc.id, libraryType));
+            });
+
+            docs.forEach(doc => {
+                const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
+                const key = getSelectionKey(doc.id, libraryType);
+                if (allCurrentSelected) {
+                    selectedDocuments.delete(key);
+                } else {
+                    selectedDocuments.set(key, { id: doc.id, libraryType, title: doc.title || '无标题' });
+                }
+                syncDocumentSelectionState(doc.id, libraryType);
+            });
+            updateBatchDeleteControls();
+        }
+
+        async function refreshCurrentDocumentList() {
+            if (isSearching && currentSearchQuery) {
+                await searchDocuments(currentSearchQuery);
+            } else {
+                await loadDocuments();
+            }
+        }
+
+        async function confirmBatchDelete() {
+            if (!batchDeleteMode || batchDeleteBusy) return;
+            const items = Array.from(selectedDocuments.values());
+            if (!items.length) {
+                Utils.showMessage('请先选择要删除的文档', 'warning');
+                return;
+            }
+            if (!confirm(`确定删除选中的 ${items.length} 篇文档吗？此操作不可撤销。`)) return;
+
+            batchDeleteBusy = true;
+            updateBatchDeleteControls();
+
+            try {
+                // 1. 构造符合后端 BatchDeleteRequest 的数据结构
+                const payload = items.map(item => ({
+                    id: item.id,
+                    library_type: item.libraryType || 'breakdown' // 确保字段名与后端 Pydantic 模型一致
+                }));
+
+                // 2. 调用批量删除接口
+                const result = await documentAPI.batchDeleteDocuments(payload);
+                
+                // 3. 处理成功逻辑
+                const successCount = result.data?.deleted_count || 0;
+                const failedItems = result.data?.failed_items || [];
+
+                if (successCount > 0) {
+                    // 重新计算剩余总数并调整页码
+                    const remainingCount = Math.max(0, lastRenderedTotalCount - successCount);
+                    if (remainingCount > 0 && docCurrentPage > 1 && remainingCount <= (docCurrentPage - 1) * docPageSize) {
+                        docCurrentPage -= 1;
+                        localStorage.setItem('docCurrentPage', docCurrentPage);
+                    }
+                    Utils.showMessage(result.data?.message || `已删除 ${successCount} 篇文档`, 'success');
+                }
+
+                // 4. 处理部分失败逻辑
+                if (failedItems.length > 0) {
+                    Utils.showMessage(`${failedItems.length} 篇文档删除失败，请稍后重试`, 'error');
+                    console.error('批量删除失败的文档:', failedItems);
+                }
+
+            } catch (error) {
+                // 5. 处理整体失败（如权限不足、服务器错误）
+                Utils.showMessage(error.message || '批量删除失败', 'error');
+                console.error('批量删除异常:', error);
+            } finally {
+                // 6. 重置状态并刷新列表
+                batchDeleteBusy = false;
+                batchDeleteMode = false;
+                selectedDocuments.clear();
+                document.body.classList.remove('batch-delete-active');
+                updateBatchDeleteControls();
+                await refreshCurrentDocumentList();
+            }
+        }
+
+        // 显示文档列表（现在同时用于普通列表和搜索结果）
+        function displayDocuments(documents, totalCount) {
+            const container = document.getElementById('documentList');
+            lastRenderedDocuments = Array.isArray(documents) ? documents : [];
+            lastRenderedTotalCount = totalCount || 0;
+
+            if (!documents || documents.length === 0) {
+                if (documentViewMode === 'list') {
+                    container.innerHTML = renderDocumentList([], totalCount || 0);
+                    attachListScrollHandler();
+                    renderDocPagination(totalCount);
+                    updateBatchDeleteControls();
+                    return;
+                }
+
+                const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
+                const user = Utils.getCurrentUser();
+                const isAdmin = !!user && Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
+                const isTechnician = !!user && !isAdmin && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
+                const addHref = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
+                const addText = isTechnician && !isAdmin ? '提交第一个文档' : '添加第一个文档';
+                container.innerHTML = `
+                    <div class="document-empty">
+                        <i class="fas fa-${isSearching ? 'search' : 'file-alt'}" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
+                        <p style="color: #666;">${message}</p>
+                        ${!isSearching ? `
+                            <a href="${addHref}" class="btn btn-primary" style="margin-top: 15px;">
+                                <i class="fas fa-plus"></i> ${addText}
+                            </a>
+                        ` : `
+                            <button class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 15px;">
+                                <i class="fas fa-times"></i> 清除搜索
+                            </button>
+                        `}
+                    </div>
+                `;
+
+                renderDocPagination(totalCount);
+                return;
+            }
+
+            const html = documentViewMode === 'list'
+                ? renderDocumentList(documents, totalCount || documents.length)
+                : documents.map(renderDocumentCard).join('');
+
+            container.innerHTML = html;
+            attachListScrollHandler();
+            renderDocPagination(totalCount);
+            updateBatchDeleteControls();
+        }
+
+        // 渲染文档分页控件
+        function renderDocPagination(totalCount) {
+            const pageNumbersContainer = document.getElementById('docPageNumbers');
+            const prevBtn = document.getElementById('docPrevBtn');
+            const nextBtn = document.getElementById('docNextBtn');
+            const pageInfo = document.getElementById('docPageInfo');
+            const paginationContainer = document.getElementById('docPagination');
+
+            // 列式展示一次显示当前可加载文档，不再显示分页。
+            if (totalCount === 0 || documentViewMode === 'list') {
+                paginationContainer.style.display = 'none';
+            } else {
+                paginationContainer.style.display = 'flex';
+            }
+
+            // 更新页面信息
+            const startItem = (docCurrentPage - 1) * docPageSize + 1;
+            const endItem = Math.min(docCurrentPage * docPageSize, totalCount);
+            pageInfo.textContent = `第 ${docCurrentPage} 页，共 ${docTotalPages} 页 (共 ${totalCount} 条记录)`;
+
+            // 更新按钮状态
+            prevBtn.disabled = docCurrentPage <= 1;
+            nextBtn.disabled = docCurrentPage >= docTotalPages;
+
+            // 生成页码
+            let pageNumbersHtml = '';
+
+            if (docTotalPages <= 1) {
+                pageNumbersContainer.innerHTML = '';
+                return;
+            }
+
+            // 总是显示第一页
+            pageNumbersHtml += `
+                <button class="page-number ${docCurrentPage === 1 ? 'active' : ''}" onclick="changeDocPage(1)">
+                    1
+                </button>
+            `;
+
+            // 显示省略号（如果当前页离第一页较远）
+            if (docCurrentPage > 3) {
+                pageNumbersHtml += `<span class="page-dots">...</span>`;
+            }
+
+            // 显示当前页附近的页码
+            for (let i = Math.max(2, docCurrentPage - 1); i <= Math.min(docTotalPages - 1, docCurrentPage + 1); i++) {
+                if (i > 1 && i < docTotalPages) {
+                    pageNumbersHtml += `
+                        <button class="page-number ${docCurrentPage === i ? 'active' : ''}" onclick="changeDocPage(${i})">
+                            ${i}
+                        </button>
+                    `;
+                }
+            }
+
+            // 显示省略号（如果当前页离最后一页较远）
+            if (docCurrentPage < docTotalPages - 2) {
+                pageNumbersHtml += `<span class="page-dots">...</span>`;
+            }
+
+            // 总是显示最后一页（如果有超过一页）
+            if (docTotalPages > 1) {
+                pageNumbersHtml += `
+                    <button class="page-number ${docCurrentPage === docTotalPages ? 'active' : ''}" onclick="changeDocPage(${docTotalPages})">
+                        ${docTotalPages}
+                    </button>
+                `;
+            }
+
+            pageNumbersContainer.innerHTML = pageNumbersHtml;
+        }
+
+        // 6. 修改clearSearch函数，清除搜索状态
+        function clearSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.value = '';
+            currentSearchQuery = '';
+            isSearching = false;
+            docCurrentPage = 1;
+            resetListViewState();
+
+            // 保存到localStorage
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
+            loadDocuments();
+        }
+
+        // 切换文档页码
+        async function changeDocPage(page) {
+            if (page < 1 || page > docTotalPages) return;
+
+            docCurrentPage = page;
+
+            // 保存到localStorage
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
+            showLoading();
+
+            try {
+                if (isSearching && currentSearchQuery) {
+                    // 如果是搜索状态，重新搜索
+                    await searchDocuments(currentSearchQuery);
+                } else {
+                    // 正常状态，重新加载文档
+                    await loadDocuments();
+                }
+            } catch (error) {
+                console.error('切换页面失败:', error);
+                showError('切换页面失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+
+            // 滚动到顶部
+            document.querySelector('.document-container').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 更改每页显示数量
+        async function changeDocPageSize() {
+            const select = document.getElementById('docPageSizeSelect');
+            docPageSize = parseInt(select.value);
+            docCurrentPage = 1; // 重置到第一页
+            resetListViewState();
+
+            // 保存到localStorage
+            localStorage.setItem('docPageSize', docPageSize);
+            localStorage.setItem('docCurrentPage', docCurrentPage);
+
+            showLoading();
+
+            try {
+                if (isSearching && currentSearchQuery) {
+                    // 如果是搜索状态，重新搜索
+                    await searchDocuments(currentSearchQuery);
+                } else {
+                    // 正常状态，重新加载文档
+                    await loadDocuments();
+                }
+            } catch (error) {
+                console.error('更改分页大小失败:', error);
+                showError('更改分页大小失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 清除搜索
+        function clearSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.value = '';
+            currentSearchQuery = '';
+            isSearching = false;
+            docCurrentPage = 1;
+            resetListViewState();
+            loadDocuments();
+        }
+
+        // 导出到全局
+        window.loadDocuments = loadDocuments;
+        window.searchDocuments = searchDocuments;
+        window.clearSearch = clearSearch;
+        window.changeDocPage = changeDocPage;
+        window.changeDocPageSize = changeDocPageSize;
+        window.toggleBatchDeleteMode = toggleBatchDeleteMode;
+        window.exitBatchDeleteMode = exitBatchDeleteMode;
+        window.selectCurrentPageDocuments = selectCurrentPageDocuments;
+        window.confirmBatchDelete = confirmBatchDelete;
+        window.handleDocumentCardClick = handleDocumentCardClick;
+        window.toggleDocumentView = toggleDocumentView;
+        window.changeListLibraryType = changeListLibraryType;
+        window.changeListTag = changeListTag;
+
+        function setActionButtonDisabled(el, disabled) {
+            if (!el) return;
+            if (disabled) {
+                el.dataset.href = el.getAttribute('href') || '';
+                el.removeAttribute('href');
+                el.style.opacity = '0.55';
+                el.style.cursor = 'not-allowed';
+                el.setAttribute('aria-disabled', 'true');
+                el.onclick = function (e) {
+                    e.preventDefault();
+                    Utils.showMessage('当前身份没有权限执行该操作', 'warning');
+                };
+            } else {
+                if (!el.getAttribute('href') && el.dataset.href) {
+                    el.setAttribute('href', el.dataset.href);
+                }
+                el.style.opacity = '';
+                el.style.cursor = '';
+                el.removeAttribute('aria-disabled');
+                el.onclick = null;
+            }
+        }
+
+        function applyRoleActionButtons() {
+            const user = Utils.getCurrentUser();
+            const addBtn = document.getElementById('addDocumentBtn');
+            const importBtn = document.getElementById('importDocumentsBtn');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            const mySubmissionsNav = document.getElementById('mySubmissionsNav');
+            const reviewCenterNav = document.getElementById('reviewCenterNav');
+            if (!user) {
+                setActionButtonDisabled(addBtn, true);
+                setActionButtonDisabled(importBtn, true);
+                if (batchDeleteBtn) batchDeleteBtn.style.display = 'none';
+                if (mySubmissionsNav) mySubmissionsNav.style.display = 'none';
+                if (reviewCenterNav) reviewCenterNav.style.display = 'none';
+                return;
+            }
+
+            const isAdmin = Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
+            const canReview = Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
+            const isTechnician = !isAdmin && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
+            if (addBtn) {
+                addBtn.href = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
+                addBtn.innerHTML = isTechnician && !isAdmin
+                    ? '<i class="fas fa-plus"></i> 提交文档'
+                    : '<i class="fas fa-plus"></i> 添加文档';
+            }
+            if (importBtn) {
+                importBtn.href = isTechnician && !isAdmin ? 'import-documents.html?mode=review' : 'import-documents.html';
+                importBtn.innerHTML = isTechnician && !isAdmin
+                    ? '<i class="fas fa-upload"></i> 提交导入'
+                    : '<i class="fas fa-upload"></i> 导入文档';
+            }
+            setActionButtonDisabled(addBtn, !isAdmin && !isTechnician);
+            setActionButtonDisabled(importBtn, !isAdmin && !isTechnician);
+            if (batchDeleteBtn) {
+                batchDeleteBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+            }
+            if (mySubmissionsNav) {
+                mySubmissionsNav.style.display = isTechnician ? 'flex' : 'none';
+            }
+            if (reviewCenterNav) {
+                reviewCenterNav.style.display = canReview ? 'flex' : 'none';
+            }
+        }
+
+    </script>
+</body>
+</html>

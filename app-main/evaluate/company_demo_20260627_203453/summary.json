@@ -1,0 +1,18 @@
+{
+  "total_cases": 400,
+  "answered_cases": 400,
+  "answer_rate": 1.0,
+  "retrieval_cases": 400,
+  "retrieval_top1": 0.7975,
+  "retrieval_topk": 0.905,
+  "retrieval_mrr": 0.8492,
+  "retrieval_misses": 38,
+  "average_retrieved_docs": 2.445,
+  "accuracy": 0.8625,
+  "average_score": 0.8455,
+  "passed_cases": 345,
+  "context_precision": 0.7377,
+  "context_recall": 0.7941,
+  "faithfulness": 0.8965,
+  "answer_accuracy": 0.8455
+}

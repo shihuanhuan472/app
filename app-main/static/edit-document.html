@@ -1,0 +1,1414 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑文档 - 维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e8e8e8;
+            border-top: 4px solid #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .field-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: flex-start;
+        }
+
+        .field-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .field-right {
+            width: 240px;
+            flex-shrink: 0;
+        }
+
+        .image-upload-area-small {
+            border: 2px dashed #d9e3f0;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #f8f9fa;
+            margin-bottom: 10px;
+        }
+
+        .image-upload-area-small:hover {
+            border-color: #4a9eff;
+            background-color: #f0f7ff;
+        }
+
+        .image-upload-area-small i {
+            font-size: 20px;
+            color: #a8c6ff;
+            margin-right: 5px;
+        }
+
+        .image-upload-area-small span {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .image-upload-area-small .upload-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .image-previews-small {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .image-preview-small {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #e8e8e8;
+            background-color: #f8f9fa;
+        }
+
+        .image-preview-small img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .image-preview-small button {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+            padding: 0;
+        }
+
+        .image-preview-small button:hover {
+            background: #dc2626;
+        }
+
+        .existing-images {
+            margin-bottom: 20px;
+        }
+
+        .existing-images h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a3a5f;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .existing-images h4 i {
+            color: #4a9eff;
+        }
+
+        @media (max-width: 768px) {
+            .field-row {
+                flex-direction: column;
+            }
+            .field-right {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+
+        .form-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #1a3a5f;
+            font-size: 15px;
+        }
+
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #d9e3f0;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: all 0.2s;
+            background: #f9fafb;
+            font-family: inherit;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4a9eff;
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+            background: white;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .form-actions {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .required::after {
+            content: "*";
+            color: #ef4444;
+            margin-left: 4px;
+        }
+
+        .knowledge-edit-container {
+            max-width: 1180px;
+        }
+
+        .knowledge-edit-intro {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            background: #f8fbff;
+            color: #24415f;
+            margin-bottom: 24px;
+        }
+
+        .knowledge-edit-intro i {
+            color: #2b7de9;
+            margin-top: 3px;
+        }
+
+        .knowledge-editor-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin: 8px 0 18px;
+        }
+
+        .knowledge-editor-toolbar h3 {
+            margin: 0;
+            color: #1a3a5f;
+            font-size: 18px;
+        }
+
+        .knowledge-section-card {
+            border: 1px solid #d9e3f0;
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: #fff;
+        }
+
+        .knowledge-section-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .knowledge-section-card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1a3a5f;
+            font-weight: 700;
+        }
+
+        .knowledge-section-card-title .section-order {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e8f2ff;
+            color: #1f6ed4;
+            font-size: 13px;
+        }
+
+        .knowledge-section-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .knowledge-section-grid {
+            display: grid;
+            grid-template-columns: 160px minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .knowledge-section-text {
+            min-height: 220px;
+            font-family: Consolas, "Microsoft YaHei", monospace;
+        }
+
+        .knowledge-section-images {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #edf2f7;
+        }
+
+        .knowledge-image-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .knowledge-image-thumb {
+            position: relative;
+            width: 86px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .knowledge-image-thumb img {
+            width: 86px;
+            height: 64px;
+            display: block;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .knowledge-image-thumb span {
+            display: block;
+            padding: 4px 6px;
+            font-size: 12px;
+            color: #52677a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .knowledge-image-thumb button {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.92);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .knowledge-image-upload-area {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px dashed #b8c8dc;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #48637d;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .document-image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .document-image-modal-content {
+            position: relative;
+            max-width: min(960px, 94vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .document-image-modal-content img {
+            max-width: 100%;
+            max-height: 82vh;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .document-image-modal-close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: #fff;
+            color: #111827;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 34px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+        }
+
+        .document-image-modal-caption {
+            max-width: 100%;
+            color: #f8fafc;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .knowledge-empty-sections {
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .knowledge-section-grid {
+                grid-template-columns: 1fr;
+            }
+            .knowledge-section-card-header,
+            .knowledge-editor-toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="document-image-modal" id="documentImageModal">
+        <div class="document-image-modal-content">
+            <button type="button" class="document-image-modal-close" onclick="closeDocumentImagePreview()" title="关闭">&times;</button>
+            <img id="documentImageModalImg" src="" alt="图片预览">
+            <div class="document-image-modal-caption" id="documentImageModalCaption"></div>
+        </div>
+    </div>
+
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
+                <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
+                <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+                <a href="user-profile.html" class="nav-item" style="display: none;"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
+            </div>
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">技术人员</div></div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">编辑文档</div>
+                    <div class="page-subtitle">修改维修知识文档</div>
+                </div>
+                <div class="header-actions">
+                    <a href="main.html" class="btn btn-secondary" id="headerBackLink"><i class="fas fa-arrow-left"></i> 返回列表</a>
+                </div>
+            </div>
+
+            <div class="form-container" id="editFormContainer">
+                <div class="loading-state" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载文档数据...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getDocumentIdFromUrl() {
+            return new URLSearchParams(window.location.search).get('id');
+        }
+
+        function getFullImageUrl(relativeUrl) {
+            if (!relativeUrl) return '';
+            if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(relativeUrl)) return relativeUrl;
+            if (API_CONFIG.getAssetUrl) return API_CONFIG.getAssetUrl(relativeUrl);
+            const base = (API_CONFIG.STATIC_BASE_URL || API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') || '').replace(/\/$/, '');
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+        }
+
+        function isAdminUser(user) {
+            if (!user) return false;
+            return Utils.hasRole(user, Utils.ROLE.ADMIN);
+        }
+
+        function checkEditPermission(doc) {
+            if (!doc) return false;
+            const currentUser = Utils.getCurrentUser();
+            if (!currentUser) return false;
+            const isAdmin = isAdminUser(currentUser);
+            if (isAdmin) return true;
+            const isReviewMode = new URLSearchParams(window.location.search).get('mode') === 'review';
+            const isTechnician = Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
+            const isAuthor = currentUser.id == doc.contributor_id;
+            return isReviewMode && isTechnician && isAuthor;
+        }
+
+        function normalizeLibraryType(value) {
+            return String(value || '').trim().toLowerCase() === 'knowledge' ? 'knowledge' : 'breakdown';
+        }
+
+        function isKnowledgeDocument(doc) {
+            const source = new URLSearchParams(window.location.search).get('source');
+            return normalizeLibraryType(doc && (doc.library_type || source)) === 'knowledge' || Array.isArray(doc && doc.sections);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replace(/\n/g, '&#10;');
+        }
+
+        function openDocumentImagePreview(imageUrl, caption = '图片预览') {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            const captionEl = document.getElementById('documentImageModalCaption');
+            if (!modal || !img) return;
+
+            const fullUrl = getFullImageUrl(imageUrl);
+            img.src = fullUrl;
+            img.alt = caption || '图片预览';
+            if (captionEl) captionEl.textContent = caption || '';
+            modal.style.display = 'flex';
+        }
+
+        function closeDocumentImagePreview() {
+            const modal = document.getElementById('documentImageModal');
+            const img = document.getElementById('documentImageModalImg');
+            if (modal) modal.style.display = 'none';
+            if (img) img.src = '';
+        }
+
+        function getReturnUrl(docId) {
+            const params = new URLSearchParams(window.location.search);
+            const source = params.get('source');
+            const mode = params.get('mode');
+            if (source === 'review' || mode === 'review') {
+                return 'my-submissions.html';
+            }
+            // 返回详情时保留原来的库类型，让用户回到同一个故障库/知识库文档。
+            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown');
+        }
+
+        let isSubmitting = false;
+        let existingImageUrlsByField = {
+            problemIntro: [],
+            causes: [],
+            evaluation: [],
+            inspection: [],
+            solutions: [],
+            keyPoints: []
+        };
+
+        let newImagesByField = {
+            problemIntro: [],
+            causes: [],
+            evaluation: [],
+            inspection: [],
+            solutions: [],
+            keyPoints: []
+        };
+
+        let imagesToDelete = [];
+        let currentEditingDocument = null;
+        let knowledgeSectionsState = [];
+        let knowledgeNewImagesBySection = {};
+        let knowledgeRemovedImages = [];
+
+        const fieldToBackendImage = {
+            problemIntro: 'image_urls_problem_intro',
+            causes: 'image_urls_causes',
+            evaluation: 'image_urls_evaluation',
+            inspection: 'image_urls_inspection',
+            solutions: 'image_urls_solutions',
+            keyPoints: 'image_urls_key_points'
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            Utils.checkLogin();
+            Utils.loadUserInfo();
+            syncHeaderBackLink();
+            loadDocumentForEdit();
+        });
+
+        function syncHeaderBackLink() {
+            const docId = getDocumentIdFromUrl();
+            const backLink = document.getElementById('headerBackLink');
+            if (!backLink || !docId) return;
+            backLink.href = getReturnUrl(docId);
+        }
+
+        async function loadDocumentForEdit() {
+            const docId = getDocumentIdFromUrl();
+            if (!docId) {
+                Utils.showMessage('文档ID无效', 'error');
+                setTimeout(() => window.location.href = 'main.html', 1000);
+                return;
+            }
+
+            try {
+                // 编辑页读取文档时沿用 URL 中的库类型，避免知识库文档按默认故障库查询失败。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const doc = await documentAPI.getDocumentById(docId, source);
+                if (!doc) {
+                    Utils.showMessage('文档不存在', 'error');
+                    setTimeout(() => window.location.href = 'main.html', 1000);
+                    return;
+                }
+
+                if (!checkEditPermission(doc)) {
+                    Utils.showMessage('您没有权限编辑该文档', 'error');
+                    setTimeout(() => window.location.href = getReturnUrl(docId), 1000);
+                    return;
+                }
+
+                currentEditingDocument = doc;
+
+                if (isKnowledgeDocument(doc) && !isAdminUser(Utils.getCurrentUser())) {
+                    document.getElementById('editFormContainer').innerHTML = `
+                        <div class="document-error">
+                            <i class="fas fa-lock" style="font-size:48px; color:#f59e0b; margin-bottom:20px;"></i>
+                            <p style="color:#334155; margin-bottom:20px;">知识库文档编辑暂需管理员处理。</p>
+                            <div><a href="${getReturnUrl(docId)}" class="btn btn-secondary">返回详情</a></div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const loadingState = document.getElementById('loadingState');
+                if (loadingState) loadingState.style.display = 'none';
+
+                if (!isKnowledgeDocument(doc)) {
+                    const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
+                    fields.forEach(field => {
+                        const backendField = fieldToBackendImage[field];
+                        const urlsStr = doc[backendField];
+                        if (urlsStr && urlsStr.trim() && urlsStr !== 'null') {
+                            existingImageUrlsByField[field] = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
+                        } else {
+                            existingImageUrlsByField[field] = [];
+                        }
+                    });
+                }
+
+                renderEditForm(doc);
+            } catch (error) {
+                console.error('加载文档失败:', error);
+                document.getElementById('loadingState').innerHTML = `
+                    <div class="document-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size:48px; color:#ef4444; margin-bottom:20px;"></i>
+                        <p style="color:#666; margin-bottom:20px;">加载文档失败: ${error.message || '未知错误'}</p>
+                        <div><a href="main.html" class="btn btn-secondary">返回列表</a></div>
+                    </div>
+                `;
+            }
+        }
+
+        function getSubmitButtonLabel(isAdmin) {
+            const params = new URLSearchParams(window.location.search);
+            const source = params.get('source');
+            const mode = params.get('mode');
+            const fromReviewFlow = source === 'review' || mode === 'review';
+            if (fromReviewFlow) return '提交修改';
+            return isAdmin ? '保存修改' : '提交修改';
+        }
+
+        function renderEditForm(doc) {
+            if (isKnowledgeDocument(doc)) {
+                renderKnowledgeEditForm(doc);
+                return;
+            }
+
+            const fields = [
+                { id: 'problem_intro', label: '问题描述', fieldKey: 'problemIntro', value: doc.problem_intro || '', large: true },
+                { id: 'causes', label: '原因分析', fieldKey: 'causes', value: doc.causes || '', large: true },
+                { id: 'evaluation', label: '故障评估', fieldKey: 'evaluation', value: doc.evaluation || '', large: false },
+                { id: 'inspection', label: '检查步骤', fieldKey: 'inspection', value: doc.inspection || '', large: false },
+                { id: 'solutions', label: '解决方案', fieldKey: 'solutions', value: doc.solutions || '', large: true },
+                { id: 'key_points', label: '关键要点', fieldKey: 'keyPoints', value: doc.key_points || '', large: false }
+            ];
+
+            let formHtml = `
+                <form id="editDocumentForm" onsubmit="updateDocument(event)">
+                    <div class="form-group">
+                        <label for="title" class="required">文档标题</label>
+                        <input type="text" id="title" name="title" value="${(doc.title || '').replace(/"/g, '&quot;')}" required placeholder="请输入文档标题">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentTags">标签</label>
+                        <div id="documentTags" class="tag-select"></div>
+                    </div>
+            `;
+
+            fields.forEach(f => {
+                formHtml += `
+                    <div class="form-group">
+                        <div class="field-row">
+                            <div class="field-left">
+                                <label for="${f.id}">${f.label}</label>
+                                <textarea id="${f.id}" name="${f.id}" rows="${f.large ? 6 : 4}" placeholder="请输入${f.label}">${(f.value || '').replace(/</g, '&lt;')}</textarea>
+                            </div>
+                            <div class="field-right">
+                                <div class="image-upload-area-small" data-field="${f.fieldKey}">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <span>点击上传图片</span>
+                                    <div class="upload-hint">JPG/PNG <= 20MB</div>
+                                    <input type="file" accept="image/*" multiple style="display: none;">
+                                </div>
+                                <div class="image-previews-small" id="preview-${f.fieldKey}"></div>
+                                <div class="existing-images" id="existing-${f.fieldKey}"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            formHtml += `
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="cancelEdit('${doc.id}')"><i class="fas fa-times"></i> 取消</button>
+                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-paper-plane"></i> 提交修改</button>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById('editFormContainer').innerHTML = formHtml;
+            TagSelector.init('documentTags', {
+                selected: normalizeDocumentTags(doc.tag),
+                placeholder: '请选择标签'
+            });
+            initAllImageUploads();
+            renderAllExistingPreviews();
+
+            newImagesByField = { problemIntro: [], causes: [], evaluation: [], inspection: [], solutions: [], keyPoints: [] };
+            imagesToDelete = [];
+
+            const submitBtn = document.getElementById('editSubmitBtn');
+            const currentUser = Utils.getCurrentUser();
+            if (submitBtn && currentUser) {
+                submitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${getSubmitButtonLabel(isAdminUser(currentUser))}`;
+            }
+        }
+
+        function normalizeSectionImages(imageUrls) {
+            if (Array.isArray(imageUrls)) {
+                return imageUrls.map(url => String(url || '').trim()).filter(Boolean);
+            }
+            if (typeof imageUrls === 'string' && imageUrls.trim()) {
+                try {
+                    const parsed = JSON.parse(imageUrls);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(url => String(url || '').trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return imageUrls.split(',').map(url => url.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function cloneKnowledgeSection(section, index) {
+            return {
+                section_index: Number.isInteger(section.section_index) ? section.section_index : index,
+                section_title: section.section_title || `章节${index + 1}`,
+                section_type: section.section_type || String(index + 1),
+                plain_text: section.plain_text || '',
+                image_urls: normalizeSectionImages(section.image_urls),
+                char_start: section.char_start ?? null,
+                char_end: section.char_end ?? null,
+                metadata: section.metadata && typeof section.metadata === 'object' ? JSON.parse(JSON.stringify(section.metadata)) : {}
+            };
+        }
+
+        function initializeKnowledgeState(doc) {
+            knowledgeSectionsState = (Array.isArray(doc.sections) ? doc.sections : []).map(cloneKnowledgeSection);
+            knowledgeNewImagesBySection = {};
+            knowledgeRemovedImages = [];
+        }
+
+        function renderKnowledgeEditForm(doc) {
+            initializeKnowledgeState(doc);
+            document.getElementById('editFormContainer').classList.add('knowledge-edit-container');
+            document.getElementById('editFormContainer').innerHTML = `
+                <form id="editDocumentForm" onsubmit="updateDocument(event)">
+                    <div class="knowledge-edit-intro">
+                        <i class="fas fa-circle-info"></i>
+                        <div>当前为知识库文档编辑。正文按解析后的章节保存，保存后会自动重建向量。</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="title" class="required">文档标题</label>
+                        <input type="text" id="title" name="title" value="${escapeAttribute(doc.title || '')}" required placeholder="请输入文档标题">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentTags">标签</label>
+                        <div id="documentTags" class="tag-select"></div>
+                    </div>
+                    <div class="knowledge-editor-toolbar">
+                        <h3><i class="fas fa-layer-group"></i> 章节内容</h3>
+                        <button type="button" class="btn btn-secondary" onclick="addKnowledgeSection()"><i class="fas fa-plus"></i> 添加章节</button>
+                    </div>
+                    <div id="knowledgeSectionsEditor"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="cancelEdit('${doc.id}')"><i class="fas fa-times"></i> 取消</button>
+                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-save"></i> 保存修改</button>
+                    </div>
+                </form>
+            `;
+
+            TagSelector.init('documentTags', {
+                selected: normalizeDocumentTags(doc.tag),
+                placeholder: '请选择标签'
+            });
+            renderKnowledgeSectionsEditor();
+        }
+
+        function renderKnowledgeSectionsEditor() {
+            const container = document.getElementById('knowledgeSectionsEditor');
+            if (!container) return;
+            if (!knowledgeSectionsState.length) {
+                container.innerHTML = `
+                    <div class="knowledge-empty-sections">
+                        暂无章节。可以点击“添加章节”创建知识库正文。
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = knowledgeSectionsState.map((section, index) => `
+                <div class="knowledge-section-card" data-section-index="${index}">
+                    <div class="knowledge-section-card-header">
+                        <div class="knowledge-section-card-title">
+                            <span class="section-order">${index + 1}</span>
+                            <span>${escapeHtml(section.section_title || `章节${index + 1}`)}</span>
+                        </div>
+                        <div class="knowledge-section-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="moveKnowledgeSection(${index}, -1)" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="moveKnowledgeSection(${index}, 1)" ${index === knowledgeSectionsState.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeKnowledgeSection(${index})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="knowledge-section-grid">
+                        <div class="form-group">
+                            <label for="section_type_${index}">章节编号</label>
+                            <input type="text" id="section_type_${index}" value="${escapeAttribute(section.section_type || '')}" oninput="updateKnowledgeSectionField(${index}, 'section_type', this.value)" placeholder="如 1.2">
+                        </div>
+                        <div class="form-group">
+                            <label for="section_title_${index}">章节标题</label>
+                            <input type="text" id="section_title_${index}" value="${escapeAttribute(section.section_title || '')}" oninput="updateKnowledgeSectionField(${index}, 'section_title', this.value)" placeholder="请输入章节标题">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="section_text_${index}">章节正文</label>
+                        <textarea id="section_text_${index}" class="knowledge-section-text" oninput="updateKnowledgeSectionField(${index}, 'plain_text', this.value)" placeholder="请输入章节正文">${escapeHtml(section.plain_text || '')}</textarea>
+                    </div>
+                    <div class="knowledge-section-images">
+                        <label>章节图片</label>
+                        <div class="knowledge-image-row" id="knowledgeImages_${index}">
+                            ${renderKnowledgeSectionImages(section, index)}
+                        </div>
+                        <label class="knowledge-image-upload-area">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>上传图片到本章节</span>
+                            <input type="file" accept="image/*" multiple style="display:none" onchange="handleKnowledgeSectionFiles(${index}, this.files); this.value = '';">
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderKnowledgeSectionImages(section, sectionIndex) {
+            const existing = (section.image_urls || []).map((url, index) => {
+                const displayUrl = getFullImageUrl(url);
+                return `
+                    <div class="knowledge-image-thumb">
+                        <img src="${escapeAttribute(displayUrl)}" alt="图片${index + 1}" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="图片${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/86x64?text=加载失败'">
+                        <button type="button" title="删除图片" onclick="removeKnowledgeSectionImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
+                        <span title="${escapeAttribute(url)}">图片${index + 1}</span>
+                    </div>
+                `;
+            });
+            const pending = (knowledgeNewImagesBySection[sectionIndex] || []).map((file, index) => `
+                <div class="knowledge-image-thumb">
+                    <img src="${escapeAttribute(file.previewUrl || '')}" alt="待上传图片" data-image-preview-src="${escapeAttribute(file.previewUrl || '')}" data-image-preview-title="${escapeAttribute(file.name || '待上传图片')}">
+                    <button type="button" title="移除待上传图片" onclick="removePendingKnowledgeImage(${sectionIndex}, ${index})"><i class="fas fa-times"></i></button>
+                    <span title="${escapeAttribute(file.name)}">待上传</span>
+                </div>
+            `);
+            return existing.concat(pending).join('') || '<span style="color:#64748b;">暂无图片</span>';
+        }
+
+        function updateKnowledgeSectionField(index, field, value) {
+            if (!knowledgeSectionsState[index]) return;
+            knowledgeSectionsState[index][field] = value;
+            if (field === 'section_title') {
+                const title = document.querySelector(`.knowledge-section-card[data-section-index="${index}"] .knowledge-section-card-title span:last-child`);
+                if (title) title.textContent = value || `章节${index + 1}`;
+            }
+        }
+
+        function addKnowledgeSection() {
+            knowledgeSectionsState.push({
+                section_index: knowledgeSectionsState.length,
+                section_title: `新章节${knowledgeSectionsState.length + 1}`,
+                section_type: String(knowledgeSectionsState.length + 1),
+                plain_text: '',
+                image_urls: [],
+                char_start: null,
+                char_end: null,
+                metadata: { image_positions: [] }
+            });
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removeKnowledgeSection(index) {
+            if (!knowledgeSectionsState[index]) return;
+            const section = knowledgeSectionsState[index];
+            (section.image_urls || []).forEach(url => knowledgeRemovedImages.push(url));
+            knowledgeSectionsState.splice(index, 1);
+            reindexKnowledgePendingImages(index);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function moveKnowledgeSection(index, direction) {
+            const target = index + direction;
+            if (target < 0 || target >= knowledgeSectionsState.length) return;
+            const [section] = knowledgeSectionsState.splice(index, 1);
+            knowledgeSectionsState.splice(target, 0, section);
+            const pendingCurrent = knowledgeNewImagesBySection[index] || [];
+            const pendingTarget = knowledgeNewImagesBySection[target] || [];
+            knowledgeNewImagesBySection[index] = pendingTarget;
+            knowledgeNewImagesBySection[target] = pendingCurrent;
+            renderKnowledgeSectionsEditor();
+        }
+
+        function reindexKnowledgePendingImages(removedIndex) {
+            const next = {};
+            Object.keys(knowledgeNewImagesBySection).forEach(key => {
+                const index = Number(key);
+                if (index < removedIndex) next[index] = knowledgeNewImagesBySection[key];
+                if (index > removedIndex) next[index - 1] = knowledgeNewImagesBySection[key];
+            });
+            knowledgeNewImagesBySection = next;
+        }
+
+        function handleKnowledgeSectionFiles(sectionIndex, files) {
+            if (!knowledgeSectionsState[sectionIndex]) return;
+            const selected = Array.from(files || []).filter(file => {
+                if (!file.type.startsWith('image/')) {
+                    Utils.showMessage(`文件 "${file.name}" 不是图片`, 'warning');
+                    return false;
+                }
+                if (file.size > 20 * 1024 * 1024) {
+                    Utils.showMessage(`图片 "${file.name}" 超过20MB`, 'warning');
+                    return false;
+                }
+                file.previewUrl = URL.createObjectURL(file);
+                return true;
+            });
+            if (!selected.length) return;
+            knowledgeNewImagesBySection[sectionIndex] = (knowledgeNewImagesBySection[sectionIndex] || []).concat(selected);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removeKnowledgeSectionImage(sectionIndex, imageIndex) {
+            const section = knowledgeSectionsState[sectionIndex];
+            if (!section || !section.image_urls[imageIndex]) return;
+            knowledgeRemovedImages.push(section.image_urls[imageIndex]);
+            section.image_urls.splice(imageIndex, 1);
+            renderKnowledgeSectionsEditor();
+        }
+
+        function removePendingKnowledgeImage(sectionIndex, imageIndex) {
+            const pending = knowledgeNewImagesBySection[sectionIndex] || [];
+            const [removed] = pending.splice(imageIndex, 1);
+            if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+            knowledgeNewImagesBySection[sectionIndex] = pending;
+            renderKnowledgeSectionsEditor();
+        }
+
+        function initAllImageUploads() {
+            document.querySelectorAll('.image-upload-area-small').forEach(area => {
+                const field = area.dataset.field;
+                const fileInput = area.querySelector('input[type="file"]');
+
+                area.addEventListener('click', () => fileInput.click());
+
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    area.style.borderColor = '#4a9eff';
+                    area.style.backgroundColor = '#f0f7ff';
+                });
+                area.addEventListener('dragleave', () => {
+                    area.style.borderColor = '#d9e3f0';
+                    area.style.backgroundColor = '#f8f9fa';
+                });
+                area.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    area.style.borderColor = '#d9e3f0';
+                    area.style.backgroundColor = '#f8f9fa';
+                    handleFieldFiles(field, e.dataTransfer.files);
+                });
+
+                fileInput.addEventListener('change', () => {
+                    handleFieldFiles(field, fileInput.files);
+                    fileInput.value = '';
+                });
+            });
+        }
+
+        function handleFieldFiles(field, files) {
+            const maxPerField = 5;
+            if (newImagesByField[field].length + files.length > maxPerField) {
+                Utils.showMessage(`每个部分最多上传 ${maxPerField} 张图片`, 'error');
+                return;
+            }
+
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) {
+                    Utils.showMessage(`文件 "${file.name}" 不是图片`, 'warning');
+                    continue;
+                }
+                if (file.size > 20 * 1024 * 1024) {
+                    Utils.showMessage(`图片 "${file.name}" 超过20MB`, 'warning');
+                    continue;
+                }
+                newImagesByField[field].push(file);
+            }
+
+            renderFieldPreview(field, 'new');
+        }
+
+        function renderFieldPreview(field, type = 'new') {
+            const container = document.getElementById(`preview-${field}`);
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (type === 'new') {
+                newImagesByField[field].forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const div = document.createElement('div');
+                        div.className = 'image-preview-small';
+                        div.innerHTML = `
+                            <img src="${e.target.result}" alt="预览" data-image-preview-title="${escapeAttribute(file.name || '待上传图片')}">
+                            <button type="button" data-field="${field}" data-index="${index}" data-type="new">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        container.appendChild(div);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function renderAllExistingPreviews() {
+            const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
+            fields.forEach(field => {
+                const container = document.getElementById(`existing-${field}`);
+                if (!container) return;
+                const urls = existingImageUrlsByField[field] || [];
+                if (!urls.length) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                let html = '<h4><i class="fas fa-images"></i> 已有图片</h4><div class="image-previews-small">';
+                urls.forEach((url, index) => {
+                    const displayUrl = getFullImageUrl(url);
+                    html += `
+                        <div class="image-preview-small" data-url="${url}">
+                            <img src="${displayUrl}" alt="已有图片" data-image-preview-src="${escapeAttribute(url)}" data-image-preview-title="已有图片 ${index + 1}" onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=加载失败'">
+                            <button type="button" data-field="${field}" data-url="${url}" data-index="${index}" data-type="existing">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            const previewImg = e.target.closest('[data-image-preview-src], .image-preview-small img, .knowledge-image-thumb img');
+            if (previewImg && !e.target.closest('button')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const imageUrl = previewImg.dataset.imagePreviewSrc || previewImg.getAttribute('src');
+                const title = previewImg.dataset.imagePreviewTitle || previewImg.getAttribute('alt') || '图片预览';
+                openDocumentImagePreview(imageUrl, title);
+                return;
+            }
+
+            const btn = e.target.closest('.image-preview-small button');
+            if (!btn) return;
+            e.preventDefault();
+
+            const field = btn.dataset.field;
+            const type = btn.dataset.type;
+
+            if (type === 'new') {
+                const index = parseInt(btn.dataset.index, 10);
+                if (!isNaN(index) && newImagesByField[field] && newImagesByField[field][index]) {
+                    newImagesByField[field].splice(index, 1);
+                    renderFieldPreview(field, 'new');
+                }
+            } else if (type === 'existing') {
+                const url = btn.dataset.url;
+                if (!url) return;
+
+                const idx = existingImageUrlsByField[field].indexOf(url);
+                if (idx !== -1) {
+                    existingImageUrlsByField[field].splice(idx, 1);
+                    imagesToDelete.push(url);
+                }
+
+                const previewDiv = btn.closest('.image-preview-small');
+                if (previewDiv) previewDiv.remove();
+
+                const container = document.getElementById(`existing-${field}`);
+                if (container && container.querySelectorAll('.image-preview-small').length === 0) {
+                    container.innerHTML = '';
+                }
+            }
+        });
+
+        document.getElementById('documentImageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDocumentImagePreview();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeDocumentImagePreview();
+        });
+
+        function cancelEdit(docId) {
+            window.location.href = getReturnUrl(docId);
+        }
+
+        function resetSubmitButton(submitBtn) {
+            if (!submitBtn) return;
+            const user = Utils.getCurrentUser();
+            const isKnowledge = isKnowledgeDocument(currentEditingDocument);
+            const icon = isKnowledge && isAdminUser(user) ? 'fa-save' : 'fa-paper-plane';
+            const label = isKnowledge && isAdminUser(user) ? '保存修改' : getSubmitButtonLabel(isAdminUser(user));
+            submitBtn.innerHTML = `<i class="fas ${icon}"></i> ${label}`;
+            submitBtn.disabled = false;
+            isSubmitting = false;
+        }
+
+        async function buildKnowledgeSectionsPayload() {
+            const sections = [];
+            let fullOffset = 0;
+            for (let index = 0; index < knowledgeSectionsState.length; index += 1) {
+                const section = knowledgeSectionsState[index];
+                const pendingFiles = knowledgeNewImagesBySection[index] || [];
+                let uploadedUrls = [];
+                if (pendingFiles.length) {
+                    const result = await documentAPI.uploadImages(pendingFiles);
+                    uploadedUrls = result.map(item => String(item.url || '').replace(/\\/g, '/')).filter(Boolean);
+                }
+                const imageUrls = [...normalizeSectionImages(section.image_urls), ...uploadedUrls];
+                const plainText = String(section.plain_text || '');
+                const metadata = section.metadata && typeof section.metadata === 'object'
+                    ? JSON.parse(JSON.stringify(section.metadata))
+                    : {};
+                metadata.image_positions = Array.isArray(metadata.image_positions)
+                    ? metadata.image_positions.filter(position => imageUrls.includes(position.image_url))
+                    : [];
+                const charStart = fullOffset;
+                const charEnd = charStart + plainText.length;
+                sections.push({
+                    section_index: index,
+                    section_title: String(section.section_title || `章节${index + 1}`).trim(),
+                    section_type: String(section.section_type || index + 1).trim(),
+                    plain_text: plainText,
+                    image_urls: imageUrls,
+                    char_start: charStart,
+                    char_end: charEnd,
+                    metadata
+                });
+                fullOffset = charEnd + 1;
+            }
+            return sections;
+        }
+
+        async function updateKnowledgeDocument(event, submitBtn) {
+            const docId = getDocumentIdFromUrl();
+            const title = document.getElementById('title').value.trim();
+            if (!title) {
+                Utils.showMessage('标题不能为空', 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                Utils.showMessage('知识库文档编辑暂需管理员处理', 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+
+            const sections = await buildKnowledgeSectionsPayload();
+            const imageUrls = [];
+            sections.forEach(section => {
+                (section.image_urls || []).forEach(url => {
+                    if (url && !imageUrls.includes(url)) imageUrls.push(url);
+                });
+            });
+
+            const finalData = {
+                library_type: 'knowledge',
+                title,
+                tag: parseDocumentTags(),
+                image_urls: imageUrls.join(', '),
+                sections
+            };
+            const result = await documentAPI.updateDocument(docId, finalData, 'knowledge');
+            if (!result) throw new Error('更新失败');
+
+            const deleteTargets = [...new Set(knowledgeRemovedImages)].filter(url => !imageUrls.includes(url));
+            if (deleteTargets.length > 0) {
+                await Promise.all(deleteTargets.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
+            }
+
+            Utils.showMessage('知识库文档已保存', 'success');
+            setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=knowledge', 1200);
+        }
+
+        async function updateDocument(event) {
+            event.preventDefault();
+            if (isSubmitting) {
+                Utils.showMessage('正在提交，请勿重复点击', 'warning');
+                return;
+            }
+
+            const docId = getDocumentIdFromUrl();
+            if (!docId) return;
+
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+            submitBtn.disabled = true;
+            isSubmitting = true;
+
+            if (isKnowledgeDocument(currentEditingDocument)) {
+                try {
+                    await updateKnowledgeDocument(event, submitBtn);
+                    return;
+                } catch (error) {
+                    console.error('Knowledge update failed:', error);
+                    Utils.showMessage('操作失败: ' + (error.message || '未知错误'), 'error');
+                    resetSubmitButton(submitBtn);
+                    return;
+                }
+            }
+
+            const formData = {
+                title: document.getElementById('title').value.trim(),
+                tag: parseDocumentTags(),
+                problem_intro: document.getElementById('problem_intro').value.trim(),
+                causes: document.getElementById('causes').value.trim(),
+                evaluation: document.getElementById('evaluation').value.trim(),
+                inspection: document.getElementById('inspection').value.trim(),
+                solutions: document.getElementById('solutions').value.trim(),
+                key_points: document.getElementById('key_points').value.trim()
+            };
+
+            if (!formData.title) {
+                Utils.showMessage('标题不能为空', 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+
+            const currentUser = Utils.getCurrentUser();
+            const isAdmin = isAdminUser(currentUser);
+
+            try {
+                const uploadedUrlsByField = {};
+                const fields = ['problemIntro', 'causes', 'evaluation', 'inspection', 'solutions', 'keyPoints'];
+                for (const field of fields) {
+                    const files = newImagesByField[field];
+                    if (files.length > 0) {
+                        const result = await documentAPI.uploadImages(files);
+                        uploadedUrlsByField[field] = result.map(item => item.url);
+                    } else {
+                        uploadedUrlsByField[field] = [];
+                    }
+                }
+
+                const finalData = { ...formData };
+                fields.forEach(field => {
+                    const backendField = fieldToBackendImage[field];
+                    const existing = existingImageUrlsByField[field] || [];
+                    const uploaded = uploadedUrlsByField[field] || [];
+                    finalData[backendField] = [...existing, ...uploaded].join(', ');
+                });
+
+                if (isAdmin) {
+                    if (imagesToDelete.length > 0) {
+                        await Promise.all(imagesToDelete.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
+                    }
+                    // 管理员保存时传递当前库类型，避免后端 update 接口使用默认故障库。
+                    const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                    const result = await documentAPI.updateDocument(docId, finalData, source);
+                    if (!result) throw new Error('更新失败');
+                    Utils.showMessage('修改已保存', 'success');
+                    // 保存成功后仍回到原库类型的详情页，保持页面链路一致。
+                    setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source), 1200);
+                } else {
+                    const reviewPayload = { ...finalData, document_id: Number(docId) };
+                    const result = await reviewAPI.submitUpdateReview(docId, reviewPayload);
+                    if (!result) throw new Error('提交审核失败');
+                    Utils.showMessage('修改申请已提交，等待审核', 'success');
+                    setTimeout(() => window.location.href = 'my-submissions.html', 1200);
+                }
+
+                // 成功后保持锁定，避免跳转前重复点击
+                return;
+            } catch (error) {
+                console.error('Update failed:', error);
+                Utils.showMessage('操作失败: ' + (error.message || '未知错误'), 'error');
+                resetSubmitButton(submitBtn);
+                return;
+            }
+        }
+
+        window.cancelEdit = cancelEdit;
+        window.updateDocument = updateDocument;
+        window.addKnowledgeSection = addKnowledgeSection;
+        window.moveKnowledgeSection = moveKnowledgeSection;
+        window.removeKnowledgeSection = removeKnowledgeSection;
+        window.updateKnowledgeSectionField = updateKnowledgeSectionField;
+        window.handleKnowledgeSectionFiles = handleKnowledgeSectionFiles;
+        window.removeKnowledgeSectionImage = removeKnowledgeSectionImage;
+        window.removePendingKnowledgeImage = removePendingKnowledgeImage;
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function parseDocumentTags() {
+            return TagSelector.getSelected('documentTags');
+        }
+    </script>
+</body>
+</html>

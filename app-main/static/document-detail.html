@@ -1,0 +1,1836 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档详情 - 维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/review.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .document-detail-container {
+            padding: 20px !important;
+            background-color: #f8f9fa !important;
+            min-height: calc(100vh - 120px) !important;
+            border-radius: 8px !important;
+        }
+        .document-detail-content {
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+            padding: 40px !important;
+            max-width: 1000px !important;
+            margin: 0 auto !important;
+        }
+        .document-header {
+            margin-bottom: 40px !important;
+            padding-bottom: 20px !important;
+            border-bottom: 2px solid #e8e8e8 !important;
+        }
+        .document-title {
+            font-size: 28px !important;
+            font-weight: 600 !important;
+            color: #1a3a5f !important;
+            margin-bottom: 20px !important;
+        }
+        .document-meta {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 20px !important;
+            margin-top: 20px !important;
+        }
+        .meta-item {
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            color: #6b7280 !important;
+            font-size: 14px !important;
+        }
+        .meta-item i { color: #4a9eff !important; }
+        .document-section {
+            margin-bottom: 40px !important;
+        }
+        .section-header {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            margin-bottom: 20px !important;
+            padding-bottom: 10px !important;
+            border-bottom: 1px solid #e8e8e8 !important;
+        }
+        .section-header h3 {
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            color: #1a3a5f !important;
+            margin: 0 !important;
+        }
+        .section-header i {
+            font-size: 22px !important;
+            color: #4a9eff !important;
+        }
+        .section-content {
+            background: #f9fafb !important;
+            padding: 24px !important;
+            border-radius: 6px !important;
+            border-left: 4px solid #4a9eff !important;
+            font-size: 15px !important;
+            line-height: 1.6 !important;
+            color: #374151 !important;
+        }
+        .section-content p { margin-bottom: 12px !important; }
+        .section-content p:last-child { margin-bottom: 0 !important; }
+        .text-muted { color: #9ca3af !important; font-style: italic !important; }
+
+        .image-grid-small {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+            gap: 15px !important;
+            margin-top: 15px !important;
+        }
+        .image-item-small {
+            position: relative !important;
+            border-radius: 6px !important;
+            overflow: hidden !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+            cursor: pointer !important;
+            transition: transform 0.2s !important;
+            aspect-ratio: 1 / 1 !important;
+        }
+        .image-item-small:hover { transform: scale(1.02) !important; }
+        .image-item-small img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            display: block !important;
+        }
+        .image-overlay-small {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s !important;
+        }
+        .image-item-small:hover .image-overlay-small { opacity: 1 !important; }
+
+        .document-actions {
+            margin-top: 40px !important;
+            padding-top: 20px !important;
+            border-top: 1px solid #e8e8e8 !important;
+            display: flex !important;
+            gap: 15px !important;
+            justify-content: space-between !important;
+        }
+        .document-actions-top {
+            margin-top: 24px !important;
+            padding-top: 18px !important;
+            border-top: 1px solid #edf2f7 !important;
+        }
+        .action-left, .action-right { display: flex; gap: 15px; }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e8e8e8;
+            border-top: 4px solid #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .document-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+        .document-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .delete-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .delete-modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .delete-modal-header { margin-bottom: 20px; }
+        .delete-modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a3a5f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .delete-modal-body { margin-bottom: 25px; color: #666; }
+        .delete-modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .original-file-content {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        .file-info { display: flex; align-items: center; gap: 12px; }
+        .file-icon { font-size: 28px; color: #4a9eff; }
+        .file-name { font-weight: 500; word-break: break-all; }
+        .file-actions { display: flex; gap: 10px; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .knowledge-section {
+            margin-bottom: 28px !important;
+        }
+        .knowledge-section.level-2 { margin-left: 24px !important; }
+        .knowledge-section.level-3,
+        .knowledge-section.level-4,
+        .knowledge-section.level-5,
+        .knowledge-section.level-6 { margin-left: 48px !important; }
+        .section-level-badge {
+            background: #eaf4ff !important;
+            color: #2563eb !important;
+            border-radius: 999px !important;
+            padding: 3px 10px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+        }
+        .knowledge-empty {
+            background: #fff7ed !important;
+            border-left-color: #f59e0b !important;
+        }
+        .knowledge-section .section-content {
+            background: #ffffff !important;
+            border-left-color: #4a9eff !important;
+            padding: 28px !important;
+        }
+        .knowledge-paragraph {
+            margin: 0 0 14px 0 !important;
+            line-height: 1.8 !important;
+            white-space: pre-wrap !important;
+        }
+        .knowledge-inline-image {
+            margin: 14px auto 18px auto !important;
+            text-align: center !important;
+            background: #f8fafc !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            padding: 8px !important;
+            max-width: 540px !important;
+        }
+        .knowledge-inline-image img {
+            max-width: min(100%, 500px) !important;
+            max-height: 320px !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain !important;
+            border-radius: 6px !important;
+            cursor: zoom-in !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+        }
+        .knowledge-inline-image.is-lazy img {
+            background: #f3f4f6 !important;
+        }
+        .knowledge-inline-caption {
+            color: #6b7280 !important;
+            font-size: 13px !important;
+            margin-top: 8px !important;
+        }
+
+        /* 知识库手册阅读界面：参考 jimmysong.io 图书页的三栏文档阅读布局 */
+        body.knowledge-reader-active {
+            background: #ffffff !important;
+        }
+        body.knowledge-reader-active .main-content {
+            padding: 0 !important;
+            overflow-y: visible !important;
+            background:
+                radial-gradient(circle at 16% 8%, rgba(10, 132, 255, 0.07), transparent 32%),
+                linear-gradient(180deg, #ffffff 0%, #fafafa 100%) !important;
+        }
+        body.knowledge-reader-active .main-content > .header {
+            display: none !important;
+        }
+        body.knowledge-reader-active .document-detail-container {
+            padding: 0 !important;
+            background: transparent !important;
+            border-radius: 0 !important;
+            min-height: 100vh !important;
+        }
+        .knowledge-book-page {
+            --kb-primary: #0a84ff;
+            --kb-primary-dark: #0a55a7;
+            --kb-text: #0b1120;
+            --kb-heading: #0f172a;
+            --kb-muted: rgba(15, 23, 42, 0.58);
+            --kb-border: rgba(15, 23, 42, 0.12);
+            --kb-glass: rgba(255, 255, 255, 0.72);
+            --kb-glass-strong: rgba(255, 255, 255, 0.88);
+            --kb-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+            color: var(--kb-text) !important;
+            font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif !important;
+            min-height: 100vh !important;
+            position: relative !important;
+            overflow: visible !important;
+        }
+        .knowledge-book-page::before {
+            content: "" !important;
+            position: fixed !important;
+            inset: 0 !important;
+            pointer-events: none !important;
+            opacity: 0.45 !important;
+            background-image:
+                linear-gradient(rgba(15, 23, 42, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px) !important;
+            background-size: 28px 28px !important;
+        }
+        .knowledge-book-topbar {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 8 !important;
+            min-height: 56px !important;
+            padding: 10px 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 16px !important;
+            background: rgba(255, 255, 255, 0.82) !important;
+            border-bottom: 1px solid var(--kb-border) !important;
+            backdrop-filter: blur(20px) saturate(160%) !important;
+        }
+        .knowledge-book-brand {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            color: var(--kb-heading) !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.01em !important;
+        }
+        .knowledge-book-brand i { color: var(--kb-primary) !important; }
+        .knowledge-book-actions-inline {
+            display: flex !important;
+            gap: 10px !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+        }
+        .knowledge-top-actions {
+            justify-content: flex-end !important;
+        }
+        .knowledge-top-actions .action-left,
+        .knowledge-top-actions .action-right {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            flex-wrap: wrap !important;
+        }
+        .knowledge-top-actions .btn {
+            min-height: 36px !important;
+            padding: 7px 13px !important;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+        }
+        .knowledge-book-layout {
+            display: flex !important;
+            align-items: flex-start !important;
+            max-width: 1400px !important;
+            margin: 0 auto !important;
+            padding: 0 32px !important;
+        }
+        .knowledge-book-sidebar {
+            position: sticky !important;
+            top: 56px !important;
+            align-self: flex-start !important;
+            width: 260px !important;
+            flex: 0 0 260px !important;
+            height: calc(100vh - 56px) !important;
+            padding: 28px 18px 30px 0 !important;
+            border-right: 1px solid var(--kb-border) !important;
+            overflow-y: auto !important;
+            scrollbar-width: thin !important;
+        }
+        .book-sidebar-home {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 8px 10px !important;
+            margin-bottom: 12px !important;
+            color: var(--kb-heading) !important;
+            text-decoration: none !important;
+            font-weight: 650 !important;
+            border-radius: 8px !important;
+        }
+        .book-sidebar-home:hover,
+        .book-sidebar-home:focus {
+            color: var(--kb-primary) !important;
+            background: rgba(10, 132, 255, 0.06) !important;
+            text-decoration: none !important;
+        }
+        .book-part {
+            border: 0 !important;
+            margin: 0 0 12px 0 !important;
+        }
+        .book-part__summary {
+            list-style: none !important;
+            cursor: pointer !important;
+            padding: 10px 8px 8px !important;
+            font-weight: 700 !important;
+            color: var(--kb-muted) !important;
+            border-bottom: 1px solid var(--kb-border) !important;
+        }
+        .book-part__summary::-webkit-details-marker { display: none !important; }
+        .book-part__title {
+            display: block !important;
+            font-size: 14px !important;
+            letter-spacing: 0.01em !important;
+        }
+        .book-part__body {
+            padding: 8px 0 2px !important;
+        }
+        .manual-toc-list {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 2px !important;
+        }
+        .manual-toc-item {
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            min-width: 0 !important;
+            padding: 8px 10px !important;
+            color: var(--kb-text) !important;
+            text-decoration: none !important;
+            border-radius: 8px !important;
+            line-height: 1.45 !important;
+            font-size: 14px !important;
+            border-left: 4px solid transparent !important;
+            transition: color .2s ease, background-color .2s ease, box-shadow .2s ease !important;
+        }
+        .manual-toc-item:hover,
+        .manual-toc-item.is-active {
+            color: var(--kb-primary) !important;
+            background: rgba(10, 85, 167, 0.06) !important;
+            box-shadow: inset 4px 0 rgba(10, 85, 167, 0.12) !important;
+            text-decoration: none !important;
+        }
+        .manual-toc-number {
+            flex: 0 0 auto !important;
+            color: rgba(15, 23, 42, 0.42) !important;
+            font-variant-numeric: tabular-nums !important;
+            font-size: 12px !important;
+            margin-top: 1px !important;
+        }
+        .manual-toc-text {
+            min-width: 0 !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        .manual-toc-level-2 { padding-left: 20px !important; }
+        .manual-toc-level-3,
+        .manual-toc-level-4,
+        .manual-toc-level-5,
+        .manual-toc-level-6 { padding-left: 32px !important; }
+        .knowledge-book-content-wrap {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: stretch !important;
+        }
+        .knowledge-book-main {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+            padding: 28px 32px 56px !important;
+            min-width: 0 !important;
+        }
+        .book-page-header-section {
+            max-width: 900px !important;
+            margin: 0 auto 22px !important;
+            padding-top: 14px !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        .book-page-header-section::before {
+            content: "" !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 3px !important;
+            background: linear-gradient(90deg, var(--kb-primary), #6c5ce7) !important;
+            opacity: .72 !important;
+        }
+        .breadcrumb-button-container {
+            display: flex !important;
+            align-items: stretch !important;
+            overflow-x: auto !important;
+            font-size: 13px !important;
+            padding-bottom: 2px !important;
+            scrollbar-width: thin !important;
+        }
+        .breadcrumb-button {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            min-height: 38px !important;
+            padding: 9px 14px !important;
+            color: rgba(15, 23, 42, 0.76) !important;
+            background: rgba(255, 255, 255, 0.7) !important;
+            border: 1px solid rgba(15, 23, 42, 0.08) !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            font-weight: 550 !important;
+            position: relative !important;
+            clip-path: polygon(9px 0%, 100% 0%, 100% 100%, 0% 100%) !important;
+            margin-left: -7px !important;
+        }
+        .breadcrumb-button:first-child {
+            margin-left: 0 !important;
+            clip-path: none !important;
+            border-radius: 6px 0 0 6px !important;
+            background: linear-gradient(135deg, #0a55a7 0%, #0a84ff 100%) !important;
+            color: #fff !important;
+        }
+        .breadcrumb-current {
+            border-radius: 0 6px 6px 0 !important;
+            color: var(--kb-heading) !important;
+            background: rgba(255, 255, 255, 0.92) !important;
+        }
+        .knowledge-book-title {
+            margin: 18px 0 10px !important;
+            color: var(--kb-heading) !important;
+            font-size: clamp(28px, 3.2vw, 46px) !important;
+            line-height: 1.18 !important;
+            font-weight: 760 !important;
+            letter-spacing: -0.045em !important;
+            text-wrap: balance !important;
+        }
+        .knowledge-book-meta {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 14px 22px !important;
+            padding-top: 10px !important;
+            color: var(--kb-muted) !important;
+            font-size: 14px !important;
+        }
+        .knowledge-book-meta span {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 7px !important;
+        }
+        .knowledge-book-meta i { color: var(--kb-primary) !important; }
+        .knowledge-book-content {
+            max-width: 900px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .knowledge-book-content::after {
+            content: "";
+            display: block;
+            height: 45vh;
+        }
+        .knowledge-lead {
+            margin: 0 0 26px !important;
+            color: var(--kb-text) !important;
+            font-size: 17px !important;
+            line-height: 1.95 !important;
+        }
+        .manual-article {
+            scroll-margin-top: 76px !important;
+            padding: 8px 0 26px !important;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+        }
+        .manual-article + .manual-article {
+            margin-top: 6px !important;
+        }
+        .manual-article:last-child { border-bottom: none !important; }
+        .manual-article-header {
+            display: flex !important;
+            align-items: baseline !important;
+            gap: 12px !important;
+            margin: 22px 0 14px !important;
+        }
+        .manual-section-number {
+            flex: 0 0 auto !important;
+            color: var(--kb-primary) !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            font-variant-numeric: tabular-nums !important;
+            letter-spacing: -0.02em !important;
+        }
+        .manual-article h2 {
+            margin: 0 !important;
+            color: var(--kb-heading) !important;
+            font-size: 26px !important;
+            line-height: 1.32 !important;
+            font-weight: 720 !important;
+            letter-spacing: -0.02em !important;
+            text-wrap: balance !important;
+        }
+        .manual-article.level-2 h2 { font-size: 23px !important; }
+        .manual-article.level-3 h2,
+        .manual-article.level-4 h2,
+        .manual-article.level-5 h2,
+        .manual-article.level-6 h2 { font-size: 20px !important; }
+        .manual-article-body {
+            color: var(--kb-text) !important;
+            font-size: 16px !important;
+            line-height: 1.95 !important;
+        }
+        .manual-article-body-placeholder {
+            min-height: 120px !important;
+            content-visibility: auto !important;
+            contain-intrinsic-size: 120px !important;
+        }
+        .section-loading-skeleton {
+            border: 1px dashed #cbd5e1 !important;
+            background: #f8fafc !important;
+            color: #64748b !important;
+            border-radius: 8px !important;
+            padding: 18px !important;
+            font-size: 13px !important;
+        }
+        .knowledge-text-expanded .knowledge-preview-text {
+            display: none !important;
+        }
+        .knowledge-text-expander {
+            display: inline-flex !important;
+            align-items: center !important;
+            border: 1px solid #cbd5e1 !important;
+            background: #f8fafc !important;
+            color: #334155 !important;
+            padding: 6px 12px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            margin: 2px 0 14px !important;
+        }
+        .manual-article-body .knowledge-paragraph {
+            margin: 0 0 16px !important;
+            color: var(--kb-text) !important;
+            font-size: 16px !important;
+            line-height: 1.95 !important;
+            text-wrap: pretty !important;
+        }
+        .manual-article-body strong { color: #1e1e4b !important; }
+        .knowledge-manual-list {
+            margin: 0 0 18px 0 !important;
+            padding-left: 1.5rem !important;
+            list-style: disc !important;
+        }
+        .knowledge-manual-list.ordered { list-style: decimal !important; }
+        .knowledge-manual-list li {
+            margin-bottom: 8px !important;
+            line-height: 1.85 !important;
+        }
+        .knowledge-table-wrap {
+            overflow-x: auto !important;
+            margin: 12px 0 22px !important;
+        }
+        .knowledge-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            background: rgba(255, 255, 255, 0.78) !important;
+            font-size: 14px !important;
+            color: var(--kb-text) !important;
+        }
+        .knowledge-table th,
+        .knowledge-table td {
+            border: 1px solid rgba(148, 163, 184, 0.45) !important;
+            padding: 10px 12px !important;
+            vertical-align: top !important;
+            line-height: 1.65 !important;
+            text-align: left !important;
+        }
+        .knowledge-table th {
+            background: rgba(30, 136, 229, 0.08) !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+        }
+        .manual-section-placeholder {
+            color: var(--kb-muted) !important;
+            background: rgba(15, 23, 42, 0.035) !important;
+            border: 1px dashed rgba(15, 23, 42, 0.16) !important;
+            border-radius: 10px !important;
+            padding: 12px 14px !important;
+            font-size: 14px !important;
+        }
+        .knowledge-book-content .knowledge-inline-image {
+            max-width: 720px !important;
+            margin: 18px auto 24px !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+        }
+        .knowledge-book-content .knowledge-inline-image img {
+            max-width: 100% !important;
+            max-height: 520px !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(15, 23, 42, 0.1) !important;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+        }
+        .knowledge-book-content .knowledge-inline-caption {
+            color: var(--kb-muted) !important;
+            text-align: center !important;
+            font-size: 13px !important;
+            margin-top: 10px !important;
+        }
+        .knowledge-page-toc {
+            display: none !important;
+        }
+        .page-toc-card,
+        .section-sidebar-info {
+            border: 1px solid var(--kb-border) !important;
+            background: var(--kb-glass) !important;
+            border-radius: 10px !important;
+            padding: 14px !important;
+            box-shadow: var(--kb-shadow) !important;
+            backdrop-filter: blur(18px) saturate(140%) !important;
+        }
+        .page-toc-card { margin-bottom: 16px !important; }
+        .page-toc-title,
+        .section-info-title {
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            margin: 0 0 12px !important;
+            color: var(--kb-heading) !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+        }
+        .page-toc-title i,
+        .section-info-title i { color: var(--kb-primary) !important; }
+        .page-toc-card .manual-toc-item {
+            font-size: 13px !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
+        .section-info-row {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+            padding: 8px 0 !important;
+            border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+            color: var(--kb-muted) !important;
+            font-size: 13px !important;
+        }
+        .section-info-row strong {
+            color: var(--kb-heading) !important;
+            font-variant-numeric: tabular-nums !important;
+        }
+        .manual-appendix {
+            margin-top: 28px !important;
+            padding-top: 12px !important;
+            border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+        }
+        .knowledge-manual-actions {
+            max-width: 1400px !important;
+            margin: 0 auto !important;
+            padding: 18px 32px 36px !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+        .knowledge-manual-actions .action-left,
+        .knowledge-manual-actions .action-right {
+            gap: 10px !important;
+            flex-wrap: wrap !important;
+        }
+        .knowledge-book-page .btn {
+            border-radius: 6px !important;
+            min-height: 36px !important;
+            transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease !important;
+        }
+        .knowledge-book-page .btn:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10) !important;
+            text-decoration: none !important;
+        }
+        .knowledge-reading-progress {
+            position: fixed !important;
+            top: 0 !important;
+            left: 240px !important;
+            height: 3px !important;
+            width: 0% !important;
+            z-index: 20 !important;
+            background: linear-gradient(90deg, #0a55a7, #0a84ff) !important;
+            box-shadow: 0 0 12px rgba(10, 132, 255, .35) !important;
+            transition: width .12s linear !important;
+        }
+        @media (max-width: 1280px) {
+            .knowledge-book-layout { padding: 0 24px !important; }
+            .knowledge-book-sidebar { width: 230px !important; flex-basis: 230px !important; }
+            .knowledge-book-main { width: 100% !important; flex-basis: 100% !important; }
+            .knowledge-page-toc { display: none !important; }
+        }
+        @media (max-width: 980px) {
+            .knowledge-book-topbar { position: relative !important; padding: 10px 18px !important; }
+            .knowledge-book-layout { display: block !important; padding: 0 18px !important; }
+            .knowledge-book-sidebar {
+                position: relative !important;
+                top: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                flex-basis: auto !important;
+                border-right: 0 !important;
+                border-bottom: 1px solid var(--kb-border) !important;
+                padding: 16px 0 !important;
+                max-height: 340px !important;
+            }
+            .knowledge-book-content-wrap { display: block !important; }
+            .knowledge-book-main { padding: 22px 0 42px !important; }
+            .knowledge-book-title { font-size: clamp(24px, 8vw, 34px) !important; }
+            .manual-article h2 { font-size: 22px !important; }
+            .knowledge-reading-progress { left: 0 !important; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="delete-modal" id="deleteModal">
+        <div class="delete-modal-content">
+            <div class="delete-modal-header">
+                <div class="delete-modal-title">
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                    确认删除
+                </div>
+            </div>
+            <div class="delete-modal-body" id="deleteModalMessage">
+                确定要删除这篇文档吗？此操作不可撤销。
+            </div>
+            <div class="delete-modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
+                <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
+                <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+                <a href="user-profile.html" class="nav-item" style="display: none;"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
+            </div>
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">我</div>
+                    <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">技术人员</div></div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">文档详情</div>
+                    <div class="page-subtitle" id="docTitleSubtitle">文档详细内容</div>
+                </div>
+                <div class="header-actions">
+                    <a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a>
+                </div>
+            </div>
+
+            <div class="document-detail-container" id="documentDetail">
+                <div class="document-loading" id="loadingContainer">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载文档详情...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDocument = null;
+        let currentDocumentId = null;
+        const KNOWLEDGE_TEXT_PREVIEW_LIMIT = 1800;
+        const knowledgeExpandedSections = new Set();
+        let currentKnowledgeBodySections = [];
+        let manualProgrammaticScrollTimer = null;
+
+        function getDocumentIdFromUrl() {
+            return new URLSearchParams(window.location.search).get('id');
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getLibraryLabel(libraryType) {
+            return libraryType === 'knowledge' ? '知识库' : '故障库';
+        }
+
+        function normalizeDocumentTags(tags) {
+            if (Array.isArray(tags)) {
+                return tags.map(tag => String(tag).trim()).filter(Boolean);
+            }
+            if (typeof tags === 'string' && tags.trim()) {
+                try {
+                    const parsed = JSON.parse(tags);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
+                    }
+                } catch (_) {
+                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        function getTagsLabel(tags) {
+            const normalizedTags = normalizeDocumentTags(tags);
+            return normalizedTags.length ? normalizedTags.join('、') : '无';
+        }
+
+        function showError(message) {
+            document.body.classList.remove('knowledge-reader-active');
+            document.getElementById('documentDetail').innerHTML = `
+                <div class="document-error">
+                    <i class="fas fa-exclamation-triangle" style="font-size:48px; color:#ef4444; margin-bottom:20px;"></i>
+                    <p style="color:#666; margin-bottom:20px;">${escapeHtml(message)}</p>
+                    <div><a href="main.html" class="btn btn-secondary">返回列表</a></div>
+                </div>
+            `;
+        }
+
+        function getFullAssetUrl(relativeUrl) {
+            if (!relativeUrl) return '';
+            if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
+            const apiBase = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+            if (!apiBase) return `/${String(relativeUrl).replace(/^\/+/, '')}`;
+            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
+            return `${apiBase}/${cleanPath}`;
+        }
+
+        function isAdminUser(user) {
+            return !!user && Utils.hasRole(user, Utils.ROLE.ADMIN);
+        }
+
+        function normalizeImageUrls(value) {
+            if (!value) return [];
+            if (Array.isArray(value)) return value.map(url => String(url).trim()).filter(Boolean);
+            if (typeof value === 'string' && value.trim() && value !== 'null') {
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) return parsed.map(url => String(url).trim()).filter(Boolean);
+                } catch (_) {}
+                return value.split(',').map(url => url.trim()).filter(Boolean);
+            }
+            return [];
+        }
+
+        function renderImageGrid(imageUrls) {
+            const urls = normalizeImageUrls(imageUrls);
+            if (!urls.length) return '';
+            return `
+                <div class="image-grid-small">
+                    ${urls.map(url => {
+                        const fullUrl = getFullAssetUrl(url);
+                        return `
+                            <div class="image-item-small" onclick="window.open('${fullUrl}', '_blank')">
+                                <img src="${fullUrl}" alt="图片" onerror="this.onerror=null; this.src='https://via.placeholder.com/120x120?text=加载失败'">
+                                <div class="image-overlay-small"><i class="fas fa-search-plus" style="color:white; font-size:20px;"></i></div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function sectionLevelNumber(sectionType) {
+            const raw = String(sectionType || '').trim();
+            const outlineMatch = raw.match(/^\d+(?:\.\d+)*$/);
+            if (outlineMatch) return Math.min(6, raw.split('.').length);
+            const levelMatch = raw.match(/level_(\d+)/i);
+            return levelMatch ? Math.min(6, Math.max(1, Number(levelMatch[1]) || 1)) : 1;
+        }
+
+        function sectionBadgeText(section, level) {
+            const raw = String(section.section_type || '').trim().toLowerCase();
+            if (raw === 'title') return '题目';
+            if (raw === 'directory') return '目录';
+            return section.section_type ? `章节 ${escapeHtml(section.section_type)}` : `${level}级章节`;
+        }
+
+        function normalizeLibraryType(value) {
+            return String(value || '').trim().toLowerCase() === 'knowledge' ? 'knowledge' : 'breakdown';
+        }
+
+        function isKnowledgeDocument(doc, source) {
+            return normalizeLibraryType(doc.library_type || source) === 'knowledge' || Array.isArray(doc.sections);
+        }
+
+        function renderInlineText(text) {
+            return escapeHtml(text)
+                .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        }
+
+        function isMarkdownTableLine(line) {
+            const value = String(line || '').trim();
+            return value.includes('|') && value.replace(/\|/g, '').trim().length > 0;
+        }
+
+        function isMarkdownTableSeparator(line) {
+            const cells = splitMarkdownTableRow(line);
+            return cells.length > 1 && cells.every(cell => /^:?-{2,}:?$/.test(String(cell || '').trim()));
+        }
+
+        function splitMarkdownTableRow(line) {
+            return String(line || '')
+                .trim()
+                .replace(/^\|/, '')
+                .replace(/\|$/, '')
+                .split('|')
+                .map(cell => cell.trim());
+        }
+
+        function renderKnowledgeMarkdownTable(lines) {
+            const rows = lines
+                .map(splitMarkdownTableRow)
+                .filter(row => row.some(cell => String(cell || '').trim()))
+                .filter(row => !row.every(cell => /^:?-{2,}:?$/.test(String(cell || '').trim())));
+            if (rows.length < 2) {
+                return lines.map(line => `<p class="knowledge-paragraph">${renderInlineText(line)}</p>`).join('');
+            }
+            const maxCols = Math.max(...rows.map(row => row.length));
+            const normalizedRows = rows.map(row => row.concat(Array(Math.max(0, maxCols - row.length)).fill('')));
+            const header = normalizedRows[0];
+            const bodyRows = normalizedRows.slice(1);
+            return `
+                <div class="knowledge-table-wrap">
+                    <table class="knowledge-table">
+                        <thead><tr>${header.map(cell => `<th>${renderInlineText(cell)}</th>`).join('')}</tr></thead>
+                        <tbody>
+                            ${bodyRows.map(row => `<tr>${header.map((_, index) => `<td>${renderInlineText(row[index] || '')}</td>`).join('')}</tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function looksLikeEditorName(value, nextValue) {
+            const text = String(value || '').trim();
+            if (!text || text.length > 8) return false;
+            if (/(内容|方法|标准|操作|步骤|逻辑|错误|配图)$/.test(text)) return false;
+            if (/[，,。；;:：\d]/.test(text)) return false;
+            return /^[\u4e00-\u9fffA-Za-z\s]+$/.test(text) && (!nextValue || /^[A-Za-z]\d+$/.test(String(nextValue).trim()));
+        }
+
+        function normalizeRevisionHistoryText(text) {
+            const raw = String(text || '').trim();
+            if (!raw) return raw;
+            if (raw.includes('|') && raw.includes('---')) return trimRevisionMarkdownTable(raw);
+            const lines = raw.split(/\n+/).map(line => line.trim()).filter(Boolean);
+            if (lines.length < 8) return raw;
+            const headers = ['版本', '日期', '变更说明', '编辑'];
+            const normalized = lines.map(line => line.replace(/\s+/g, ''));
+            const headerPositions = headers.map(header => normalized.slice(0, 8).findIndex(line => line === header));
+            if (headerPositions.some(index => index < 0)) return raw;
+
+            const rows = [];
+            const data = lines.slice(Math.max(...headerPositions) + 1);
+            let index = 0;
+            while (index < data.length) {
+                const version = data[index];
+                if (!/^[A-Za-z]\d+$/.test(version)) {
+                    index += 1;
+                    continue;
+                }
+                if (index + 2 >= data.length) break;
+                const date = data[index + 1];
+                const changes = [];
+                let editor = '';
+                index += 2;
+                while (index < data.length) {
+                    const current = data[index];
+                    const nextValue = data[index + 1] || '';
+                    if (/^[A-Za-z]\d+$/.test(current)) break;
+                    if (looksLikeEditorName(current, nextValue)) {
+                        editor = current;
+                        index += 1;
+                        break;
+                    }
+                    changes.push(current);
+                    index += 1;
+                }
+                rows.push([version, date, changes.join(' '), editor]);
+            }
+            if (!rows.length) return raw;
+            const tableLines = [
+                `| ${headers.join(' | ')} |`,
+                `| ${headers.map(() => '---').join(' | ')} |`,
+                ...rows.map(row => `| ${row.map(cell => String(cell || '').replace(/\|/g, '｜')).join(' | ')} |`)
+            ];
+            return tableLines.join('\n');
+        }
+
+        function markdownTableCells(line) {
+            const value = String(line || '').trim();
+            if (!value.startsWith('|')) return [];
+            return value.replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+        }
+
+        function revisionRowContainsDirectory(cells) {
+            const text = cells.join(' ').replace(/\s+/g, '');
+            return text.includes('目录') || text.includes('一般信息') || text.includes('重要消息框') || text.includes('上电前准备');
+        }
+
+        function stripDirectoryTail(text) {
+            const value = String(text || '');
+            const markers = ['目录', 'I 一般信息', 'I一般信息', '一般信息', '1.1 重要消息框', '重要消息框', '开箱并移至实验室', '上电前准备'];
+            const positions = markers.map(marker => value.indexOf(marker)).filter(index => index >= 0);
+            if (!positions.length) return value.trim();
+            return value.slice(0, Math.min(...positions)).trim();
+        }
+
+        function trimRevisionMarkdownTable(text) {
+            const lines = String(text || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+            if (lines.length < 3) return text;
+            const rows = [];
+            for (const line of lines.slice(2)) {
+                const cells = markdownTableCells(line);
+                if (!cells.length) continue;
+                if (!/^[A-Za-z]\d+$/.test(cells[0] || '')) continue;
+                const normalized = [cells[0] || '', cells[1] || '', cells[2] || '', cells[3] || '']
+                    .map(cell => stripDirectoryTail(cell));
+                rows.push(normalized);
+            }
+            if (!rows.length) return text;
+            return [
+                lines[0],
+                lines[1],
+                ...rows.map(row => `| ${row.map(cell => String(cell || '').replace(/\|/g, '｜')).join(' | ')} |`)
+            ].join('\n');
+        }
+
+        function renderKnowledgeTextSegment(segment) {
+            const lines = String(segment || '')
+                .split(/\n/)
+                .map(line => line.trim())
+                .filter(Boolean);
+
+            const html = [];
+            let listBuffer = [];
+            let ordered = false;
+
+            const flushList = () => {
+                if (!listBuffer.length) return;
+                html.push(`<${ordered ? 'ol' : 'ul'} class="knowledge-manual-list ${ordered ? 'ordered' : ''}">${listBuffer.join('')}</${ordered ? 'ol' : 'ul'}>`);
+                listBuffer = [];
+                ordered = false;
+            };
+
+            const flushTable = (tableBuffer) => {
+                if (!tableBuffer.length) return;
+                flushList();
+                html.push(renderKnowledgeMarkdownTable(tableBuffer));
+            };
+
+            for (let index = 0; index < lines.length; index += 1) {
+                const line = lines[index];
+                if (isMarkdownTableLine(line)) {
+                    const tableBuffer = [];
+                    while (index < lines.length && isMarkdownTableLine(lines[index])) {
+                        tableBuffer.push(lines[index]);
+                        index += 1;
+                    }
+                    index -= 1;
+                    flushTable(tableBuffer);
+                    continue;
+                }
+                const bulletMatch = line.match(/^(?:[-*•])\s+(.+)$/);
+                const orderedMatch = line.match(/^\d+[\.、]\s+(.+)$/);
+                if (bulletMatch || orderedMatch) {
+                    const isOrdered = !!orderedMatch;
+                    if (listBuffer.length && ordered !== isOrdered) flushList();
+                    ordered = isOrdered;
+                    listBuffer.push(`<li>${renderInlineText((bulletMatch || orderedMatch)[1])}</li>`);
+                    continue;
+                }
+                flushList();
+                html.push(`<p class="knowledge-paragraph">${renderInlineText(line)}</p>`);
+            }
+            flushList();
+            return html.join('');
+        }
+
+        function renderInlineKnowledgeImage(url, index) {
+            const fullUrl = getFullAssetUrl(url);
+            const safeUrl = escapeHtml(fullUrl);
+            return `
+                <figure class="knowledge-inline-image">
+                    <img src="${safeUrl}" loading="lazy" decoding="async" alt="图片${index}" onclick="window.open(this.src, '_blank')" onerror="this.onerror=null; this.src='https://via.placeholder.com/640x360?text=图片加载失败'">
+                    <figcaption class="knowledge-inline-caption">Fig. ${index} · 文档截图</figcaption>
+                </figure>
+            `;
+        }
+
+        function renderKnowledgeSectionContent(section) {
+            const imageUrls = normalizeImageUrls(section.image_urls);
+            const role = getKnowledgeSectionRole(section);
+            const text = role === 'revision_history'
+                ? normalizeRevisionHistoryText(section.plain_text || '')
+                : (section.plain_text || '');
+            if (!text && !imageUrls.length) return '<p class="text-muted">无正文内容</p>';
+
+            const sectionId = String(section.id || section.section_index || section.section_title || '');
+            const isLongText = String(text).length > KNOWLEDGE_TEXT_PREVIEW_LIMIT;
+            const isExpanded = knowledgeExpandedSections.has(sectionId);
+            const renderText = isLongText && !isExpanded
+                ? `${String(text).slice(0, KNOWLEDGE_TEXT_PREVIEW_LIMIT)}\n...`
+                : text;
+            const usedImageIndexes = new Set();
+            let html = '';
+            let lastIndex = 0;
+            const markerPattern = /【图片(\d+)】/g;
+            let match;
+            while ((match = markerPattern.exec(renderText)) !== null) {
+                html += renderKnowledgeTextSegment(renderText.slice(lastIndex, match.index));
+                const imageIndex = Number(match[1]);
+                const imageUrl = imageUrls[imageIndex - 1];
+                if (imageUrl) {
+                    usedImageIndexes.add(imageIndex - 1);
+                    html += renderInlineKnowledgeImage(imageUrl, imageIndex);
+                }
+                lastIndex = markerPattern.lastIndex;
+            }
+            html += renderKnowledgeTextSegment(renderText.slice(lastIndex));
+
+            if (!isLongText || isExpanded) {
+                imageUrls.forEach((url, index) => {
+                    if (!usedImageIndexes.has(index)) {
+                        html += renderInlineKnowledgeImage(url, index + 1);
+                    }
+                });
+            } else {
+                imageUrls.slice(0, 2).forEach((url, index) => {
+                    if (!usedImageIndexes.has(index)) {
+                        usedImageIndexes.add(index);
+                    }
+                    html += renderInlineKnowledgeImage(url, index + 1);
+                });
+            }
+
+            if (isLongText) {
+                const hiddenImageCount = Math.max(0, imageUrls.length - usedImageIndexes.size);
+                const buttonLabel = isExpanded ? '收起' : (hiddenImageCount ? `展开全文和剩余 ${hiddenImageCount} 张图片` : '展开全文');
+                html += `<button type="button" class="knowledge-text-expander" data-section-id="${escapeHtml(sectionId)}">${buttonLabel}</button>`;
+            }
+            return html || '<p class="text-muted">无正文内容</p>';
+        }
+
+        function getKnowledgeSectionRole(section) {
+            const type = String(section.section_type || '').trim().toLowerCase();
+            const metaRole = section.metadata && section.metadata.section_role;
+            return metaRole || type || 'body';
+        }
+
+        function getKnowledgeBodySections(doc) {
+            return (Array.isArray(doc.sections) ? doc.sections : [])
+                .slice()
+                .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
+                .filter(section => !['title', 'directory'].includes(getKnowledgeSectionRole(section)));
+        }
+
+        function getKnowledgeSpecialSection(doc, role) {
+            return (Array.isArray(doc.sections) ? doc.sections : []).find(section => getKnowledgeSectionRole(section) === role);
+        }
+
+        function manualSectionId(section, index) {
+            return `manual-section-${section.id || section.section_index || index}`;
+        }
+
+        function stripSectionTitleMarker(title, marker) {
+            let value = String(title || '').trim();
+            const normalizedMarker = String(marker || '').replace('．', '.').trim();
+            if (normalizedMarker) {
+                const escapedMarker = normalizedMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                value = value.replace(new RegExp(`^${escapedMarker}[、.．\\s]+`), '').trim();
+            }
+            return value.replace(/^\d+(?:[.．]\d+)*[、.．\s]+/, '').trim();
+        }
+
+        function getKnowledgeLead(bodySections) {
+            const firstText = bodySections
+                .map(section => String(section.plain_text || '').replace(/【图片\d+】/g, '').trim())
+                .find(Boolean) || '';
+            if (!firstText) return '该知识库文档已按章节解析，左侧为手册目录，右侧为当前页面大纲。';
+            const firstLine = firstText.split(/\n+/).map(line => line.trim()).find(Boolean) || firstText;
+            return firstLine.length > 180 ? `${firstLine.slice(0, 180)}…` : firstLine;
+        }
+
+        function renderManualToc(bodySections) {
+            if (!bodySections.length) {
+                return '<div class="text-muted" style="font-size:13px;">暂无可用目录，请重新解析该知识库文档。</div>';
+            }
+            return `
+                <div class="manual-toc-list">
+                    ${bodySections.map((section, index) => {
+                        const level = sectionLevelNumber(section.section_type);
+                        const sectionNo = section.section_type ? escapeHtml(section.section_type) : String(index + 1);
+                        const title = stripSectionTitleMarker(section.section_title || `章节 ${index + 1}`, section.section_type);
+                        return `<a class="manual-toc-item manual-toc-level-${level}" href="#${manualSectionId(section, index)}" data-section-id="${manualSectionId(section, index)}"><span class="manual-toc-number">${sectionNo}</span><span class="manual-toc-text">${escapeHtml(title)}</span></a>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function renderManualArticle(section, index) {
+            const level = sectionLevelNumber(section.section_type);
+            const title = stripSectionTitleMarker(section.section_title || `章节 ${index + 1}`, section.section_type);
+            const sectionNo = section.section_type ? escapeHtml(section.section_type) : String(index + 1);
+            return `
+                <article class="manual-article level-${level}" id="${manualSectionId(section, index)}" data-section-index="${index}" data-section-id="${manualSectionId(section, index)}">
+                    <div class="manual-article-header">
+                        <span class="manual-section-number">${sectionNo}</span>
+                        <h2>${escapeHtml(title)}</h2>
+                    </div>
+                    <div class="manual-article-body manual-article-body-placeholder">
+                        <div class="section-loading-skeleton">内容加载中...</div>
+                    </div>
+                </article>
+            `;
+        }
+
+        function renderManualArticleBody(section, index) {
+            const hasContent = !!String(section.plain_text || '').trim() || normalizeImageUrls(section.image_urls).length > 0;
+            return hasContent
+                ? renderKnowledgeSectionContent(section)
+                : '<div class="manual-section-placeholder"><i class="fas fa-sitemap"></i> 该条为目录分组，本级没有独立正文，请阅读其下级章节。</div>';
+        }
+
+        function renderKnowledgeManualDocument(doc, context) {
+            const bodySections = getKnowledgeBodySections(doc);
+            currentKnowledgeBodySections = bodySections;
+            const titleSection = getKnowledgeSpecialSection(doc, 'title');
+            const manualTitle = (titleSection && titleSection.section_title) || doc.title || '知识库手册';
+            const sectionCount = bodySections.length;
+            const imageCount = bodySections.reduce((sum, section) => sum + normalizeImageUrls(section.image_urls).length, 0);
+            const tagsLabel = context.tagsLabel || '无';
+            const originalFileHtml = context.originalFileHtml || '';
+            const actionButtons = context.actionButtons || '';
+            const lead = getKnowledgeLead(bodySections);
+            const tocHtml = renderManualToc(bodySections);
+            return `
+                <div class="knowledge-reading-progress" id="knowledgeReadingProgress"></div>
+                <div class="knowledge-book-page">
+                    <div class="knowledge-book-topbar">
+                        <div class="knowledge-book-brand"><i class="fas fa-book-open"></i><span>维修知识库文档</span></div>
+                        <div class="knowledge-book-actions-inline knowledge-top-actions">${actionButtons}</div>
+                    </div>
+                    <div class="knowledge-book-layout">
+                        <aside class="knowledge-book-sidebar" aria-label="文档章节导航">
+                            <a class="book-sidebar-home" href="main.html"><i class="fas fa-book"></i><span>知识库首页</span></a>
+                            <details class="book-part" open>
+                                <summary class="book-part__summary"><span class="book-part__title">Part I · 文档章节</span></summary>
+                                <div class="book-part__body">${tocHtml}</div>
+                            </details>
+                        </aside>
+                        <div class="knowledge-book-content-wrap">
+                            <article class="knowledge-book-main" role="main">
+                                <section class="book-page-header-section">
+                                    <nav aria-label="breadcrumb" class="modern-breadcrumb-nav">
+                                        <div class="breadcrumb-button-container">
+                                            <a href="main.html" class="breadcrumb-button breadcrumb-home"><i class="fa-solid fa-house"></i></a>
+                                            <a href="main.html" class="breadcrumb-button"><i class="fa-solid fa-book"></i><span>知识库</span></a>
+                                            <span class="breadcrumb-button breadcrumb-current"><i class="fa-solid fa-file-text"></i><span>${escapeHtml(manualTitle)}</span></span>
+                                        </div>
+                                    </nav>
+                                    <div class="book-header">
+                                        <h1 class="knowledge-book-title">${escapeHtml(manualTitle)}</h1>
+                                        <div class="knowledge-book-meta">
+                                            <span><i class="fas fa-user"></i>${escapeHtml(context.authorName)}</span>
+                                            <span><i class="fas fa-calendar-alt"></i>${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span>
+                                            <span><i class="fas fa-hashtag"></i>ID ${doc.id}</span>
+                                            <span><i class="fas fa-tags"></i>${escapeHtml(tagsLabel)}</span>
+                                        </div>
+                                    </div>
+                                </section>
+                                <div class="knowledge-book-content post-card">
+                                    <p class="knowledge-lead">${escapeHtml(lead)}</p>
+                                    ${bodySections.length ? bodySections.map((section, index) => renderManualArticle(section, index)).join('') : '<div class="section-content knowledge-empty">暂无章节内容，请重新解析该知识库文档。</div>'}
+                                    ${originalFileHtml ? `<div class="manual-appendix">${originalFileHtml}</div>` : ''}
+                                </div>
+                            </article>
+
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderKnowledgeSections(doc) {
+            const sections = Array.isArray(doc.sections) ? doc.sections : [];
+            if (!sections.length) {
+                return `
+                    <div class="document-section">
+                        <div class="section-header"><i class="fas fa-book-open"></i><h3>文档章节</h3></div>
+                        <div class="section-content knowledge-empty">暂无章节内容，请重新解析该知识库文档。</div>
+                    </div>
+                `;
+            }
+
+            return sections
+                .slice()
+                .sort((a, b) => (a.section_index ?? 0) - (b.section_index ?? 0))
+                .map((section, index) => {
+                    const level = sectionLevelNumber(section.section_type);
+                    const sectionNo = sectionBadgeText(section, level);
+                    const title = section.section_title || `章节 ${index + 1}`;
+                    const contentHtml = renderKnowledgeSectionContent(section);
+                    return `
+                        <div class="document-section knowledge-section level-${level}">
+                            <div class="section-header">
+                                <i class="fas fa-book-open"></i>
+                                <h3>${escapeHtml(title)}</h3>
+                                <span class="section-level-badge">${sectionNo}</span>
+                            </div>
+                            <div class="section-content">${contentHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+        }
+
+        function renderBreakdownSections(doc) {
+            const sections = [
+                { title: '问题描述', content: doc.problem_intro, imgField: 'image_urls_problem_intro', icon: 'question-circle' },
+                { title: '原因分析', content: doc.causes, imgField: 'image_urls_causes', icon: 'search' },
+                { title: '故障评估', content: doc.evaluation, imgField: 'image_urls_evaluation', icon: 'clipboard-list' },
+                { title: '检查步骤', content: doc.inspection, imgField: 'image_urls_inspection', icon: 'clipboard-check' },
+                { title: '解决方案', content: doc.solutions, imgField: 'image_urls_solutions', icon: 'tools' },
+                { title: '关键要点', content: doc.key_points, imgField: 'image_urls_key_points', icon: 'star' }
+            ];
+
+            return sections.map(section => {
+                const contentHtml = section.content ? escapeHtml(section.content).replace(/\n/g, '<br>') : '<p class="text-muted">无</p>';
+                return `
+                    <div class="document-section">
+                        <div class="section-header"><i class="fas fa-${section.icon}"></i><h3>${section.title}</h3></div>
+                        <div class="section-content">${contentHtml}</div>
+                        ${renderImageGrid(doc[section.imgField])}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openDeleteModal(docId, docTitle) {
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                Utils.showMessage('请在“我的提交”中发起删除审核', 'warning');
+                return;
+            }
+            currentDocumentId = docId;
+            document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            currentDocumentId = null;
+        }
+
+        async function confirmDelete() {
+            if (!currentDocumentId) return;
+            try {
+                // 删除时传递当前库类型，避免两张表存在相同 id 时删错库。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const result = await documentAPI.deleteDocument(currentDocumentId, source);
+                if (result) {
+                    Utils.showMessage('文档删除成功', 'success');
+                    closeDeleteModal();
+                    setTimeout(() => window.location.href = 'main.html', 1000);
+                } else {
+                    Utils.showMessage('文档删除失败', 'error');
+                }
+            } catch (error) {
+                Utils.showMessage('删除失败: ' + (error.message || '未知错误'), 'error');
+            }
+        }
+
+        function goToEditPage(docId) {
+            const currentUser = Utils.getCurrentUser();
+            if (!isAdminUser(currentUser)) {
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                window.location.href = `edit-document.html?id=${docId}&mode=review&source=${encodeURIComponent(source)}`;
+                return;
+            }
+            // 编辑页要继续沿用详情页的库类型，避免保存知识库文档时默认落到故障库。
+            const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}`;
+        }
+
+        async function submitDeleteReviewFromDetail(docId) {
+            const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+            if (!confirm('确定提交删除审核吗？审核通过后该文档将被删除。')) return;
+            try {
+                await reviewAPI.submitDeleteReview(docId, '技术人员发起删除申请', source);
+                Utils.showMessage('删除审核已提交', 'success');
+                setTimeout(() => window.location.href = 'my-submissions.html', 1000);
+            } catch (error) {
+                Utils.showMessage(error.message || '提交删除审核失败', 'error');
+            }
+        }
+
+        function initializeManualReader() {
+            const progress = document.getElementById('knowledgeReadingProgress');
+            const links = Array.from(document.querySelectorAll('.manual-toc-item[data-section-id]'));
+            const sections = links
+                .map(link => document.getElementById(link.dataset.sectionId))
+                .filter(Boolean);
+
+            const renderArticleIfNeeded = (article) => {
+                if (!article || article.dataset.rendered === '1') return;
+                const index = Number(article.dataset.sectionIndex);
+                const section = currentKnowledgeBodySections[index];
+                const body = article.querySelector('.manual-article-body');
+                if (!section || !body) return;
+                body.innerHTML = renderManualArticleBody(section, index);
+                body.style.minHeight = '';
+                body.style.containIntrinsicSize = '';
+                body.classList.remove('manual-article-body-placeholder');
+                article.dataset.rendered = '1';
+            };
+
+            const setActive = (id, force = false) => {
+                if (manualProgrammaticScrollTimer && !force) return;
+                links.forEach(link => {
+                    link.classList.toggle('is-active', link.dataset.sectionId === id);
+                });
+            };
+
+            const updateProgress = () => {
+                if (!progress) return;
+                const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+                progress.style.width = `${Math.min(100, Math.max(0, (scrollTop / docHeight) * 100))}%`;
+            };
+
+            const scrollToSection = (target) => {
+                if (!target) return;
+                const headerOffset = 96;
+                const top = target.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            };
+
+            if ('IntersectionObserver' in window && sections.length) {
+                const renderObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            renderArticleIfNeeded(entry.target);
+                            renderObserver.unobserve(entry.target);
+                        }
+                    });
+                }, { rootMargin: '900px 0px 900px 0px', threshold: 0 });
+
+                sections.slice(0, 2).forEach(renderArticleIfNeeded);
+                sections.slice(2).forEach(section => renderObserver.observe(section));
+
+                const observer = new IntersectionObserver((entries) => {
+                    const visible = entries
+                        .filter(entry => entry.isIntersecting)
+                        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+                    if (visible) setActive(visible.target.id);
+                }, { rootMargin: '-20% 0px -68% 0px', threshold: [0, 0.1, 0.25] });
+                sections.forEach(section => observer.observe(section));
+            } else if (links[0]) {
+                setActive(links[0].dataset.sectionId);
+            }
+
+            links.forEach(link => {
+                link.addEventListener('click', (event) => {
+                    const target = document.getElementById(link.dataset.sectionId);
+                    if (!target) return;
+                    event.preventDefault();
+                    renderArticleIfNeeded(target);
+                    if (manualProgrammaticScrollTimer) clearTimeout(manualProgrammaticScrollTimer);
+                    manualProgrammaticScrollTimer = setTimeout(() => {
+                        manualProgrammaticScrollTimer = null;
+                    }, 700);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => scrollToSection(target));
+                    });
+                    history.replaceState(null, '', `#${link.dataset.sectionId}`);
+                    setActive(link.dataset.sectionId, true);
+                });
+            });
+
+            const detailRoot = document.getElementById('documentDetail');
+            if (detailRoot && detailRoot.dataset.expanderBound !== '1') {
+                detailRoot.dataset.expanderBound = '1';
+                detailRoot.addEventListener('click', (event) => {
+                    const button = event.target.closest('.knowledge-text-expander[data-section-id]');
+                    if (!button) return;
+                    const sectionId = button.dataset.sectionId;
+                    if (!sectionId) return;
+                    const article = button.closest('.manual-article');
+                    const index = article ? Number(article.dataset.sectionIndex) : -1;
+                    const section = currentKnowledgeBodySections[index];
+                    const body = article ? article.querySelector('.manual-article-body') : null;
+                    if (knowledgeExpandedSections.has(sectionId)) {
+                        knowledgeExpandedSections.delete(sectionId);
+                    } else {
+                        knowledgeExpandedSections.add(sectionId);
+                    }
+                    if (section && body) {
+                        body.innerHTML = renderManualArticleBody(section, index);
+                        body.style.minHeight = '';
+                        body.style.containIntrinsicSize = '';
+                        body.classList.remove('manual-article-body-placeholder');
+                        article.dataset.rendered = '1';
+                    }
+                });
+            }
+
+            window.addEventListener('scroll', updateProgress, { passive: true });
+            updateProgress();
+            if (links[0]) setActive(links[0].dataset.sectionId);
+
+            const hashId = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
+            if (hashId) {
+                const target = document.getElementById(hashId);
+                if (target) {
+                    renderArticleIfNeeded(target);
+                    if (manualProgrammaticScrollTimer) clearTimeout(manualProgrammaticScrollTimer);
+                    manualProgrammaticScrollTimer = setTimeout(() => {
+                        manualProgrammaticScrollTimer = null;
+                    }, 700);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => scrollToSection(target));
+                    });
+                }
+            }
+        }
+
+        async function loadDocumentDetail() {
+            const docId = getDocumentIdFromUrl();
+            currentDocumentId = docId;
+            if (!docId) {
+                showError('文档ID无效');
+                return;
+            }
+
+            try {
+                // 详情页根据列表传来的 source 查询对应表，避免知识库/故障库同 id 时读取错误。
+                const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
+                const doc = await documentAPI.getDocumentById(docId, source);
+                if (!doc) {
+                    showError('文档不存在或已被删除');
+                    return;
+                }
+
+                currentDocument = doc;
+                document.title = `${doc.title || '文档详情'} - 维修辅助系统`;
+                document.getElementById('docTitleSubtitle').textContent = doc.title || '文档详情';
+
+                const currentUser = Utils.getCurrentUser();
+                const currentUserId = currentUser ? currentUser.id : null;
+                const isAdmin = isAdminUser(currentUser);
+                const isAuthor = currentUserId && String(currentUserId) === String(doc.contributor_id);
+                const isTechnicianAuthor = !!currentUser && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && isAuthor;
+                const showEditDeleteButtons = isAdmin || isTechnicianAuthor;
+                const canPreviewSourceFile = Utils.canPreviewSourceFiles(currentUser);
+
+                let authorName = doc.contributor_name || `用户${doc.contributor_id}`;
+                if (isAuthor) authorName = '我';
+                const libraryType = normalizeLibraryType(doc.library_type || source);
+                const libraryLabel = getLibraryLabel(libraryType);
+                const tagsLabel = getTagsLabel(doc.tag);
+
+                const isKnowledge = isKnowledgeDocument(doc, source);
+                document.body.classList.toggle('knowledge-reader-active', isKnowledge);
+                const sectionsHtml = isKnowledge ? '' : renderBreakdownSections(doc);
+
+                let originalFileHtml = '';
+                if (doc.origin_file_name && doc.origin_file_dir) {
+                    const fileUrl = getFullAssetUrl(doc.origin_file_dir);
+                    const fileExt = String(doc.origin_file_name).split('.').pop().toLowerCase();
+                    const isPreviewable = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
+                    const previewAction = isPreviewable && canPreviewSourceFile
+                        ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>`
+                        : '';
+                    const previewHint = !isPreviewable
+                        ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">该格式暂不支持在线预览。</p>'
+                        : (!canPreviewSourceFile ? '<p class="text-muted" style="margin-top:10px; font-size:13px;">仅审核人员和管理员可预览源文件。</p>' : '');
+
+                    const iconMap = {
+                        pdf: 'fa-file-pdf',
+                        doc: 'fa-file-word',
+                        docx: 'fa-file-word',
+                        ppt: 'fa-file-powerpoint',
+                        pptx: 'fa-file-powerpoint',
+                        xls: 'fa-file-excel',
+                        xlsx: 'fa-file-excel',
+                        txt: 'fa-file-alt'
+                    };
+                    const iconClass = iconMap[fileExt] || 'fa-file';
+
+                    originalFileHtml = `
+                        <div class="document-section original-file-section">
+                            <div class="section-header">
+                                <i class="fas fa-paperclip"></i>
+                                <h3>原始附件</h3>
+                            </div>
+                            <div class="original-file-content">
+                                <div class="file-info">
+                                    <i class="fas ${iconClass} file-icon"></i>
+                                    <span class="file-name">${escapeHtml(doc.origin_file_name)}</span>
+                                </div>
+                                <div class="file-actions">
+                                    ${previewAction}
+                                </div>
+                                ${previewHint}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let actionButtons = `<div class="action-left"><a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a></div>`;
+                if (showEditDeleteButtons) {
+                    if (isAdmin) {
+                        actionButtons += `
+                            <div class="action-right">
+                                <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 编辑</button>
+                                <button class="btn btn-danger" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title || '').replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> 删除</button>
+                            </div>
+                        `;
+                    } else {
+                        actionButtons += `
+                            <div class="action-right">
+                                <button class="btn btn-primary" onclick="goToEditPage(${doc.id})"><i class="fas fa-edit"></i> 提交修改</button>
+                                <button class="btn btn-danger" onclick="submitDeleteReviewFromDetail(${doc.id})"><i class="fas fa-trash"></i> 提交删除</button>
+                            </div>
+                        `;
+                    }
+                }
+
+                let html = '';
+                if (isKnowledge) {
+                    html = renderKnowledgeManualDocument(doc, {
+                        authorName,
+                        tagsLabel,
+                        originalFileHtml,
+                        actionButtons
+                    });
+                } else {
+                    html = `
+                        <div class="document-detail-content">
+                            <div class="document-header">
+                                <h1 class="document-title">${escapeHtml(doc.title || '无标题')}</h1>
+                                <div class="document-meta">
+                                    <div class="meta-item"><i class="fas fa-user"></i><span>作者：${escapeHtml(authorName)}</span></div>
+                                    <div class="meta-item"><i class="fas fa-calendar-alt"></i><span>创建时间：${Utils.formatDate(doc.first_edit_date, 'YYYY-MM-DD HH:mm')}</span></div>
+                                    <div class="meta-item"><i class="fas fa-hashtag"></i><span>文档ID：${doc.id}</span></div>
+                                    <div class="meta-item"><i class="fas fa-layer-group"></i><span>所属库：${escapeHtml(libraryLabel)}</span></div>
+                                    <div class="meta-item"><i class="fas fa-tags"></i><span>标签：${escapeHtml(tagsLabel)}</span></div>
+                                </div>
+                                <div class="document-actions document-actions-top">${actionButtons}</div>
+                            </div>
+                            ${sectionsHtml}
+                            ${originalFileHtml}
+                        </div>
+                    `;
+                }
+
+                document.getElementById('documentDetail').innerHTML = html;
+                if (isKnowledge) initializeManualReader();
+            } catch (error) {
+                console.error('加载文档详情失败:', error);
+                showError('加载文档详情失败: ' + (error.message || '未知错误'));
+            }
+        }
+
+        async function downloadFile(url, filename) {
+            try {
+                const response = await fetch(url, {
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.warn('下载失败，尝试直接打开', error);
+                window.open(url, '_blank');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            Utils.checkLogin();
+            await loadDocumentDetail();
+        });
+
+        document.getElementById('deleteModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeDeleteModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeDeleteModal();
+        });
+    </script>
+</body>
+</html>

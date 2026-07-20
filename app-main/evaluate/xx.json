@@ -1,0 +1,59 @@
+[{
+    "id": "db-breakdown-ad4ee1c3533c",
+    "source_key": "db-breakdown-7b72f1e1ebf8",
+    "question": "当存储容量超过80%时，会导致什么后果",
+    "ground_truth": "性能下降，IO wait变大",
+    "source_title": "T7-BIT入仓问题",
+    "source_file": "upload/source_documents/word/T7-BIT入仓问题.docx",
+    "source_doc_id": 66,
+    "source_library_type": "breakdown"
+  },{
+    "id": "db-breakdown-67da8194b921",
+    "source_key": "db-breakdown-e008add6aea9",
+    "question": "在二链调gain配置中，临时方案要求将调gain cycle修改为哪个值？",
+    "ground_truth": "[1,2]",
+    "source_title": "原图信号高导致basecall无法分辨DNB点",
+    "source_file": "upload/source_documents/word/T7-过曝问题.docx",
+    "source_doc_id": 70,
+    "source_library_type": "breakdown"
+  },{
+    "id": "db-breakdown-01dbe9158072",
+    "source_key": "db-breakdown-253520048452",
+    "question": "Z轴跟随性能的判断标准是什么？",
+    "ground_truth": "DIV波动是否在±1.5以内",
+    "source_title": "拍照的流程",
+    "source_file": "upload/source_documents/pdf/拍照的流程.pdf",
+    "source_doc_id": 79,
+    "source_library_type": "breakdown"
+  },
+  {
+    "id": "db-breakdown-b0cb4b8512d1",
+    "source_key": "db-breakdown-7a2290381a52",
+    "question": "在T7磁盘性能确认中，D盘写入速度的最低要求是多少？",
+    "ground_truth": "≥80MB/S",
+    "source_title": "T7-磁盘性能确认",
+    "source_file": "upload/source_documents/pdf/T7-磁盘性能确认.pdf",
+    "source_doc_id": 82,
+    "source_library_type": "breakdown"
+  },{
+    "id": "db-breakdown-9763d12cb4d4",
+    "source_key": "db-breakdown-9648e66d2160",
+    "question": "T7生化chuck高度差的理论设计值是多少？",
+    "ground_truth": "0.3mm",
+    "source_title": "T7-生化chuck高度差变化",
+    "source_file": "upload/source_documents/pdf/T7-生化chuck高度差变化.pdf",
+    "source_doc_id": 85,
+    "source_library_type": "breakdown"
+  },{
+    "id": "db-breakdown-57c7c08a06cb",
+    "source_key": "db-breakdown-2d457178c302",
+    "question": "T7芯片在去胶后出现非特异性吸附（NSB）时，缩略图标志区的荧光亮点特征是什么？",
+    "ground_truth": "标志区存在显著荧光亮点",
+    "source_title": "T7芯片NSB（Non-Specific Binding，非特异性吸附）",
+    "source_file": "upload/source_documents/pdf/T7芯片NSB（Non-Specific Binding，非特异性吸附）.pdf",
+    "source_doc_id": 89,
+    "source_library_type": "breakdown"
+  },
+
+
+]

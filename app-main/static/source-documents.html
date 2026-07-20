@@ -1,0 +1,678 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>源文档库 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .source-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.38);
+            z-index: 2000;
+        }
+        .source-modal-content {
+            width: min(520px, calc(100vw - 32px));
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+            padding: 22px;
+        }
+        .source-modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #14375f;
+            margin-bottom: 18px;
+        }
+        .source-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .source-form-row {
+            margin-bottom: 14px;
+        }
+        .source-form-row label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        .source-form-row .hint {
+            color: #6b7280;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <a href="user-profile.html" class="nav-item active" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <div class="page-title">源文档库</div>
+                    <div class="page-subtitle">上传文件与解析前文档管理</div>
+                </div>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名或失败原因...">
+                    </div>
+                    <label class="view-toggle" title="切换为文件列表样式">
+                        <input type="checkbox" id="sourceListViewToggle" onchange="toggleSourceView(this.checked)">
+                        <span>列式展示</span>
+                    </label>
+                    <select class="page-size-select" id="categorySelect" onchange="reloadSourceDocuments()">
+                        <option value="">全部类型</option>
+                        <option value="pdf">PDF</option>
+                        <option value="word">Word</option>
+                        <option value="presentation">PPT</option>
+                        <option value="html">HTML</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="text">文本</option>
+                        <option value="spreadsheet">表格</option>
+                        <option value="image">图片</option>
+                    </select>
+                    <select class="page-size-select" id="statusSelect" onchange="reloadSourceDocuments()">
+                        <option value="">全部状态</option>
+                        <option value="uploaded">已上传</option>
+                        <option value="parsing">解析中</option>
+                        <option value="vectorized">已入库</option>
+                        <option value="review_pending">待审核</option>
+                        <option value="parse_failed">解析失败</option>
+                    </select>
+                    <a href="import-documents.html" class="btn btn-secondary" id="sourceImportBtn">
+                        <i class="fas fa-upload"></i> 导入
+                    </a>
+                </div>
+            </div>
+
+            <div class="document-container">
+                <div class="document-grid" id="sourceDocumentList"></div>
+
+                <div class="pagination" id="sourcePagination" style="margin-top: 40px;">
+                    <button class="pagination-btn" onclick="changeSourcePage(sourceCurrentPage - 1)" id="sourcePrevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> 上一页
+                    </button>
+                    <div class="page-numbers" id="sourcePageNumbers"></div>
+                    <button class="pagination-btn" onclick="changeSourcePage(sourceCurrentPage + 1)" id="sourceNextBtn">
+                        下一页 <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div class="page-info">
+                        <span id="sourcePageInfo">第 1 页，共 1 页</span>
+                        <select class="page-size-select" id="sourcePageSizeSelect" onchange="changeSourcePageSize()">
+                            <option value="9">每页 9 条</option>
+                            <option value="12" selected>每页 12 条</option>
+                            <option value="18">每页 18 条</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sourceCurrentPage = 1;
+        let sourcePageSize = 12;
+        let sourceTotalPages = 1;
+        let sourceKeyword = '';
+        let sourceViewMode = 'card';
+        const SOURCE_LIST_PAGE_SIZE = 50;
+        let sourceListCurrentPage = 1;
+        let sourceListTotalPages = 1;
+        let sourceListTotalCount = 0;
+        let sourceListLoadingMore = false;
+        let sourceListItems = [];
+
+        const statusText = {
+            uploaded: '已上传',
+            parsing: '解析中',
+            vectorized: '已入库',
+            review_pending: '待审核',
+            parse_failed: '解析失败',
+            deleted: '已删除'
+        };
+
+        const categoryText = {
+            pdf: 'PDF',
+            word: 'Word',
+            presentation: 'PPT',
+            html: 'HTML',
+            markdown: 'Markdown',
+            text: '文本',
+            spreadsheet: '表格',
+            image: '图片'
+        };
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            Utils.checkLogin();
+            Utils.loadUserInfo();
+            applySourceRoleActions();
+            restoreSourceViewMode();
+            showSourceLoading();
+            await loadSourceDocuments();
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                const debouncedSearch = Utils.debounce(() => {
+                    sourceKeyword = searchInput.value.trim();
+                    sourceCurrentPage = 1;
+                    resetSourceListState();
+                    loadSourceDocuments();
+                }, 300);
+                searchInput.addEventListener('input', debouncedSearch);
+            }
+        });
+
+        function restoreSourceViewMode() {
+            const savedViewMode = localStorage.getItem('sourceDocumentViewMode');
+            sourceViewMode = savedViewMode === 'list' ? 'list' : 'card';
+            const toggle = document.getElementById('sourceListViewToggle');
+            if (toggle) {
+                toggle.checked = sourceViewMode === 'list';
+            }
+        }
+
+        function toggleSourceView(useListView) {
+            sourceViewMode = useListView ? 'list' : 'card';
+            localStorage.setItem('sourceDocumentViewMode', sourceViewMode);
+            sourceCurrentPage = 1;
+            resetSourceListState();
+            loadSourceDocuments();
+        }
+
+        function resetSourceListState() {
+            sourceListCurrentPage = 1;
+            sourceListTotalPages = 1;
+            sourceListTotalCount = 0;
+            sourceListLoadingMore = false;
+            sourceListItems = [];
+        }
+
+        function applySourceRoleActions() {
+            const user = Utils.getCurrentUser();
+            const importBtn = document.getElementById('sourceImportBtn');
+            if (!importBtn || !user) return;
+            const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
+            const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+            if (isTechnician && !isAdmin) {
+                importBtn.href = 'import-documents.html?mode=review';
+                importBtn.innerHTML = '<i class="fas fa-upload"></i> 提交导入';
+            }
+            if (!isAdmin && !isTechnician) {
+                importBtn.style.display = 'none';
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '未知时间';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        }
+
+        function safeClassToken(value) {
+            return String(value || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+
+        function canPreviewSourceFiles() {
+            return Utils.canPreviewSourceFiles(Utils.getCurrentUser());
+        }
+
+        function getFilters() {
+            return {
+                keyword: sourceKeyword,
+                category: document.getElementById('categorySelect').value,
+                status: document.getElementById('statusSelect').value
+            };
+        }
+
+        function showSourceLoading() {
+            document.getElementById('sourceDocumentList').innerHTML = `
+                <div class="document-loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载源文档...</p>
+                </div>
+            `;
+        }
+
+        async function loadSourceDocuments() {
+            if (sourceViewMode === 'list') {
+                await loadSourceListDocuments(false);
+                return;
+            }
+
+            try {
+                const data = await sourceDocumentAPI.getSourceDocumentsPage(sourceCurrentPage, sourcePageSize, getFilters());
+                sourceTotalPages = data.total_pages || 1;
+                displaySourceDocuments(data.source_documents || [], data.total_count || 0);
+            } catch (error) {
+                document.getElementById('sourceDocumentList').innerHTML = `
+                    <div class="document-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                        <p style="color: #666; margin-bottom: 20px;">加载源文档失败：${escapeHtml(error.message)}</p>
+                        <button class="btn btn-primary" onclick="location.reload()">
+                            <i class="fas fa-redo"></i> 重新加载
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadSourceListDocuments(loadMore) {
+            if (sourceListLoadingMore) return;
+            if (loadMore && sourceListCurrentPage >= sourceListTotalPages) return;
+
+            if (!loadMore) {
+                resetSourceListState();
+                showSourceLoading();
+            }
+            sourceListLoadingMore = true;
+            updateSourceListLoadingState();
+
+            try {
+                const nextPage = loadMore ? sourceListCurrentPage + 1 : 1;
+                const data = await sourceDocumentAPI.getSourceDocumentsPage(nextPage, SOURCE_LIST_PAGE_SIZE, getFilters());
+                const pageItems = Array.isArray(data.source_documents) ? data.source_documents : [];
+
+                sourceListCurrentPage = nextPage;
+                sourceListTotalPages = data.total_pages || 1;
+                sourceListTotalCount = data.total_count || pageItems.length;
+                sourceListItems = loadMore ? sourceListItems.concat(pageItems) : pageItems;
+                sourceTotalPages = sourceListTotalPages;
+
+                if (loadMore) {
+                    appendSourceListRows(pageItems);
+                } else {
+                    displaySourceDocuments(sourceListItems, sourceListTotalCount);
+                }
+            } catch (error) {
+                console.error('加载源文档列式列表失败:', error);
+                if (!loadMore) {
+                    document.getElementById('sourceDocumentList').innerHTML = `
+                        <div class="document-error">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 20px;"></i>
+                            <p style="color: #666; margin-bottom: 20px;">加载源文档失败：${escapeHtml(error.message)}</p>
+                            <button class="btn btn-primary" onclick="location.reload()">
+                                <i class="fas fa-redo"></i> 重新加载
+                            </button>
+                        </div>
+                    `;
+                    renderSourcePagination(0);
+                } else {
+                    Utils.showMessage('加载更多源文档失败，请稍后重试', 'error');
+                }
+            } finally {
+                sourceListLoadingMore = false;
+                updateSourceListLoadingState();
+            }
+        }
+
+        function displaySourceDocuments(items, totalCount) {
+            const container = document.getElementById('sourceDocumentList');
+            if (sourceViewMode === 'list') {
+                container.innerHTML = renderSourceDocumentList(items, totalCount);
+                attachSourceListScrollHandler();
+                renderSourcePagination(totalCount);
+                return;
+            }
+
+            if (!items.length) {
+                container.innerHTML = `
+                    <div class="document-empty">
+                        <i class="fas fa-folder-open" style="font-size: 56px; color: #e8e8e8; margin-bottom: 20px;"></i>
+                        <p style="color: #666;">暂无源文档</p>
+                        <a href="import-documents.html" class="btn btn-primary" style="margin-top: 15px;">
+                            <i class="fas fa-upload"></i> 导入源文档
+                        </a>
+                    </div>
+                `;
+                renderSourcePagination(totalCount);
+                return;
+            }
+
+            container.innerHTML = items.map(renderSourceCard).join('');
+            renderSourcePagination(totalCount);
+        }
+
+        function renderSourceCard(item) {
+            const status = statusText[item.status] || item.status || '未知';
+            const category = categoryText[item.file_category] || item.file_category || '其他';
+            const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
+            const detail = item.parse_error || '';
+            const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
+            const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成知识文档');
+            const deleteDisabled = item.document_id || item.review_id;
+            const deleteAction = deleteDisabled
+                ? `<button class="btn btn-secondary btn-sm" disabled title="已解析或存在审核记录，请先在知识库/审核中处理">
+                        <i class="fas fa-lock"></i> 不可删除
+                    </button>`
+                : `<button class="btn btn-secondary btn-sm" onclick="deleteSourceDocument(event, ${item.id})">
+                        <i class="fas fa-trash"></i> 删除
+                    </button>`;
+            const canAnalyze = item.status === 'uploaded' || item.status === 'parse_failed';
+            const analyzeLabel = item.status === 'parse_failed' ? '重新解析' : '解析文档';
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览" style="cursor: pointer;"`
+                : 'title="仅审核人员和管理员可预览源文件"';
+            return `
+                <div class="document-item" ${previewAttrs}>
+                    <div class="document-item-header">
+                        <div class="document-item-title">${escapeHtml(item.origin_file_name)}</div>
+                    </div>
+                    ${detail ? `<div class="document-item-content">
+                        ${escapeHtml(detail.length > 100 ? detail.substring(0, 100) + '...' : detail)}
+                    </div>` : ''}
+                    <div class="document-item-footer">
+                        <div class="document-item-author">
+                            <i class="fas fa-file"></i>
+                            <span>${escapeHtml(category)} · ${escapeHtml(status)} · ${escapeHtml(size)}</span>
+                        </div>
+                        <div class="document-item-date">${formatDateTime(item.upload_time)}</div>
+                    </div>
+                    <div class="document-item-footer" style="margin-top: 10px;">
+                        <div class="document-item-author">
+                            <i class="fas fa-user"></i>
+                            <span>${escapeHtml(item.uploader_name || '未知用户')}</span>
+                        </div>
+                        ${canAnalyze ? `<button class="btn btn-primary btn-sm" onclick='analyzeSourceDocument(event, ${JSON.stringify(item.stored_file_path || '')}, ${JSON.stringify(item.origin_file_name || '')})'>
+                            <i class="fas fa-play"></i> ${analyzeLabel}
+                        </button>` : ''}
+                        ${deleteAction}
+                    </div>
+                    <div style="margin-top: 8px; color: #9ca3af; font-size: 12px;">${escapeHtml(linked)}</div>
+                </div>
+            `;
+        }
+
+        function getSourceListStatusText(totalCount, visibleCount) {
+            if (totalCount === 0) return '没有符合条件的源文档';
+            if (sourceListLoadingMore) return '正在加载...';
+            if (visibleCount >= totalCount || sourceListCurrentPage >= sourceListTotalPages) return '已显示全部';
+            return '';
+        }
+
+        function renderSourceListActions(item) {
+            const canAnalyze = item.status === 'uploaded' || item.status === 'parse_failed';
+            const analyzeLabel = item.status === 'parse_failed' ? '重新解析' : '解析';
+            const deleteDisabled = item.document_id || item.review_id;
+            const analyzeButton = canAnalyze
+                ? `<button class="btn btn-primary btn-sm" onclick='analyzeSourceDocument(event, ${JSON.stringify(item.stored_file_path || '')}, ${JSON.stringify(item.origin_file_name || '')})'>
+                        <i class="fas fa-play"></i> ${analyzeLabel}
+                   </button>`
+                : '';
+            const deleteButton = deleteDisabled
+                ? `<button class="btn btn-secondary btn-sm" disabled title="已解析或存在审核记录，请先在知识库/审核中处理">
+                        <i class="fas fa-lock"></i> 不可删除
+                   </button>`
+                : `<button class="btn btn-secondary btn-sm" onclick="deleteSourceDocument(event, ${item.id})">
+                        <i class="fas fa-trash"></i> 删除
+                   </button>`;
+            return `<div class="source-list-actions">${analyzeButton}${deleteButton}</div>`;
+        }
+
+        function renderSourceDocumentList(items, totalCount) {
+            const visibleCount = Array.isArray(items) ? items.length : 0;
+            return `
+                <div class="source-list-table" role="table" aria-label="源文档列式列表">
+                    <div class="source-list-meta">
+                        <span>共 ${totalCount} 篇源文档</span>
+                    </div>
+                    <div class="source-list-head" role="row">
+                        <div>文件名</div>
+                        <div>类型</div>
+                        <div>状态</div>
+                        <div>大小</div>
+                        <div>上传人</div>
+                        <div>日期</div>
+                        <div>关联</div>
+                        <div>操作</div>
+                    </div>
+                    <div class="source-list-body">
+                        ${visibleCount === 0 ? `
+                            <div class="document-list-empty">
+                                <i class="fas fa-filter"></i>
+                                <span>没有符合条件的源文档</span>
+                            </div>
+                        ` : items.map(item => renderSourceListRow(item)).join('')}
+                        <div class="document-list-loading" id="sourceListLoading">
+                            ${getSourceListStatusText(totalCount, visibleCount)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSourceListRow(item) {
+            const status = statusText[item.status] || item.status || '未知';
+            const category = categoryText[item.file_category] || item.file_category || '其他';
+            const size = Utils.formatFileSize ? Utils.formatFileSize(item.file_size || 0) : `${item.file_size || 0} B`;
+            const detail = item.parse_error || '';
+            const libraryText = item.document_library_type === 'knowledge' ? '知识库' : '故障库';
+            const linked = item.document_id ? `关联${libraryText}文档 #${item.document_id}` : (item.review_id ? `关联审核 #${item.review_id}` : '未生成');
+            const statusClass = `source-status-${safeClassToken(item.status)}`;
+            const canPreview = canPreviewSourceFiles();
+            const previewAttrs = canPreview
+                ? `ondblclick='openSourceDocument(${JSON.stringify(item.stored_file_path || '')})' title="双击预览"`
+                : 'title="仅审核人员和管理员可预览源文件"';
+            return `
+                <div class="source-list-row" ${previewAttrs}>
+                    <div class="source-list-name">
+                        <i class="fas fa-file"></i>
+                        <div class="source-list-name-text">
+                            <div class="source-list-title">${escapeHtml(item.origin_file_name || '未命名源文档')}</div>
+                            ${detail ? `<div class="source-list-path">${escapeHtml(detail)}</div>` : ''}
+                        </div>
+                    </div>
+                    <div>${escapeHtml(category)}</div>
+                    <div><span class="source-status-badge ${statusClass}">${escapeHtml(status)}</span></div>
+                    <div>${escapeHtml(size)}</div>
+                    <div>${escapeHtml(item.uploader_name || '未知用户')}</div>
+                    <div class="source-list-date">${formatDateTime(item.upload_time)}</div>
+                    <div class="source-list-linked">${escapeHtml(linked)}</div>
+                    <div>${renderSourceListActions(item)}</div>
+                </div>
+            `;
+        }
+
+        function attachSourceListScrollHandler() {
+            if (sourceViewMode !== 'list') return;
+            const body = document.querySelector('.source-list-body');
+            if (!body) return;
+            body.addEventListener('scroll', handleSourceListScroll, { passive: true });
+        }
+
+        function handleSourceListScroll(event) {
+            if (sourceViewMode !== 'list' || sourceListLoadingMore) return;
+            if (sourceListCurrentPage >= sourceListTotalPages) return;
+            const el = event.currentTarget;
+            const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceToBottom < 120) {
+                loadSourceListDocuments(true);
+            }
+        }
+
+        function appendSourceListRows(items) {
+            const body = document.querySelector('.source-list-body');
+            const loadingEl = document.getElementById('sourceListLoading');
+            if (!body || !items.length) {
+                updateSourceListLoadingState();
+                return;
+            }
+            const html = items.map(item => renderSourceListRow(item)).join('');
+            if (loadingEl) {
+                loadingEl.insertAdjacentHTML('beforebegin', html);
+            } else {
+                body.insertAdjacentHTML('beforeend', html);
+            }
+            updateSourceListLoadingState();
+        }
+
+        function updateSourceListLoadingState() {
+            if (sourceViewMode !== 'list') return;
+            const loadingEl = document.getElementById('sourceListLoading');
+            if (!loadingEl) return;
+            loadingEl.textContent = getSourceListStatusText(sourceListTotalCount, sourceListItems.length);
+        }
+
+        function renderSourcePagination(totalCount) {
+            const pagination = document.getElementById('sourcePagination');
+            const pageNumbers = document.getElementById('sourcePageNumbers');
+            const prevBtn = document.getElementById('sourcePrevBtn');
+            const nextBtn = document.getElementById('sourceNextBtn');
+            const pageInfo = document.getElementById('sourcePageInfo');
+
+            pagination.style.display = totalCount && sourceViewMode !== 'list' ? 'flex' : 'none';
+            prevBtn.disabled = sourceCurrentPage <= 1;
+            nextBtn.disabled = sourceCurrentPage >= sourceTotalPages;
+            pageInfo.textContent = `第 ${sourceCurrentPage} 页，共 ${sourceTotalPages} 页 (共 ${totalCount} 条记录)`;
+
+            let html = '';
+            for (let i = 1; i <= sourceTotalPages; i++) {
+                if (i === 1 || i === sourceTotalPages || Math.abs(i - sourceCurrentPage) <= 1) {
+                    html += `<button class="page-number ${sourceCurrentPage === i ? 'active' : ''}" onclick="changeSourcePage(${i})">${i}</button>`;
+                } else if (!html.endsWith('...</span>')) {
+                    html += `<span class="page-dots">...</span>`;
+                }
+            }
+            pageNumbers.innerHTML = html;
+        }
+
+        async function reloadSourceDocuments() {
+            sourceCurrentPage = 1;
+            resetSourceListState();
+            showSourceLoading();
+            await loadSourceDocuments();
+        }
+
+        async function changeSourcePage(page) {
+            if (page < 1 || page > sourceTotalPages) return;
+            sourceCurrentPage = page;
+            showSourceLoading();
+            await loadSourceDocuments();
+            document.querySelector('.document-grid').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function changeSourcePageSize() {
+            sourcePageSize = parseInt(document.getElementById('sourcePageSizeSelect').value, 10);
+            sourceCurrentPage = 1;
+            resetSourceListState();
+            await loadSourceDocuments();
+        }
+
+        window.toggleSourceView = toggleSourceView;
+
+        function openSourceDocument(storedFilePath) {
+            if (!canPreviewSourceFiles()) {
+                Utils.showMessage('仅审核人员和管理员可预览源文件', 'warning');
+                return;
+            }
+            if (!storedFilePath) {
+                Utils.showMessage('源文档路径不存在', 'error');
+                return;
+            }
+            const normalizedPath = storedFilePath.replace(/\\/g, '/').replace(/^\/+/, '');
+            const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+            const fileUrl = baseUrl ? `${baseUrl}/${normalizedPath}` : `/${normalizedPath}`;
+            window.open(encodeURI(fileUrl), '_blank');
+        }
+
+        async function analyzeSourceDocument(event, storedFilePath, originFileName) {
+            event.stopPropagation();
+            if (!storedFilePath || !originFileName) {
+                Utils.showMessage('源文档信息不完整，无法解析', 'error');
+                return;
+            }
+            const currentUser = Utils.getCurrentUser();
+            const isAdmin = Utils.hasRole(currentUser, Utils.ROLE.ADMIN);
+            const isTechnician = Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
+            if (!isAdmin && !isTechnician) {
+                Utils.showMessage('当前角色无权解析源文档', 'error');
+                return;
+            }
+            const targetUrl = isAdmin
+                ? 'import-documents.html?source_mode=pending'
+                : 'import-documents.html?source_mode=pending&mode=review';
+            window.location.href = targetUrl;
+        }
+
+        async function deleteSourceDocument(event, id) {
+            event.stopPropagation();
+            if (!confirm('确定删除这个源文档吗？')) return;
+            try {
+                await sourceDocumentAPI.deleteSourceDocument(id);
+                Utils.showMessage('源文档已删除', 'success');
+                await loadSourceDocuments();
+            } catch (error) {
+                Utils.showMessage(error.message || '删除源文档失败', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

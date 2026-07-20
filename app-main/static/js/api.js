@@ -1,0 +1,1709 @@
+﻿class APIClient {
+    constructor() {
+        this.baseUrl = API_CONFIG.BASE_URL;
+        this.headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+        this.isRefreshing = false; // 新增：标记是否正在刷新token
+        this.retryQueue = []; // 新增：存储待重试的请求
+    }
+
+    _formatErrorDetail(detail) {
+        if (detail === null || detail === undefined) return '';
+        if (typeof detail === 'string') return detail;
+
+        if (Array.isArray(detail)) {
+            const parts = detail
+                .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+                .filter(Boolean);
+            return parts.join('；');
+        }
+
+        if (typeof detail === 'object') {
+            // 后端解析错误详情常见结构：{ files: [{ file_name, detail, ... }] }
+            if (Array.isArray(detail.files) && detail.files.length > 0) {
+                const fileReasons = detail.files.map((f) => {
+                    const fileName = f.file_name || f.file_path || '文件';
+                    const reason = f.detail || f.message || '解析失败';
+                    return `${fileName}: ${reason}`;
+                });
+                return fileReasons.join('；');
+            }
+
+            if (typeof detail.message === 'string' && detail.message.trim()) {
+                return detail.message.trim();
+            }
+
+            try {
+                return JSON.stringify(detail);
+            } catch (_) {
+                return String(detail);
+            }
+        }
+
+        return String(detail);
+    }
+
+    _extractErrorMessage(errorData) {
+        if (!errorData || typeof errorData !== 'object') return '';
+        const detailMessage = this._formatErrorDetail(errorData.detail);
+        if (detailMessage) return detailMessage;
+        if (typeof errorData.msg === 'string' && errorData.msg.trim()) return errorData.msg.trim();
+        if (typeof errorData.message === 'string' && errorData.message.trim()) return errorData.message.trim();
+        return '';
+    }
+
+    // 获取认证头
+    getAuthHeaders() {
+        // 改为从 localStorage 获取
+        const token = localStorage.getItem('token');
+        const headers = { ...this.headers };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        return headers;
+    }
+
+    async refreshToken() {
+        // 防止重复刷新
+        if (this.isRefreshing) {
+            console.log('Token刷新正在进行中，等待...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return localStorage.getItem('token');
+        }
+
+        this.isRefreshing = true;
+
+        try {
+            // 改为从 localStorage 获取
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (!refreshToken) {
+                throw new Error('No refresh token available');
+            }
+
+            console.log('尝试刷新token...');
+
+            const url = `${this.baseUrl}/auth/refresh`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refresh_token: refreshToken
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `刷新失败: HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.code === 1) {
+                const newAccessToken = result.data.access_token;
+                // 改为存储到 localStorage
+                localStorage.setItem('token', newAccessToken);
+                console.log('Token刷新成功并保存到 localStorage');
+
+                // 处理等待队列中的请求
+                while (this.retryQueue.length > 0) {
+                    const retry = this.retryQueue.shift();
+                    if (retry && typeof retry === 'function') {
+                        retry(newAccessToken);
+                    }
+                }
+
+                return newAccessToken;
+            } else {
+                throw new Error(result.msg || '刷新token失败');
+            }
+        } catch (error) {
+            console.error('刷新token失败:', error);
+            // 清除所有存储的token，跳转到登录页
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+            throw error;
+        } finally {
+            this.isRefreshing = false;
+        }
+    }
+
+    // POST请求方法 - 完全移除 credentials
+    async post(endpoint, data, useAuth = true) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const options = {
+                method: 'POST',
+                headers: useAuth ? this.getAuthHeaders() : this.headers,
+                body: JSON.stringify(data)
+                // 注意：移除了 credentials: 'include' 和 mode: 'cors'
+            };
+
+            console.log(`发送 POST 请求到: ${url}`, data);
+
+            const response = await fetch(url, options);
+            console.log('响应状态:', response.status);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            console.log('响应数据:', responseData);
+            return responseData;
+        } catch (error) {
+            console.error('POST请求失败:', error);
+            throw error;
+        }
+    }
+
+    // PATCH 请求方法 - 完全移除 credentials
+    async patch(endpoint, data, useAuth = true) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const options = {
+                method: 'PATCH',
+                headers: useAuth ? this.getAuthHeaders() : this.headers,
+                body: JSON.stringify(data)
+            };
+
+            console.log(`发送 PATCH 请求到: ${url}`, data);
+
+            const response = await fetch(url, options);
+            console.log('响应状态:', response.status);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            console.log('响应数据:', responseData);
+            return responseData;
+        } catch (error) {
+            console.error('PATCH请求失败:', error);
+            throw error;
+        }
+    }
+
+    // GET请求方法 - 完全移除 credentials
+    async get(endpoint, useAuth = true) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const options = {
+                method: 'GET',
+                headers: useAuth ? this.getAuthHeaders() : this.headers
+            };
+
+            console.log(`发送 GET 请求到: ${url}`);
+
+            const response = await fetch(url, options);
+            console.log('响应状态:', response.status);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            console.log('响应数据:', responseData);
+            return responseData;
+        } catch (error) {
+            console.error('GET请求失败:', error);
+            throw error;
+        }
+    }
+
+    // PUT请求方法 - 完全移除 credentials
+    async put(endpoint, data, useAuth = true) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const options = {
+                method: 'PUT',
+                headers: useAuth ? this.getAuthHeaders() : this.headers,
+                body: JSON.stringify(data)
+            };
+
+            const response = await fetch(url, options);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('PUT请求失败:', error);
+            throw error;
+        }
+    }
+
+    // DELETE请求方法 - 完全移除 credentials
+    async delete(endpoint, data = null, useAuth = true) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const options = {
+                method: 'DELETE',
+                headers: useAuth ? this.getAuthHeaders() : this.headers
+            };
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(url, options);
+
+            if (response.status === 401 && useAuth) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('DELETE请求失败:', error);
+            throw error;
+        }
+    }
+
+    // 上传多张图片
+    async uploadImages(endpoint, files) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const formData = new FormData();
+
+            files.forEach((file, index) => {
+                formData.append('images', file);
+            });
+
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token') || ''}`
+                },
+                body: formData
+            };
+
+            const response = await fetch(url, options);
+
+            if (response.status === 401 && (localStorage.getItem('token') || sessionStorage.getItem('token'))) {
+                console.log('Token可能已过期，尝试刷新...');
+
+                try {
+                    const newToken = await this.refreshToken();
+
+                    // 使用新token重试请求
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    const retryResponse = await fetch(url, options);
+
+                    if (!retryResponse.ok) {
+                        const errorData = await retryResponse.json().catch(() => ({}));
+                        throw new Error(this._extractErrorMessage(errorData) || `HTTP ${retryResponse.status}`);
+                    }
+
+                    const responseData = await retryResponse.json();
+                    console.log('重试成功，响应数据:', responseData);
+                    return responseData;
+                } catch (refreshError) {
+                    console.error('刷新token并重试失败:', refreshError);
+                    throw refreshError;
+                }
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('上传图片失败:', error);
+            throw error;
+        }
+    }
+
+    // 上传文件（支持多文件，字段名 files）
+    async uploadFiles(endpoint, files) {
+        try {
+            const url = `${this.baseUrl}${endpoint}`;
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file, file.name);
+            });
+
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            };
+
+            const response = await fetch(url, options);
+            // 处理 401 刷新 token（与 uploadImages 相同逻辑，可复用或抽取公共方法）
+            if (response.status === 401) {
+                const newToken = await this.refreshToken();
+                options.headers['Authorization'] = `Bearer ${newToken}`;
+                const retryResponse = await fetch(url, options);
+                return this._handleResponse(retryResponse);
+            }
+            return this._handleResponse(response);
+        } catch (error) {
+            console.error('上传文件失败:', error);
+            throw error;
+        }
+    }
+
+    // 辅助方法：统一处理响应
+    async _handleResponse(response) {
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(this._extractErrorMessage(errorData) || `HTTP ${response.status}`);
+        }
+        return response.json();
+    }
+}
+
+
+const documentAPI = {
+    client: new APIClient(),
+
+    // 分页获取文档
+    async getDocumentsPage(page = 1, size = 9, libraryType = 'all', tags = []) {
+        try {
+            console.log(`POST请求获取第 ${page} 页文档，每页 ${size} 条`);
+
+            const requestData = {
+                page: page,
+                size: size,
+                // 列表页需要同时展示故障库和知识库，所以明确让后端跨库查询。
+                library_type: libraryType || 'all',
+                tag: Array.isArray(tags) ? tags : []
+            };
+
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/page`,
+                requestData,
+                true
+            );
+
+            console.log('分页响应:', response);
+
+            if (response.code === 1) {
+                return response.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    documents: []
+                };
+            } else {
+                console.error('获取分页文档失败:', response.msg);
+                return {
+                    total_count: 0,
+                    total_pages: 0,
+                    documents: []
+                };
+            }
+        } catch (error) {
+            console.error('获取分页文档失败:', error);
+            return {
+                total_count: 0,
+                total_pages: 0,
+                documents: []
+            };
+        }
+    },
+
+     /**
+     * 批量删除文档
+     * @param {Array} documents - 格式: [{id: 1, library_type: 'breakdown'}, ...]
+     */
+    async batchDeleteDocuments(documents) {
+        try {
+            // 使用封装好的 client.post，第三个参数 true 表示需要认证（自动带 Token）
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/deletes`, 
+                { documents: documents }, 
+                true 
+            );
+
+            if (response.code === 1) {
+                return response.data; // 返回后端传来的 deleted_count 等信息
+            } else {
+                throw new Error(response.msg || '批量删除失败');
+            }
+        } catch (error) {
+            console.error('批量删除文档失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取所有文档
+    async getAllDocuments() {
+        try {
+            const response = await this.client.get(
+                API_CONFIG.ENDPOINTS.DOCUMENTS,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                console.error('获取文档失败:', response.msg);
+                return [];
+            }
+        } catch (error) {
+            console.error('获取文档列表失败:', error);
+            return [];
+        }
+    },
+
+    // 根据ID获取文档
+    async getDocumentById(id, libraryType = 'breakdown') {
+        try {
+            // 两张文档表可能出现相同 id，详情查询必须带库类型才能查到正确表。
+            const query = libraryType ? `?library_type=${encodeURIComponent(libraryType)}` : '';
+            const response = await this.client.get(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/get_by_id/${id}${query}`,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                console.error('获取文档详情失败:', response.msg);
+                return null;
+            }
+        } catch (error) {
+            console.error('获取文档详情失败:', error);
+            return null;
+        }
+    },
+
+    // 添加文档
+    async addDocument(documentData) {
+        try {
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/add`,
+                documentData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '添加文档失败');
+            }
+        } catch (error) {
+            console.error('添加文档失败:', error);
+            throw error;
+        }
+    },
+
+    // 上传图片
+    async uploadImages(images) {
+        try {
+            const response = await this.client.uploadImages(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/upload_images`,
+                images
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '上传图片失败');
+            }
+        } catch (error) {
+            console.error('上传图片失败:', error);
+            throw error;
+        }
+    },
+
+    // 更新文档
+    async updateDocument(id, documentData, libraryType = 'breakdown') {
+        try {
+            // 更新接口原本默认故障库，传入库类型后知识库文档保存时不会误写到故障库。
+            const query = libraryType ? `&library_type=${encodeURIComponent(libraryType)}` : '';
+            const response = await this.client.put(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/update?id=${id}${query}`,
+                documentData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '更新文档失败');
+            }
+        } catch (error) {
+            console.error('更新文档失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除文档
+    async deleteDocument(id, libraryType = 'breakdown') {
+        try {
+            // 删除接口同样需要库类型，避免同 id 文档跨库误删。
+            const query = libraryType ? `?library_type=${encodeURIComponent(libraryType)}` : '';
+            const response = await this.client.delete(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/dele/${id}${query}`,
+                null,
+                true
+            );
+
+            if (response.code === 1) {
+                return true;
+            } else {
+                throw new Error(response.msg || '删除文档失败');
+            }
+        } catch (error) {
+            console.error('删除文档失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除图片
+    async deleteImage(imageUrl) {
+        try {
+            console.log('调用删除图片API，URL:', imageUrl);
+
+            const response = await this.client.delete(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/delete_image`,
+                { image_url: imageUrl },
+                true
+            );
+
+            console.log('删除图片响应:', response);
+
+            if (response.code === 1) {
+                return true;
+            } else {
+                throw new Error(response.msg || '删除图片失败');
+            }
+        } catch (error) {
+            console.error('删除图片失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索文档（分页）
+    async searchDocumentsPage(query, page = 1, size = 9, libraryType = 'all', tags = []) {
+        try {
+            console.log(`搜索文档: "${query}", 第 ${page} 页，每页 ${size} 条`);
+
+            const requestData = {
+                data: query,
+                page: page,
+                size: size,
+                // 搜索页也需要同时搜索故障库和知识库，否则知识库新增文档搜不到。
+                library_type: libraryType || 'all',
+                tag: Array.isArray(tags) ? tags : []
+            };
+
+            console.log('搜索文档请求数据:', requestData);
+
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/query`,
+                requestData,
+                true
+            );
+
+            console.log('搜索文档响应:', response);
+
+            if (response.code === 1) {
+                const data = response.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    users: []
+                };
+
+                const documents = data.users || data.documents || [];
+
+                return {
+                    total_count: data.total_count || 0,
+                    total_pages: data.total_pages || 0,
+                    documents: documents
+                };
+            } else {
+                console.error('搜索文档失败:', response.msg);
+                return {
+                    total_count: 0,
+                    total_pages: 0,
+                    documents: []
+                };
+            }
+        } catch (error) {
+            console.error('搜索文档失败:', error);
+            return {
+                total_count: 0,
+                total_pages: 0,
+                documents: []
+            };
+        }
+    },
+
+    // 检查文档编辑权限
+    async checkEditPermission(id) {
+        try {
+            const doc = await this.getDocumentById(id);
+            const currentUser = Utils.getCurrentUser();
+
+            if (!doc || !currentUser) return false;
+
+            const isAdmin = currentUser.role === 'admin' || currentUser.role_id === 0;
+            const isAuthor = currentUser.id == doc.contributor_id;
+
+            return isAdmin || isAuthor;
+        } catch (error) {
+            console.error('检查编辑权限失败:', error);
+            return false;
+        }
+    },
+
+    // 上传文件（批量）
+    async uploadFiles(files) {
+        try {
+            const response = await this.client.uploadFiles(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/upload_files`,
+                files
+            );
+            if (response.code === 1) {
+                return response.data; // UploadDocumentResponse
+            } else {
+                throw new Error(response.msg || '上传文件失败');
+            }
+        } catch (error) {
+            console.error('上传文件失败:', error);
+            throw error;
+        }
+    },
+
+    // 解析文件
+    async analyzeFiles(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
+        try {
+            const response = await this.client.post(
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/analyze_files`,
+                {
+                    file_list: fileList,
+                    file_name: fileNames,
+                    submit_for_review: submitForReview,
+                    library_type: libraryType,
+                    tag: tag
+                },
+                true
+            );
+            if (response.code === 1) {
+                return response.data; // UploadDocumentResponse
+            } else {
+                throw new Error(response.msg || '解析文件失败');
+            }
+        } catch (error) {
+            console.error('解析文件失败:', error);
+            throw error;
+        }
+    }
+};
+
+// 源文档相关 API
+const sourceDocumentAPI = {
+    client: new APIClient(),
+
+    async getSourceDocumentsPage(page = 1, size = 12, filters = {}) {
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                size: size
+            });
+
+            if (filters.keyword) params.append('keyword', filters.keyword);
+            if (filters.category) params.append('category', filters.category);
+            if (filters.status) params.append('source_status', filters.status);
+            if (filters.pending_only) params.append('pending_only', 'true');
+
+            const response = await this.client.get(`/source-documents/page?${params.toString()}`, true);
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '获取源文档失败');
+        } catch (error) {
+            console.error('获取源文档失败:', error);
+            throw error;
+        }
+    },
+
+    async deleteSourceDocument(id) {
+        try {
+            const response = await this.client.delete(`/source-documents/${id}`, null, true);
+            if (response.code === 1) {
+                return response.data;
+            }
+            throw new Error(response.msg || '删除源文档失败');
+        } catch (error) {
+            console.error('删除源文档失败:', error);
+            throw error;
+        }
+    }
+};
+
+const tagAPI = {
+    client: new APIClient(),
+
+    async getTagsPage(page = 1, size = 10, keyword = '') {
+        const response = await this.client.post(
+            '/tag/page',
+            {
+                page,
+                size,
+                data: keyword
+            },
+            true
+        );
+        if (response.code === 1) {
+            return response.data || { tags: [], total_count: 0, total_pages: 1 };
+        }
+        throw new Error(response.msg || response.message || '获取标签失败');
+    },
+
+    async getAllTags() {
+        const response = await this.client.get('/tag/list', true);
+        if (response.code === 1) {
+            return response.data || [];
+        }
+        throw new Error(response.msg || response.message || '获取标签失败');
+    },
+
+    async addTag(tagData) {
+        const response = await this.client.post('/tag/add', tagData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '新增标签失败');
+    },
+
+    async updateTag(tagData) {
+        const response = await this.client.patch('/tag/update', tagData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '更新标签失败');
+    },
+
+    async deleteTag(tagId) {
+        const response = await this.client.delete(`/tag/delete/${encodeURIComponent(tagId)}`, null, true);
+        if (response.code === 1) {
+            return true;
+        }
+        throw new Error(response.msg || response.message || '删除标签失败');
+    }
+};
+
+// 用户相关的 API
+const userAPI = {
+    client: new APIClient(),
+
+    // 登录
+    async login(username, password, role = null) {
+        try {
+            const payload = { username, password };
+            if (role) {
+                payload.role = role;
+            }
+
+            const response = await this.client.post(
+                API_CONFIG.ENDPOINTS.LOGIN,
+                payload,
+                false
+            );
+
+            console.log('登录响应:', response);
+
+            if (response.code === 1) {
+                const tokenData = response.data;
+                if (tokenData && tokenData.access_token) {
+                    // 改为 localStorage
+                    localStorage.setItem('token', tokenData.access_token);
+                    console.log('Token 已保存到 localStorage');
+
+                    // 存储 refresh_token
+                    if (tokenData.refresh_token) {
+                        localStorage.setItem('refresh_token', tokenData.refresh_token);
+                        console.log('Refresh token 已保存到 localStorage');
+                    }
+
+                    // 存储用户信息
+                    if (tokenData.user) {
+                        localStorage.setItem('user', JSON.stringify(tokenData.user));
+                        console.log('用户信息已存储到 localStorage:', tokenData.user);
+                    }
+                }
+                return tokenData;
+            } else {
+                throw new Error(response.msg || '登录失败');
+            }
+        } catch (error) {
+            console.error('登录失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取当前用户信息
+    async getCurrentUser() {
+        try {
+            const response = await this.client.get(
+                `${API_CONFIG.ENDPOINTS.USER}/me`,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '获取用户信息失败');
+            }
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取用户资料
+    async getUserProfile() {
+        try {
+            console.log('获取用户资料，端点:', `${API_CONFIG.ENDPOINTS.USER}/profile`);
+
+            const response = await this.client.get(
+                `${API_CONFIG.ENDPOINTS.USER}/profile`,
+                true
+            );
+
+            console.log('用户资料响应数据:', response);
+
+            if (response.code === 1) {
+                if (response.data) {
+                    const userInfo = {
+                        ...response.data,
+                        username: response.data.username,
+                        full_name: response.data.full_name,
+                        role: response.data.role,
+                        phone: response.data.phone,
+                        email: response.data.email,
+                        department: response.data.department,
+                        created_time: response.data.created_time,
+                        last_login: response.data.last_login
+                    };
+                    sessionStorage.setItem('user', JSON.stringify(userInfo));
+                    console.log('用户信息已更新到sessionStorage:', userInfo);
+                }
+                return response;
+            } else {
+                throw new Error(response.msg || '获取用户信息失败');
+            }
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            const storedUser = sessionStorage.getItem('user');
+            if (storedUser) {
+                console.log('从sessionStorage获取用户信息');
+                return {
+                    code: 1,
+                    msg: 'success',
+                    data: JSON.parse(storedUser)
+                };
+            }
+            throw error;
+        }
+    },
+
+    // 更新用户信息
+    async updateUser(userData) {
+        try {
+            console.log('更新用户信息:', userData);
+
+            const response = await this.client.patch(
+                `${API_CONFIG.ENDPOINTS.USER}/update`,
+                userData,
+                true
+            );
+
+            console.log('更新用户响应:', response);
+
+            if (response.code === 1) {
+                const storedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+                const updatedUser = {
+                    ...storedUser,
+                    ...response.data
+                };
+                sessionStorage.setItem('user', JSON.stringify(updatedUser));
+                console.log('sessionStorage已更新:', updatedUser);
+
+                return response;
+            } else {
+                throw new Error(response.msg || '更新用户信息失败');
+            }
+        } catch (error) {
+            console.error('更新用户信息失败:', error);
+            throw error;
+        }
+    },
+
+    // 修改密码
+    async changePassword(oldPassword, newPassword) {
+        try {
+            const response = await this.client.put(
+                `${API_CONFIG.ENDPOINTS.USER}/change_password`,
+                {
+                    old_password: oldPassword,
+                    new_password: newPassword
+                },
+                true
+            );
+
+            if (response.code === 1) {
+                return response;
+            } else {
+                throw new Error(response.msg || '修改密码失败');
+            }
+        } catch (error) {
+            console.error('修改密码失败:', error);
+            throw error;
+        }
+    }
+};
+
+// 数据管理器
+const DataManager = {
+    client: new APIClient(), // 新增：创建APIClient实例
+
+    // 获取分页用户数据
+    async getUsersPage(page = 1, pageSize = 6) {
+        try {
+            const response = await this.client.post(
+                '/admin/users/page',  // 使用相对路径
+                {
+                    page: page,
+                    size: pageSize
+                },
+                true  // 需要认证
+            );
+
+            console.log('获取用户分页响应:', response);
+
+            if (response.code === 1) {
+                return response.data || { users: [], total_count: 0, total_pages: 1 };
+            } else {
+                throw new Error(response.msg || '获取用户数据失败');
+            }
+        } catch (error) {
+            console.error('获取用户数据失败:', error);
+            throw error;
+        }
+    },
+
+    // 添加用户
+    async addUser(userData) {
+        try {
+            const response = await this.client.post(
+                '/admin/add_user',
+                userData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '添加用户失败');
+            }
+        } catch (error) {
+            console.error('添加用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 更新用户
+    async updateUser(userData) {
+        try {
+            const response = await this.client.patch(
+                '/admin/update_user',
+                userData,
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '更新用户失败');
+            }
+        } catch (error) {
+            console.error('更新用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除用户（通过更新status为0）
+    async deleteUser(userId) {
+        try {
+            const response = await this.client.patch(
+                '/admin/update_user',
+                {
+                    id: userId,
+                    status: 0
+                },
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '删除用户失败');
+            }
+        } catch (error) {
+            console.error('删除用户失败:', error);
+            throw error;
+        }
+    },
+
+    // 根据ID获取用户
+    async getUserById(userId) {
+        try {
+            const response = await this.client.get(
+                `/admin/user/${userId}`,  // 注意这里是路径参数
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data;
+            } else {
+                throw new Error(response.msg || '获取用户信息失败');
+            }
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索用户
+    async searchUsers(query) {
+        try {
+            // 调用后端搜索接口
+            return await this.searchUsersPage(query, 1, 100);
+        } catch (error) {
+            console.error('搜索用户失败:', error);
+            return [];
+        }
+    },
+
+    // 获取所有用户
+    async getAllUsers() {
+        try {
+            const response = await this.client.get(
+                '/admin/users',
+                true
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '获取所有用户失败');
+            }
+        } catch (error) {
+            console.error('获取所有用户失败:', error);
+            throw error;
+        }
+    },
+
+    async getRoleGroups() {
+        try {
+            const response = await this.client.get('/admin/role_groups', true);
+            if (response.code === 1) {
+                return response.data || [];
+            }
+            throw new Error(response.msg || '获取角色组失败');
+        } catch (error) {
+            console.error('获取角色组失败:', error);
+            throw error;
+        }
+    },
+
+    async createRoleGroup(roleGroupData) {
+        const response = await this.client.post('/admin/role_groups', roleGroupData, true);
+        if (response.code === 1) return response.data;
+        throw new Error(response.msg || '创建角色组失败');
+    },
+
+    async updateRoleGroup(roleGroupData) {
+        const response = await this.client.patch('/admin/role_groups', roleGroupData, true);
+        if (response.code === 1) return response.data;
+        throw new Error(response.msg || '更新角色组失败');
+    },
+
+    // 搜索用户（分页）
+    async searchUsersPage(query, page = 1, size = 6) {
+        try {
+            const response = await this.client.post(
+                '/admin/query',
+                {
+                    data: query,
+                    page: page,
+                    size: size
+                },
+                true
+            );
+
+            console.log('搜索用户响应:', response);
+
+            if (response.code === 1 || response.code === 200) {
+                return response.data || {
+                    total_count: 0,
+                    total_pages: 0,
+                    users: []
+                };
+            } else {
+                throw new Error(response.msg || this.client._formatErrorDetail(response.detail) || '搜索用户失败');
+            }
+        } catch (error) {
+            console.error('搜索用户失败:', error);
+            throw error;
+        }
+    }
+};
+
+// AI 对话相关配置：api.md 规定所有对话资源收敛到 /api/v1/chats/{chat_id}
+const AI_CHAT_ID = 'test';
+const AI_CHAT_BASE = `/chats/${AI_CHAT_ID}`;
+
+function normalizeChatTimestamp(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') {
+        return new Date(value * 1000).toISOString();
+    }
+    return value;
+}
+
+function normalizeChatSession(session) {
+    if (!session || typeof session !== 'object') return session;
+    return {
+        ...session,
+        id: Number(session.id),
+        title: session.title || session.name || '新对话',
+        name: session.name || session.title || '新对话',
+        created_time: normalizeChatTimestamp(session.created_time || session.create_time),
+        updated_time: normalizeChatTimestamp(session.updated_time || session.update_time),
+        messages: Array.isArray(session.messages) ? session.messages.map(normalizeChatMessage) : []
+    };
+}
+
+function normalizeChatMessage(message) {
+    if (!message || typeof message !== 'object') return message;
+    const roleValue = message.role_value !== undefined
+        ? Number(message.role_value)
+        : (message.role === 'user' ? 1 : 0);
+    return {
+        ...message,
+        role: roleValue,
+        content_text: message.content_text !== undefined ? message.content_text : message.content,
+        created_time: normalizeChatTimestamp(message.created_time || message.create_time)
+    };
+}
+
+// 对话相关的 API
+const conversationAPI = {
+    client: new APIClient(),
+
+    // 创建新对话
+    async createConversation() {
+        try {
+            const response = await this.client.post(
+                `${AI_CHAT_BASE}/session`,
+                { name: '新对话' },
+                true   // 需要认证
+            );
+
+            if (response.code === 0) {
+                return normalizeChatSession(response.data);
+            } else {
+                throw new Error(response.message || response.msg || '创建对话失败');
+            }
+        } catch (error) {
+            console.error('创建对话失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取对话历史
+    async getHistory() {
+        try {
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?page=1&page_size=30&order_by=update_time&desc=true`,
+                true
+            );
+
+            if (response.code === 0) {
+                return (response.data?.sessions || []).map(normalizeChatSession);
+            } else {
+                throw new Error(response.message || response.msg || '获取历史对话失败');
+            }
+        } catch (error) {
+            console.error('获取历史对话失败:', error);
+            return [];
+        }
+    },
+
+    // 分页获取对话历史
+    async getHistoryPage(pageParams = { page: 1, size: 20 }) {
+        try {
+            // 确保有默认值
+            const page = pageParams.page || 1;
+            const size = pageParams.size || 5;
+
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?page=${page}&page_size=${size}&order_by=update_time&desc=true`,
+                true
+            );
+
+            // 兼容多种返回格式
+            let resultData = null;
+            if (response && typeof response === 'object') {
+                if (response.code !== undefined) {
+                    // 完整的 Result 对象
+                    if (response.code === 0) {
+                        resultData = response.data || {};
+                        resultData.history = (resultData.sessions || []).map(normalizeChatSession);
+                        resultData.total_count = resultData.total || 0;
+                        resultData.total_pages = Math.ceil((resultData.total || 0) / (resultData.page_size || size || 1));
+                    } else {
+                        throw new Error(response.message || response.msg || '获取分页对话历史失败');
+                    }
+                } else {
+                    // 直接的数据对象
+                    resultData = response;
+                }
+            }
+
+            return resultData || {
+                total_count: 0,
+                total_pages: 0,
+                history: []
+            };
+        } catch (error) {
+            console.error('获取分页对话历史失败:', error);
+            return {
+                total_count: 0,
+                total_pages: 0,
+                history: []
+            };
+        }
+    },
+
+    // 根据ID获取对话
+    async getConversationById(id) {
+        try {
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?id=${id}`,
+                true
+            );
+
+            if (response.code === 0) {
+                const session = response.data?.sessions?.[0] || null;
+                return normalizeChatSession(session);
+            } else {
+                console.error('获取对话失败:', response.message || response.msg);
+                return null;
+            }
+        } catch (error) {
+            console.error('获取对话失败:', error);
+            return null;
+        }
+    },
+
+    // 更新对话标题
+    async updateTitle(id, newTitle) {
+        try {
+            const response = await this.client.put(
+                `${AI_CHAT_BASE}/session/${id}`,
+                { name: newTitle },
+                true
+            );
+
+            if (response.code === 0) {
+                return true;
+            } else {
+                throw new Error(response.message || response.msg || '更新对话标题失败');
+            }
+        } catch (error) {
+            console.error('更新对话标题失败:', error);
+            throw error;
+        }
+    },
+
+    // 删除对话
+    async deleteConversation(id) {
+        try {
+            const response = await this.client.delete(
+                `${AI_CHAT_BASE}/sessions`,
+                { ids: [id] },
+                true
+            );
+
+            if (response.code === 0) {
+                return true;
+            } else {
+                throw new Error(response.message || response.msg || '删除对话失败');
+            }
+        } catch (error) {
+            console.error('删除对话失败:', error);
+            throw error;
+        }
+    },
+
+    // 搜索对话历史
+    async searchConversations(query) {
+        try {
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?name=${encodeURIComponent(query)}&page=1&page_size=30&order_by=update_time&desc=true`,
+                true
+            );
+
+            if (response.code === 0) {
+                return (response.data?.sessions || []).map(normalizeChatSession);
+            } else {
+                console.error('搜索对话失败:', response.message || response.msg);
+                return [];
+            }
+        } catch (error) {
+            console.error('搜索对话失败:', error);
+            return [];
+        }
+    }
+};
+
+// 消息相关的 API
+const messageAPI = {
+    client: new APIClient(),
+
+    // 上传图片
+    async uploadImages(files) {
+        try {
+            const response = await this.client.uploadImages(
+                `${AI_CHAT_BASE}/images`,
+                files
+            );
+
+            if (response.code === 1) {
+                return response.data || [];
+            } else {
+                throw new Error(response.msg || '上传图片失败');
+            }
+        } catch (error) {
+            console.error('上传图片失败:', error);
+            throw error;
+        }
+    },
+
+    // 发送消息并获得回答
+    async ask(messageData) {
+        try {
+            const response = await this.client.post(
+                `${AI_CHAT_BASE}/completions`,
+                {
+                    question: messageData.question || messageData.content_text || '',
+                    session_id: messageData.session_id,
+                    stream: false,
+                    user_uploaded_images: messageData.user_uploaded_images || null
+                },
+                true
+            );
+
+            if (response.code === 0) {
+                return response.data || {};
+            } else {
+                throw new Error(response.message || response.msg || '发送消息失败');
+            }
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            throw error;
+        }
+    },
+
+    // 获取对话的消息
+    async getMessagesByConversation(id) {
+        try {
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?id=${id}`,
+                true
+            );
+
+            if (response.code === 0) {
+                const session = response.data?.sessions?.[0];
+                return (session?.messages || []).map(normalizeChatMessage);
+            } else {
+                console.error('获取消息失败:', response.message || response.msg);
+                return [];
+            }
+        } catch (error) {
+            console.error('获取消息失败:', error);
+            return [];
+        }
+    },
+
+    async askStream(messageData, onChunk, onComplete, onError) {
+    const url = `${this.client.baseUrl}${AI_CHAT_BASE}/completions`;
+    const token = localStorage.getItem('token');
+
+    return new Promise((resolve, reject) => {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                question: messageData.question || messageData.content_text || '',
+                session_id: messageData.session_id,
+                user_uploaded_images: messageData.user_uploaded_images || null,
+                stream: true
+            })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            const processStream = async () => {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+
+                        for (const line of lines) {
+                            const trimmedLine = line.trim();
+                            if (!trimmedLine || trimmedLine.startsWith(':')) continue;
+
+                            let jsonStr = '';
+                            if (trimmedLine.startsWith('data:')) {
+                                jsonStr = trimmedLine.slice(5).trim();
+                            } else if (trimmedLine.startsWith('event:') || trimmedLine.startsWith('id:') || trimmedLine.startsWith('retry:')) {
+                                continue;
+                            } else if (trimmedLine.startsWith('{') || trimmedLine.startsWith('[')) {
+                                jsonStr = trimmedLine;
+                            } else {
+                                continue;
+                            }
+                            if (!jsonStr) continue;
+
+                            try {
+                                const parsed = JSON.parse(jsonStr);
+                                // 结束标志
+                                if (parsed.code === 1 && parsed.data === "true") {
+                                    onComplete && onComplete();
+                                    resolve(); // 流式正常结束
+                                    return;
+                                }
+                                if (parsed.code !== 0 && parsed.code !== 1) {
+                                    throw new Error(parsed.message || parsed.msg || '回答生成失败');
+                                }
+                                // /chats/{chat_id}/completions 返回 {code:0,data:{...}}；
+                                // code=1,data="true" 为流结束标记。
+                                const payload = parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+                                if (payload && typeof payload.answer === 'string') {
+                                    onChunk && onChunk({
+                                        ...payload,
+                                        code: 1,
+                                        reference_docs: payload.reference_docs || payload.reference
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn('解析 JSON 失败:', e);
+                                onError && onError(e);
+                                reject(e);
+                                return;
+                            }
+                        }
+                    }
+                    // 如果正常读完流未收到结束消息，也认为完成
+                    onComplete && onComplete();
+                    resolve();
+                } catch (err) {
+                    onError && onError(err);
+                    reject(err);
+                }
+            };
+
+            processStream();
+        })
+        .catch(err => {
+            onError && onError(err);
+            reject(err);
+        });
+    });
+}
+};
+
+// 导出到全局
+window.conversationAPI = conversationAPI;
+window.messageAPI = messageAPI;
+
+// 导出到全局
+window.DataManager = DataManager;
+window.documentAPI = documentAPI;
+window.userAPI = userAPI;
+window.tagAPI = tagAPI;
+// 导出到全局
+// window.adminAPI = adminAPI;

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备维修辅助系统 - 知识库</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container header-content">
+            <a href="main.html" class="logo">
+                <i class="fas fa-tools"></i>
+                维修辅助系统
+            </a>
+            <div class="user-info">
+                <span class="user-name" id="current-user">用户 - 技术人员</span>
+                <a href="index.html" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container main-content">
+        <div class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="main.html" class="nav-link">
+                        <i class="fas fa-home"></i> 维修辅助系统
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="ai-assist.html" class="nav-link">
+                        <i class="fas fa-robot"></i> AI辅助
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="knowledge-base.html" class="nav-link active">
+                        <i class="fas fa-book"></i> 知识库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="user-management.html" class="nav-link">
+                        <i class="fas fa-users"></i> 用户管理
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <h2 class="page-title">知识库</h2>
+        <div class="search-box">
+            <input type="text" id="knowledge-search" placeholder="搜索知识库内容...">
+        </div>
+
+        <div class="documents-container" id="knowledge-documents">
+            <!-- 知识库文档卡片将通过JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置当前用户显示
+            const userData = JSON.parse(localStorage.getItem('currentUser'));
+            if (userData) {
+                setCurrentUser(userData.username, userData.role);
+            }
+
+            // 渲染知识库文档
+            renderDocuments('knowledge-documents');
+
+            // 设置搜索功能
+            setupDocumentSearch('knowledge-search', 'knowledge-documents');
+        });
+    </script>
+</body>
+</html>

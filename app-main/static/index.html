@@ -1,0 +1,365 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备维修辅助系统 - 登录</title>
+    <script>
+        (function () {
+            var mobileLoginPath = '/static/mobile/login.html';
+            var currentPath = window.location.pathname || '';
+
+            // 已经在移动端页面，不重复跳转
+            if (currentPath.indexOf('/static/mobile/') === 0) return;
+
+            var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+
+            // 判断移动设备
+            var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile/i.test(ua);
+
+            // 判断触控设备
+            var isCoarsePointer =
+                window.matchMedia &&
+                window.matchMedia('(pointer: coarse)').matches;
+
+            // 判断窗口尺寸
+            var width = window.innerWidth || document.documentElement.clientWidth || 0;
+
+            // 小窗口直接认为进入移动端
+            var isSmallScreen = width <= 767;
+
+
+            if (isMobileUA || isCoarsePointer || isSmallScreen) {
+                window.location.replace(mobileLoginPath);
+            }
+
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 页面特定样式 */
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #1a3a5f;
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .form-actions {
+            margin-top: 25px;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1><i class="fas fa-tools"></i> 设备维修辅助系统</h1>
+                <p>智能维修解决方案平台</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="username" placeholder="请输入用户名" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="password" placeholder="请输入密码（初始密码：123456）" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">身份</label>
+                    <select class="form-control" id="role" required>
+                        <option value="">请选择身份</option>
+                        <option value="admin">系统管理员</option>
+                        <option value="technician_rw">技术人员</option>
+                        <option value="reviewer">审核人员</option>
+                        <option value="maintenance_staff">维修人员</option>
+                    </select>
+                </div>
+
+                <div class="loading-spinner" id="loadingSpinner">
+                    <i class="fas fa-spinner fa-spin"></i> 登录中...
+                </div>
+
+                <div class="error-message" id="loginError"></div>
+
+                <div class="form-actions">
+                    <button type="submit" class="login-btn" id="submitBtn">
+                        <i class="fas fa-sign-in-alt"></i> 登录系统
+                    </button>
+                </div>
+            </form>
+
+            <div class="login-footer">
+                <p>&copy; 2026 设备维修辅助系统 v1.0</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('loginForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const errorMessage = document.getElementById('loginError');
+            const LOGIN_REQUEST_TIMEOUT_MS = 30000;
+
+            // 检查是否有已保存的 token，有则跳转到主页面
+            checkExistingLogin();
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const role = document.getElementById('role').value;
+
+                // 验证输入
+                if (!username) {
+                    showError('请输入用户名');
+                    return;
+                }
+
+                if (!password) {
+                    showError('请输入密码（初始密码：123456）');
+                    return;
+                }
+
+                if (!role) {
+                    showError('请选择身份');
+                    return;
+                }
+
+                let timeoutId = null;
+
+                try {
+                    // 显示加载状态
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+                    loadingSpinner.style.display = 'block';
+                    hideError();
+
+                    // 调用后端登录 API，所选身份会与账号角色组权限进行二次校验
+                    const loginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`;
+                    const controller = new AbortController();
+                    timeoutId = window.setTimeout(() => controller.abort(), LOGIN_REQUEST_TIMEOUT_MS);
+                    const response = await fetch(loginUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            username: username,
+                            password: password,
+                            role: role
+                        })
+                    });
+                    window.clearTimeout(timeoutId);
+                    timeoutId = null;
+
+                    // 获取响应数据
+                    let result;
+                    try {
+                        const responseText = await response.text();
+                        result = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('响应解析失败:', jsonError);
+                        throw new Error('服务器响应格式错误');
+                    }
+
+                    console.log('登录响应:', result);
+
+                    if (result.code === 1) {
+                        // 登录成功，后端返回 JWT 令牌对象
+                        const tokenData = result.data;
+
+                        // 存储 tokens 到 sessionStorage
+                        if (tokenData.access_token) {
+                            sessionStorage.setItem('token', tokenData.access_token);
+                            console.log('Access Token 已保存');
+                        }
+
+                        if (tokenData.refresh_token) {
+                            sessionStorage.setItem('refresh_token', tokenData.refresh_token);
+                            console.log('Refresh Token 已保存');
+                        }
+
+                        // 存储用户信息到 sessionStorage
+                        if (tokenData.user) {
+                            const userInfo = {
+                                ...tokenData.user
+                            };
+                            sessionStorage.setItem('user', JSON.stringify(userInfo));
+                            console.log('用户信息已存储:', userInfo);
+                        }
+
+                        // 显示成功消息
+                        Utils.showMessage('登录成功！', 'success');
+
+                        // 跳转到主页面
+                        setTimeout(() => {
+                            window.location.href = 'main.html';
+                        }, 1000);
+                    } else {
+                        const failedMessage = resolveLoginErrorMessage(result);
+                        showError(failedMessage);
+                        Utils.showMessage(failedMessage, 'error');
+                    }
+                } catch (error) {
+                    console.error('登录请求失败:', error);
+                    const fallbackMessage = error.name === 'AbortError'
+                        ? '登录失败：请求超时，请检查后端服务或数据库锁状态'
+                        : `登录失败：${error.message || '网络请求失败，请检查后端服务是否启动'}`;
+                    showError(fallbackMessage);
+                    Utils.showMessage(fallbackMessage, 'error');
+                } finally {
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+                    // 恢复按钮状态
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录系统';
+                    loadingSpinner.style.display = 'none';
+                }
+            });
+
+            // 回车键提交
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const focused = document.activeElement;
+                    if (focused && (focused.id === 'username' || focused.id === 'password' || focused.id === 'role')) {
+                        submitBtn.click();
+                    }
+                }
+            });
+        });
+
+        // 检查已有登录状态
+        function checkExistingLogin() {
+            const token = sessionStorage.getItem('token');
+            const user = sessionStorage.getItem('user');
+
+            if (token && user) {
+                console.log('检测到已登录，自动跳转到主页面');
+                setTimeout(() => {
+                    window.location.href = 'main.html';
+                }, 500);
+            }
+        }
+
+        function resolveLoginErrorMessage(result) {
+            const code = Number(result?.code);
+            const rawMsg = extractBackendMessage(result);
+
+            if (code === 40110) return '登录失败：用户名或密码错误';
+            if (code === 40311) return '登录失败：账号已被禁用，请联系管理员';
+            if (code === 40111) return '登录失败：账号身份配置异常，请联系管理员';
+            if (code === 40310) return '登录失败：账号权限配置异常，请联系管理员';
+
+            if (rawMsg) return `登录失败：${rawMsg}`;
+            return '登录失败：请稍后重试';
+        }
+
+        function extractBackendMessage(result) {
+            if (!result || typeof result !== 'object') return '';
+            return String(
+                result.msg ||
+                result.message ||
+                result.detail ||
+                ''
+            ).trim();
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const errorElement = document.getElementById('loginError');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.classList.add('show');
+            } else {
+                // 如果错误元素不存在，使用简单的 alert
+                alert(message);
+            }
+        }
+
+        // 隐藏错误信息
+        function hideError() {
+            const errorElement = document.getElementById('loginError');
+            if (errorElement) {
+                errorElement.classList.remove('show');
+            }
+        }
+
+        // 简单的消息显示工具，如果 common.js 没加载
+        window.Utils = window.Utils || {
+            showMessage: function(message, type = 'info') {
+                const colorMap = {
+                    success: '#10b981',
+                    error: '#ef4444',
+                    warning: '#f59e0b',
+                    info: '#4a9eff'
+                };
+                const color = colorMap[type] || '#4a9eff';
+                const el = document.createElement('div');
+                el.textContent = message;
+                el.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    background: ${color};
+                    color: white;
+                    border-radius: 6px;
+                    z-index: 1000;
+                `;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+        };
+    </script>
+</body>
+</html>
