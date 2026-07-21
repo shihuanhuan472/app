@@ -140,12 +140,13 @@
 
     <script src="js/config.js"></script>
     <script>
+        const LOGIN_REQUEST_TIMEOUT_MS = 30000;
+
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('loginForm');
             const submitBtn = document.getElementById('submitBtn');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const errorMessage = document.getElementById('loginError');
-            const LOGIN_REQUEST_TIMEOUT_MS = 30000;
 
             // 检查是否有已保存的 token，有则跳转到主页面
             checkExistingLogin();
