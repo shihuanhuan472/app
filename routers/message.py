@@ -152,6 +152,14 @@ def _is_ai_service_unavailable_error(error: Exception) -> bool:
     return any(keyword in message for keyword in keywords)
 
 
+def _get_positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
 def _api_timestamp(value: Optional[datetime]) -> Optional[float]:
     """
     功能说明：
@@ -337,6 +345,7 @@ def _debug_reference_doc_image_summary(reference_docs: List[Dict[str, Any]], lab
         for index, doc in enumerate(docs, start=1):
             chunks = doc.get("chunks") or []
             matched_image_urls = doc.get("matched_image_urls") or []
+            evidence_image_urls = doc.get("evidence_image_urls") or []
             chunk_images = [
                 chunk.get("image_url")
                 for chunk in chunks
@@ -346,10 +355,57 @@ def _debug_reference_doc_image_summary(reference_docs: List[Dict[str, Any]], lab
                 f"[图片排查][{label}] doc#{index} "
                 f"id={doc.get('doc_id')} library={doc.get('library_type')} "
                 f"title={doc.get('title')} chunks={len(chunks)} "
+                f"evidence_image_urls={evidence_image_urls} "
                 f"matched_image_urls={matched_image_urls} chunk_images={chunk_images}"
             )
     except Exception as e:
         print(f"[图片排查][{label}] 打印失败: {e}")
+
+
+def _normalize_reference_image_values(raw_value: Any) -> List[str]:
+    if not raw_value:
+        return []
+    if isinstance(raw_value, str):
+        try:
+            raw_value = json.loads(raw_value)
+        except Exception:
+            raw_value = raw_value.split(",")
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.values()
+    elif not isinstance(raw_value, (list, tuple, set)):
+        raw_value = [raw_value]
+
+    images: List[str] = []
+    for item in raw_value:
+        text = str(item or "").strip()
+        if text and text not in images:
+            images.append(text)
+    return images
+
+
+def _extend_unique_images(images: List[str], raw_value: Any):
+    for image in _normalize_reference_image_values(raw_value):
+        if image not in images:
+            images.append(image)
+
+
+def _section_image_urls(section: KnowledgeDocumentSection) -> List[str]:
+    return _normalize_reference_image_values(getattr(section, "image_urls", None))
+
+
+def _breakdown_document_image_urls(document: DocumentBreakdown) -> List[str]:
+    images: List[str] = []
+    for attr in (
+        "image_urls",
+        "image_urls_problem_intro",
+        "image_urls_causes",
+        "image_urls_evaluation",
+        "image_urls_inspection",
+        "image_urls_solutions",
+        "image_urls_key_points",
+    ):
+        _extend_unique_images(images, getattr(document, attr, None))
+    return images
 
 
 def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_images: Optional[int] = None) -> List[str]:
@@ -362,8 +418,9 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
     返回值说明：
         去重后的“本地文件真实存在”的图片路径列表，顺序与检索结果顺序一致。
     关键处理流程：
-        优先读取 matched_image_urls，其次读取每个 chunk 的 image_url；收集时会做
-        本地文件存在性校验，避免把历史脏数据或已丢失文件返回给前端造成 404。
+        优先读取 evidence_image_urls，也就是本轮实际写入 prompt 的证据片段图片；
+        若尚未构建证据片段，则兼容旧逻辑读取 matched_image_urls 和 chunk.image_url。
+        收集时会做本地文件存在性校验，避免把历史脏数据或已丢失文件返回给前端造成 404。
     """
     images: List[str] = []
     print(f"[图片排查][collect_start] max_images={max_images}")
@@ -385,6 +442,13 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
         images.append(normalized)
 
     for doc_index, doc in enumerate(reference_docs or [], start=1):
+        if "evidence_image_urls" in doc:
+            for image in doc.get("evidence_image_urls", []) or []:
+                add(image, f"doc#{doc_index}.evidence_image_urls")
+            if max_images is not None and len(images) >= max_images:
+                break
+            continue
+
         for image in doc.get("matched_image_urls", []) or []:
             add(image, f"doc#{doc_index}.matched_image_urls")
         for chunk_index, chunk in enumerate(doc.get("chunks", []) or [], start=1):
@@ -786,9 +850,13 @@ async def stream_ai_response(
     """
     print("stream ai answer")
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = AsyncOpenAI(base_url=get_ai_base_url(), api_key=api_key)
+    base_url = get_ai_base_url()
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 2000))
+    request_timeout = _get_positive_int_env("AI_REQUEST_TIMEOUT", 60)
+    first_chunk_timeout = _get_positive_int_env("AI_STREAM_FIRST_CHUNK_TIMEOUT", 120)
+    idle_timeout = _get_positive_int_env("AI_STREAM_IDLE_TIMEOUT", 120)
+    client = AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=request_timeout)
 
     data = {}
     data["id"] = id
@@ -823,21 +891,52 @@ async def stream_ai_response(
     try:
         stream_start = time.perf_counter()
         yield ": stream-start\n\n"
-        print("[AI流式] 已建立SSE连接，开始请求模型")
-        response = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            max_tokens=max_token,
-            stream=True,
-            stream_options={"include_usage": True},
+        print(
+            "[AI流式] 已建立SSE连接，开始请求模型 "
+            f"base_url={base_url} model={model} max_tokens={max_token} "
+            f"request_timeout={request_timeout}s first_chunk_timeout={first_chunk_timeout}s "
+            f"idle_timeout={idle_timeout}s"
         )
+        try:
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_token,
+                    stream=True,
+                    stream_options={"include_usage": True},
+                ),
+                timeout=request_timeout,
+            )
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(
+                f"AI模型请求超时：{request_timeout}秒内未创建流式响应，base_url={base_url}, model={model}"
+            ) from e
+        print(f"[AI流式] 模型流响应已创建，耗时: {time.perf_counter() - stream_start:.3f}s")
+
         full_content = ""
         usage_payload = None
         last_stream_content = None
         hold_chars = max(0, max_sensitive_term_length() - 1)
         first_chunk_logged = False
+        stream_iterator = response.__aiter__()
+        first_event_logged = False
 
-        async for chunk in response:
+        while True:
+            next_timeout = first_chunk_timeout if not first_event_logged else idle_timeout
+            try:
+                chunk = await asyncio.wait_for(stream_iterator.__anext__(), timeout=next_timeout)
+            except StopAsyncIteration:
+                break
+            except asyncio.TimeoutError as e:
+                phase = "首个chunk" if not first_event_logged else "后续chunk"
+                raise TimeoutError(
+                    f"AI流式响应{phase}超时：{next_timeout}秒未收到模型数据，base_url={base_url}, model={model}"
+                ) from e
+
+            if not first_event_logged:
+                first_event_logged = True
+                print(f"[AI流式] 首个事件耗时: {time.perf_counter() - stream_start:.3f}s")
             if getattr(chunk, "usage", None) is not None:
                 usage_payload = {
                     "input_tokens": getattr(chunk.usage, "prompt_tokens", 0) or getattr(chunk.usage, "input_tokens", 0) or 0,
@@ -915,7 +1014,7 @@ async def stream_ai_response(
         final_data = {"code": 1, "data": "true"}
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
-        print(e)
+        print(f"[AI流式] 请求失败: {type(e).__name__}: {e}")
         try:
             async with AsyncSessionLocal() as usage_db:
                 await record_ai_usage(
@@ -930,7 +1029,11 @@ async def stream_ai_response(
                 await usage_db.commit()
         except Exception as usage_error:
             print(usage_error)
-        fallback_content = "回答生成失败，请稍后重试。"
+        fallback_content = (
+            "AI服务不可用或响应超时，请检查模型服务地址、模型名称和服务状态。"
+            if _is_ai_service_unavailable_error(e)
+            else "回答生成失败，请稍后重试。"
+        )
         try:
             await persist_ai_content(fallback_content, with_token_count=True)
         except Exception as persist_error:
@@ -1008,12 +1111,11 @@ async def _create_completion(
             db, db_message.content_text, db_message.user_uploaded_images
         )
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
-        ai_reference_prompt_refs = get_ai_reference_prompt_refs(ai_reference_documents)
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
-        ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
         # 传给 generate_messages() 用于构建 prompt
-        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_prompt_refs)
+        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_documents)
+        ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
         conversation.updated_time = datetime.now()
 
@@ -1709,6 +1811,26 @@ def _matched_chunk_texts(matched_chunks: List[Dict[str, Any]], limit: int = 8) -
     return texts
 
 
+def _matched_chunk_image_urls(matched_chunks: List[Dict[str, Any]], limit: int = 8) -> List[str]:
+    """提取实际写入 prompt 的命中 chunk 图片，和 _matched_chunk_texts 保持同样的去重/截断规则。"""
+    images: List[str] = []
+    seen = set()
+    included = 0
+    for chunk in matched_chunks or []:
+        content = str(chunk.get("content") or "").strip()
+        if not content:
+            continue
+        marker = content[:300]
+        if marker in seen:
+            continue
+        seen.add(marker)
+        _extend_unique_images(images, chunk.get("image_url"))
+        included += 1
+        if included >= limit:
+            break
+    return images
+
+
 def _append_prompt_piece(parts: List[str], text: str, remaining_tokens: int) -> int:
     text = str(text or "").strip()
     if not text or remaining_tokens <= 0:
@@ -1745,8 +1867,10 @@ async def get_prompt(db, document_ids, max_tokens):
     prompts = []
 
     document_refs = []
+    reference_doc_by_ref = {}
     seen_refs = set()
     for value in document_ids:
+        reference_doc = value if isinstance(value, dict) else None
         if isinstance(value, dict):
             library_type = _normalize_library_type(value.get("library_type", "breakdown"))
             doc_id = int(value.get("doc_id"))
@@ -1761,6 +1885,8 @@ async def get_prompt(db, document_ids, max_tokens):
         if ref_key in seen_refs:
             continue
         seen_refs.add(ref_key)
+        if reference_doc is not None:
+            reference_doc_by_ref[ref_key] = reference_doc
         document_refs.append((library_type, doc_id, chunks))
 
     documents_by_ref = {}
@@ -1786,7 +1912,9 @@ async def get_prompt(db, document_ids, max_tokens):
     for i, document in enumerate(documents):
         if not document:
             continue
-        if _normalize_library_type(getattr(document, "library_type", "breakdown")) == "knowledge":
+        document_library_type = _normalize_library_type(getattr(document, "library_type", "breakdown"))
+        reference_doc = reference_doc_by_ref.get((document_library_type, int(document.id)))
+        if document_library_type == "knowledge":
             matched_chunks = []
             for ref_library_type, ref_doc_id, chunks in document_refs:
                 if ref_library_type == "knowledge" and ref_doc_id == document.id:
@@ -1801,6 +1929,7 @@ async def get_prompt(db, document_ids, max_tokens):
             selected_sections = _select_prompt_sections(all_sections, matched_chunks, max_sections=10)
             doc_parts = [f"【知识库文档{i + 1}】：{document.title}"]
             remaining = max_tokens - tokens - _count_text_tokens_cached(doc_parts[0])
+            prompt_sections: List[KnowledgeDocumentSection] = []
 
             matched_texts = _matched_chunk_texts(matched_chunks, limit=8)
             if matched_texts and remaining > 0:
@@ -1819,13 +1948,41 @@ async def get_prompt(db, document_ids, max_tokens):
                     section_piece = f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
                     used = _append_prompt_piece(section_parts, section_piece, remaining)
                     remaining -= used
+                    if used > 0:
+                        prompt_sections.append(section)
                     if remaining <= 0:
                         break
                 if section_parts:
                     doc_parts.append("相关章节内容：\n" + "\n\n".join(section_parts))
 
+            if reference_doc is not None:
+                evidence_images: List[str] = []
+                for section in prompt_sections:
+                    _extend_unique_images(evidence_images, _section_image_urls(section))
+                _extend_unique_images(evidence_images, _matched_chunk_image_urls(matched_chunks, limit=8))
+                reference_doc["evidence_section_ids"] = [
+                    int(section.id) for section in prompt_sections if section.id is not None
+                ]
+                reference_doc["evidence_section_titles"] = [
+                    section.section_title or "未命名章节" for section in prompt_sections
+                ]
+                reference_doc["evidence_image_urls"] = evidence_images
+                print(
+                    f"[图片排查][evidence] doc=knowledge:{document.id} "
+                    f"sections={reference_doc['evidence_section_titles']} images={evidence_images}"
+                )
+
             doc_prompt = "\n".join(part for part in doc_parts if part).strip()
         else:
+            if reference_doc is not None:
+                evidence_images = _breakdown_document_image_urls(document)
+                reference_doc["evidence_section_ids"] = []
+                reference_doc["evidence_section_titles"] = ["完整故障文档"]
+                reference_doc["evidence_image_urls"] = evidence_images
+                print(
+                    f"[图片排查][evidence] doc=breakdown:{document.id} "
+                    f"sections={reference_doc['evidence_section_titles']} images={evidence_images}"
+                )
             doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
@@ -1891,12 +2048,21 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
                 "row_end": metadata.get("row_end"),
                 "preview": str(chunk.get("content") or "")[:300],
             })
+        images = _collect_reference_image_paths([doc], max_images=3)
         payload.append({
             "doc_id": int(doc["doc_id"]),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
             "score": float(doc.get("score", 0.0)),
             "chunks": chunks,
+            "image_urls": [
+                web_url
+                for image in images
+                for web_url in [_image_to_web_url_if_exists(image)]
+                if web_url
+            ],
+            "evidence_section_ids": doc.get("evidence_section_ids") or [],
+            "evidence_section_titles": doc.get("evidence_section_titles") or [],
         })
     if not payload:
         return ""

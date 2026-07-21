@@ -173,8 +173,6 @@
                     return;
                 }
 
-                let timeoutId = null;
-
                 try {
                     // 显示加载状态
                     submitBtn.disabled = true;
@@ -183,33 +181,11 @@
                     hideError();
 
                     // 调用后端登录 API，所选身份会与账号角色组权限进行二次校验
-                    const loginUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`;
-                    const controller = new AbortController();
-                    timeoutId = window.setTimeout(() => controller.abort(), LOGIN_REQUEST_TIMEOUT_MS);
-                    const response = await fetch(loginUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            username: username,
-                            password: password,
-                            role: role
-                        })
+                    const result = await requestLogin({
+                        username: username,
+                        password: password,
+                        role: role
                     });
-                    window.clearTimeout(timeoutId);
-                    timeoutId = null;
-
-                    // 获取响应数据
-                    let result;
-                    try {
-                        const responseText = await response.text();
-                        result = JSON.parse(responseText);
-                    } catch (jsonError) {
-                        console.error('响应解析失败:', jsonError);
-                        throw new Error('服务器响应格式错误');
-                    }
 
                     console.log('登录响应:', result);
 
@@ -217,13 +193,19 @@
                         // 登录成功，后端返回 JWT 令牌对象
                         const tokenData = result.data;
 
-                        // 存储 tokens 到 sessionStorage
+                        if (!tokenData || !tokenData.access_token) {
+                            throw new Error('服务器登录响应缺少 access_token');
+                        }
+
+                        // 存储 tokens，localStorage 用于全站 API，sessionStorage 兼容旧页面
                         if (tokenData.access_token) {
+                            localStorage.setItem('token', tokenData.access_token);
                             sessionStorage.setItem('token', tokenData.access_token);
                             console.log('Access Token 已保存');
                         }
 
                         if (tokenData.refresh_token) {
+                            localStorage.setItem('refresh_token', tokenData.refresh_token);
                             sessionStorage.setItem('refresh_token', tokenData.refresh_token);
                             console.log('Refresh Token 已保存');
                         }
@@ -233,6 +215,7 @@
                             const userInfo = {
                                 ...tokenData.user
                             };
+                            localStorage.setItem('user', JSON.stringify(userInfo));
                             sessionStorage.setItem('user', JSON.stringify(userInfo));
                             console.log('用户信息已存储:', userInfo);
                         }
@@ -257,9 +240,6 @@
                     showError(fallbackMessage);
                     Utils.showMessage(fallbackMessage, 'error');
                 } finally {
-                    if (timeoutId) {
-                        window.clearTimeout(timeoutId);
-                    }
                     // 恢复按钮状态
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录系统';
@@ -280,14 +260,121 @@
 
         // 检查已有登录状态
         function checkExistingLogin() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
+            let token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            let refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+            let user = localStorage.getItem('user') || sessionStorage.getItem('user');
+
+            if (token) {
+                localStorage.setItem('token', token);
+                sessionStorage.setItem('token', token);
+            }
+            if (refreshToken) {
+                localStorage.setItem('refresh_token', refreshToken);
+                sessionStorage.setItem('refresh_token', refreshToken);
+            }
+            if (user) {
+                localStorage.setItem('user', user);
+                sessionStorage.setItem('user', user);
+            }
 
             if (token && user) {
                 console.log('检测到已登录，自动跳转到主页面');
                 setTimeout(() => {
                     window.location.href = 'main.html';
                 }, 500);
+            }
+        }
+
+        async function requestLogin(payload) {
+            const loginUrls = getLoginUrlCandidates();
+            let lastError = null;
+
+            for (let index = 0; index < loginUrls.length; index += 1) {
+                const loginUrl = loginUrls[index];
+                const controller = new AbortController();
+                const timeoutId = window.setTimeout(() => controller.abort(), LOGIN_REQUEST_TIMEOUT_MS);
+
+                try {
+                    const response = await fetch(loginUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        signal: controller.signal,
+                        body: JSON.stringify(payload)
+                    });
+                    return await parseLoginResponse(response, loginUrl);
+                } catch (error) {
+                    lastError = error;
+                    const hasNextUrl = index < loginUrls.length - 1;
+                    if (!hasNextUrl || !isRetryableLoginTransportError(error)) {
+                        throw error;
+                    }
+                    console.warn('登录接口候选地址不可用，尝试下一个:', loginUrl, error);
+                } finally {
+                    window.clearTimeout(timeoutId);
+                }
+            }
+
+            throw lastError || new Error('登录请求失败');
+        }
+
+        function getLoginUrlCandidates() {
+            const endpoint = API_CONFIG.ENDPOINTS.LOGIN;
+            const urls = [];
+            const addUrl = (url) => {
+                if (url && !urls.includes(url)) urls.push(url);
+            };
+
+            addUrl(`${API_CONFIG.BASE_URL}${endpoint}`);
+
+            const hostname = window.location.hostname || '';
+            const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+            if (isLocalPage) {
+                addUrl(`http://127.0.0.1:8000/api/v1${endpoint}`);
+                addUrl(`http://localhost:8000/api/v1${endpoint}`);
+            }
+
+            return urls;
+        }
+
+        function isRetryableLoginTransportError(error) {
+            if (!error) return false;
+            if (error.name === 'AbortError') return false;
+            return error.retryableLoginUrl === true || error instanceof TypeError;
+        }
+
+        async function parseLoginResponse(response, loginUrl) {
+            const responseText = await response.text();
+            const contentType = response.headers.get('content-type') || '';
+
+            if (!responseText || !responseText.trim()) {
+                const error = new Error(`服务器未返回内容（HTTP ${response.status}）`);
+                error.retryableLoginUrl = true;
+                throw error;
+            }
+
+            try {
+                return JSON.parse(responseText);
+            } catch (jsonError) {
+                const preview = responseText.slice(0, 300);
+                console.error('登录接口返回非 JSON:', {
+                    url: loginUrl,
+                    status: response.status,
+                    contentType,
+                    preview
+                });
+
+                if (/^\s*(<!doctype|<html|<head|<body)/i.test(responseText)) {
+                    const error = new Error(`登录接口返回了页面而不是 JSON，请检查后端地址：${loginUrl}`);
+                    error.retryableLoginUrl = true;
+                    throw error;
+                }
+
+                const error = new Error(`服务器响应格式错误（HTTP ${response.status}）`);
+                error.retryableLoginUrl = true;
+                throw error;
             }
         }
 

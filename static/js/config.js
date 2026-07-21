@@ -1,18 +1,33 @@
 // js/config.js
+function normalizeApiBaseUrl(baseUrl) {
+    const normalized = String(baseUrl || '').trim().replace(/\/+$/, '');
+    if (!normalized) return '';
+    return /\/api\/v1$/i.test(normalized) ? normalized : `${normalized}/api/v1`;
+}
+
+function resolveApiBaseUrl() {
+    const explicitBaseUrl = normalizeApiBaseUrl(
+        window.MAINTENANCE_API_BASE_URL || window.API_BASE_URL || ''
+    );
+    if (explicitBaseUrl) return explicitBaseUrl;
+
+    const origin = window.location && window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : '';
+    return normalizeApiBaseUrl(origin);
+}
+
+function resolveStaticBaseUrl() {
+    const origin = window.location && window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : '';
+    return origin.replace(/\/$/, '');
+}
+
 const API_CONFIG = {
     // 后端 API 基础地址
-    BASE_URL: (() => {
-        const origin = window.location && window.location.origin && window.location.origin !== 'null'
-            ? window.location.origin
-            : '';
-        return `${origin.replace(/\/$/, '')}/api/v1`;
-    })(),
-    STATIC_BASE_URL: (() => {
-        const origin = window.location && window.location.origin && window.location.origin !== 'null'
-            ? window.location.origin
-            : '';
-        return origin.replace(/\/$/, '');
-    })(),
+    BASE_URL: resolveApiBaseUrl(),
+    STATIC_BASE_URL: resolveStaticBaseUrl(),
 
    
     ENDPOINTS: {
@@ -57,3 +72,5 @@ const API_CONFIG = {
         return `${base}/${value.replace(/^\/+/, '')}`;
     }
 };
+
+window.API_CONFIG = API_CONFIG;
