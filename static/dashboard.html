@@ -319,6 +319,39 @@
             align-items: center;
         }
 
+        .token-summary {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .token-stat {
+            padding: 12px 14px;
+            border: 1px solid #e5eaf0;
+            border-radius: 8px;
+            background: #fbfcfe;
+        }
+
+        .token-stat.primary {
+            color: #fff;
+            border-color: #1971c2;
+            background: #1971c2;
+        }
+
+        .token-stat-label { font-size: 12px; color: #667085; }
+        .token-stat.primary .token-stat-label { color: #dbeafe; }
+        .token-stat-value { margin-top: 5px; font-size: 22px; font-weight: 700; }
+        .token-stat-unit { margin-left: 3px; font-size: 11px; font-weight: 400; }
+        .token-detail-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+        .token-detail { display: flex; justify-content: space-between; padding-top: 9px; border-top: 1px solid #eef1f5; font-size: 12px; color: #667085; }
+        .token-detail strong { color: #344054; }
+
+        @media (max-width: 720px) {
+            .token-summary { grid-template-columns: 1fr 1fr; }
+            .token-stat.primary { grid-column: 1 / -1; }
+        }
+
         .breakdown-label,
         .breakdown-value {
             color: #344054;
@@ -740,15 +773,11 @@
                         <div class="panel-header">
                             <div>
                                 <div class="panel-title">Token 消耗构成</div>
-                                <div class="panel-subtitle">统计口径正在开发中</div>
+                                <div class="panel-subtitle">正在加载 Token 使用量</div>
                             </div>
                         </div>
                         <div class="token-breakdown">
-                            <div class="token-dev-state">
-                                <div class="token-dev-icon"><i class="fas fa-code-branch"></i></div>
-                                <div class="token-dev-title">正在开发</div>
-                                <div class="token-dev-desc">上线后将基于 vLLM 接口返回的 usage 字段统计 Token 消耗。</div>
-                            </div>
+                            <div class="breakdown-item"><div class="breakdown-label">等待数据</div><div class="breakdown-value">0</div><div class="progress-track"><div class="progress-fill blue" style="width: 0%;"></div></div></div>
                         </div>
                     </div>
                 </section>
@@ -1266,23 +1295,67 @@
             return `${pointsToPath(points)} L${last[0]} 220 L${first[0]} 220 Z`;
         }
 
-        function applyTokenPanel() {
+        function applyTokenPanel(tokenUsage) {
             const tokenPanel = document.querySelectorAll('.dashboard-grid .dashboard-panel')[1];
             if (!tokenPanel) return;
 
             const subtitle = tokenPanel.querySelector('.panel-subtitle');
             const tokenBreakdown = tokenPanel.querySelector('.token-breakdown');
-
-            if (subtitle) subtitle.textContent = '统计口径正在开发中';
+            const today = tokenUsage.today || {};
+            const lifetime = tokenUsage.total || {};
+            const total = Number(today.api_total ?? today.total ?? 0);
+            const input = Number(today.api_input_tokens ?? 0);
+            const output = Number(today.api_output_tokens ?? 0);
+            const qaTokens = Number(today.qa_tokens ?? 0);
+            const parseTokens = Number(today.parse_tokens ?? 0);
+            const lifetimeTotal = Number(lifetime.api_total ?? lifetime.total ?? 0);
+            const calls = Number(today.api_call_count ?? today.call_count ?? 0);
+            const rows = [
+                { label: '问答 Token', value: qaTokens || (input + output), color: 'blue' },
+                { label: '解析 Token', value: parseTokens, color: 'green' },
+                { label: '输入 Token', value: input, color: 'gray' },
+                { label: '输出 Token', value: output, color: 'orange' },
+            ];
+            if (subtitle) subtitle.textContent = `今日 ${formatCompact(total)} Token · 累计 ${formatCompact(lifetimeTotal)} Token · API 调用 ${formatCompact(calls)} 次`;
+            /* Legacy placeholder line retained as a comment for encoding compatibility.
+            if (subtitle) subtitle.textContent = `今日 ${formatCompact(total)} Token · 累计 ${formatCompact(lifetimeTotal)} Token · API 调用 ${formatCompact(calls)} 次`;
+            */
             if (tokenBreakdown) {
-                tokenBreakdown.innerHTML = `
-                    <div class="token-dev-state">
-                        <div class="token-dev-icon"><i class="fas fa-code-branch"></i></div>
-                        <div class="token-dev-title">正在开发</div>
-                        <div class="token-dev-desc">上线后将基于 vLLM 接口返回的 usage 字段统计 Token 消耗。</div>
-                    </div>
-                `;
+                tokenBreakdown.innerHTML = rows.map((row) => {
+                    const percent = total ? Math.min(100, (row.value / total) * 100) : 0;
+                    return `<div class="breakdown-item"><div class="breakdown-label">${row.label}</div><div class="breakdown-value">${formatCompact(row.value)}</div><div class="progress-track"><div class="progress-fill ${row.color}" style="width: ${percent.toFixed(1)}%;"></div></div></div>`;
+                }).join('') || '<div class="dashboard-empty">暂无 Token 调用记录</div>';
             }
+        }
+
+        // Compact token summary: emphasize today's total, then separate QA and parsing usage.
+        function applyTokenPanel(tokenUsage) {
+            const tokenPanel = document.querySelectorAll('.dashboard-grid .dashboard-panel')[1];
+            if (!tokenPanel) return;
+            const subtitle = tokenPanel.querySelector('.panel-subtitle');
+            const container = tokenPanel.querySelector('.token-breakdown');
+            const today = tokenUsage.today || {};
+            const lifetime = tokenUsage.total || {};
+            const total = Number(today.api_total ?? today.total ?? 0);
+            const lifetimeTotal = Number(lifetime.api_total ?? lifetime.total ?? 0);
+            const qa = Number(today.qa_tokens ?? 0) || Number(today.api_input_tokens ?? 0) + Number(today.api_output_tokens ?? 0);
+            const parse = Number(today.parse_tokens ?? 0);
+            const input = Number(today.api_input_tokens ?? 0);
+            const output = Number(today.api_output_tokens ?? 0);
+            const calls = Number(today.api_call_count ?? today.call_count ?? 0);
+            if (subtitle) subtitle.textContent = `${formatCompact(calls)} 次 API 调用`;
+            if (container) container.innerHTML = `
+                <div class="token-summary">
+                    <div class="token-stat primary"><div class="token-stat-label">今日消耗</div><div class="token-stat-value">${formatCompact(total)}<span class="token-stat-unit">Token</span></div></div>
+                    <div class="token-stat"><div class="token-stat-label">累计总计</div><div class="token-stat-value">${formatCompact(lifetimeTotal)}<span class="token-stat-unit">Token</span></div></div>
+                    <div class="token-stat"><div class="token-stat-label">问答 Token</div><div class="token-stat-value">${formatCompact(qa)}<span class="token-stat-unit">Token</span></div></div>
+                </div>
+                <div class="token-detail-list">
+                    <div class="token-detail"><span>解析 Token</span><strong>${formatCompact(parse)}</strong></div>
+                    <div class="token-detail"><span>输入 Token</span><strong>${formatCompact(input)}</strong></div>
+                    <div class="token-detail"><span>输出 Token</span><strong>${formatCompact(output)}</strong></div>
+                    <div class="token-detail"><span>平均每次</span><strong>${formatCompact(calls ? Math.round(total / calls) : 0)}</strong></div>
+                </div>`;
         }
 
         function renderTokenBreakdown(container, rows, total) {

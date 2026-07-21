@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,6 +19,7 @@ from models import (
     Document_review,
     KnowledgeDocumentReview,
     Message,
+    AiUsageLog,
     RoleGroup,
     RoleGroupPermission,
     SourceDocument,
@@ -432,6 +433,25 @@ async def _build_token_summary(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
 ) -> Dict[str, Any]:
+    usage_filters = _range_filters(AiUsageLog.created_time, start, end)
+    usage_result = await db.execute(
+        select(
+            func.coalesce(func.sum(AiUsageLog.input_tokens), 0),
+            func.coalesce(func.sum(AiUsageLog.output_tokens), 0),
+            func.coalesce(func.sum(AiUsageLog.total_tokens), 0),
+            func.count(AiUsageLog.id),
+        ).where(AiUsageLog.status == "success", *usage_filters)
+    )
+    usage_row = usage_result.one()
+    parse_result = await db.execute(
+        select(func.coalesce(func.sum(AiUsageLog.total_tokens), 0)).where(
+            AiUsageLog.status == "success",
+            AiUsageLog.request_type.like("parse%"),
+            *usage_filters,
+        )
+    )
+    parse_tokens = int(parse_result.scalar_one() or 0)
+    qa_tokens = max(0, int(usage_row[2] or 0) - parse_tokens)
     date_filters = _range_filters(Message.created_time, start, end)
     message_tokens = await _sum_message_tokens(db, [*date_filters])
     ai_tokens = await _sum_message_tokens(db, [Message.role == 0, *date_filters])
@@ -462,7 +482,13 @@ async def _build_token_summary(
 
     total_tokens = int(message_tokens + image_tokens + reference_tokens)
     return {
-        "total": total_tokens,
+        "total": int(usage_row[2] or total_tokens),
+        "api_total": int(usage_row[2] or 0),
+        "api_input_tokens": int(usage_row[0] or 0),
+        "api_output_tokens": int(usage_row[1] or 0),
+        "api_call_count": int(usage_row[3] or 0),
+        "qa_tokens": qa_tokens,
+        "parse_tokens": parse_tokens,
         "message_tokens": message_tokens,
         "ai_tokens": ai_tokens,
         "user_tokens": user_tokens,

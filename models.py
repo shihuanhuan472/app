@@ -321,3 +321,28 @@ class Message(Base):
     created_time = Column(DateTime)
 
     conversation = relationship("Conversation", back_populates="messages")
+
+
+class AiUsageLog(Base):
+    __tablename__ = "ai_usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=True, index=True)
+    message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    provider = Column(String(32), default="openai", nullable=False, index=True)
+    model = Column(String(255), default="", nullable=False, index=True)
+    request_type = Column(String(64), default="", nullable=False, index=True)
+    status = Column(String(32), default="success", nullable=False, index=True)
+    input_tokens = Column(Integer, default=0, nullable=False)
+    output_tokens = Column(Integer, default=0, nullable=False)
+    total_tokens = Column(Integer, default=0, nullable=False)
+    prompt_tokens = Column(Integer, default=0, nullable=False)
+    completion_tokens = Column(Integer, default=0, nullable=False)
+    raw_usage_json = Column(Text)
+    error_message = Column(Text)
+    created_time = Column(DateTime, index=True)
+
+    user = relationship("User")
+    conversation = relationship("Conversation")
+    message = relationship("Message")

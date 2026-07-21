@@ -651,6 +651,43 @@ async def ensure_message_token_count_column():
             )
 
 
+async def ensure_ai_usage_logs_table():
+    async with engine.begin() as conn:
+        if not await _table_exists(conn, "ai_usage_logs"):
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE ai_usage_logs (
+                        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NULL,
+                        session_id INT NULL,
+                        message_id INT NULL,
+                        provider VARCHAR(32) NOT NULL DEFAULT 'openai',
+                        model VARCHAR(255) NOT NULL DEFAULT '',
+                        request_type VARCHAR(64) NOT NULL DEFAULT '',
+                        status VARCHAR(32) NOT NULL DEFAULT 'success',
+                        input_tokens INT NOT NULL DEFAULT 0,
+                        output_tokens INT NOT NULL DEFAULT 0,
+                        total_tokens INT NOT NULL DEFAULT 0,
+                        prompt_tokens INT NOT NULL DEFAULT 0,
+                        completion_tokens INT NOT NULL DEFAULT 0,
+                        raw_usage_json TEXT NULL,
+                        error_message TEXT NULL,
+                        created_time DATETIME NULL,
+                        INDEX idx_ai_usage_logs_user_id (user_id),
+                        INDEX idx_ai_usage_logs_session_id (session_id),
+                        INDEX idx_ai_usage_logs_message_id (message_id),
+                        INDEX idx_ai_usage_logs_provider (provider),
+                        INDEX idx_ai_usage_logs_model (model),
+                        INDEX idx_ai_usage_logs_request_type (request_type),
+                        INDEX idx_ai_usage_logs_status (status),
+                        INDEX idx_ai_usage_logs_created_time (created_time)
+                    )
+                    """
+                )
+            )
+
+
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
         if not await _table_exists(conn, "documents"):
@@ -767,6 +804,7 @@ async def on_startup():
     await ensure_review_library_columns()
     await ensure_source_document_library_columns()
     await ensure_message_token_count_column()
+    await ensure_ai_usage_logs_table()
     await migrate_legacy_documents_to_breakdown()
     await migrate_legacy_tags_to_tag_tables()
     await migrate_legacy_upload_document_paths_to_source_documents()

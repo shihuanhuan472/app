@@ -40,6 +40,7 @@ from utils.desensitize import (
     max_sensitive_term_length,
 )
 from utils.token_counter import get_token_count
+from utils.ai_usage import record_ai_usage
 from utils.VectorService import VectorService
 from fastapi.responses import StreamingResponse
 
@@ -827,14 +828,24 @@ async def stream_ai_response(
             model=model,
             messages=messages,
             max_tokens=max_token,
-            stream=True
+            stream=True,
+            stream_options={"include_usage": True},
         )
         full_content = ""
+        usage_payload = None
         last_stream_content = None
         hold_chars = max(0, max_sensitive_term_length() - 1)
         first_chunk_logged = False
 
         async for chunk in response:
+            if getattr(chunk, "usage", None) is not None:
+                usage_payload = {
+                    "input_tokens": getattr(chunk.usage, "prompt_tokens", 0) or getattr(chunk.usage, "input_tokens", 0) or 0,
+                    "output_tokens": getattr(chunk.usage, "completion_tokens", 0) or getattr(chunk.usage, "output_tokens", 0) or 0,
+                    "total_tokens": getattr(chunk.usage, "total_tokens", 0) or 0,
+                    "prompt_tokens": getattr(chunk.usage, "prompt_tokens", 0) or 0,
+                    "completion_tokens": getattr(chunk.usage, "completion_tokens", 0) or 0,
+                }
             if chunk.choices and chunk.choices[0].delta.content:
                 if not first_chunk_logged:
                     first_chunk_logged = True
@@ -890,10 +901,35 @@ async def stream_ai_response(
             final_content = desensitize_text(final_content)
             await persist_ai_content(final_content, with_token_count=True)
 
+        async with AsyncSessionLocal() as usage_db:
+            await record_ai_usage(
+                usage_db,
+                session_id=session_id,
+                message_id=id,
+                model=model,
+                request_type="chat_stream",
+                usage=usage_payload,
+            )
+            await usage_db.commit()
+
         final_data = {"code": 1, "data": "true"}
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
         print(e)
+        try:
+            async with AsyncSessionLocal() as usage_db:
+                await record_ai_usage(
+                    usage_db,
+                    session_id=session_id,
+                    message_id=id,
+                    model=model,
+                    request_type="chat_stream",
+                    status="error",
+                    error_message=str(e)[:1000],
+                )
+                await usage_db.commit()
+        except Exception as usage_error:
+            print(usage_error)
         fallback_content = "回答生成失败，请稍后重试。"
         try:
             await persist_ai_content(fallback_content, with_token_count=True)
