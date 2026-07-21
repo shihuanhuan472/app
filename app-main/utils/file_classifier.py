@@ -23,6 +23,7 @@ ALLOWED_DOCUMENT_EXTENSIONS = {
     ".xlsx",
     ".xls",
     ".xlsm",
+    ".emf",
 }
 
 

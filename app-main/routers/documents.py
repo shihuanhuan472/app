@@ -77,12 +77,15 @@ from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
 from utils.upload_paths import normalize_upload_path
 from utils.tag_service import (
+    get_document_fault_tag_names,
     get_document_tag_names,
     normalize_tag_values,
     normalize_tag_names,
+    resolve_tags,
     set_document_tag_names,
     tag_filter_for_model,
     tag_keyword_filter_for_model,
+    fault_tag_filter_for_model,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select, func, delete, desc
@@ -155,6 +158,11 @@ def _tag_keyword_filter(model, keyword: str):
     return tag_keyword_filter_for_model(model, keyword)
 
 
+def _fault_tag_filter(model, tags):
+    """按工单故障类型标签做包含任一标签的过滤。"""
+    return fault_tag_filter_for_model(model, tags)
+
+
 def _document_text_keyword_conditions(model, keyword: str):
     conditions = [model.title.like(f"%{keyword}%")]
     for field in ("problem_intro", "summary", "content"):
@@ -192,6 +200,7 @@ DOCUMENT_COPY_FIELDS = [
     "image_urls_key_points",
     "origin_file_name",
     "origin_file_dir",
+    "fault_tag",
 ]
 
 
@@ -259,7 +268,7 @@ def _fill_request_section_markers(sections):
         ) or str(index + 1)
 
 
-def _copy_document_to_library(document: Document, library_type: str, tag=None):
+def _copy_document_to_library(document: Document, library_type: str, tag=None, fault_tag=None):
     """把解析器产出的文档对象转换成目标库表对象，避免知识库导入时仍写入故障库表。"""
     document_model = _get_document_model(library_type)
     copied_data = {
@@ -267,6 +276,9 @@ def _copy_document_to_library(document: Document, library_type: str, tag=None):
     }
     copied_data["tag"] = _normalize_tags(
         tag if tag is not None else getattr(document, "tag", [])
+    )
+    copied_data["fault_tag"] = _normalize_tags(
+        fault_tag if fault_tag is not None else getattr(document, "fault_tag", [])
     )
     return document_model(**_filter_model_data(document_model, copied_data))
 
@@ -340,7 +352,7 @@ def _knowledge_sections_to_review_payload(sections):
 
 
 def _knowledge_document_from_parsed(
-    parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags
+    parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags, fault_tags=None
 ):
     return DocumentKnowledge(
         library_type="knowledge",
@@ -351,6 +363,7 @@ def _knowledge_document_from_parsed(
         origin_file_name=file_name,
         origin_file_dir=origin_file_dir,
         tag=_normalize_tags(tags),
+        fault_tag=_normalize_tags(fault_tags),
         is_vectorized=0,
         is_deleted=0,
     )
@@ -497,6 +510,7 @@ def _build_create_review_from_document(
         origin_file_name=getattr(document, "origin_file_name", None),
         origin_file_dir=normalize_upload_path(getattr(document, "origin_file_dir", None)),
         tag=_normalize_tags(getattr(document, "tag", [])),
+        fault_tag=_normalize_tags(getattr(document, "fault_tag", [])),
         sections=_knowledge_sections_to_review_payload(sections),
         image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
         image_urls_causes=getattr(document, "image_urls_causes", None),
@@ -856,6 +870,7 @@ async def _run_parse_task(task_id: int, user_id: int) -> None:
                     submit_for_review=_task_bool(task.submit_for_review),
                     library_type=task.library_type,
                     tag=task.tag or [],
+                    fault_tag=task.fault_tag or [],
                 )
                 response = await analyze_files(analyze_request, db, user)
                 response_data = response.data
@@ -978,6 +993,7 @@ async def create_parse_task(
         submit_for_review=1 if submit_for_review else 0,
         library_type=_normalize_library_type(file_list.library_type),
         tag=file_list.tag or [],
+        fault_tag=file_list.fault_tag or [],
         created_time=datetime.now(),
     )
     db.add(task)
@@ -1062,6 +1078,7 @@ async def document_convert_documentResponse(
         id=document.id,
         library_type=getattr(document, "library_type", "breakdown"),
         tag=await get_document_tag_names(db, document),
+        fault_tag=await get_document_fault_tag_names(db, document),
         title=document.title,
         section_ids=(
             getattr(document, "section_ids", None)
@@ -1236,13 +1253,14 @@ async def create_document(
             setattr(document, attr, value)
 
         document_model = _get_document_model(document.library_type)
-        exclude_fields = {"library_type", "tag", "sections"}
+        exclude_fields = {"library_type", "tag", "fault_tag", "sections"}
         exclude_fields.update({"summary", "content"})
         document_payload = document.dict(exclude=exclude_fields)
         if "title" in document_payload:
             document_payload["title"] = normalize_document_title(document_payload.get("title"))
         document_payload.update(
             tag=_normalize_tags(document.tag),
+            fault_tag=_normalize_tags(document.fault_tag),
             contributor_id=contributor_id,
             is_vectorized=0,
             is_deleted=0,
@@ -1263,6 +1281,10 @@ async def create_document(
         await set_document_tag_names(
             db, document_data, document.tag, created_by=current_user.id
         )
+        # 解析工单故障标签名称 -> ID
+        if document.fault_tag:
+            fault_tags = await resolve_tags(db, document.fault_tag, created_by=current_user.id)
+            document_data.fault_tag = [tag.id for tag in fault_tags]
         print("数据库插入成功")
         vector_service = VectorService(db)
         await vector_service.add_document_to_vector_store(document_data, commit=False)
@@ -1529,6 +1551,10 @@ async def update_document(
                 await set_document_tag_names(
                     db, document_now, value, created_by=current_user.id
                 )
+                continue
+            if key == "fault_tag":
+                fault_tags = await resolve_tags(db, value, created_by=current_user.id)
+                document_now.fault_tag = [tag.id for tag in fault_tags]
                 continue
             setattr(document_now, key, value)
 
@@ -2022,11 +2048,13 @@ async def get_page(
             for document_model in DOCUMENT_LIBRARY_MODELS.values():
                 # 每张表都要使用自己的 JSON tag 字段构造过滤条件。
                 tag_condition = _tag_filter(document_model, page.tag)
+                fault_tag_condition = _fault_tag_filter(document_model, page.fault_tag)
                 # 默认只展示未删除文档，和原来单库查询行为保持一致。
                 where_conditions = [document_model.is_deleted == 0]
                 if tag_condition is not None:
-                    # 如果前端选择了标签，就在两个库里都按标签过滤。
                     where_conditions.append(tag_condition)
+                if fault_tag_condition is not None:
+                    where_conditions.append(fault_tag_condition)
 
                 count_result = await db.execute(
                     select(func.count())
@@ -2058,11 +2086,14 @@ async def get_page(
 
         document_model = _get_document_model(page.library_type)
         tag_condition = _tag_filter(document_model, page.tag)
+        fault_tag_condition = _fault_tag_filter(document_model, page.fault_tag)
         # total_count = db.query(Document).count()
 
         where_conditions = [document_model.is_deleted == 0]
         if tag_condition is not None:
             where_conditions.append(tag_condition)
+        if fault_tag_condition is not None:
+            where_conditions.append(fault_tag_condition)
 
         total_count_result = await db.execute(
             select(func.count()).select_from(document_model).where(*where_conditions)
@@ -2111,6 +2142,7 @@ async def query(
             for document_model in DOCUMENT_LIBRARY_MODELS.values():
                 # 每张表都要用对应 ORM 模型生成标签过滤条件。
                 tag_condition = _tag_filter(document_model, query.tag)
+                fault_tag_condition = _fault_tag_filter(document_model, query.fault_tag)
                 # 关键词搜索条件：标题、作者姓名、用户名、问题简介、标签都可以匹配。
                 tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
                 filter_condition = or_(
@@ -2124,6 +2156,8 @@ async def query(
                 if tag_condition is not None:
                     # 如果前端传入标签，搜索时也要限制对应标签。
                     where_conditions.append(tag_condition)
+                if fault_tag_condition is not None:
+                    where_conditions.append(fault_tag_condition)
 
                 count_result = await db.execute(
                     select(func.count())
@@ -2157,6 +2191,7 @@ async def query(
 
         document_model = _get_document_model(query.library_type)
         tag_condition = _tag_filter(document_model, query.tag)
+        fault_tag_condition = _fault_tag_filter(document_model, query.fault_tag)
         tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
 
         filter_condition = or_(
@@ -2168,6 +2203,8 @@ async def query(
         where_conditions = [document_model.is_deleted == 0, filter_condition]
         if tag_condition is not None:
             where_conditions.append(tag_condition)
+        if fault_tag_condition is not None:
+            where_conditions.append(fault_tag_condition)
 
         total_count_result = await db.execute(
             select(func.count())
@@ -2545,6 +2582,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     file_name=file_name,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
+                    fault_tags=file_list.fault_tag,
                 )
                 if submit_for_review:
                     review = _build_create_review_from_document(
@@ -2582,6 +2620,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                 created_library_type = "knowledge"
                 await replace_knowledge_document_sections(db, document, parsed.sections)
                 await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
+                if file_list.fault_tag:
+                    fault_tags = await resolve_tags(db, file_list.fault_tag, created_by=current_user_id)
+                    document.fault_tag = [tag.id for tag in fault_tags]
 
                 # 先提交文档和章节，释放 MySQL 锁。
                 # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
@@ -2782,6 +2823,9 @@ async def analyze_files(file_list: AnalyzeRequest,
                 created_document_id = document.id
                 created_library_type = getattr(document, "library_type", "breakdown")
                 await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
+                if file_list.fault_tag:
+                    fault_tags = await resolve_tags(db, file_list.fault_tag, created_by=current_user_id)
+                    document.fault_tag = [tag.id for tag in fault_tags]
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(

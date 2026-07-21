@@ -101,6 +101,7 @@ class ParseTask(Base):
     submit_for_review = Column(Integer, default=0, nullable=False)
     library_type = Column(String(32), default="breakdown", nullable=False)
     tag = Column(JSON, nullable=True)
+    fault_tag = Column(JSON, nullable=True)
     error_message = Column(Text)
     created_time = Column(DateTime)
     started_time = Column(DateTime)
@@ -135,7 +136,8 @@ class Tag(Base):
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(50), nullable=False, index=True)
+    category = Column(String(32), default="device", nullable=False, index=True)
     description = Column(Text)
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -171,6 +173,7 @@ class DocumentBreakdown(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
+    fault_tag = Column(JSON, default=list)
     library_type = "breakdown"
 
     contributor = relationship("User")
@@ -192,6 +195,7 @@ class DocumentKnowledge(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
+    fault_tag = Column(JSON, default=list)
 
     contributor = relationship("User")
 
@@ -261,6 +265,7 @@ class Document_review(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
+    fault_tag = Column(JSON, default=list)
     action_type = Column(Integer, nullable=False)  # 1-create, 2-update, 3-delete
     review_comment = Column(Text)
 
@@ -286,6 +291,7 @@ class KnowledgeDocumentReview(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
+    fault_tag = Column(JSON, default=list)
     sections = Column(JSON, nullable=True)
     action_type = Column(Integer, nullable=False)  # 1-create, 2-update, 3-delete
     review_comment = Column(Text)

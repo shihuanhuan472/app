@@ -830,7 +830,7 @@ const documentAPI = {
     },
 
     // 解析文件
-    async analyzeFiles(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
+    async analyzeFiles(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = [], faultTag = []) {
         try {
             const response = await this.client.post(
                 `${API_CONFIG.ENDPOINTS.DOCUMENTS}/analyze_files`,
@@ -839,7 +839,8 @@ const documentAPI = {
                     file_name: fileNames,
                     submit_for_review: submitForReview,
                     library_type: libraryType,
-                    tag: tag
+                    tag: tag,
+                    fault_tag: faultTag
                 },
                 true
             );
@@ -899,13 +900,14 @@ const sourceDocumentAPI = {
 const tagAPI = {
     client: new APIClient(),
 
-    async getTagsPage(page = 1, size = 10, keyword = '') {
+    async getTagsPage(page = 1, size = 10, keyword = '', category = '') {
         const response = await this.client.post(
             '/tag/page',
             {
                 page,
                 size,
-                data: keyword
+                data: keyword,
+                category
             },
             true
         );
@@ -915,8 +917,9 @@ const tagAPI = {
         throw new Error(response.msg || response.message || '获取标签失败');
     },
 
-    async getAllTags() {
-        const response = await this.client.get('/tag/list', true);
+    async getAllTags(category = '') {
+        const url = category ? `/tag/list?category=${encodeURIComponent(category)}` : '/tag/list';
+        const response = await this.client.get(url, true);
         if (response.code === 1) {
             return response.data || [];
         }

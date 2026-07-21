@@ -16,6 +16,10 @@ from utils.tag_service import get_tag_document_count, get_tag_document_counts, n
 
 router = APIRouter(prefix="/tag", tags=["标签"])
 
+CATEGORY_DEVICE = "device"
+CATEGORY_FAULT = "fault"
+VALID_CATEGORIES = {CATEGORY_DEVICE, CATEGORY_FAULT}
+
 
 def _require_tag_operator(user: User):
     if not (has_role(user, UserRole.ADMIN) or has_role(user, UserRole.TECHNICIAN)):
@@ -26,6 +30,7 @@ def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
     return TagResponse(
         id=tag.id,
         name=tag.name,
+        category=tag.category or CATEGORY_DEVICE,
         description=tag.description,
         document_count=document_count,
         created_by=tag.created_by,
@@ -34,8 +39,10 @@ def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
     )
 
 
-async def _get_existing_tag_by_name(db: AsyncSession, name: str) -> Optional[Tag]:
-    result = await db.execute(select(Tag).where(Tag.name == name))
+async def _get_existing_tag_by_name(db: AsyncSession, name: str, category: str) -> Optional[Tag]:
+    result = await db.execute(
+        select(Tag).where(Tag.name == name, Tag.category == category)
+    )
     return result.scalar_one_or_none()
 
 
@@ -47,13 +54,26 @@ async def _get_active_tag_or_404(db: AsyncSession, tag_id: int) -> Tag:
     return tag
 
 
+def _normalize_category(category: Optional[str]) -> str:
+    if category and str(category).strip().lower() in ("fault", "fault_type", "work_order"):
+        return CATEGORY_FAULT
+    return CATEGORY_DEVICE
+
+
 @router.get("/list", summary="获取所有标签")
 async def list_tags(
+    category: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     _require_tag_operator(current_user)
-    result = await db.execute(select(Tag).where(Tag.is_deleted == 0).order_by(Tag.name.asc()))
+    cat = _normalize_category(category) if category else None
+    conditions = [Tag.is_deleted == 0]
+    if cat:
+        conditions.append(Tag.category == cat)
+    result = await db.execute(
+        select(Tag).where(*conditions).order_by(Tag.name.asc())
+    )
     tags = result.scalars().all()
     counts = await get_tag_document_counts(db, [tag.id for tag in tags])
     return Result.success_with_data([_tag_to_response(tag, counts.get(tag.id, 0)) for tag in tags])
@@ -69,7 +89,10 @@ async def page_tags(
     page = max(int(query.page or 1), 1)
     size = max(int(query.size or 10), 1)
     keyword = str(query.data or "").strip()
+    cat = _normalize_category(query.category) if query.category else None
     conditions = [Tag.is_deleted == 0]
+    if cat:
+        conditions.append(Tag.category == cat)
     if keyword:
         conditions.append(or_(Tag.name.like(f"%{keyword}%"), Tag.description.like(f"%{keyword}%")))
 
@@ -105,8 +128,9 @@ async def add_tag(
     if not names:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
     name = names[0]
+    cat = _normalize_category(payload.category)
 
-    existing = await _get_existing_tag_by_name(db, name)
+    existing = await _get_existing_tag_by_name(db, name, cat)
     now = datetime.now()
     if existing:
         if existing.is_deleted:
@@ -116,10 +140,11 @@ async def add_tag(
             await db.commit()
             await db.refresh(existing)
             return Result.success_with_data(_tag_to_response(existing, 0))
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称已存在")
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "该分类下标签名称已存在")
 
     tag = Tag(
         name=name,
+        category=cat,
         description=payload.description,
         is_deleted=0,
         created_by=current_user.id,
@@ -140,6 +165,7 @@ async def update_tag(
 ):
     _require_tag_operator(current_user)
     tag = await _get_active_tag_or_404(db, payload.id)
+    cat = tag.category  # keep existing category
 
     if payload.name is not None:
         names = normalize_tag_names([payload.name])
@@ -147,9 +173,9 @@ async def update_tag(
             raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
         new_name = names[0]
         if new_name != tag.name:
-            existing = await _get_existing_tag_by_name(db, new_name)
+            existing = await _get_existing_tag_by_name(db, new_name, cat)
             if existing and existing.id != tag.id:
-                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称已存在")
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "该分类下标签名称已存在")
             tag.name = new_name
 
     if payload.description is not None:

@@ -445,6 +445,42 @@ async def ensure_review_library_columns():
             await conn.execute(text("ALTER TABLE document_reviews ADD COLUMN tag JSON NULL AFTER origin_file_dir"))
 
 
+async def ensure_tag_category_column():
+    async with engine.begin() as conn:
+        if not await _column_exists(conn, "tags", "category"):
+            await conn.execute(text("ALTER TABLE tags ADD COLUMN category VARCHAR(32) NOT NULL DEFAULT 'device' AFTER name"))
+            await conn.execute(text("CREATE INDEX idx_tags_category ON tags (category)"))
+
+        # Drop the unique index on name (globally unique no longer applies with category)
+        index_result = await conn.execute(
+            text(
+                """
+                SELECT INDEX_NAME
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'tags'
+                  AND COLUMN_NAME = 'name'
+                  AND NON_UNIQUE = 0
+                """
+            )
+        )
+        for row in index_result.all():
+            await conn.execute(text(f"ALTER TABLE tags DROP INDEX `{row.INDEX_NAME}`"))
+
+        # Update existing tags to have category='device'
+        await conn.execute(
+            text("UPDATE tags SET category = 'device' WHERE category IS NULL OR category = ''")
+        )
+
+
+async def ensure_fault_tag_columns():
+    async with engine.begin() as conn:
+        for table_name in ("document_breakdown", "document_knowledge", "document_reviews", "knowledge_document_reviews", "parse_tasks"):
+            if not await _column_exists(conn, table_name, "fault_tag"):
+                await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN fault_tag JSON NULL AFTER tag"))
+                await conn.execute(text(f"UPDATE {table_name} SET fault_tag = JSON_ARRAY() WHERE fault_tag IS NULL"))
+
+
 async def ensure_user_api_key_column():
     async with engine.begin() as conn:
         column_result = await conn.execute(
@@ -761,6 +797,7 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await ensure_tag_category_column()
     await ensure_role_group_schema()
     await ensure_user_api_key_column()
     await ensure_document_tables_for_library_split()
@@ -768,6 +805,7 @@ async def on_startup():
     await ensure_source_document_library_columns()
     await ensure_message_token_count_column()
     await migrate_legacy_documents_to_breakdown()
+    await ensure_fault_tag_columns()
     await migrate_legacy_tags_to_tag_tables()
     await migrate_legacy_upload_document_paths_to_source_documents()
 

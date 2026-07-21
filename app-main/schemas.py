@@ -88,28 +88,33 @@ class Page(BaseModel):
     size: Optional[int] = 6
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+    fault_tag: Optional[List[Any]] = None
 
 
 class TagCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    category: Optional[str] = "device"
 
 
 class TagUpdate(BaseModel):
     id: int
     name: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
 
 
 class TagQuery(BaseModel):
     data: Optional[str] = ""
     page: Optional[int] = 1
     size: Optional[int] = 10
+    category: Optional[str] = ""
 
 
 class TagResponse(BaseModel):
     id: int
     name: str
+    category: Optional[str] = "device"
     description: Optional[str] = None
     document_count: Optional[int] = 0
     created_by: Optional[int] = None
@@ -154,6 +159,7 @@ class KnowledgeSectionResponse(KnowledgeSectionCreate):
 class DocumentCreate(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+    fault_tag: Optional[List[Any]] = None
     title: str
     summary: Optional[str] = None
     content: Optional[str] = None
@@ -178,6 +184,7 @@ class DocumentResponse(BaseModel):
     id: int
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[str]] = None
+    fault_tag: Optional[List[Any]] = None
     title: str
     section_ids: Optional[List[int]] = None
     sections: Optional[List[KnowledgeSectionResponse]] = None
@@ -211,6 +218,7 @@ class DocumentReviewRequest(BaseModel):
     document_id: Optional[int] = None
     document_library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+    fault_tag: Optional[List[Any]] = None
     sections: Optional[List[KnowledgeSectionCreate]] = None
     review_comment: Optional[str] = None
 
@@ -266,6 +274,7 @@ class DocumentQuery(BaseModel):
     data: str
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+    fault_tag: Optional[List[Any]] = None
     page: Optional[int] = 1
     size: Optional[int] = 6
 
@@ -332,6 +341,7 @@ class AnalyzeRequest(BaseModel):
     submit_for_review: Optional[bool] = False
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[Any]] = None
+    fault_tag: Optional[List[Any]] = None
 
 
 class ParseTaskCreate(AnalyzeRequest):

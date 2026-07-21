@@ -870,11 +870,14 @@ const TagSelector = {
         const container = document.getElementById(containerId);
         if (!container) return;
 
+        const category = options.category || '';
         const selected = new Set(this.normalizeTags(options.selected || []));
+        const placeholder = options.placeholder || (category === 'fault' ? '请选择工单故障标签' : '请选择标签');
         this.instances[containerId] = {
             tags: [],
             selected,
-            placeholder: options.placeholder || '请选择标签'
+            category,
+            placeholder
         };
 
         container.classList.add('tag-select');
@@ -897,7 +900,8 @@ const TagSelector = {
             if (typeof tagAPI === 'undefined') {
                 throw new Error('标签接口未加载');
             }
-            const tags = await tagAPI.getAllTags();
+            const cat = this.instances[containerId].category;
+            const tags = await tagAPI.getAllTags(cat);
             this.instances[containerId].tags = Array.isArray(tags) ? tags : [];
             this.render(containerId);
         } catch (error) {

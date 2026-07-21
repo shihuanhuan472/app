@@ -341,8 +341,11 @@
                             <option value="knowledge">知识库</option>
                         </select>
                     </label>
-                    <label>标签
+                    <label>设备类型标签
                         <div id="documentTags" class="tag-select"></div>
+                    </label>
+                    <label>工单故障类型标签
+                        <div id="documentFaultTags" class="tag-select"></div>
                     </label>
                 </div>
                 <h4>已上传的文件（可勾选需要解析的）</h4>
@@ -423,6 +426,10 @@
 
     function parseDocumentTags() {
         return TagSelector.getSelected('documentTags');
+    }
+
+    function parseDocumentFaultTags() {
+        return TagSelector.getSelected('documentFaultTags');
     }
 
     function escapeHtml(value) {
@@ -577,7 +584,12 @@
         }
         applyPageMode();
         TagSelector.init('documentTags', {
-            placeholder: '请选择标签'
+            category: 'device',
+            placeholder: '请选择设备类型标签'
+        });
+        TagSelector.init('documentFaultTags', {
+            category: 'fault',
+            placeholder: '请选择工单故障类型标签'
         });
 
         // 点击上传区域
@@ -930,7 +942,8 @@
                     fileNames,
                     isReviewMode,
                     document.getElementById('libraryType').value,
-                    parseDocumentTags()
+                    parseDocumentTags(),
+                    parseDocumentFaultTags()
                 );
                 renderAnalyzeResult(result, fileNames);
                 const successCount = (result.success_origin_filename || []).length;

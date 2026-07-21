@@ -11,204 +11,87 @@
     <script src="js/api.js"></script>
     <script src="js/menu.js"></script>
     <style>
+        .tag-section { margin-bottom: 32px; }
+        .tag-section:last-child { margin-bottom: 0; }
+        .tag-section-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px; padding-bottom: 12px;
+            border-bottom: 2px solid #e8eef7;
+        }
+        .tag-section-header h2 { font-size: 18px; font-weight: 600; color: #1a3a5f; margin: 0; }
+        .tag-section-header .tag-badge {
+            display: inline-block; font-size: 11px; font-weight: 500;
+            padding: 2px 10px; border-radius: 10px;
+            background: #eef4ff; color: #4a9eff;
+        }
+        .tag-section-header .tag-badge.fault-badge { background: #fff3e8; color: #f59e0b; }
         .tag-layout {
             display: grid;
             grid-template-columns: minmax(0, 1fr) 340px;
-            gap: 20px;
-            align-items: start;
+            gap: 20px; align-items: start;
         }
-
         .tag-panel {
-            background: #fff;
-            border: 1px solid #e8eef7;
-            border-radius: 8px;
-            padding: 18px;
-            box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
+            background: #fff; border: 1px solid #e8eef7;
+            border-radius: 8px; padding: 18px;
+            box-shadow: 0 2px 10px rgba(17,24,39,0.04);
         }
-
-        .tag-toolbar {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 16px;
+        .tag-toolbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+        .tag-toolbar .search-box { max-width: 420px; }
+        .tag-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .tag-table th, .tag-table td {
+            padding: 12px 10px; border-bottom: 1px solid #edf2f7;
+            text-align: left; vertical-align: middle; font-size: 14px;
         }
-
-        .tag-toolbar .search-box {
-            max-width: 420px;
+        .tag-table th { color: #5f6f85; font-weight: 600; background: #f8fafc; }
+        .tag-name-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .tag-name-text, .tag-description-text {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-
-        .tag-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-
-        .tag-table th,
-        .tag-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #edf2f7;
-            text-align: left;
-            vertical-align: middle;
-            font-size: 14px;
-        }
-
-        .tag-table th {
-            color: #5f6f85;
-            font-weight: 600;
-            background: #f8fafc;
-        }
-
-        .tag-name-cell {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-        }
-
-        .tag-name-text,
-        .tag-description-text {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .tag-description-text {
-            color: #667085;
-        }
-
-        .tag-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-
+        .tag-description-text { color: #667085; }
+        .tag-actions { display: flex; justify-content: flex-end; gap: 8px; }
         .icon-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            border: 1px solid #d9e3f0;
-            background: #fff;
-            color: #4a5568;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            width: 32px; height: 32px; border-radius: 6px;
+            border: 1px solid #d9e3f0; background: #fff; color: #4a5568;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
         }
-
-        .icon-btn:hover {
-            color: #4a9eff;
-            border-color: #4a9eff;
-            background: #f5f9ff;
-        }
-
-        .icon-btn:disabled {
-            color: #a0aec0;
-            border-color: #e2e8f0;
-            background: #f8fafc;
-            cursor: not-allowed;
-        }
-
-        .icon-btn.danger:hover {
-            color: #ef4444;
-            border-color: #ef4444;
-            background: #fff5f5;
-        }
-
-        .icon-btn.danger:disabled:hover {
-            color: #a0aec0;
-            border-color: #e2e8f0;
-            background: #f8fafc;
-        }
-
+        .icon-btn:hover { color: #4a9eff; border-color: #4a9eff; background: #f5f9ff; }
+        .icon-btn:disabled { color: #a0aec0; border-color: #e2e8f0; background: #f8fafc; cursor: not-allowed; }
+        .icon-btn.danger:hover { color: #ef4444; border-color: #ef4444; background: #fff5f5; }
         .tag-form-title {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-            color: #1a3a5f;
-            font-weight: 600;
-            font-size: 18px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px; color: #1a3a5f; font-weight: 600; font-size: 18px;
         }
-
-        .tag-empty {
-            padding: 52px 20px;
-            text-align: center;
-            color: #667085;
-        }
-
+        .tag-empty { padding: 52px 20px; text-align: center; color: #667085; }
         .tag-pagination {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-top: 16px;
-            color: #667085;
-            font-size: 13px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-top: 16px; color: #667085; font-size: 13px;
         }
-
-        @media (max-width: 960px) {
-            .tag-layout {
-                grid-template-columns: 1fr;
-            }
-        }
+        .tag-divider { border: none; border-top: 2px dashed #d9e3f0; margin: 28px 0; }
+        @media (max-width: 960px) { .tag-layout { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="system-container">
-        <div class="sidebar">
+        <div class="sidebar"><!-- same sidebar -->
             <div class="logo-container">
-                <div class="logo">
-                    <div class="logo-icon">🔧</div>
-                    <span>维修辅助系统</span>
-                </div>
+                <div class="logo"><div class="logo-icon">🔧</div><span>维修辅助系统</span></div>
             </div>
-
             <div class="nav-menu">
-                <a href="main.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
-                    <span>知识库</span>
-                </a>
-                <a href="source-documents.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
-                    <span>源文档库</span>
-                </a>
-                <a href="my-submissions.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>我的提交</span>
-                </a>
-                <a href="document-review.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
-                    <span>文档审核</span>
-                </a>
-                <a href="ai-assist.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
-                    <span>AI辅助</span>
-                </a>
-                <a href="user-management.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>用户管理</span>
-                </a>
-                <a href="tag-management.html" class="nav-item active">
-                    <span class="nav-icon"><i class="fas fa-tags"></i></span>
-                    <span>标签管理</span>
-                </a>
-                <a href="user-profile.html" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-user"></i></span>
-                    <span>我的资料</span>
-                </a>
+                <a href="main.html" class="nav-item"><span class="nav-icon"><i class="fas fa-file-alt"></i></span><span>知识库</span></a>
+                <a href="source-documents.html" class="nav-item"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>源文档库</span></a>
+                <a href="my-submissions.html" class="nav-item"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>我的提交</span></a>
+                <a href="document-review.html" class="nav-item"><span class="nav-icon"><i class="fas fa-check-circle"></i></span><span>文档审核</span></a>
+                <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI辅助</span></a>
+                <a href="user-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
+                <a href="tag-management.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-tags"></i></span><span>标签管理</span></a>
+                <a href="user-profile.html" class="nav-item"><span class="nav-icon"><i class="fas fa-user"></i></span><span>我的资料</span></a>
             </div>
-
             <div class="user-info">
                 <div class="user-details">
                     <div class="user-avatar" id="userAvatar">U</div>
-                    <div>
-                        <div class="user-name" id="userName">用户</div>
-                        <div class="user-role" id="userRole">用户</div>
-                    </div>
+                    <div><div class="user-name" id="userName">用户</div><div class="user-role" id="userRole">用户</div></div>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
-                    <i class="fas fa-sign-out-alt"></i> 退出登录
-                </button>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top:10px;width:100%;"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
             </div>
         </div>
 
@@ -216,270 +99,303 @@
             <div class="header">
                 <div>
                     <div class="page-title">标签管理</div>
-                    <div class="page-subtitle">文档标签与检索分类</div>
+                    <div class="page-subtitle">管理设备类型标签和工单故障类型标签</div>
                 </div>
             </div>
 
-            <div class="tag-layout">
-                <section class="tag-panel">
-                    <div class="tag-toolbar">
-                        <div class="search-box">
-                            <i class="fas fa-search search-icon"></i>
-                            <input type="text" class="search-input" id="tagSearchInput" placeholder="搜索标签名称或备注">
+            <!-- ===== 设备类型标签 ===== -->
+            <div class="tag-section">
+                <div class="tag-section-header">
+                    <h2>设备类型标签</h2>
+                    <span class="tag-badge">设备分类</span>
+                </div>
+                <div class="tag-layout">
+                    <section class="tag-panel">
+                        <div class="tag-toolbar">
+                            <div class="search-box">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" class="search-input" id="devSearchInput" placeholder="搜索标签名称或备注">
+                            </div>
+                            <button class="btn btn-secondary" type="button" onclick="devResetSearch()"><i class="fas fa-rotate-left"></i> 重置</button>
                         </div>
-                        <button class="btn btn-secondary" type="button" onclick="resetTagSearch()">
-                            <i class="fas fa-rotate-left"></i> 重置
-                        </button>
-                    </div>
-
-                    <div id="tagTableWrap"></div>
-
-                    <div class="tag-pagination" id="tagPagination">
-                        <button class="btn btn-secondary btn-sm" id="prevPageBtn" onclick="changeTagPage(tagCurrentPage - 1)">
-                            <i class="fas fa-chevron-left"></i> 上一页
-                        </button>
-                        <span id="tagPageInfo">第 1 页，共 1 页</span>
-                        <button class="btn btn-secondary btn-sm" id="nextPageBtn" onclick="changeTagPage(tagCurrentPage + 1)">
-                            下一页 <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                </section>
-
-                <aside class="tag-panel">
-                    <div class="tag-form-title">
-                        <span id="tagFormTitle">新增标签</span>
-                        <button class="icon-btn" type="button" title="清空" onclick="resetTagForm()">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-
-                    <form id="tagForm" onsubmit="submitTagForm(event)">
-                        <input type="hidden" id="tagId">
-                        <div class="form-group">
-                            <label class="form-label required" for="tagName">标签名称</label>
-                            <input type="text" id="tagName" class="form-control" maxlength="50" required>
+                        <div id="devTagTableWrap"></div>
+                        <div class="tag-pagination" id="devTagPagination">
+                            <button class="btn btn-secondary btn-sm" id="devPrevBtn" onclick="devChangePage(devPage - 1)"><i class="fas fa-chevron-left"></i> 上一页</button>
+                            <span id="devPageInfo">第 1 页，共 1 页</span>
+                            <button class="btn btn-secondary btn-sm" id="devNextBtn" onclick="devChangePage(devPage + 1)">下一页 <i class="fas fa-chevron-right"></i></button>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="tagDescription">备注</label>
-                            <textarea id="tagDescription" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
+                    </section>
+                    <aside class="tag-panel">
+                        <div class="tag-form-title">
+                            <span id="devFormTitle">新增标签</span>
+                            <button class="icon-btn" type="button" title="清空" onclick="devResetForm()"><i class="fas fa-plus"></i></button>
                         </div>
-                        <button class="btn btn-primary" type="submit" id="tagSubmitBtn" style="width: 100%;">
-                            <i class="fas fa-save"></i> 保存
-                        </button>
-                    </form>
-                </aside>
+                        <form id="devTagForm" onsubmit="devSubmitForm(event)">
+                            <input type="hidden" id="devTagId">
+                            <div class="form-group">
+                                <label class="form-label required" for="devTagName">标签名称</label>
+                                <input type="text" id="devTagName" class="form-control" maxlength="50" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="devTagDesc">备注</label>
+                                <textarea id="devTagDesc" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
+                            </div>
+                            <button class="btn btn-primary" type="submit" id="devSubmitBtn" style="width:100%;"><i class="fas fa-save"></i> 保存</button>
+                        </form>
+                    </aside>
+                </div>
+            </div>
+
+            <hr class="tag-divider">
+
+            <!-- ===== 工单故障类型标签 ===== -->
+            <div class="tag-section">
+                <div class="tag-section-header">
+                    <h2>工单故障类型标签</h2>
+                    <span class="tag-badge fault-badge">故障分类</span>
+                </div>
+                <div class="tag-layout">
+                    <section class="tag-panel">
+                        <div class="tag-toolbar">
+                            <div class="search-box">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" class="search-input" id="faultSearchInput" placeholder="搜索标签名称或备注">
+                            </div>
+                            <button class="btn btn-secondary" type="button" onclick="faultResetSearch()"><i class="fas fa-rotate-left"></i> 重置</button>
+                        </div>
+                        <div id="faultTagTableWrap"></div>
+                        <div class="tag-pagination" id="faultTagPagination">
+                            <button class="btn btn-secondary btn-sm" id="faultPrevBtn" onclick="faultChangePage(faultPage - 1)"><i class="fas fa-chevron-left"></i> 上一页</button>
+                            <span id="faultPageInfo">第 1 页，共 1 页</span>
+                            <button class="btn btn-secondary btn-sm" id="faultNextBtn" onclick="faultChangePage(faultPage + 1)">下一页 <i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </section>
+                    <aside class="tag-panel">
+                        <div class="tag-form-title">
+                            <span id="faultFormTitle">新增标签</span>
+                            <button class="icon-btn" type="button" title="清空" onclick="faultResetForm()"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <form id="faultTagForm" onsubmit="faultSubmitForm(event)">
+                            <input type="hidden" id="faultTagId">
+                            <div class="form-group">
+                                <label class="form-label required" for="faultTagName">标签名称</label>
+                                <input type="text" id="faultTagName" class="form-control" maxlength="50" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="faultTagDesc">备注</label>
+                                <textarea id="faultTagDesc" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
+                            </div>
+                            <button class="btn btn-primary" type="submit" id="faultSubmitBtn" style="width:100%;"><i class="fas fa-save"></i> 保存</button>
+                        </form>
+                    </aside>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        let tagCurrentPage = 1;
-        let tagPageSize = 10;
-        let tagTotalPages = 1;
-        let tagKeyword = '';
-        let tagSubmitting = false;
-        let tagRows = [];
+        // ========== 工具函数 ==========
+        function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function fmtDate(v) { if(!v)return '-'; const d=new Date(v); return isNaN(d.getTime())?'-':d.toLocaleDateString('zh-CN'); }
 
         document.addEventListener('DOMContentLoaded', () => {
             const user = Utils.checkLogin();
             Utils.loadUserInfo();
-            if (!canManageTags(user)) {
-                Utils.showMessage('当前身份没有权限访问标签管理', 'error');
-                setTimeout(() => window.location.href = 'main.html', 900);
+            if (!(Utils.hasRole(user, Utils.ROLE.ADMIN) || Utils.hasRole(user, Utils.ROLE.TECHNICIAN))) {
+                Utils.showMessage('当前身份没有权限访问标签管理','error');
+                setTimeout(()=>window.location.href='main.html',900);
                 return;
             }
-
-            const searchInput = document.getElementById('tagSearchInput');
-            searchInput.addEventListener('input', Utils.debounce(() => {
-                tagKeyword = searchInput.value.trim();
-                tagCurrentPage = 1;
-                loadTags();
-            }, 300));
-
-            loadTags();
+            devInit();
+            faultInit();
         });
 
-        function canManageTags(user) {
-            return Utils.hasRole(user, Utils.ROLE.ADMIN) || Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
-        }
+        // ===================================================================
+        //  设备类型标签 — 完全独立的代码
+        // ===================================================================
+        let devPage = 1, devPageSize = 10, devTotalPages = 1, devKeyword = '', devSubmitting = false, devRows = [];
 
-        function escapeHtml(value) {
-            return String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
+        function devEl(id) { return document.getElementById(id); }
 
-        async function loadTags() {
-            const wrap = document.getElementById('tagTableWrap');
+        async function devLoadTags() {
+            console.log('[DEV] 加载设备标签, category=device, page=' + devPage + ', keyword=' + devKeyword);
+            const wrap = devEl('devTagTableWrap');
             wrap.innerHTML = '<div class="tag-empty"><i class="fas fa-spinner fa-spin"></i> 正在加载</div>';
             try {
-                const data = await tagAPI.getTagsPage(tagCurrentPage, tagPageSize, tagKeyword);
+                const data = await tagAPI.getTagsPage(devPage, devPageSize, devKeyword, 'device');
                 const tags = data.tags || [];
-                tagTotalPages = Math.max(Number(data.total_pages || 1), 1);
-                renderTags(tags);
-                renderTagPagination(Number(data.total_count || 0));
-            } catch (error) {
-                wrap.innerHTML = `<div class="tag-empty">${escapeHtml(error.message || '加载失败')}</div>`;
-            }
+                devTotalPages = Math.max(Number(data.total_pages || 1), 1);
+                devRows = tags;
+                if (!tags.length) { wrap.innerHTML = '<div class="tag-empty">暂无标签</div>'; return void devRenderPage(0); }
+                wrap.innerHTML = `<table class="tag-table"><thead><tr>
+                    <th style="width:26%;">名称</th><th>备注</th><th style="width:90px;">文档</th>
+                    <th style="width:130px;">更新时间</th><th style="width:96px;text-align:right;">操作</th>
+                </tr></thead><tbody>${tags.map(t => {
+                    const dc = Number(t.document_count||0);
+                    const dd = dc > 0 ? 'disabled' : '';
+                    const dt = dc > 0 ? `已有 ${dc} 篇文档使用该标签，不能删除` : '删除';
+                    return `<tr>
+                        <td><div class="tag-name-cell"><span class="tag-name-text" title="${esc(t.name)}">${esc(t.name)}</span></div></td>
+                        <td><span class="tag-description-text" title="${esc(t.description||'')}">${esc(t.description||'-')}</span></td>
+                        <td>${dc}</td>
+                        <td>${fmtDate(t.updated_time||t.created_time)}</td>
+                        <td><div class="tag-actions">
+                            <button class="icon-btn" title="编辑" onclick="devEditById(${Number(t.id)})"><i class="fas fa-pen"></i></button>
+                            <button class="icon-btn danger" title="${esc(dt)}" onclick="devDelete(${Number(t.id)})" ${dd}><i class="fas fa-trash"></i></button>
+                        </div></td>
+                    </tr>`;
+                }).join('')}</tbody></table>`;
+                devRenderPage(Number(data.total_count||0));
+            } catch(e) { wrap.innerHTML = `<div class="tag-empty">${esc(e.message||'加载失败')}</div>`; }
         }
 
-        function renderTags(tags) {
-            const wrap = document.getElementById('tagTableWrap');
-            tagRows = Array.isArray(tags) ? tags : [];
-            if (!tags.length) {
-                wrap.innerHTML = '<div class="tag-empty">暂无标签</div>';
-                return;
-            }
-
-            const rows = tags.map(tag => {
-                const documentCount = Number(tag.document_count || 0);
-                const deleteDisabled = documentCount > 0 ? 'disabled' : '';
-                const deleteTitle = documentCount > 0
-                    ? `已有 ${documentCount} 篇文档使用该标签，不能删除`
-                    : '删除';
-                return `
-                <tr>
-                    <td>
-                        <div class="tag-name-cell">
-                            <span class="tag-name-text" title="${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</span>
-                        </div>
-                    </td>
-                    <td><span class="tag-description-text" title="${escapeHtml(tag.description || '')}">${escapeHtml(tag.description || '-')}</span></td>
-                    <td>${documentCount}</td>
-                    <td>${formatDate(tag.updated_time || tag.created_time)}</td>
-                    <td>
-                        <div class="tag-actions">
-                            <button class="icon-btn" title="编辑" onclick="editTagById(${Number(tag.id)})">
-                                <i class="fas fa-pen"></i>
-                            </button>
-                            <button class="icon-btn danger" title="${escapeHtml(deleteTitle)}" onclick="deleteTag(${Number(tag.id)})" ${deleteDisabled}>
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            }).join('');
-
-            wrap.innerHTML = `
-                <table class="tag-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 26%;">名称</th>
-                            <th>备注</th>
-                            <th style="width: 90px;">文档</th>
-                            <th style="width: 130px;">更新时间</th>
-                            <th style="width: 96px; text-align: right;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            `;
+        function devRenderPage(tc) {
+            devEl('devPageInfo').textContent = `第 ${devPage} 页，共 ${devTotalPages} 页，共 ${tc} 条`;
+            devEl('devPrevBtn').disabled = devPage <= 1;
+            devEl('devNextBtn').disabled = devPage >= devTotalPages;
         }
 
-        function renderTagPagination(totalCount) {
-            document.getElementById('tagPageInfo').textContent = `第 ${tagCurrentPage} 页，共 ${tagTotalPages} 页，共 ${totalCount} 条`;
-            document.getElementById('prevPageBtn').disabled = tagCurrentPage <= 1;
-            document.getElementById('nextPageBtn').disabled = tagCurrentPage >= tagTotalPages;
+        function devChangePage(p) { if(p<1||p>devTotalPages)return; devPage=p; devLoadTags(); }
+        function devResetSearch() { devEl('devSearchInput').value=''; devKeyword=''; devPage=1; devLoadTags(); }
+
+        function devEditById(id) {
+            const t = devRows.find(x => Number(x.id)===Number(id));
+            if(!t) return void Utils.showMessage('标签不存在','error');
+            devEl('devFormTitle').textContent = '编辑标签';
+            devEl('devTagId').value = t.id||'';
+            devEl('devTagName').value = t.name||'';
+            devEl('devTagDesc').value = t.description||'';
         }
 
-        function formatDate(value) {
-            if (!value) return '-';
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return '-';
-            return date.toLocaleDateString('zh-CN');
+        function devResetForm() {
+            devEl('devFormTitle').textContent = '新增标签';
+            devEl('devTagId').value = '';
+            devEl('devTagName').value = '';
+            devEl('devTagDesc').value = '';
         }
 
-        function resetTagSearch() {
-            document.getElementById('tagSearchInput').value = '';
-            tagKeyword = '';
-            tagCurrentPage = 1;
-            loadTags();
-        }
-
-        function changeTagPage(page) {
-            if (page < 1 || page > tagTotalPages) return;
-            tagCurrentPage = page;
-            loadTags();
-        }
-
-        function editTag(tag) {
-            document.getElementById('tagFormTitle').textContent = '编辑标签';
-            document.getElementById('tagId').value = tag.id || '';
-            document.getElementById('tagName').value = tag.name || '';
-            document.getElementById('tagDescription').value = tag.description || '';
-        }
-
-        function editTagById(tagId) {
-            const tag = tagRows.find(item => Number(item.id) === Number(tagId));
-            if (!tag) {
-                Utils.showMessage('标签不存在', 'error');
-                return;
-            }
-            editTag(tag);
-        }
-
-        function resetTagForm() {
-            document.getElementById('tagFormTitle').textContent = '新增标签';
-            document.getElementById('tagId').value = '';
-            document.getElementById('tagName').value = '';
-            document.getElementById('tagDescription').value = '';
-        }
-
-        async function submitTagForm(event) {
-            event.preventDefault();
-            if (tagSubmitting) return;
-
-            const id = document.getElementById('tagId').value;
-            const name = document.getElementById('tagName').value.trim();
-            const description = document.getElementById('tagDescription').value.trim();
-            if (!name) {
-                Utils.showMessage('标签名称不能为空', 'error');
-                return;
-            }
-
-            tagSubmitting = true;
-            const btn = document.getElementById('tagSubmitBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中';
-
+        async function devSubmitForm(e) {
+            e.preventDefault();
+            if(devSubmitting) return;
+            const id = devEl('devTagId').value, name = devEl('devTagName').value.trim(), desc = devEl('devTagDesc').value.trim();
+            if(!name) return void Utils.showMessage('标签名称不能为空','error');
+            devSubmitting = true;
+            const btn = devEl('devSubmitBtn'); btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 保存中';
             try {
-                if (id) {
-                    await tagAPI.updateTag({ id: Number(id), name, description });
-                    Utils.showMessage('标签已更新', 'success');
-                } else {
-                    await tagAPI.addTag({ name, description });
-                    Utils.showMessage('标签已新增', 'success');
-                }
-                resetTagForm();
-                await loadTags();
-            } catch (error) {
-                Utils.showMessage(error.message || '保存失败', 'error');
-            } finally {
-                tagSubmitting = false;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-save"></i> 保存';
-            }
+                if(id) { console.log('[DEV] 更新标签', id, name, 'category=device'); await tagAPI.updateTag({id:Number(id),name,description:desc,category:'device'}); Utils.showMessage('标签已更新','success'); }
+                else { console.log('[DEV] 新增标签', name, 'category=device'); await tagAPI.addTag({name,description:desc,category:'device'}); Utils.showMessage('标签已新增','success'); }
+                devResetForm();
+                await devLoadTags();
+            } catch(err) { Utils.showMessage(err.message||'保存失败','error'); }
+            finally { devSubmitting=false; btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> 保存'; }
         }
 
-        async function deleteTag(tagId) {
-            const tag = tagRows.find(item => Number(item.id) === Number(tagId));
-            const documentCount = Number(tag && tag.document_count || 0);
-            if (documentCount > 0) {
-                Utils.showMessage(`该标签已被 ${documentCount} 篇文档使用，不能删除`, 'warning');
-                return;
-            }
-            if (!confirm('确认删除该标签？')) return;
+        async function devDelete(id) {
+            console.log('[DEV] 删除标签 id=' + id);
+            const t = devRows.find(x => Number(x.id)===Number(id));
+            if(t && Number(t.document_count||0) > 0) return void Utils.showMessage(`该标签已被 ${t.document_count} 篇文档使用，不能删除`,'warning');
+            if(!confirm('确认删除该标签？')) return;
+            try { await tagAPI.deleteTag(id); Utils.showMessage('标签已删除','success'); await devLoadTags(); }
+            catch(err) { Utils.showMessage(err.message||'删除失败','error'); }
+        }
+
+        function devInit() {
+            devEl('devSearchInput').addEventListener('input', Utils.debounce(()=>{ devKeyword=devEl('devSearchInput').value.trim(); devPage=1; devLoadTags(); }, 300));
+            devLoadTags();
+        }
+
+        // ===================================================================
+        //  工单故障类型标签 — 完全独立的代码
+        // ===================================================================
+        let faultPage = 1, faultPageSize = 10, faultTotalPages = 1, faultKeyword = '', faultSubmitting = false, faultRows = [];
+
+        function faultEl(id) { return document.getElementById(id); }
+
+        async function faultLoadTags() {
+            console.log('[FAULT] 加载故障标签, category=fault, page=' + faultPage + ', keyword=' + faultKeyword);
+            const wrap = faultEl('faultTagTableWrap');
+            wrap.innerHTML = '<div class="tag-empty"><i class="fas fa-spinner fa-spin"></i> 正在加载</div>';
             try {
-                await tagAPI.deleteTag(tagId);
-                Utils.showMessage('标签已删除', 'success');
-                await loadTags();
-            } catch (error) {
-                Utils.showMessage(error.message || '删除失败', 'error');
-            }
+                const data = await tagAPI.getTagsPage(faultPage, faultPageSize, faultKeyword, 'fault');
+                const tags = data.tags || [];
+                faultTotalPages = Math.max(Number(data.total_pages || 1), 1);
+                faultRows = tags;
+                if (!tags.length) { wrap.innerHTML = '<div class="tag-empty">暂无标签</div>'; return void faultRenderPage(0); }
+                wrap.innerHTML = `<table class="tag-table"><thead><tr>
+                    <th style="width:26%;">名称</th><th>备注</th><th style="width:90px;">文档</th>
+                    <th style="width:130px;">更新时间</th><th style="width:96px;text-align:right;">操作</th>
+                </tr></thead><tbody>${tags.map(t => {
+                    const dc = Number(t.document_count||0);
+                    const dd = dc > 0 ? 'disabled' : '';
+                    const dt = dc > 0 ? `已有 ${dc} 篇文档使用该标签，不能删除` : '删除';
+                    return `<tr>
+                        <td><div class="tag-name-cell"><span class="tag-name-text" title="${esc(t.name)}">${esc(t.name)}</span></div></td>
+                        <td><span class="tag-description-text" title="${esc(t.description||'')}">${esc(t.description||'-')}</span></td>
+                        <td>${dc}</td>
+                        <td>${fmtDate(t.updated_time||t.created_time)}</td>
+                        <td><div class="tag-actions">
+                            <button class="icon-btn" title="编辑" onclick="faultEditById(${Number(t.id)})"><i class="fas fa-pen"></i></button>
+                            <button class="icon-btn danger" title="${esc(dt)}" onclick="faultDelete(${Number(t.id)})" ${dd}><i class="fas fa-trash"></i></button>
+                        </div></td>
+                    </tr>`;
+                }).join('')}</tbody></table>`;
+                faultRenderPage(Number(data.total_count||0));
+            } catch(e) { wrap.innerHTML = `<div class="tag-empty">${esc(e.message||'加载失败')}</div>`; }
+        }
+
+        function faultRenderPage(tc) {
+            faultEl('faultPageInfo').textContent = `第 ${faultPage} 页，共 ${faultTotalPages} 页，共 ${tc} 条`;
+            faultEl('faultPrevBtn').disabled = faultPage <= 1;
+            faultEl('faultNextBtn').disabled = faultPage >= faultTotalPages;
+        }
+
+        function faultChangePage(p) { if(p<1||p>faultTotalPages)return; faultPage=p; faultLoadTags(); }
+        function faultResetSearch() { faultEl('faultSearchInput').value=''; faultKeyword=''; faultPage=1; faultLoadTags(); }
+
+        function faultEditById(id) {
+            const t = faultRows.find(x => Number(x.id)===Number(id));
+            if(!t) return void Utils.showMessage('标签不存在','error');
+            faultEl('faultFormTitle').textContent = '编辑标签';
+            faultEl('faultTagId').value = t.id||'';
+            faultEl('faultTagName').value = t.name||'';
+            faultEl('faultTagDesc').value = t.description||'';
+        }
+
+        function faultResetForm() {
+            faultEl('faultFormTitle').textContent = '新增标签';
+            faultEl('faultTagId').value = '';
+            faultEl('faultTagName').value = '';
+            faultEl('faultTagDesc').value = '';
+        }
+
+        async function faultSubmitForm(e) {
+            e.preventDefault();
+            if(faultSubmitting) return;
+            const id = faultEl('faultTagId').value, name = faultEl('faultTagName').value.trim(), desc = faultEl('faultTagDesc').value.trim();
+            if(!name) return void Utils.showMessage('标签名称不能为空','error');
+            faultSubmitting = true;
+            const btn = faultEl('faultSubmitBtn'); btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 保存中';
+            try {
+                if(id) { console.log('[FAULT] 更新标签', id, name, 'category=fault'); await tagAPI.updateTag({id:Number(id),name,description:desc,category:'fault'}); Utils.showMessage('标签已更新','success'); }
+                else { console.log('[FAULT] 新增标签', name, 'category=fault'); await tagAPI.addTag({name,description:desc,category:'fault'}); Utils.showMessage('标签已新增','success'); }
+                faultResetForm();
+                await faultLoadTags();
+            } catch(err) { Utils.showMessage(err.message||'保存失败','error'); }
+            finally { faultSubmitting=false; btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> 保存'; }
+        }
+
+        async function faultDelete(id) {
+            console.log('[FAULT] 删除标签 id=' + id);
+            const t = faultRows.find(x => Number(x.id)===Number(id));
+            if(t && Number(t.document_count||0) > 0) return void Utils.showMessage(`该标签已被 ${t.document_count} 篇文档使用，不能删除`,'warning');
+            if(!confirm('确认删除该标签？')) return;
+            try { await tagAPI.deleteTag(id); Utils.showMessage('标签已删除','success'); await faultLoadTags(); }
+            catch(err) { Utils.showMessage(err.message||'删除失败','error'); }
+        }
+
+        function faultInit() {
+            faultEl('faultSearchInput').addEventListener('input', Utils.debounce(()=>{ faultKeyword=faultEl('faultSearchInput').value.trim(); faultPage=1; faultLoadTags(); }, 300));
+            faultLoadTags();
         }
     </script>
 </body>

@@ -195,6 +195,17 @@ async def get_document_tag_names(db: AsyncSession, document) -> list[str]:
     return normalize_tag_names(getattr(document, "tag", []))
 
 
+async def get_document_fault_tag_names(db: AsyncSession, document) -> list[str]:
+    """Resolve fault_tag IDs to tag names, same as get_document_tag_names but for fault_tag column."""
+    fault_tag_ids = normalize_tag_ids(getattr(document, "fault_tag", []))
+    if fault_tag_ids:
+        result = await db.execute(select(Tag).where(Tag.id.in_(fault_tag_ids), Tag.is_deleted == 0))
+        tags = result.scalars().all()
+        name_by_id = {tag.id: tag.name for tag in tags}
+        return [name_by_id[tid] for tid in fault_tag_ids if tid in name_by_id]
+    return []
+
+
 def _json_contains_tag_id(column, tag_id: int):
     return func.JSON_CONTAINS(column, func.JSON_ARRAY(tag_id)) == 1
 
@@ -217,6 +228,31 @@ def tag_filter_for_model(document_model, tags):
                     Tag.is_deleted == 0,
                     Tag.name.in_(tag_names),
                     _json_contains_tag_id(document_model.tag, Tag.id),
+                )
+            )
+        )
+    return or_(*conditions) if conditions else None
+
+
+def fault_tag_filter_for_model(document_model, tags):
+    """Same as tag_filter_for_model but filters on fault_tag column."""
+    values = _parse_tag_values(tags)
+    if not values:
+        return None
+
+    tag_ids = normalize_tag_ids(values)
+    tag_names = normalize_tag_names(values)
+    conditions = []
+    for tag_id in tag_ids:
+        conditions.append(_json_contains_tag_id(document_model.fault_tag, tag_id))
+
+    if tag_names:
+        conditions.append(
+            exists(
+                select(Tag.id).where(
+                    Tag.is_deleted == 0,
+                    Tag.name.in_(tag_names),
+                    _json_contains_tag_id(document_model.fault_tag, Tag.id),
                 )
             )
         )
