@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1080" viewBox="0 0 1900 1080">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#263445" />
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#2563eb" />
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#16a34a" />
+    </marker>
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.13" />
+    </filter>
+    <style>
+      .page { fill: #f4f7fb; }
+      .title { font: 800 34px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #0f233a; }
+      .sub { font: 16px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #53657a; }
+      .panel { fill: #ffffff; stroke: #c8d8e8; stroke-width: 1.5; }
+      .panelTitle { font: 800 24px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #0f233a; }
+      .boxTitle { font: 800 18px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #101828; }
+      .boxText { font: 14px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #475467; }
+      .smallText { font: 13px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #667085; }
+      .label { font: 13px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #344054; }
+      .node { fill: #ffffff; stroke: #52677f; stroke-width: 1.5; filter: url(#shadow); }
+      .blue { fill: #eef6ff; stroke: #2563eb; }
+      .green { fill: #effaf2; stroke: #16a34a; }
+      .orange { fill: #fff5ed; stroke: #ea580c; }
+      .violet { fill: #f5f0ff; stroke: #7c3aed; }
+      .amber { fill: #fffbeb; stroke: #d97706; }
+      .data { fill: #f8fafc; stroke: #64748b; }
+      .note { fill: #fff7ed; stroke: #fb923c; stroke-width: 1.4; filter: url(#shadow); }
+      .highlight { fill: #f0f9ff; stroke: #2563eb; stroke-width: 1.7; filter: url(#shadow); }
+      .decision { fill: #fff8e7; stroke: #d97706; stroke-width: 1.7; filter: url(#shadow); }
+      .line { stroke: #263445; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+      .lineBlue { stroke: #2563eb; stroke-width: 2.2; fill: none; marker-end: url(#arrowBlue); }
+      .lineGreen { stroke: #16a34a; stroke-width: 2.2; fill: none; marker-end: url(#arrowGreen); }
+      .dash { stroke: #64748b; stroke-width: 1.7; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="1900" height="1080" />
+  <text x="60" y="56" class="title">AI 问答与检索增强流程</text>
+  <text x="60" y="86" class="sub">突出问答链路：用户问题如何进入多模态检索，系统如何通过 Query 增强、混合召回和证据回查提高检索准确性。</text>
+
+  <rect class="panel" x="50" y="115" width="1800" height="590" rx="14" />
+  <text x="80" y="158" class="panelTitle">一、AI 基于文档生成回复</text>
+
+  <rect class="highlight" x="690" y="145" width="540" height="60" rx="10" />
+  <text x="725" y="183" class="boxTitle">可检索知识资产：MySQL 正式文档 + Milvus Chunk 向量</text>
+
+  <rect class="node blue" x="80" y="255" width="170" height="98" rx="10" />
+  <text x="108" y="289" class="boxTitle">用户提问</text>
+  <text x="108" y="317" class="boxText">文本问题</text>
+  <text x="108" y="339" class="boxText">可附带图片</text>
+
+  <polygon class="decision" points="390,235 485,304 390,373 295,304" />
+  <text x="358" y="299" class="boxTitle">是否</text>
+  <text x="356" y="326" class="boxText">有图片？</text>
+
+  <rect class="node orange" x="535" y="210" width="190" height="86" rx="10" />
+  <text x="563" y="242" class="boxTitle">图片语义增强</text>
+  <text x="563" y="269" class="boxText">视觉模型生成描述</text>
+  <text x="563" y="290" class="smallText">拼接到检索 Query</text>
+
+  <rect class="node data" x="535" y="335" width="190" height="86" rx="10" />
+  <text x="563" y="367" class="boxTitle">纯文本检索词</text>
+  <text x="563" y="394" class="boxText">保留用户原问题</text>
+  <text x="563" y="415" class="smallText">不额外引入图片语义</text>
+
+  <rect class="node violet" x="790" y="255" width="185" height="98" rx="10" />
+  <text x="818" y="289" class="boxTitle">Query 增强</text>
+  <text x="818" y="317" class="boxText">意图识别 / 核心词</text>
+  <text x="818" y="339" class="boxText">动态词 / 多路查询</text>
+
+  <rect class="node data" x="1040" y="255" width="185" height="98" rx="10" />
+  <text x="1068" y="289" class="boxTitle">Milvus 检索</text>
+  <text x="1068" y="317" class="boxText">相似 Chunk</text>
+  <text x="1068" y="339" class="boxText">向量分数 TopK</text>
+
+  <rect class="node green" x="1290" y="255" width="205" height="98" rx="10" />
+  <text x="1318" y="289" class="boxTitle">候选增强过滤</text>
+  <text x="1318" y="317" class="boxText">关键词补召回</text>
+  <text x="1318" y="339" class="boxText">阈值 / 聚合 / 去重</text>
+
+  <rect class="node green" x="1560" y="255" width="190" height="98" rx="10" />
+  <text x="1588" y="289" class="boxTitle">RAG Prompt</text>
+  <text x="1588" y="317" class="boxText">文档片段 + 章节</text>
+  <text x="1588" y="339" class="boxText">历史会话 / 引用</text>
+
+  <rect class="node violet" x="1585" y="430" width="160" height="88" rx="10" />
+  <text x="1612" y="463" class="boxTitle">大模型回答</text>
+  <text x="1612" y="491" class="boxText">MODEL_AI</text>
+  <text x="1612" y="513" class="boxText">Qwen-VL</text>
+
+  <rect class="node green" x="1585" y="565" width="160" height="88" rx="10" />
+  <text x="1612" y="598" class="boxTitle">保存并返回</text>
+  <text x="1612" y="626" class="boxText">Message</text>
+  <text x="1612" y="648" class="boxText">reference_docs</text>
+
+  <line x1="250" y1="304" x2="295" y2="304" class="line" />
+  <path d="M485 304 H505 V253 H535" class="lineBlue" />
+  <text x="500" y="244" class="label">有图</text>
+  <path d="M485 304 H505 V378 H535" class="line" />
+  <text x="500" y="393" class="label">无图</text>
+  <path d="M725 253 H757 V286 H790" class="lineBlue" />
+  <path d="M725 378 H757 V322 H790" class="line" />
+  <line x1="975" y1="304" x2="1040" y2="304" class="line" />
+  <line x1="1225" y1="304" x2="1290" y2="304" class="line" />
+  <line x1="1495" y1="304" x2="1560" y2="304" class="lineGreen" />
+  <path d="M1750 304 H1785 V474 H1745" class="line" />
+  <path d="M1665 518 V565" class="lineBlue" />
+
+  <path d="M960 205 V255" class="dash" />
+  <path d="M1132 205 V255" class="dash" />
+  <path d="M1230 175 H1655 V255" class="dash" />
+
+  <rect class="note" x="980" y="455" width="470" height="92" rx="10" />
+  <text x="1010" y="489" class="boxTitle">回答前证据回查</text>
+  <text x="1010" y="517" class="boxText">回查 MySQL：过滤已删除文档</text>
+  <text x="1010" y="540" class="boxText">补全文档标题、章节和参考图片</text>
+
+  <path d="M1655 353 V405 H1450 V455" class="dash" />
+
+  <rect class="panel" x="50" y="735" width="1800" height="320" rx="14" />
+  <text x="80" y="780" class="panelTitle">二、如何让检索更准确</text>
+
+  <rect class="node violet" x="80" y="815" width="320" height="150" rx="12" />
+  <text x="115" y="853" class="boxTitle">Query 增强</text>
+  <text x="115" y="883" class="boxText">识别诊断、流程、概述、短问题</text>
+  <text x="115" y="908" class="boxText">抽取核心词和文档动态词</text>
+  <text x="115" y="933" class="smallText">生成多条 search_queries 提高召回。</text>
+
+  <rect class="node orange" x="430" y="815" width="320" height="150" rx="12" />
+  <text x="465" y="853" class="boxTitle">图片语义增强</text>
+  <text x="465" y="883" class="boxText">用户上传图片时先做视觉描述</text>
+  <text x="465" y="908" class="boxText">文本 + 图片统一进入向量检索</text>
+  <text x="465" y="933" class="smallText">解决只搜文字找不到图片现象的问题。</text>
+
+  <rect class="node green" x="780" y="815" width="320" height="150" rx="12" />
+  <text x="815" y="853" class="boxTitle">混合召回</text>
+  <text x="815" y="883" class="boxText">Milvus 相似 Chunk TopK</text>
+  <text x="815" y="908" class="boxText">领域关键词补召回</text>
+  <text x="815" y="933" class="smallText">避免短词、编号、设备名漏召回。</text>
+
+  <rect class="node green" x="1130" y="815" width="320" height="150" rx="12" />
+  <text x="1165" y="853" class="boxTitle">候选过滤与聚合</text>
+  <text x="1165" y="883" class="boxText">相似度阈值过滤低质结果</text>
+  <text x="1165" y="908" class="boxText">按 doc_id + library_type 聚合去重</text>
+  <text x="1165" y="933" class="smallText">综合 chunk 分数得到文档级排序。</text>
+
+  <rect class="node data" x="1480" y="815" width="320" height="150" rx="12" />
+  <text x="1515" y="853" class="boxTitle">证据回查与可追溯</text>
+  <text x="1515" y="883" class="boxText">命中 Chunk 后回查 MySQL 正式文档</text>
+  <text x="1515" y="908" class="boxText">取相邻章节、参考图片、引用信息</text>
+  <text x="1515" y="933" class="smallText">最终返回 answer + reference_docs。</text>
+
+  <rect class="note" x="190" y="990" width="1520" height="52" rx="10" />
+  <text x="225" y="1023" class="boxText">准确性闭环：图片语义增强 + Query 扩展 + 向量 TopK + 关键词补召回 + 分数调整过滤 + MySQL 回查补上下文。</text>
+</svg>

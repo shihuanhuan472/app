@@ -948,6 +948,42 @@ const tagAPI = {
     }
 };
 
+const sensitiveTermsAPI = {
+    client: new APIClient(),
+
+    async getTerms() {
+        const response = await this.client.get('/admin/sensitive_terms', true);
+        if (response.code === 1) {
+            return response.data || { terms: [], total_count: 0 };
+        }
+        throw new Error(response.msg || response.message || '获取敏感词失败');
+    },
+
+    async addTerm(termData) {
+        const response = await this.client.post('/admin/sensitive_terms', termData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '新增敏感词失败');
+    },
+
+    async updateTerm(termData) {
+        const response = await this.client.patch('/admin/sensitive_terms', termData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '更新敏感词失败');
+    },
+
+    async deleteTerm(source) {
+        const response = await this.client.delete('/admin/sensitive_terms', { source }, true);
+        if (response.code === 1) {
+            return true;
+        }
+        throw new Error(response.msg || response.message || '删除敏感词失败');
+    }
+};
+
 // 用户相关的 API
 const userAPI = {
     client: new APIClient(),
@@ -1705,5 +1741,6 @@ window.DataManager = DataManager;
 window.documentAPI = documentAPI;
 window.userAPI = userAPI;
 window.tagAPI = tagAPI;
+window.sensitiveTermsAPI = sensitiveTermsAPI;
 // 导出到全局
 // window.adminAPI = adminAPI;

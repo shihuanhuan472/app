@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -389,7 +390,11 @@ async def _get_review_or_404(db: AsyncSession, review_id: int, review_library_ty
     return review
 
 
-async def _get_review_for_update_or_404(db: AsyncSession, review_id: int, review_library_type: str = "breakdown"):
+async def _get_review_for_update_or_404(
+    db: AsyncSession,
+    review_id: int,
+    review_library_type: str = "breakdown",
+):
     review_model = _get_review_model(review_library_type)
     review_result = await db.execute(
         select(review_model).where(review_model.id == review_id).with_for_update()
@@ -408,6 +413,94 @@ def _extract_review_comment(payload: Optional[dict]) -> Optional[str]:
         return None
     review_comment = str(review_comment).strip()
     return review_comment if review_comment else None
+
+
+def _is_lock_timeout_error(error: Exception) -> bool:
+    orig = getattr(error, "orig", None)
+    if orig is None:
+        return False
+
+    error_args = getattr(orig, "args", ()) or ()
+    if error_args and error_args[0] in {1205, 3572}:
+        return True
+
+    message = str(orig).lower()
+    return "lock wait timeout" in message or "could not acquire" in message or "nowait" in message
+
+
+def _exception_message(error: Exception) -> str:
+    orig = getattr(error, "orig", None)
+    if orig is None:
+        return str(error)
+
+    error_args = getattr(orig, "args", ()) or ()
+    if len(error_args) > 1 and error_args[1]:
+        return str(error_args[1])
+    return str(orig)
+
+
+async def _record_review_vectorization_failure(
+    db: AsyncSession,
+    review_id: int,
+    review_library_type: str,
+    failure_reason: str,
+):
+    try:
+        review_model = _get_review_model(review_library_type)
+        review_result = await db.execute(select(review_model).where(review_model.id == review_id))
+        review = review_result.scalar_one_or_none()
+        if not review:
+            return
+
+        source_document = await _get_source_document_for_review(db, review)
+        if not source_document:
+            return
+
+        source_document.parse_error = f"向量化失败: {failure_reason}"
+        source_document.parse_started_time = None
+        await db.commit()
+    except Exception as record_error:
+        await db.rollback()
+        print(f"记录审核向量化失败原因失败: {record_error}")
+
+
+async def _restore_document_vector_after_rollback(db: AsyncSession, document_id: int, library_type: str):
+    try:
+        document_model = _get_document_model(library_type)
+        result = await db.execute(
+            select(document_model).where(
+                document_model.id == document_id,
+                document_model.is_deleted == 0,
+            )
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            return
+
+        document.is_vectorized = 0
+        await db.flush()
+        await VectorService(db).add_document_to_vector_store(document, commit=False)
+        await db.commit()
+    except Exception as restore_error:
+        await db.rollback()
+        print(f"回滚审核后恢复旧向量失败: {restore_error}")
+
+
+async def _cleanup_approval_vector_side_effects(
+    db: AsyncSession,
+    vector_target_identity,
+    deleted_vector_to_restore,
+):
+    if vector_target_identity:
+        try:
+            doc_id, library_type = vector_target_identity
+            await VectorService(db).delete_document_from_vector_store(doc_id, library_type)
+        except Exception as cleanup_error:
+            print(f"回滚审核后清理新向量失败: {cleanup_error}")
+
+    if deleted_vector_to_restore:
+        doc_id, library_type = deleted_vector_to_restore
+        await _restore_document_vector_after_rollback(db, doc_id, library_type)
 
 
 async def _get_source_document_for_review(db: AsyncSession, review):
@@ -793,16 +886,26 @@ async def approve_review(
     if not _can_review(current_user):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无审核权限")
 
-    review = await _get_review_for_update_or_404(db, review_id, review_library_type)
-    if review.status != 0:
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "该审核申请已处理")
-
     review_comment = _extract_review_comment(payload)
-    review_document_library_type = _review_library_type(review)
     vector_service = VectorService(db)
-    document_model = _get_document_model(review_document_library_type)
+    review = None
+    review_document_library_type = "breakdown"
+    source_document = None
+    vector_target = None
+    vector_stage = ""
+    vector_target_identity = None
+    deleted_vector_to_restore = None
+    vectorization_started = False
+    vectorization_finished = False
 
     try:
+        review = await _get_review_for_update_or_404(db, review_id, review_library_type)
+        if review.status != 0:
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "该审核申请已处理")
+
+        review_document_library_type = _review_library_type(review)
+        document_model = _get_document_model(review_document_library_type)
+
         if review.action_type == 1:
             new_document = document_model(**_filter_model_data(document_model, {
                 "title": review.title,
@@ -832,7 +935,8 @@ async def approve_review(
             if _review_library_type(review) == "knowledge":
                 await replace_knowledge_document_sections(db, new_document, _review_sections_for_create(review))
             review.document_id = new_document.id
-            await vector_service.add_document_to_vector_store(new_document, commit=False)
+            vector_target = new_document
+            vector_stage = "新增文档"
 
         elif review.action_type == 2:
             if not review.document_id:
@@ -859,9 +963,14 @@ async def approve_review(
                     setattr(document, field, getattr(review, field))
             if _review_library_type(review) == "knowledge" and getattr(review, "sections", None) is not None:
                 await replace_knowledge_document_sections(db, document, _review_section_objects(review.sections))
+            document_library_type = getattr(document, "library_type", review_document_library_type)
+            should_restore_vector = bool(getattr(document, "is_vectorized", 0))
             document.is_vectorized = 0
-            await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", review_document_library_type))
-            await vector_service.add_document_to_vector_store(document, commit=False)
+            await vector_service.delete_document_from_vector_store(document.id, document_library_type)
+            if should_restore_vector:
+                deleted_vector_to_restore = (document.id, document_library_type)
+            vector_target = document
+            vector_stage = "更新文档"
 
         elif review.action_type == 3:
             if not review.document_id:
@@ -879,7 +988,11 @@ async def approve_review(
             if not document:
                 raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "待删除文档不存在")
 
-            await vector_service.delete_document_from_vector_store(document.id, getattr(document, "library_type", "breakdown"))
+            document_library_type = getattr(document, "library_type", "breakdown")
+            should_restore_vector = bool(getattr(document, "is_vectorized", 0))
+            await vector_service.delete_document_from_vector_store(document.id, document_library_type)
+            if should_restore_vector:
+                deleted_vector_to_restore = (document.id, document_library_type)
             await _cleanup_document_files(db, document)
             await _reset_source_documents_for_document(db, document.id, getattr(document, "library_type", "breakdown"))
             document.is_deleted = 1
@@ -892,20 +1005,73 @@ async def approve_review(
         review.review_comment = review_comment if review_comment is not None else review.review_comment
         source_document = await _get_source_document_for_review(db, review)
         if source_document:
-            source_document.status = "vectorized" if review.action_type == 1 else "uploaded"
+            source_document.status = "uploaded"
             source_document.document_id = review.document_id if review.action_type == 1 else source_document.document_id
             source_document.document_library_type = review_document_library_type
             source_document.review_id = None
             source_document.review_library_type = "breakdown"
             source_document.parse_error = None
             source_document.parse_started_time = None
+
+        if vector_target is not None:
+            vectorization_started = True
+            vector_target_identity = (
+                vector_target.id,
+                getattr(vector_target, "library_type", review_document_library_type),
+            )
+            await vector_service.add_document_to_vector_store(vector_target, commit=False)
+            vectorization_finished = True
+            if source_document:
+                source_document.status = "vectorized"
+                source_document.parse_error = None
+                source_document.parse_started_time = None
         await db.commit()
         await db.refresh(review)
     except AppException:
         await db.rollback()
+        await _cleanup_approval_vector_side_effects(
+            db,
+            vector_target_identity if vectorization_started else None,
+            deleted_vector_to_restore,
+        )
         raise
+    except OperationalError as e:
+        await db.rollback()
+        await _cleanup_approval_vector_side_effects(
+            db,
+            vector_target_identity if vectorization_started else None,
+            deleted_vector_to_restore,
+        )
+        if vectorization_started and not vectorization_finished:
+            failure_reason = _exception_message(e)
+            await _record_review_vectorization_failure(db, review_id, review_library_type, failure_reason)
+            raise AppException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                BizCode.INTERNAL_ERROR,
+                f"审核通过失败: {vector_stage or '文档'}向量化失败: {failure_reason}",
+            )
+        if _is_lock_timeout_error(e):
+            raise AppException(
+                status.HTTP_409_CONFLICT,
+                BizCode.REVIEW_LOCKED,
+                "审核记录正在被其他请求处理，请稍后重试",
+            )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"审核通过失败: {_exception_message(e)}")
     except Exception as e:
         await db.rollback()
+        await _cleanup_approval_vector_side_effects(
+            db,
+            vector_target_identity if vectorization_started else None,
+            deleted_vector_to_restore,
+        )
+        if vectorization_started and not vectorization_finished:
+            failure_reason = _exception_message(e)
+            await _record_review_vectorization_failure(db, review_id, review_library_type, failure_reason)
+            raise AppException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                BizCode.INTERNAL_ERROR,
+                f"审核通过失败: {vector_stage or '文档'}向量化失败: {failure_reason}",
+            )
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"审核通过失败: {str(e)}")
 
     names = await _get_user_names(db, [review])
@@ -929,26 +1095,42 @@ async def reject_review(
     if not _can_review(current_user):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无审核权限")
 
-    review = await _get_review_for_update_or_404(db, review_id, review_library_type)
-    if review.status != 0:
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "该审核申请已处理")
+    try:
+        review = await _get_review_for_update_or_404(db, review_id, review_library_type)
+        if review.status != 0:
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "该审核申请已处理")
 
-    review.status = 2
-    review.reviewer_id = current_user.id
-    review.reviewed_time = datetime.now()
-    review_comment = _extract_review_comment(payload)
-    review.review_comment = review_comment if review_comment is not None else review.review_comment
-    source_document = await _get_source_document_for_review(db, review)
-    if source_document:
-        source_document.status = "uploaded"
-        source_document.review_id = None
-        source_document.review_library_type = "breakdown"
-        source_document.parse_error = review.review_comment
-        source_document.parse_started_time = None
-    else:
-        await _cleanup_review_origin_file(review)
-    await db.commit()
-    await db.refresh(review)
+        review.status = 2
+        review.reviewer_id = current_user.id
+        review.reviewed_time = datetime.now()
+        review_comment = _extract_review_comment(payload)
+        review.review_comment = review_comment if review_comment is not None else review.review_comment
+        source_document = await _get_source_document_for_review(db, review)
+        if source_document:
+            source_document.status = "uploaded"
+            source_document.review_id = None
+            source_document.review_library_type = "breakdown"
+            source_document.parse_error = review.review_comment
+            source_document.parse_started_time = None
+        else:
+            await _cleanup_review_origin_file(review)
+        await db.commit()
+        await db.refresh(review)
+    except AppException:
+        await db.rollback()
+        raise
+    except OperationalError as e:
+        await db.rollback()
+        if _is_lock_timeout_error(e):
+            raise AppException(
+                status.HTTP_409_CONFLICT,
+                BizCode.REVIEW_LOCKED,
+                "审核记录正在被其他请求处理，请稍后重试",
+            )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"驳回审核失败: {str(e)}")
+    except Exception as e:
+        await db.rollback()
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"驳回审核失败: {str(e)}")
 
     names = await _get_user_names(db, [review])
     return Result.success_with_data(
@@ -967,25 +1149,41 @@ async def withdraw_review(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    review = await _get_review_for_update_or_404(db, review_id, review_library_type)
-    if review.contributor_id != current_user.id and not _is_admin(current_user):
-        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无权限撤回该审核申请")
-    if review.status != 0:
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "仅待审核状态可撤回")
+    try:
+        review = await _get_review_for_update_or_404(db, review_id, review_library_type)
+        if review.contributor_id != current_user.id and not _is_admin(current_user):
+            raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无权限撤回该审核申请")
+        if review.status != 0:
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.REVIEW_ALREADY_PROCESSED, "仅待审核状态可撤回")
 
-    review.status = 3
-    review.reviewed_time = datetime.now()
-    source_document = await _get_source_document_for_review(db, review)
-    if source_document:
-        source_document.status = "uploaded"
-        source_document.review_id = None
-        source_document.review_library_type = "breakdown"
-        source_document.parse_error = None
-        source_document.parse_started_time = None
-    else:
-        await _cleanup_review_origin_file(review)
-    await db.commit()
-    await db.refresh(review)
+        review.status = 3
+        review.reviewed_time = datetime.now()
+        source_document = await _get_source_document_for_review(db, review)
+        if source_document:
+            source_document.status = "uploaded"
+            source_document.review_id = None
+            source_document.review_library_type = "breakdown"
+            source_document.parse_error = None
+            source_document.parse_started_time = None
+        else:
+            await _cleanup_review_origin_file(review)
+        await db.commit()
+        await db.refresh(review)
+    except AppException:
+        await db.rollback()
+        raise
+    except OperationalError as e:
+        await db.rollback()
+        if _is_lock_timeout_error(e):
+            raise AppException(
+                status.HTTP_409_CONFLICT,
+                BizCode.REVIEW_LOCKED,
+                "审核记录正在被其他请求处理，请稍后重试",
+            )
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"撤回审核失败: {str(e)}")
+    except Exception as e:
+        await db.rollback()
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"撤回审核失败: {str(e)}")
 
     names = await _get_user_names(db, [review])
     return Result.success_with_data(

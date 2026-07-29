@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#253044" />
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#2563eb" />
+    </marker>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1f2937" flood-opacity="0.12" />
+    </filter>
+    <style>
+      .title { font: 700 28px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #172033; }
+      .subtitle { font: 14px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #647084; }
+      .layerText { font: 700 25px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #fff; writing-mode: tb; glyph-orientation-vertical: 0; letter-spacing: 4px; }
+      .boxText { font: 17px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #111827; }
+      .smallText { font: 14px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #374151; }
+      .tinyText { font: 12px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #5b6778; }
+      .panelTitle { font: 700 20px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #172033; }
+      .tagText { font: 13px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #1f2937; }
+      .node { fill: #fff; stroke: #4b6381; stroke-width: 1.6; rx: 4; filter: url(#softShadow); }
+      .nodeBlue { fill: #eef5ff; stroke: #2f5e9b; stroke-width: 1.6; rx: 4; filter: url(#softShadow); }
+      .nodeGreen { fill: #effaf0; stroke: #4d8f4d; stroke-width: 1.6; rx: 4; filter: url(#softShadow); }
+      .nodeOrange { fill: #fff4ea; stroke: #b45b1b; stroke-width: 1.6; rx: 4; filter: url(#softShadow); }
+      .nodeViolet { fill: #f5efff; stroke: #7650b7; stroke-width: 1.6; rx: 4; filter: url(#softShadow); }
+      .line { stroke: #253044; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+      .lineThin { stroke: #253044; stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+      .lineBlue { stroke: #2563eb; stroke-width: 2; fill: none; marker-end: url(#arrowBlue); }
+      .dash { stroke: #79869a; stroke-width: 1.5; fill: none; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#f6f8fb" />
+  <text x="44" y="40" class="title">维修辅助系统：文件处理流程 + 问答回复流程</text>
+  <text x="44" y="66" class="subtitle">展示层 / 服务层 / 数据层 / 算法层，以及文档解析、审核入库、向量化、RAG 回复的完整链路</text>
+
+  <!-- Left: system layers -->
+  <rect x="34" y="95" width="690" height="730" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8" />
+
+  <rect x="54" y="120" width="64" height="165" fill="#2f68b7" />
+  <text x="75" y="145" class="layerText">展示层</text>
+  <rect x="118" y="120" width="575" height="165" fill="#e9f3ff" stroke="#254b7a" stroke-width="1.5" />
+  <rect x="152" y="154" width="96" height="38" class="nodeBlue" />
+  <text x="180" y="178" class="boxText">HTML</text>
+  <rect x="282" y="154" width="96" height="38" class="nodeBlue" />
+  <text x="314" y="178" class="boxText">CSS</text>
+  <rect x="412" y="154" width="136" height="38" class="nodeBlue" />
+  <text x="436" y="178" class="boxText">JavaScript</text>
+  <rect x="152" y="216" width="120" height="42" class="node" />
+  <text x="176" y="242" class="boxText">文档管理</text>
+  <rect x="302" y="216" width="120" height="42" class="node" />
+  <text x="326" y="242" class="boxText">审核管理</text>
+  <rect x="452" y="216" width="120" height="42" class="node" />
+  <text x="483" y="242" class="boxText">AI问答</text>
+  <text x="600" y="176" class="smallText">Nginx</text>
+  <text x="585" y="204" class="tinyText">静态资源 / API代理</text>
+
+  <rect x="54" y="330" width="64" height="230" fill="#ec7a25" />
+  <text x="75" y="362" class="layerText">服务层</text>
+  <rect x="118" y="330" width="575" height="230" fill="#fff1e6" stroke="#925119" stroke-width="1.5" />
+  <rect x="150" y="363" width="108" height="42" class="nodeOrange" />
+  <text x="176" y="389" class="boxText">FastAPI</text>
+  <rect x="292" y="363" width="132" height="42" class="nodeOrange" />
+  <text x="318" y="389" class="boxText">JWT鉴权</text>
+  <rect x="462" y="363" width="138" height="42" class="nodeOrange" />
+  <text x="488" y="389" class="boxText">SSE输出</text>
+  <rect x="142" y="444" width="128" height="44" class="node" />
+  <text x="166" y="471" class="boxText">文件接口</text>
+  <rect x="292" y="444" width="128" height="44" class="node" />
+  <text x="316" y="471" class="boxText">审核接口</text>
+  <rect x="442" y="444" width="128" height="44" class="node" />
+  <text x="466" y="471" class="boxText">问答接口</text>
+  <rect x="214" y="508" width="150" height="38" class="node" />
+  <text x="234" y="532" class="boxText">异步解析任务</text>
+  <rect x="394" y="508" width="150" height="38" class="node" />
+  <text x="414" y="532" class="boxText">向量服务封装</text>
+  <line x1="204" y1="405" x2="204" y2="444" class="lineThin" />
+  <line x1="358" y1="405" x2="358" y2="444" class="lineThin" />
+  <line x1="531" y1="405" x2="531" y2="444" class="lineThin" />
+  <line x1="270" y1="466" x2="292" y2="466" class="lineThin" />
+  <line x1="420" y1="466" x2="442" y2="466" class="lineThin" />
+
+  <rect x="54" y="605" width="64" height="180" fill="#f4c430" />
+  <text x="75" y="630" class="layerText">数据层</text>
+  <rect x="118" y="605" width="575" height="180" fill="#fff9df" stroke="#8a7111" stroke-width="1.5" />
+  <rect x="158" y="645" width="120" height="48" class="node" />
+  <text x="191" y="675" class="boxText">MySQL</text>
+  <rect x="316" y="645" width="120" height="48" class="node" />
+  <text x="352" y="675" class="boxText">Milvus</text>
+  <rect x="474" y="645" width="142" height="48" class="node" />
+  <text x="499" y="675" class="boxText">upload目录</text>
+  <rect x="186" y="724" width="180" height="36" class="node" />
+  <text x="211" y="747" class="smallText">Conversation / Message</text>
+  <rect x="406" y="724" width="184" height="36" class="node" />
+  <text x="423" y="747" class="smallText">Document / Review</text>
+
+  <line x1="405" y1="285" x2="405" y2="330" class="line" />
+  <text x="418" y="312" class="smallText">REST / SSE</text>
+  <line x1="258" y1="560" x2="230" y2="605" class="line" />
+  <text x="154" y="588" class="smallText">SQLAlchemy</text>
+  <line x1="488" y1="560" x2="376" y2="645" class="line" />
+  <text x="430" y="597" class="smallText">PyMilvus</text>
+  <line x1="544" y1="560" x2="544" y2="645" class="line" />
+  <text x="559" y="600" class="smallText">文件I/O</text>
+
+  <!-- Center bridge -->
+  <line x1="724" y1="465" x2="770" y2="465" class="lineBlue" />
+  <text x="728" y="448" class="smallText">API调用</text>
+  <line x1="724" y1="665" x2="770" y2="665" class="lineBlue" />
+  <text x="728" y="648" class="smallText">检索/入库</text>
+
+  <!-- Right: algorithm layer -->
+  <rect x="770" y="95" width="780" height="730" fill="#eff9ee" stroke="#355f34" stroke-width="1.7" rx="8" />
+  <rect x="770" y="95" width="66" height="730" fill="#66a84b" rx="7" />
+  <text x="793" y="365" class="layerText">算法层</text>
+
+  <rect x="860" y="120" width="650" height="322" fill="#fff0ee" stroke="#9d4a22" stroke-width="1.5" />
+  <rect x="1470" y="120" width="40" height="322" fill="#ec7a25" />
+  <text x="1483" y="196" class="layerText">知识库管理</text>
+  <text x="882" y="150" class="panelTitle">文件处理与知识库构建</text>
+
+  <rect x="894" y="176" width="140" height="44" class="node" />
+  <text x="918" y="203" class="boxText">文件输入</text>
+  <rect x="1112" y="169" width="160" height="58" fill="#fff" stroke="#d4a373" stroke-width="1.4" rx="4" />
+  <text x="1128" y="191" class="smallText">pdf / ppt / word</text>
+  <text x="1128" y="211" class="smallText">HTML / md / excel</text>
+
+  <rect x="894" y="248" width="162" height="44" class="node" />
+  <text x="914" y="275" class="boxText">文档内容解析</text>
+  <rect x="1110" y="248" width="196" height="44" class="nodeBlue" />
+  <text x="1127" y="275" class="smallText">MinerU / PyMuPDF / python-pptx</text>
+
+  <rect x="894" y="320" width="162" height="44" class="node" />
+  <text x="913" y="347" class="boxText">结构化与分块</text>
+  <rect x="1110" y="320" width="168" height="44" class="nodeViolet" />
+  <text x="1128" y="347" class="smallText">LLM JSON抽取</text>
+
+  <rect x="894" y="392" width="162" height="44" class="node" />
+  <text x="928" y="419" class="boxText">审核入库</text>
+  <rect x="1110" y="392" width="182" height="44" class="nodeGreen" />
+  <text x="1128" y="419" class="smallText">MySQL事务 + 回滚保护</text>
+
+  <rect x="1328" y="248" width="120" height="44" class="nodeOrange" />
+  <text x="1345" y="275" class="boxText">图片过滤</text>
+  <rect x="1328" y="320" width="120" height="44" class="nodeOrange" />
+  <text x="1352" y="347" class="boxText">Chunk拆分</text>
+  <rect x="1328" y="392" width="120" height="44" class="nodeOrange" />
+  <text x="1344" y="419" class="boxText">向量写入</text>
+
+  <line x1="1034" y1="198" x2="1112" y2="198" class="lineThin" />
+  <line x1="975" y1="220" x2="975" y2="248" class="line" />
+  <line x1="1056" y1="270" x2="1110" y2="270" class="lineThin" />
+  <line x1="975" y1="292" x2="975" y2="320" class="line" />
+  <line x1="1056" y1="342" x2="1110" y2="342" class="lineThin" />
+  <line x1="975" y1="364" x2="975" y2="392" class="line" />
+  <line x1="1278" y1="342" x2="1328" y2="342" class="lineThin" />
+  <line x1="1292" y1="414" x2="1328" y2="414" class="lineThin" />
+  <line x1="1388" y1="364" x2="1388" y2="392" class="line" />
+  <text x="1318" y="237" class="tinyText">去除logo/底图</text>
+  <text x="1308" y="306" class="tinyText">主chunk/章节/表格</text>
+  <text x="1304" y="452" class="tinyText">Visualized_BGE → Milvus</text>
+
+  <rect x="860" y="485" width="650" height="302" fill="#eef5ff" stroke="#31537d" stroke-width="1.5" />
+  <rect x="1470" y="485" width="40" height="302" fill="#ec7a25" />
+  <text x="1483" y="548" class="layerText">模型辅助问答</text>
+  <text x="882" y="515" class="panelTitle">检索增强问答 RAG</text>
+
+  <rect x="892" y="546" width="144" height="44" class="node" />
+  <text x="914" y="573" class="boxText">用户问题</text>
+  <rect x="1094" y="546" width="146" height="44" class="nodeOrange" />
+  <text x="1112" y="573" class="boxText">图像语义增强</text>
+  <rect x="1298" y="546" width="138" height="44" class="nodeViolet" />
+  <text x="1320" y="573" class="boxText">Query向量化</text>
+
+  <rect x="892" y="632" width="144" height="44" class="node" />
+  <text x="912" y="659" class="boxText">Milvus检索</text>
+  <rect x="1094" y="632" width="146" height="44" class="nodeBlue" />
+  <text x="1112" y="659" class="boxText">增强与重排序</text>
+  <rect x="1298" y="632" width="138" height="44" class="nodeGreen" />
+  <text x="1320" y="659" class="boxText">Prompt组装</text>
+
+  <rect x="1002" y="718" width="152" height="44" class="nodeViolet" />
+  <text x="1026" y="745" class="boxText">模型生成回答</text>
+  <rect x="1242" y="718" width="160" height="44" class="nodeGreen" />
+  <text x="1260" y="745" class="boxText">SSE/消息入库</text>
+
+  <line x1="1036" y1="568" x2="1094" y2="568" class="lineThin" />
+  <text x="1046" y="552" class="tinyText">有图片时</text>
+  <line x1="1240" y1="568" x2="1298" y2="568" class="lineThin" />
+  <line x1="1367" y1="590" x2="964" y2="632" class="line" />
+  <line x1="1036" y1="654" x2="1094" y2="654" class="lineThin" />
+  <line x1="1240" y1="654" x2="1298" y2="654" class="lineThin" />
+  <line x1="1367" y1="676" x2="1078" y2="718" class="line" />
+  <line x1="1154" y1="740" x2="1242" y2="740" class="lineThin" />
+
+  <text x="1106" y="613" class="tinyText">关键词补召回 / 分数聚合</text>
+  <text x="1308" y="700" class="tinyText">历史消息 + 文档证据 + 图片</text>
+  <text x="1016" y="783" class="tinyText">OpenAI兼容接口 / Qwen-VL</text>
+
+  <!-- Cross references inside algorithm -->
+  <path d="M1388 436 C1412 462, 1412 506, 1366 546" class="dash" />
+  <text x="1394" y="489" class="tinyText">向量库供检索</text>
+
+  <!-- Footer -->
+  <rect x="34" y="842" width="1516" height="34" fill="#ffffff" stroke="#d7e0ec" rx="6" />
+  <text x="54" y="864" class="smallText">关键约束：审核通过时若向量化失败，则 MySQL 事务回滚并清理 Milvus 副作用，不把审核状态改为通过，保证正式文档表与向量库一对一一致。</text>
+</svg>

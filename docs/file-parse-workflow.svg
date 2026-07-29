@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1100" viewBox="0 0 1900 1100">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#263445" />
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#2563eb" />
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#16a34a" />
+    </marker>
+    <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#dc2626" />
+    </marker>
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.13" />
+    </filter>
+    <style>
+      .page { fill: #f4f7fb; }
+      .title { font: 800 34px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #0f233a; }
+      .sub { font: 16px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #53657a; }
+      .panel { fill: #ffffff; stroke: #c8d8e8; stroke-width: 1.5; }
+      .panelTitle { font: 800 24px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #0f233a; }
+      .boxTitle { font: 800 18px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #101828; }
+      .boxText { font: 14px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #475467; }
+      .smallText { font: 13px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #667085; }
+      .label { font: 13px "Microsoft YaHei", "PingFang SC", Arial, sans-serif; fill: #344054; }
+      .node { fill: #ffffff; stroke: #52677f; stroke-width: 1.5; filter: url(#shadow); }
+      .blue { fill: #eef6ff; stroke: #2563eb; }
+      .green { fill: #effaf2; stroke: #16a34a; }
+      .orange { fill: #fff5ed; stroke: #ea580c; }
+      .violet { fill: #f5f0ff; stroke: #7c3aed; }
+      .red { fill: #fff1f2; stroke: #dc2626; }
+      .amber { fill: #fffbeb; stroke: #d97706; }
+      .data { fill: #f8fafc; stroke: #64748b; }
+      .note { fill: #fff7ed; stroke: #fb923c; stroke-width: 1.4; filter: url(#shadow); }
+      .highlight { fill: #f0f9ff; stroke: #2563eb; stroke-width: 1.7; filter: url(#shadow); }
+      .chip { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.2; }
+      .mini { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.2; }
+      .line { stroke: #263445; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+      .lineBlue { stroke: #2563eb; stroke-width: 2.2; fill: none; marker-end: url(#arrowBlue); }
+      .lineGreen { stroke: #16a34a; stroke-width: 2.2; fill: none; marker-end: url(#arrowGreen); }
+      .lineRed { stroke: #dc2626; stroke-width: 2.1; fill: none; marker-end: url(#arrowRed); }
+      .miniLine { stroke: #2563eb; stroke-width: 1.6; fill: none; marker-end: url(#arrowBlue); }
+      .dash { stroke: #64748b; stroke-width: 1.7; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="1900" height="1100" />
+  <text x="60" y="56" class="title">文件解析与语义切片流程</text>
+  <text x="60" y="86" class="sub">让用户看清：文件如何被解析、审核、入库、切片和向量化，同时突出两类知识库的语义完整性设计。</text>
+
+  <rect class="panel" x="50" y="115" width="1800" height="610" rx="14" />
+  <text x="80" y="158" class="panelTitle">一、文档解析到可检索入库</text>
+
+  <rect class="node blue" x="80" y="205" width="170" height="98" rx="10" />
+  <text x="108" y="239" class="boxTitle">源文件上传</text>
+  <text x="108" y="267" class="boxText">PDF / PPT / Word</text>
+  <text x="108" y="289" class="boxText">HTML / 图片 / Excel</text>
+
+  <rect class="node data" x="300" y="205" width="175" height="98" rx="10" />
+  <text x="328" y="239" class="boxTitle">登记任务</text>
+  <text x="328" y="267" class="boxText">SourceDocument</text>
+  <text x="328" y="289" class="boxText">status=uploaded</text>
+
+  <rect class="node orange" x="525" y="205" width="175" height="98" rx="10" />
+  <text x="553" y="239" class="boxTitle">类型分流</text>
+  <text x="553" y="267" class="boxText">按后缀与内容</text>
+  <text x="553" y="289" class="boxText">选择解析路径</text>
+
+  <rect class="node orange" x="750" y="205" width="205" height="98" rx="10" />
+  <text x="778" y="239" class="boxTitle">选择解析器</text>
+  <text x="778" y="267" class="boxText">PyMuPDF / MinerU</text>
+  <text x="778" y="289" class="boxText">python-pptx / BS4</text>
+
+  <rect class="node orange" x="1005" y="205" width="205" height="98" rx="10" />
+  <text x="1033" y="239" class="boxTitle">提取与清洗</text>
+  <text x="1033" y="267" class="boxText">正文 / 表格 / 章节</text>
+  <text x="1033" y="289" class="boxText">图片位置 / 过滤</text>
+
+  <rect class="node violet" x="1260" y="205" width="195" height="98" rx="10" />
+  <text x="1288" y="239" class="boxTitle">AI 结构化</text>
+  <text x="1288" y="267" class="boxText">Qwen-VL / API</text>
+  <text x="1288" y="289" class="boxText">JSON 校验兜底</text>
+
+  <rect class="node green" x="1505" y="205" width="160" height="98" rx="10" />
+  <text x="1530" y="239" class="boxTitle">生成审核稿</text>
+  <text x="1530" y="267" class="boxText">待审核记录</text>
+  <text x="1530" y="289" class="boxText">支持修改</text>
+
+  <rect class="node green" x="1705" y="205" width="115" height="98" rx="10" />
+  <text x="1728" y="239" class="boxTitle">审核</text>
+  <text x="1728" y="267" class="boxText">通过入库</text>
+  <text x="1728" y="289" class="boxText">驳回修改</text>
+
+  <line x1="250" y1="254" x2="300" y2="254" class="line" />
+  <line x1="475" y1="254" x2="525" y2="254" class="line" />
+  <line x1="700" y1="254" x2="750" y2="254" class="line" />
+  <line x1="955" y1="254" x2="1005" y2="254" class="line" />
+  <line x1="1210" y1="254" x2="1260" y2="254" class="line" />
+  <line x1="1455" y1="254" x2="1505" y2="254" class="line" />
+  <line x1="1665" y1="254" x2="1705" y2="254" class="line" />
+
+  <rect class="highlight" x="80" y="335" width="560" height="155" rx="10" />
+  <text x="110" y="368" class="boxTitle">PDF 双路径识别</text>
+  <rect class="mini" x="110" y="390" width="112" height="34" rx="7" />
+  <text x="126" y="412" class="smallText">PDF 类型判断</text>
+  <rect class="mini" x="270" y="372" width="98" height="32" rx="7" />
+  <text x="292" y="393" class="smallText">普通 PDF</text>
+  <rect class="mini" x="430" y="372" width="120" height="32" rx="7" />
+  <text x="452" y="393" class="smallText">PyMuPDF</text>
+  <rect class="mini" x="270" y="430" width="128" height="32" rx="7" />
+  <text x="286" y="451" class="smallText">扫描/图片型</text>
+  <rect class="mini" x="430" y="430" width="90" height="32" rx="7" />
+  <text x="455" y="451" class="smallText">MinerU</text>
+  <rect class="mini" x="540" y="430" width="82" height="32" rx="7" />
+  <text x="555" y="451" class="smallText">Markdown</text>
+  <path d="M222 407 H270" class="miniLine" />
+  <path d="M368 388 H430" class="miniLine" />
+  <path d="M222 407 H246 V446 H270" class="miniLine" />
+  <path d="M398 446 H430" class="miniLine" />
+  <path d="M520 446 H540" class="miniLine" />
+  <text x="110" y="475" class="smallText">普通 PDF 直接结构提取；扫描件或图片型 PDF 先转 Markdown，再进入后续分块。</text>
+
+  <rect class="highlight" x="680" y="350" width="340" height="125" rx="10" />
+  <text x="710" y="383" class="boxTitle">多格式解析兜底</text>
+  <text x="710" y="411" class="boxText">PPT：转 PDF + MinerU</text>
+  <text x="710" y="436" class="boxText">失败回退 python-pptx</text>
+  <text x="710" y="461" class="smallText">Word / HTML / Excel 统一归一。</text>
+
+  <rect class="note" x="1060" y="350" width="470" height="125" rx="10" />
+  <text x="1090" y="383" class="boxTitle">解析保真亮点</text>
+  <text x="1090" y="411" class="boxText">表格尽量整体保留，不拆散单元格语义</text>
+  <text x="1090" y="436" class="boxText">图片转为位置标记，绑定到对应章节或字段</text>
+  <text x="1090" y="461" class="smallText">装饰图、logo、重复图片会过滤。</text>
+
+  <rect class="node red" x="1545" y="350" width="115" height="70" rx="10" />
+  <text x="1568" y="380" class="boxTitle">驳回</text>
+  <text x="1568" y="407" class="boxText">返回修改</text>
+  <path d="M1762 303 V326 H1602 V350" class="lineRed" />
+  <text x="1632" y="333" class="label">驳回</text>
+
+  <rect class="node data" x="1665" y="545" width="155" height="92" rx="10" />
+  <text x="1692" y="579" class="boxTitle">正式文档库</text>
+  <text x="1692" y="607" class="boxText">故障库 / 知识库</text>
+  <text x="1692" y="629" class="boxText">MySQL 持久化</text>
+
+  <path d="M1742 303 V545" class="lineGreen" />
+  <text x="1754" y="505" class="label">通过</text>
+
+  <rect class="node violet" x="1420" y="545" width="190" height="92" rx="10" />
+  <text x="1450" y="579" class="boxTitle">拆分 Chunk</text>
+  <text x="1450" y="607" class="boxText">主 chunk / 字段</text>
+  <text x="1450" y="629" class="boxText">章节 / 表格</text>
+
+  <rect class="node violet" x="1175" y="545" width="190" height="92" rx="10" />
+  <text x="1205" y="579" class="boxTitle">完整性保护</text>
+  <text x="1205" y="607" class="boxText">语义边界切分</text>
+  <text x="1205" y="629" class="boxText">图文关系保留</text>
+
+  <rect class="node violet" x="930" y="545" width="190" height="92" rx="10" />
+  <text x="960" y="579" class="boxTitle">多模态向量化</text>
+  <text x="960" y="607" class="boxText">Visualized_BGE</text>
+  <text x="960" y="629" class="boxText">bge-m3 / 图片向量</text>
+
+  <rect class="node data" x="685" y="545" width="190" height="92" rx="10" />
+  <text x="715" y="579" class="boxTitle">写入 Milvus</text>
+  <text x="715" y="607" class="boxText">Chunk 向量</text>
+  <text x="715" y="629" class="boxText">携带元数据</text>
+
+  <rect class="node green" x="440" y="545" width="190" height="92" rx="10" />
+  <text x="470" y="579" class="boxTitle">状态完成</text>
+  <text x="470" y="607" class="boxText">is_vectorized=1</text>
+  <text x="470" y="629" class="boxText">可被检索使用</text>
+
+  <line x1="1665" y1="591" x2="1610" y2="591" class="line" />
+  <line x1="1420" y1="591" x2="1365" y2="591" class="line" />
+  <line x1="1175" y1="591" x2="1120" y2="591" class="line" />
+  <line x1="930" y1="591" x2="875" y2="591" class="line" />
+  <line x1="685" y1="591" x2="630" y2="591" class="line" />
+
+  <text x="80" y="770" class="panelTitle">二、两种切片策略：根据业务库类型保证语义完整</text>
+  <rect class="panel" x="50" y="790" width="1800" height="280" rx="14" />
+
+  <rect class="node green" x="80" y="830" width="815" height="150" rx="12" />
+  <text x="115" y="868" class="boxTitle">故障库：七段语义归档</text>
+  <text x="115" y="898" class="boxText">按语义归入七段字段，保证维修案例结构清晰。</text>
+  <rect class="chip" x="115" y="925" width="72" height="34" rx="7" />
+  <text x="137" y="947" class="smallText">标题</text>
+  <rect class="chip" x="197" y="925" width="94" height="34" rx="7" />
+  <text x="215" y="947" class="smallText">问题简介</text>
+  <rect class="chip" x="301" y="925" width="72" height="34" rx="7" />
+  <text x="323" y="947" class="smallText">原因</text>
+  <rect class="chip" x="383" y="925" width="72" height="34" rx="7" />
+  <text x="405" y="947" class="smallText">评估</text>
+  <rect class="chip" x="465" y="925" width="72" height="34" rx="7" />
+  <text x="487" y="947" class="smallText">检查</text>
+  <rect class="chip" x="547" y="925" width="104" height="34" rx="7" />
+  <text x="565" y="947" class="smallText">解决方案</text>
+  <rect class="chip" x="661" y="925" width="104" height="34" rx="7" />
+  <text x="679" y="947" class="smallText">关键要点</text>
+
+  <rect class="node violet" x="1005" y="830" width="815" height="150" rx="12" />
+  <text x="1040" y="868" class="boxTitle">知识库：长文档章节切片</text>
+  <text x="1040" y="898" class="boxText">面向长文档，按章节切分，保留上下文顺序。</text>
+  <rect class="chip" x="1040" y="925" width="124" height="34" rx="7" />
+  <text x="1058" y="947" class="smallText">section_index</text>
+  <rect class="chip" x="1174" y="925" width="124" height="34" rx="7" />
+  <text x="1192" y="947" class="smallText">section_title</text>
+  <rect class="chip" x="1308" y="925" width="104" height="34" rx="7" />
+  <text x="1330" y="947" class="smallText">plain_text</text>
+  <rect class="chip" x="1422" y="925" width="104" height="34" rx="7" />
+  <text x="1440" y="947" class="smallText">image_urls</text>
+  <rect class="chip" x="1536" y="925" width="126" height="34" rx="7" />
+  <text x="1554" y="947" class="smallText">char_start/end</text>
+  <rect class="chip" x="1672" y="925" width="104" height="34" rx="7" />
+  <text x="1694" y="947" class="smallText">metadata</text>
+
+  <rect class="note" x="170" y="1008" width="1560" height="52" rx="10" />
+  <text x="205" y="1041" class="boxText">完整性保障：不按固定字数硬切；按标题、章节、段落、表格和图片位置切分；原文保存在 MySQL，Milvus Chunk 只作为检索入口。</text>
+</svg>

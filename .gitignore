@@ -12,3 +12,6 @@ start_backend.cmd
 .idea/
 bge/
 minerU/
+tmp/
+runtime/
+scripts/

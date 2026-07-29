@@ -69,6 +69,94 @@
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
             padding: 20px;
         }
+        .batch-review-result-content {
+            width: min(680px, 94vw);
+            max-height: 86vh;
+            overflow: auto;
+        }
+        .batch-review-result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 16px;
+        }
+        .batch-review-result-header h3 {
+            margin: 0;
+            color: #111827;
+            font-size: 18px;
+        }
+        .batch-review-result-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .batch-review-result-stat {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            background: #f8fafc;
+        }
+        .batch-review-result-stat strong {
+            display: block;
+            margin-top: 4px;
+            color: #111827;
+            font-size: 22px;
+            line-height: 1.1;
+        }
+        .batch-review-result-stat span {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .batch-review-failure-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 42vh;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .batch-review-failure-item {
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff7f7;
+        }
+        .batch-review-failure-title {
+            color: #111827;
+            font-weight: 700;
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+        .batch-review-failure-meta {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        .batch-review-failure-reason {
+            color: #991b1b;
+            font-size: 13px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .batch-review-result-empty {
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 12px;
+            color: #166534;
+            background: #f0fdf4;
+        }
+        .batch-review-result-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 16px;
+            margin-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
         .review-section { margin-bottom: 16px; }
         .review-section h4 {
             margin-bottom: 8px;
@@ -299,6 +387,18 @@
                 <button class="btn btn-secondary btn-sm" id="closeReviewModalBtn" onclick="closeReviewModal()">关闭</button>
             </div>
             <div id="reviewModalBody"></div>
+        </div>
+    </div>
+
+    <div class="review-modal" id="batchReviewResultModal">
+        <div class="review-modal-content batch-review-result-content">
+            <div class="batch-review-result-header">
+                <h3 id="batchReviewResultTitle">批量审核结果</h3>
+            </div>
+            <div id="batchReviewResultBody"></div>
+            <div class="batch-review-result-actions">
+                <button class="btn btn-primary" onclick="closeBatchReviewResultModal()">确定</button>
+            </div>
         </div>
     </div>
 
@@ -647,6 +747,84 @@
             updateBatchReviewToolbar();
         }
 
+        function getBatchReviewSnapshot(reviewIds) {
+            const itemMap = new Map();
+            rawReviews.forEach(item => itemMap.set(getReviewKey(item), item));
+            currentReviews.forEach(item => itemMap.set(getReviewKey(item), item));
+
+            return reviewIds.map(reviewKey => {
+                const item = itemMap.get(reviewKey);
+                const parsed = parseReviewKey(reviewKey);
+                return {
+                    reviewKey,
+                    reviewId: parsed.reviewId,
+                    reviewLibraryType: parsed.reviewLibraryType,
+                    title: item && item.title ? item.title : `审核记录 #${parsed.reviewId}`
+                };
+            });
+        }
+
+        function getBatchReviewFailureReason(error) {
+            if (error && error.message) return error.message;
+            if (error && error.payload && error.payload.message) return error.payload.message;
+            if (error && error.payload && error.payload.msg) return error.payload.msg;
+            return '未知错误';
+        }
+
+        function getBatchReviewLibraryText(reviewLibraryType) {
+            return reviewLibraryType === 'knowledge' ? '知识库' : '故障库';
+        }
+
+        function showBatchReviewResultModal(actionText, totalCount, successCount, failedItems) {
+            const modal = document.getElementById('batchReviewResultModal');
+            const title = document.getElementById('batchReviewResultTitle');
+            const body = document.getElementById('batchReviewResultBody');
+            if (!modal || !body) return;
+
+            if (title) title.textContent = `批量${actionText}结果`;
+
+            const failedCount = failedItems.length;
+            const failureHtml = failedCount
+                ? `
+                    <div class="batch-review-failure-list">
+                        ${failedItems.map(item => `
+                            <div class="batch-review-failure-item">
+                                <div class="batch-review-failure-title">${escapeHtml(item.title)}</div>
+                                <div class="batch-review-failure-meta">
+                                    ${getBatchReviewLibraryText(item.reviewLibraryType)} · 审核ID：${escapeHtml(item.reviewId)}
+                                </div>
+                                <div class="batch-review-failure-reason">失败原因：${escapeHtml(item.message)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `
+                : `<div class="batch-review-result-empty">全部记录已${actionText}成功。</div>`;
+
+            body.innerHTML = `
+                <div class="batch-review-result-summary">
+                    <div class="batch-review-result-stat">
+                        <span>总数</span>
+                        <strong>${totalCount}</strong>
+                    </div>
+                    <div class="batch-review-result-stat">
+                        <span>成功</span>
+                        <strong>${successCount}</strong>
+                    </div>
+                    <div class="batch-review-result-stat">
+                        <span>失败</span>
+                        <strong>${failedCount}</strong>
+                    </div>
+                </div>
+                ${failureHtml}
+            `;
+            modal.style.display = 'flex';
+        }
+
+        function closeBatchReviewResultModal() {
+            const modal = document.getElementById('batchReviewResultModal');
+            if (modal) modal.style.display = 'none';
+        }
+
         async function batchProcessReviews(actionType) {
             if (batchReviewSubmitting || reviewSubmitting) return;
             const ids = Array.from(selectedReviewIds);
@@ -663,32 +841,29 @@
 
             setBatchReviewSubmitting(true, actionType);
             const failedItems = [];
+            const reviewSnapshots = getBatchReviewSnapshot(ids);
             let successCount = 0;
 
-            for (const reviewId of ids) {
-                const parsed = parseReviewKey(reviewId);
+            for (const reviewItem of reviewSnapshots) {
                 try {
                     if (isApprove) {
-                        await reviewAPI.approveReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
+                        await reviewAPI.approveReview(reviewItem.reviewId, comment.trim() || null, reviewItem.reviewLibraryType);
                     } else {
-                        await reviewAPI.rejectReview(parsed.reviewId, comment.trim() || null, parsed.reviewLibraryType);
+                        await reviewAPI.rejectReview(reviewItem.reviewId, comment.trim() || null, reviewItem.reviewLibraryType);
                     }
                     successCount += 1;
                 } catch (error) {
-                    failedItems.push({ reviewId, message: error.message || '未知错误' });
+                    failedItems.push({
+                        ...reviewItem,
+                        message: getBatchReviewFailureReason(error)
+                    });
                 }
             }
 
             selectedReviewIds.clear();
             setBatchReviewSubmitting(false, actionType);
             await loadReviewList();
-
-            if (failedItems.length) {
-                console.error('批量审核失败记录:', failedItems);
-                Utils.showMessage(`批量${actionText}完成：成功 ${successCount} 条，失败 ${failedItems.length} 条`, 'warning');
-            } else {
-                Utils.showMessage(`批量${actionText}成功，共处理 ${successCount} 条`, 'success');
-            }
+            showBatchReviewResultModal(actionText, ids.length, successCount, failedItems);
         }
 
         async function batchApproveReviews() {
@@ -935,6 +1110,10 @@
             if (e.target === this) closeReviewModal();
         });
 
+        document.getElementById('batchReviewResultModal').addEventListener('click', function(e) {
+            if (e.target === this) closeBatchReviewResultModal();
+        });
+
         document.getElementById('documentImageModal').addEventListener('click', function(e) {
             if (e.target === this) closeDocumentImagePreview();
         });
@@ -955,6 +1134,11 @@
             const imageModal = document.getElementById('documentImageModal');
             if (imageModal && imageModal.style.display === 'flex') {
                 closeDocumentImagePreview();
+                return;
+            }
+            const batchResultModal = document.getElementById('batchReviewResultModal');
+            if (batchResultModal && batchResultModal.style.display === 'flex') {
+                closeBatchReviewResultModal();
                 return;
             }
             closeReviewModal();

@@ -1,5 +1,7 @@
 ﻿import base64
 import json
+import hashlib
+import io
 import mimetypes
 import re
 import uuid
@@ -76,6 +78,20 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
 class PdfParser:
     def __init__(self):
         # self.db = db
@@ -128,6 +144,15 @@ class PdfParser:
         self.mineru_timeout = int(os.getenv("MINERU_TIMEOUT", 1800))
         self.mineru_page_image_dpi = int(os.getenv("MINERU_PAGE_IMAGE_DPI", 144))
         self.mineru_page_image_max_pages = int(os.getenv("MINERU_PAGE_IMAGE_MAX_PAGES", 30))
+        self.pdf_skip_decorative_images = _env_bool("PDF_SKIP_DECORATIVE_IMAGES", True)
+        self.pdf_min_image_area_ratio = _env_float("PDF_MIN_IMAGE_AREA_RATIO", 0.01)
+        self.pdf_min_image_width = _env_int("PDF_MIN_IMAGE_WIDTH", 120)
+        self.pdf_min_image_height = _env_int("PDF_MIN_IMAGE_HEIGHT", 80)
+        self.pdf_min_foreground_area_ratio = _env_float("PDF_MIN_FOREGROUND_AREA_RATIO", 0.08)
+        self.pdf_background_color_tolerance = _env_int("PDF_BACKGROUND_COLOR_TOLERANCE", 18)
+        self.pdf_background_image_area_ratio = _env_float("PDF_BACKGROUND_IMAGE_AREA_RATIO", 0.65)
+        self.pdf_repeated_image_page_threshold = _env_int("PDF_REPEATED_IMAGE_PAGE_THRESHOLD", 2)
+        self.pdf_decorative_text_min_chars = _env_int("PDF_DECORATIVE_TEXT_MIN_CHARS", 30)
 
         self.last_error_code = None
         self.last_error_detail = None
@@ -264,6 +289,191 @@ class PdfParser:
             return is_scanned
         finally:
             doc.close()
+
+    def _image_file_hash(self, image_path: Path) -> str:
+        try:
+            with open(image_path, "rb") as f:
+                return hashlib.sha1(f.read()).hexdigest()
+        except Exception:
+            return ""
+
+    def _image_file_size(self, image_path: Path):
+        try:
+            with Image.open(image_path) as image:
+                return image.width, image.height
+        except Exception:
+            return 0, 0
+
+    def _image_foreground_area_ratio(self, image: Image.Image) -> float:
+        try:
+            image = image.convert("RGB")
+            image.thumbnail((256, 256))
+            width, height = image.size
+            if width <= 0 or height <= 0:
+                return 0.0
+
+            corners = [
+                image.getpixel((0, 0)),
+                image.getpixel((width - 1, 0)),
+                image.getpixel((0, height - 1)),
+                image.getpixel((width - 1, height - 1)),
+            ]
+
+            def bucket(color):
+                return tuple(channel // 16 for channel in color)
+
+            buckets = [bucket(color) for color in corners]
+            background_bucket = max(set(buckets), key=buckets.count)
+            background_candidates = [
+                color for color in corners if bucket(color) == background_bucket
+            ]
+            background = tuple(
+                sum(color[index] for color in background_candidates) // len(background_candidates)
+                for index in range(3)
+            )
+            tolerance = max(self.pdf_background_color_tolerance, 0)
+
+            min_x, min_y = width, height
+            max_x, max_y = -1, -1
+            pixels = image.load()
+            for y in range(height):
+                for x in range(width):
+                    pixel = pixels[x, y]
+                    if max(abs(pixel[index] - background[index]) for index in range(3)) <= tolerance:
+                        continue
+                    min_x = min(min_x, x)
+                    min_y = min(min_y, y)
+                    max_x = max(max_x, x)
+                    max_y = max(max_y, y)
+
+            if max_x < 0 or max_y < 0:
+                return 0.0
+
+            foreground_area = (max_x - min_x + 1) * (max_y - min_y + 1)
+            return foreground_area / max(width * height, 1)
+        except Exception:
+            return 1.0
+
+    def _image_file_foreground_area_ratio(self, image_path: Path) -> float:
+        try:
+            with Image.open(image_path) as image:
+                return self._image_foreground_area_ratio(image)
+        except Exception:
+            return 1.0
+
+    def _pdf_xref_foreground_area_ratio(self, doc, xref: int) -> float:
+        try:
+            image_info = doc.extract_image(xref)
+            image_bytes = image_info.get("image")
+            if not image_bytes:
+                return 1.0
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                return self._image_foreground_area_ratio(image)
+        except Exception:
+            return 1.0
+
+    def _should_keep_image_file(self, image_path: Path, image_hash_counts: dict = None) -> bool:
+        if not self.pdf_skip_decorative_images:
+            return True
+
+        width, height = self._image_file_size(image_path)
+        if width <= 0 or height <= 0:
+            return False
+        if width < self.pdf_min_image_width or height < self.pdf_min_image_height:
+            return False
+
+        aspect_ratio = width / max(height, 1)
+        if aspect_ratio > 8 or aspect_ratio < 0.125:
+            return False
+
+        if (
+            self.pdf_min_foreground_area_ratio > 0
+            and self._image_file_foreground_area_ratio(image_path) < self.pdf_min_foreground_area_ratio
+        ):
+            return False
+
+        image_hash = self._image_file_hash(image_path)
+        if (
+            image_hash
+            and image_hash_counts
+            and image_hash_counts.get(image_hash, 0) >= self.pdf_repeated_image_page_threshold
+        ):
+            return False
+
+        return True
+
+    def _mineru_markdown_image_targets(self, markdown_text: str):
+        targets = []
+        targets.extend(re.findall(r"!\[[^\]]*\]\(([^\)]+)\)", markdown_text or ""))
+        targets.extend(
+            re.findall(
+                r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*>",
+                markdown_text or "",
+                flags=re.IGNORECASE,
+            )
+        )
+        return targets
+
+    def _mineru_markdown_image_hash_counts(self, markdown_text: str, markdown_file: str) -> dict:
+        counts = {}
+        for raw_target in self._mineru_markdown_image_targets(markdown_text):
+            image_path = self._resolve_mineru_image_path(markdown_file, raw_target)
+            if image_path is None:
+                continue
+            image_hash = self._image_file_hash(image_path)
+            if image_hash:
+                counts[image_hash] = counts.get(image_hash, 0) + 1
+        return counts
+
+    def _pdf_xref_size(self, doc, xref: int):
+        try:
+            image_info = doc.extract_image(xref)
+            return int(image_info.get("width") or 0), int(image_info.get("height") or 0)
+        except Exception:
+            return 0, 0
+
+    def _pdf_page_text_chars(self, page) -> int:
+        try:
+            return len(re.sub(r"\s+", "", page.get_text("text", sort=True) or ""))
+        except Exception:
+            return 0
+
+    def _should_keep_pdf_layout_image(self, doc, image_item: dict, xref_page_counts: dict) -> bool:
+        if not self.pdf_skip_decorative_images:
+            return True
+
+        page = doc[image_item["page"]]
+        page_area = max(float(page.rect.width) * float(page.rect.height), 1.0)
+        x0, y0, x1, y1 = image_item.get("bbox", (0, 0, 0, 0))
+        image_area = max(float(x1 - x0), 0.0) * max(float(y1 - y0), 0.0)
+        area_ratio = image_area / page_area
+        if area_ratio < self.pdf_min_image_area_ratio:
+            return False
+
+        width, height = self._pdf_xref_size(doc, image_item["xref"])
+        if width < self.pdf_min_image_width or height < self.pdf_min_image_height:
+            return False
+
+        aspect_ratio = width / max(height, 1)
+        if aspect_ratio > 8 or aspect_ratio < 0.125:
+            return False
+
+        if (
+            self.pdf_min_foreground_area_ratio > 0
+            and self._pdf_xref_foreground_area_ratio(doc, image_item["xref"]) < self.pdf_min_foreground_area_ratio
+        ):
+            return False
+
+        if len(xref_page_counts.get(image_item["xref"], set())) >= self.pdf_repeated_image_page_threshold:
+            return False
+
+        if (
+            self._pdf_page_text_chars(page) >= self.pdf_decorative_text_min_chars
+            and area_ratio >= self.pdf_background_image_area_ratio
+        ):
+            return False
+
+        return True
 
     def _resolve_mineru_executable(self) -> str:
         """
@@ -621,10 +831,13 @@ class PdfParser:
         image_urls = []
         image_names = []
         copied_images = {}
+        image_hash_counts = self._mineru_markdown_image_hash_counts(markdown_text, markdown_file)
 
         def register_image(raw_target: str):
             source_path = self._resolve_mineru_image_path(markdown_file, raw_target)
             if source_path is None:
+                return None
+            if not self._should_keep_image_file(source_path, image_hash_counts):
                 return None
             return self._copy_mineru_image_to_upload(
                 source_path,
@@ -1307,6 +1520,7 @@ class PdfParser:
         image_urls = []
         file_names = []
         layout_items = []
+        xref_page_counts = {}
 
         for page_index in range(len(doc)):
             page = doc[page_index]
@@ -1330,6 +1544,7 @@ class PdfParser:
                 rects = page.get_image_rects(xref)
                 if not rects:
                     continue
+                xref_page_counts.setdefault(xref, set()).add(page_index)
                 for rect in rects:
                     layout_items.append({
                         "type": "image",
@@ -1379,6 +1594,8 @@ class PdfParser:
                         "bbox": item["bbox"],
                     })
             else:
+                if not self._should_keep_pdf_layout_image(doc, item, xref_page_counts):
+                    continue
                 image_path, image_name = self._build_image_file(doc, item["xref"])
                 image_urls.append(image_path)
                 file_names.append(image_name)

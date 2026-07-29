@@ -31,11 +31,13 @@ class MenuManager {
         const isReviewer = this.isUserReviewer();
         const canReview = isAdmin || isReviewer;
         const canManageTags = isAdmin || isTechnician;
+        const canManageSensitiveTerms = isAdmin;
 
         this.ensureDashboardMenuLink();
         this.ensureSourceDocumentMenuLink();
         this.ensureReviewMenuLink();
         this.ensureTagManagementMenuLink();
+        this.ensureSensitiveTermsMenuLink();
         this.normalizeMenuOrder();
 
         const dashboardLink = document.querySelector('a[href="dashboard.html"]');
@@ -45,6 +47,7 @@ class MenuManager {
         const reviewCenterLink = document.querySelector('a[href="document-review.html"]');
         const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
         const tagManagementLink = document.querySelector('a[href="tag-management.html"]');
+        const sensitiveTermsLink = document.querySelector('a[href="sensitive-terms.html"]');
 
         if (dashboardLink) {
             dashboardLink.style.display = isAdmin ? 'flex' : 'none';
@@ -74,6 +77,10 @@ class MenuManager {
 
         if (tagManagementLink) {
             tagManagementLink.style.display = canManageTags ? 'flex' : 'none';
+        }
+
+        if (sensitiveTermsLink) {
+            sensitiveTermsLink.style.display = canManageSensitiveTerms ? 'flex' : 'none';
         }
     }
 
@@ -199,6 +206,35 @@ class MenuManager {
         }
     }
 
+    ensureSensitiveTermsMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="sensitive-terms.html"]');
+        if (exists) return;
+
+        const sensitiveLink = document.createElement('a');
+        sensitiveLink.href = 'sensitive-terms.html';
+        sensitiveLink.className = 'nav-item';
+        sensitiveLink.style.display = 'none';
+        sensitiveLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-user-shield"></i></span>
+            <span>敏感词管理</span>
+        `;
+
+        const tagManagementLink = navMenu.querySelector('a[href="tag-management.html"]');
+        if (tagManagementLink) {
+            navMenu.insertBefore(sensitiveLink, tagManagementLink);
+        } else {
+            const userManagementLink = navMenu.querySelector('a[href="user-management.html"]');
+            if (userManagementLink) {
+                navMenu.insertBefore(sensitiveLink, userManagementLink.nextElementSibling);
+            } else {
+                navMenu.appendChild(sensitiveLink);
+            }
+        }
+    }
+
     normalizeMenuOrder() {
         const navMenu = document.querySelector('.nav-menu');
         if (!navMenu) return;
@@ -211,6 +247,7 @@ class MenuManager {
             'document-review.html',
             'ai-assist.html',
             'user-management.html',
+            'sensitive-terms.html',
             'tag-management.html',
             'user-profile.html',
         ];

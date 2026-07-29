@@ -31,6 +31,9 @@ from schemas import (
     Result,
     RoleGroupCreate,
     RoleGroupUpdate,
+    SensitiveTermCreate,
+    SensitiveTermDelete,
+    SensitiveTermUpdate,
     UserCreate,
     UserQueryByPage,
     UserResponse,
@@ -39,6 +42,7 @@ from schemas import (
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.api_key import generate_api_key
+from utils.desensitize import read_sensitive_terms, write_sensitive_terms
 from utils.pagination import build_pagination_payload
 from utils.roles import (
     get_expected_perm_for_role,
@@ -49,6 +53,7 @@ from utils.roles import (
     normalize_perm_value,
     normalize_role_value,
 )
+from utils.VectorService import VectorService
 
 """
 管理员相关操作，即对用户的增删改查。
@@ -111,6 +116,42 @@ def _serialize_user(user: User) -> dict:
         "created_time": user.created_time,
         "last_login": user.last_login,
     }
+
+
+def _serialize_sensitive_terms(terms: Dict[str, str]) -> List[dict]:
+    return [
+        {"source": source, "replacement": replacement}
+        for source, replacement in sorted(terms.items(), key=lambda item: item[0])
+    ]
+
+
+def _clean_sensitive_term_value(value: Any, field_name: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, f"{field_name}不能为空")
+    return text
+
+
+def _load_sensitive_terms_for_admin() -> Dict[str, str]:
+    try:
+        return read_sensitive_terms(strict=True)
+    except Exception as error:
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"读取敏感词配置失败: {error}",
+        )
+
+
+def _save_sensitive_terms_for_admin(terms: Dict[str, str]) -> Dict[str, str]:
+    try:
+        return write_sensitive_terms(terms)
+    except Exception as error:
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"保存敏感词配置失败: {error}",
+        )
 
 
 async def _get_role_group_or_400(db: AsyncSession, role_group_id: int) -> RoleGroup:
@@ -755,6 +796,96 @@ async def get_dashboard(
         ],
     }
     return Result.success_with_data(data)
+
+
+@router.post("/search_index/rebuild", summary="管理员批量重建OpenSearch/Elasticsearch搜索索引")
+async def rebuild_search_index(
+    batch_size: int = 500,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    indexed_count = await VectorService(db).batch_reindex_search_documents(batch_size=batch_size)
+    return Result.success_with_data({"indexed_count": indexed_count})
+
+
+@router.get("/sensitive_terms", summary="管理员查询敏感词替换规则")
+async def get_sensitive_terms(
+    current_user: User = Depends(require_roles("admin")),
+):
+    terms = _load_sensitive_terms_for_admin()
+    return Result.success_with_data(
+        {
+            "terms": _serialize_sensitive_terms(terms),
+            "total_count": len(terms),
+        }
+    )
+
+
+@router.post("/sensitive_terms", summary="管理员新增敏感词替换规则")
+async def create_sensitive_term(
+    payload: SensitiveTermCreate,
+    current_user: User = Depends(require_roles("admin")),
+):
+    terms = _load_sensitive_terms_for_admin()
+    source = _clean_sensitive_term_value(payload.source, "敏感词")
+    replacement = _clean_sensitive_term_value(payload.replacement, "替换词")
+
+    if source in terms:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "敏感词已存在")
+
+    terms[source] = replacement
+    _save_sensitive_terms_for_admin(terms)
+    return Result.success_with_data({"source": source, "replacement": replacement})
+
+
+@router.patch("/sensitive_terms", summary="管理员更新敏感词替换规则")
+async def update_sensitive_term(
+    payload: SensitiveTermUpdate,
+    current_user: User = Depends(require_roles("admin")),
+):
+    terms = _load_sensitive_terms_for_admin()
+    source = _clean_sensitive_term_value(payload.source, "敏感词")
+    if source not in terms:
+        raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "敏感词不存在")
+
+    new_source = (
+        _clean_sensitive_term_value(payload.new_source, "敏感词")
+        if payload.new_source is not None
+        else source
+    )
+    replacement = (
+        _clean_sensitive_term_value(payload.replacement, "替换词")
+        if payload.replacement is not None
+        else terms[source]
+    )
+
+    if new_source != source and new_source in terms:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "敏感词已存在")
+
+    updated_terms = {}
+    for key, value in terms.items():
+        if key == source:
+            updated_terms[new_source] = replacement
+        else:
+            updated_terms[key] = value
+
+    _save_sensitive_terms_for_admin(updated_terms)
+    return Result.success_with_data({"source": new_source, "replacement": replacement})
+
+
+@router.delete("/sensitive_terms", summary="管理员删除敏感词替换规则")
+async def delete_sensitive_term(
+    payload: SensitiveTermDelete,
+    current_user: User = Depends(require_roles("admin")),
+):
+    terms = _load_sensitive_terms_for_admin()
+    source = _clean_sensitive_term_value(payload.source, "敏感词")
+    if source not in terms:
+        raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "敏感词不存在")
+
+    del terms[source]
+    _save_sensitive_terms_for_admin(terms)
+    return Result.success()
 
 
 @router.get("/role_groups", summary="管理员查询角色组")

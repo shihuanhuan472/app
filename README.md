@@ -9,32 +9,108 @@
 ## 项目结构
 
 ```
-/Maintenance_Assistance_System/
-├── app/                   # 应用程序
-│   ├── bge/               # 嵌入模型
-│   ├── datasets/          # 评估结果（具体每个文件干什么的，可以在evaluate/eval_picture.py里查看）
-│   │     ├── final_result/  # 我毕设的最后评估结果，非该文件夹下的数据不完整或不准确
-│   ├── embedding-model/   # 嵌入模型，可自行选择其他路径，在VectorStoreMultimodal.py中记得修改路径
-│   ├── eval_images/       # 图像评估数据集
-│   ├── evaluate/          # 评估代码
-│   ├── routers/           # 各路由文件
-│   ├── static/            # 前端代码
-│   │     ├── css/
-│   │     ├── js/
-│   │     └── *.html
-│   ├── upload/            # 上传的文件和图片
-│   |     ├── ask/
-│   |     ├── documents/
-│   |     └── images/
-│   ├── utils/             # 各种工具，包含各种格式文档解析器，JWT令牌生成器，Milvus操作等
-│   ├── .env               # 环境配置
-│   ├── database.py        # 数据库配置
-│   ├── dependencies.py    # 相关依赖（其实就是拦截器的代码）
-│   ├── docker-compose.yml # Milvus配置文件
-│   ├── main.py            # 主程序
-│   ├── models.py          # 数据模型
-│   ├── requirements.txt   # 环境要求
-│   └── schema.py          # 所有路由涉及到的模式
+Maintenance_Assistance_System/
+├── agents/                         # Agent 模块
+│   ├── __init__.py
+│   ├── intent/                     # 意图识别路由 Agent
+│       ├── __init__.py
+│       ├── router_agent.py         # 路由 Agent 统一入口
+│       ├── semantic_router.py      # 第一层高置信度语义路由
+│       ├── llm_classifier.py       # LLM 意图分类兜底
+│       ├── prompts.py              # 意图识别提示词
+│       ├── schemas.py              # RouteDecision、意图槽位等结构
+│       └── taxonomy.py             # 路由及意图枚举定义
+│   ├── memory/                     # 会话级短期记忆、trace、active_context 组装
+│   └── skills/                     # 业务 Skill 选择与可复用提示词
+│       ├── registry.py             # 根据 intent/dialog_act/memory 选择业务 Skill
+│       ├── prompt_builder.py       # 组装 Skill Prompt、MemoryPack 和 RAG 上下文
+│       └── prompts/                # 故障问答、重答、审计、追问、引导等 Skill 模板
+│
+├── bge/                            # BGE 嵌入模型相关文件
+├── bge_lora_finetune/              # BGE LoRA 微调代码
+├── visual_bge/                     # 多模态 BGE 模型实现
+│
+├── config/                         # 项目配置
+├── datasets/                       # 评估及测试数据集
+├── docs/                           # 系统设计与流程文档
+│   └── system-workflow.md
+│
+├── evaluate/                       # RAG、检索及图片评估代码
+│   ├── baseline/                   # 基线方案
+│   ├── eval.py
+│   ├── eval_picture.py
+│   ├── eval_precision.py
+│   ├── prepare_dataset.py
+│   └── retrieval_evaluation_report_*.md
+│
+├── knowledge_parsers/              # 知识库文档结构化解析
+│   ├── KnowledgeParser.py
+│   ├── enterprise_word_chunker.py
+│   └── section_service.py
+│
+├── routers/                        # FastAPI 路由
+│   ├── admin.py                    # 后台管理
+│   ├── auth.py                     # 登录认证
+│   ├── conversation.py             # 对话管理
+│   ├── conversation_v1.py          # 兼容版对话接口
+│   ├── documents.py                # 文档管理
+│   ├── file_manage.py              # 文件管理
+│   ├── message.py                  # AI 问答及 Agent 调用入口
+│   ├── review.py                   # 审核相关接口
+│   ├── source_documents.py         # 源文档管理
+│   ├── tags.py                     # 标签管理
+│   └── users.py                    # 用户管理
+│
+├── runtime/                        # 运行时数据
+├── scripts/                        # 运维及辅助脚本
+│
+├── static/                         # 前端静态资源
+│   ├── css/
+│   ├── js/
+│   ├── mobile/
+│   └── *.html
+│
+├── tests/                          # 自动化测试
+│   └── test_intent_router.py       # 意图路由 Agent 测试
+│
+├── upload/                         # 上传及解析后的文件
+│   ├── ask/                        # 问答上传文件
+│   ├── documents/                  # 普通文档
+│   ├── images/                     # 图片文件
+│   └── source_documents/           # 原始知识库文档
+│
+├── utils/                          # 通用服务和工具
+│   ├── VectorService.py            # 检索、融合及重排服务
+│   ├── VectorStore.py              # 文本向量存储
+│   ├── VectorStoreMultimodal.py    # 多模态向量存储
+│   ├── SearchIndexService.py       # 搜索索引服务
+│   ├── PdfParser.py                # PDF 解析
+│   ├── WordParser.py               # Word 解析
+│   ├── PPTParser.py                # PPT 解析
+│   ├── MarkdownParser.py           # Markdown 解析
+│   ├── HTMLParser.py               # HTML 解析
+│   ├── TXTParser.py                # TXT 解析
+│   ├── ImageParser.py              # 图片解析
+│   ├── CsvExcelParser.py           # CSV、Excel 解析
+│   ├── ai_endpoint.py              # 模型服务地址配置
+│   ├── ai_usage.py                 # 模型调用量记录
+│   ├── desensitize.py              # 敏感信息脱敏
+│   ├── token_counter.py            # Token 统计
+│   └── JwtUtils.py                 # JWT 工具
+│
+├── volumes/                        # Milvus、OpenSearch 等持久化数据
+├── .env                            # 环境变量配置
+├── api.md                          # API 接口说明
+├── database.py                     # 数据库连接及会话配置
+├── dependencies.py                 # FastAPI 认证和公共依赖
+├── docker-compose.yml              # Milvus 等基础服务配置
+├── docker-compose.opensearch.yml   # OpenSearch 配置
+├── main.py                         # FastAPI 应用入口
+├── models.py                       # SQLAlchemy 数据模型
+├── schemas.py                      # Pydantic 请求/响应模型
+├── requirements.txt                # Python 依赖
+├── ERROR_CODES.md                  # 错误码说明
+└── 数据库表设计.md                  # 数据库结构设计
 ```
 
 

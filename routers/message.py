@@ -3,6 +3,7 @@ import asyncio
 import json
 import mimetypes
 import os
+import re
 import time
 import uuid
 import base64
@@ -26,7 +27,16 @@ from schemas import (
     ConversationDeleteRequest,
     MessageCreateNew,
 )
-from models import Message, User, Conversation, Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
+from models import (
+    AiMessageTrace,
+    Message,
+    User,
+    Conversation,
+    Document,
+    DocumentBreakdown,
+    DocumentKnowledge,
+    KnowledgeDocumentSection,
+)
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
 from dependencies import get_current_active_user
@@ -41,13 +51,44 @@ from utils.desensitize import (
 )
 from utils.token_counter import get_token_count
 from utils.ai_usage import record_ai_usage
-from utils.VectorService import VectorService
+from agents.intent import IntentRouterAgent, RouteDecision
+from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
+from agents.skills import AgentSkill, SkillPromptBuilder, SkillRegistry
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
 chat_router = APIRouter(prefix="/api/v1/chats", tags=["对话与AI问答"])
 
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+CONTEXTUAL_FOLLOWUP_REASON = "contextual_followup"
+CONTEXTUAL_RETRY_REASON = "contextual_retry"
+ANSWER_AUDIT_ROUTE = "answer_audit"
+TRACE_PREVIEW_MAX_CHARS = 1200
+CONTEXT_REFERENCE_RE = re.compile(
+    r"上面|上边|上文|前面|之前|刚才|刚刚|上一(个|条|轮)|前一(个|条|轮)|"
+    r"相关问题|这个问题|那个问题|该问题|此问题|这个故障|那个故障"
+)
+FOLLOWUP_TASK_RE = re.compile(
+    r"解决方案|解决办法|处理方法|怎么解决|怎么处理|怎么办|"
+    r"原因|为什么|排查|检查步骤|操作步骤|步骤|"
+    r"再(给我)?(说|讲|解释|总结)(一下)?|重新(说|讲|解释)|详细(说|讲|解释)|展开(说|讲)?"
+)
+LOW_VALUE_HISTORY_RE = re.compile(
+    r"^(你好|您好|谢谢|多谢|感谢|好的?|收到|明白|ok|okay|不对|你回答|我要投诉|投诉|再见|拜拜).*$",
+    re.IGNORECASE,
+)
+QUERY_REWRITE_SYSTEM_PROMPT = (
+    "你是维修知识库检索 Query 改写器。请根据历史对话和当前追问，"
+    "把当前问题改写成一个自包含、适合知识库检索的中文问题。"
+    "必须保留设备、部件、故障现象、报错码、指标和用户想要的答案类型。"
+    "不要回答问题，不要解释，只输出改写后的单句。"
+)
+GENERIC_QUERY_TERMS = {
+    "上面", "上边", "上文", "前面", "之前", "刚才", "刚刚", "相关", "问题", "故障",
+    "解决", "方案", "办法", "处理", "方法", "怎么", "如何", "原因", "为什么",
+    "排查", "检查", "步骤", "操作", "重新", "详细", "展开", "总结", "一下",
+    "给我", "提到", "说一", "讲一", "这个", "那个", "该问", "此问",
+}
 
 
 def _normalize_library_type(library_type: str) -> str:
@@ -158,6 +199,1017 @@ def _get_positive_int_env(name: str, default: int) -> int:
         return value if value > 0 else default
     except (TypeError, ValueError):
         return default
+
+
+def _get_positive_float_env(name: str, default: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _filter_reference_documents_by_confidence(
+    reference_docs: List[Dict[str, Any]],
+    decision: RouteDecision,
+) -> List[Dict[str, Any]]:
+    """
+    对检索结果做二次置信度过滤。
+
+    领域问题使用向量服务已有阈值；普通问题要求更高分，避免非专业闲聊或泛问句误召回。
+    """
+    if not reference_docs:
+        return []
+
+    base_min_score = _get_positive_float_env(
+        "RAG_REFERENCE_MIN_SCORE",
+        _get_positive_float_env("SIMILARITY_LOWER_LIMIT", 0.5),
+    )
+    general_min_score = _get_positive_float_env("RAG_GENERAL_REFERENCE_MIN_SCORE", 0.62)
+    min_score = base_min_score if decision.route.value == "knowledge_search" else general_min_score
+
+    filtered_docs = [
+        doc
+        for doc in reference_docs
+        if float(doc.get("score", 0.0)) >= min_score
+    ]
+    if len(filtered_docs) != len(reference_docs):
+        top_score = max(float(doc.get("score", 0.0)) for doc in reference_docs)
+        print(
+            "[意图识别][reference_filter] "
+            f"route={decision.route.value} min_score={min_score:.3f} "
+            f"before={len(reference_docs)} after={len(filtered_docs)} top_score={top_score:.6f}"
+        )
+    return filtered_docs
+
+
+def _get_bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _compact_for_context(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or "").strip())
+
+
+def _is_contextual_followup_text(text: str) -> bool:
+    compact = _compact_for_context(text)
+    return bool(CONTEXT_REFERENCE_RE.search(compact) and FOLLOWUP_TASK_RE.search(compact))
+
+
+def _message_role_label(message: Any) -> str:
+    return "用户" if int(getattr(message, "role", 0) or 0) == 1 else "AI助手"
+
+
+def _message_plain_text(message: Any, max_chars: int = 500) -> str:
+    text = str(getattr(message, "content_text", "") or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    if len(text) > max_chars:
+        return text[:max_chars] + "..."
+    return text
+
+
+def _is_low_value_history_text(text: str) -> bool:
+    compact = _compact_for_context(text)
+    return not compact or bool(LOW_VALUE_HISTORY_RE.fullmatch(compact))
+
+
+async def _load_recent_rewrite_history(
+    db: AsyncSession,
+    session_id: int,
+    before_order: int,
+    limit: int = 6,
+) -> List[Message]:
+    result = await db.execute(
+        select(Message)
+        .where(Message.session_id == session_id, Message.message_order < before_order)
+        .order_by(desc(Message.message_order))
+        .limit(limit)
+    )
+    history = list(result.scalars().all())
+    history.reverse()
+    return history
+
+
+def _extract_followup_focus(question: str) -> str:
+    compact = _compact_for_context(question)
+    focus_rules = (
+        ("解决方案", r"解决方案|解决办法|怎么解决|处理方法|怎么处理|怎么办"),
+        ("原因", r"原因|为什么"),
+        ("排查步骤", r"排查|检查步骤|操作步骤|步骤"),
+        ("总结", r"总结"),
+    )
+    for focus, pattern in focus_rules:
+        if re.search(pattern, compact):
+            return focus
+    return ""
+
+
+def _strip_question_tail(text: str) -> str:
+    text = str(text or "").strip()
+    text = re.sub(r"[。！？!?,，.、~～；;：:]+$", "", text)
+    return text.strip()
+
+
+def _last_substantive_user_question(history: List[Any]) -> str:
+    for message in reversed(history or []):
+        if int(getattr(message, "role", 0) or 0) != 1:
+            continue
+        text = _strip_question_tail(_message_plain_text(message, max_chars=240))
+        if _is_low_value_history_text(text) or _is_contextual_followup_text(text):
+            continue
+        return text
+    return ""
+
+
+def _normalize_stored_reference_chunk(chunk: Any) -> Dict[str, Any]:
+    if not isinstance(chunk, dict):
+        return {}
+    normalized = dict(chunk)
+    if not normalized.get("content") and normalized.get("preview"):
+        normalized["content"] = normalized.get("preview")
+    return normalized
+
+
+def _normalize_stored_reference_doc(doc: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(doc, dict) or doc.get("doc_id") is None:
+        return None
+    try:
+        doc_id = int(doc.get("doc_id"))
+    except (TypeError, ValueError):
+        return None
+
+    image_urls = doc.get("image_urls") or []
+    if isinstance(image_urls, str):
+        image_urls = [image_urls]
+
+    normalized = {
+        "doc_id": doc_id,
+        "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
+        "title": doc.get("title", ""),
+        "score": float(doc.get("score", 0.0) or 0.0),
+        "chunks": [
+            chunk
+            for chunk in (
+                _normalize_stored_reference_chunk(chunk)
+                for chunk in (doc.get("chunks") or [])
+            )
+            if chunk
+        ],
+        "matched_image_urls": doc.get("matched_image_urls") or image_urls,
+        "evidence_image_urls": doc.get("evidence_image_urls") or image_urls,
+        "image_urls": image_urls,
+        "evidence_section_ids": doc.get("evidence_section_ids") or [],
+        "evidence_section_titles": doc.get("evidence_section_titles") or [],
+        "reused_from_history": True,
+    }
+    return normalized
+
+
+def _parse_reference_documents_payload(raw_payload: Any) -> List[Dict[str, Any]]:
+    if not raw_payload:
+        return []
+    if isinstance(raw_payload, str):
+        try:
+            raw_payload = json.loads(raw_payload)
+        except Exception:
+            return []
+    if not isinstance(raw_payload, list):
+        return []
+
+    reference_docs = []
+    for item in raw_payload:
+        normalized = _normalize_stored_reference_doc(item)
+        if normalized:
+            reference_docs.append(normalized)
+    return reference_docs
+
+
+def _last_reference_documents_from_history(history: List[Any]) -> List[Dict[str, Any]]:
+    for message in reversed(history or []):
+        if int(getattr(message, "role", 0) or 0) != 0:
+            continue
+        reference_docs = _parse_reference_documents_payload(
+            getattr(message, "ai_reference_doc_ids", None)
+        )
+        if reference_docs:
+            return reference_docs
+    return []
+
+
+async def _load_previous_reference_documents(
+    db: AsyncSession,
+    session_id: int,
+    before_order: int,
+    limit: int = 6,
+) -> List[Dict[str, Any]]:
+    history = await _load_recent_rewrite_history(db, session_id, before_order, limit=limit)
+    return _last_reference_documents_from_history(history)
+
+
+def _json_dumps_for_trace(value: Any) -> str:
+    return json.dumps(desensitize_value(value), ensure_ascii=False)
+
+
+def _json_loads_for_trace(value: Any, default: Any = None) -> Any:
+    if default is None:
+        default = []
+    if value is None or value == "":
+        return default
+    if isinstance(value, (list, dict)):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return default
+
+
+def _answer_preview(answer: str) -> str:
+    text = str(answer or "").strip()
+    return text[:TRACE_PREVIEW_MAX_CHARS]
+
+
+def _reference_docs_for_trace(reference_docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    docs = []
+    for doc in reference_docs or []:
+        if doc.get("doc_id") is None:
+            continue
+        docs.append({
+            "doc_id": int(doc["doc_id"]),
+            "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
+            "title": doc.get("title", ""),
+            "score": float(doc.get("score", 0.0) or 0.0),
+            "reused_from_history": bool(doc.get("reused_from_history")),
+            "evidence_section_titles": doc.get("evidence_section_titles") or [],
+            "chunk_previews": [
+                str(chunk.get("content") or chunk.get("preview") or "")[:180]
+                for chunk in (doc.get("chunks") or [])[:3]
+                if isinstance(chunk, dict)
+            ],
+        })
+    return docs
+
+
+def _reference_images_for_trace(reference_docs: List[Dict[str, Any]]) -> List[str]:
+    images = []
+    for doc in reference_docs or []:
+        for raw_value in (
+            doc.get("evidence_image_urls"),
+            doc.get("image_urls"),
+            doc.get("matched_image_urls"),
+        ):
+            for image in _normalize_reference_image_values(raw_value):
+                if image and image not in images:
+                    images.append(image)
+        for chunk in (doc.get("chunks") or [])[:5]:
+            if isinstance(chunk, dict) and chunk.get("image_url") and chunk.get("image_url") not in images:
+                images.append(chunk.get("image_url"))
+    return images[:10]
+
+
+async def _create_ai_trace(
+    db: AsyncSession,
+    user_message: Message,
+    ai_message: Optional[Message],
+    decision: RouteDecision,
+    retrieval_query: str,
+    reference_docs: List[Dict[str, Any]],
+    actions: List[str],
+    used_previous_refs: bool = False,
+    validation: Optional[Dict[str, Any]] = None,
+    answer: str = "",
+    status_value: str = "pending",
+    error_message: Optional[str] = None,
+) -> Optional[int]:
+    if not _get_bool_env("TRACE_PERSIST_ENABLED", True):
+        return None
+    try:
+        trace = AiMessageTrace(
+            session_id=user_message.session_id,
+            user_message_id=user_message.id,
+            ai_message_id=ai_message.id if ai_message else None,
+            route=decision.route.value,
+            reason=decision.reason,
+            original_question=user_message.content_text,
+            query_rewrite=decision.query_rewrite,
+            retrieval_query=retrieval_query,
+            used_previous_refs=1 if used_previous_refs else 0,
+            reference_docs_json=_json_dumps_for_trace(_reference_docs_for_trace(reference_docs)),
+            reference_images_json=_json_dumps_for_trace(_reference_images_for_trace(reference_docs)),
+            actions_json=_json_dumps_for_trace(actions or []),
+            validation_json=_json_dumps_for_trace(validation or {}),
+            answer_preview=_answer_preview(answer),
+            model_name=os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct"),
+            status=status_value,
+            error_message=error_message,
+            created_time=datetime.now(),
+            updated_time=datetime.now(),
+        )
+        if answer:
+            trace.output_tokens = await _count_text_tokens(answer)
+        db.add(trace)
+        await db.commit()
+        await db.refresh(trace)
+        return trace.id
+    except Exception as error:
+        await db.rollback()
+        print(f"[AI Trace] 创建失败: {type(error).__name__}: {error}")
+        return None
+
+
+async def _update_ai_trace(
+    db: AsyncSession,
+    trace_id: Optional[int],
+    answer: str = "",
+    status_value: Optional[str] = None,
+    error_message: Optional[str] = None,
+    input_tokens: Optional[int] = None,
+    output_tokens: Optional[int] = None,
+    latency_ms: Optional[int] = None,
+) -> None:
+    if not trace_id or not _get_bool_env("TRACE_PERSIST_ENABLED", True):
+        return
+    try:
+        result = await db.execute(select(AiMessageTrace).where(AiMessageTrace.id == trace_id))
+        trace = result.scalar_one_or_none()
+        if not trace:
+            return
+        if answer:
+            trace.answer_preview = _answer_preview(answer)
+            trace.output_tokens = output_tokens if output_tokens is not None else await _count_text_tokens(answer)
+        if status_value:
+            trace.status = status_value
+        if error_message is not None:
+            trace.error_message = error_message[:1000]
+        if input_tokens is not None:
+            trace.input_tokens = input_tokens
+        if output_tokens is not None:
+            trace.output_tokens = output_tokens
+        if latency_ms is not None:
+            trace.latency_ms = latency_ms
+        trace.updated_time = datetime.now()
+        await db.commit()
+    except Exception as error:
+        await db.rollback()
+        print(f"[AI Trace] 更新失败: {type(error).__name__}: {error}")
+
+
+async def _load_recent_ai_traces(
+    db: AsyncSession,
+    session_id: int,
+    limit: int = 6,
+) -> List[AiMessageTrace]:
+    result = await db.execute(
+        select(AiMessageTrace)
+        .where(AiMessageTrace.session_id == session_id)
+        .order_by(desc(AiMessageTrace.created_time), desc(AiMessageTrace.id))
+        .limit(limit)
+    )
+    traces = list(result.scalars().all())
+    traces.reverse()
+    return traces
+
+
+def _trace_doc_ids(trace: AiMessageTrace) -> List[str]:
+    docs = _json_loads_for_trace(trace.reference_docs_json, [])
+    ids = []
+    for doc in docs or []:
+        if isinstance(doc, dict) and doc.get("doc_id") is not None:
+            ids.append(f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc['doc_id'])}")
+    return ids
+
+
+def _trace_doc_labels(trace: AiMessageTrace, limit: int = 3) -> List[str]:
+    docs = _json_loads_for_trace(trace.reference_docs_json, [])
+    labels = []
+    for doc in (docs or [])[:limit]:
+        if not isinstance(doc, dict):
+            continue
+        doc_id = doc.get("doc_id")
+        library_type = _normalize_library_type(doc.get("library_type", "breakdown"))
+        title = doc.get("title") or "未命名文档"
+        score = doc.get("score")
+        score_text = f"，score={float(score):.3f}" if isinstance(score, (int, float)) else ""
+        labels.append(f"{library_type}:{doc_id}《{title}》{score_text}")
+    return labels
+
+
+def _trace_images(trace: AiMessageTrace) -> List[str]:
+    images = _json_loads_for_trace(trace.reference_images_json, [])
+    return [str(image) for image in images or [] if image]
+
+
+def _trace_actions(trace: AiMessageTrace) -> List[str]:
+    actions = _json_loads_for_trace(trace.actions_json, [])
+    return [str(action) for action in actions or [] if action]
+
+
+def _format_trace_brief(label: str, trace: AiMessageTrace) -> List[str]:
+    docs = _trace_doc_labels(trace)
+    images = _trace_images(trace)
+    return [
+        f"{label}回答的依据：",
+        f"- 关注问题：{trace.original_question or '无记录'}",
+        f"- 实际检索：{trace.retrieval_query or trace.query_rewrite or trace.original_question or '无'}",
+        f"- 引用文档：{'；'.join(docs) if docs else '无'}",
+        f"- 参考图片：{len(images)} 张" + (f"（{'; '.join(images[:3])}）" if images else ""),
+    ]
+
+
+def _is_substantive_knowledge_trace(trace: AiMessageTrace) -> bool:
+    if trace.route != "knowledge_search":
+        return False
+    actions = _trace_actions(trace)
+    return bool(
+        _trace_doc_ids(trace)
+        or _trace_images(trace)
+        or any("rag_search" in action or "reuse_previous_references" in action for action in actions)
+    )
+
+
+def _active_context_doc_ids(active_context: Optional[Dict[str, Any]]) -> List[str]:
+    if not active_context:
+        return []
+    doc_ids = []
+    for doc in active_context.get("active_reference_docs") or []:
+        if isinstance(doc, dict) and doc.get("doc_id") is not None:
+            doc_ids.append(
+                f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc['doc_id'])}"
+            )
+    return doc_ids
+
+
+def _trace_matches_active_context(trace: AiMessageTrace, active_context: Optional[Dict[str, Any]]) -> bool:
+    if not active_context:
+        return True
+
+    active_doc_ids = set(_active_context_doc_ids(active_context))
+    if active_doc_ids and active_doc_ids.intersection(_trace_doc_ids(trace)):
+        return True
+
+    trace_query = _compact_for_context(trace.retrieval_query or trace.query_rewrite or trace.original_question or "")
+    active_text = _compact_for_context(
+        active_context.get("active_query")
+        or active_context.get("active_issue")
+        or active_context.get("active_question")
+        or ""
+    )
+    if not active_text or not trace_query:
+        return False
+    if active_text in trace_query or trace_query in active_text:
+        return True
+
+    active_terms = set(_extract_retrieval_query_terms(active_text))
+    trace_terms = set(_extract_retrieval_query_terms(trace_query))
+    return bool(active_terms and trace_terms and len(active_terms.intersection(trace_terms)) >= 2)
+
+
+def _select_answer_audit_traces(
+    traces: List[AiMessageTrace],
+    active_context: Optional[Dict[str, Any]],
+) -> List[AiMessageTrace]:
+    knowledge_traces = [trace for trace in traces if _is_substantive_knowledge_trace(trace)]
+    related_traces = [
+        trace for trace in knowledge_traces if _trace_matches_active_context(trace, active_context)
+    ]
+    return related_traces if len(related_traces) >= 2 else knowledge_traces
+
+
+def _compare_trace_pair(first: AiMessageTrace, second: AiMessageTrace) -> Dict[str, Any]:
+    first_docs = _trace_doc_ids(first)
+    second_docs = _trace_doc_ids(second)
+    first_images = _trace_images(first)
+    second_images = _trace_images(second)
+    first_query = (first.retrieval_query or first.query_rewrite or first.original_question or "").strip()
+    second_query = (second.retrieval_query or second.query_rewrite or second.original_question or "").strip()
+    return {
+        "query_changed": first_query != second_query,
+        "docs_changed": set(first_docs) != set(second_docs),
+        "images_changed": set(first_images) != set(second_images),
+        "first_doc_ids": first_docs,
+        "second_doc_ids": second_docs,
+        "first_images": first_images,
+        "second_images": second_images,
+    }
+
+
+async def _build_answer_audit_response(
+    db: AsyncSession,
+    message_now: Message,
+    memory_pack: Optional[MemoryPack] = None,
+    decision: Optional[RouteDecision] = None,
+    skill: Optional[AgentSkill] = None,
+) -> tuple[str, List[str], Dict[str, Any]]:
+    actions = ["load_memory_pack", "compare_last_answers"] if memory_pack else ["load_recent_traces", "compare_last_answers"]
+    selected_skill = skill or SkillRegistry().select_for_memory(memory_pack)
+    actions.extend([f"select_skill:{selected_skill.name}", *selected_skill.actions])
+    traces = list(getattr(memory_pack, "recent_traces", None) or [])
+    if not traces:
+        traces = [
+            trace
+            for trace in await MemoryService(db).load_recent_ai_traces(
+                message_now.session_id,
+                limit=_get_positive_int_env("ANSWER_AUDIT_HISTORY_LIMIT", 12),
+                exclude_routes={ANSWER_AUDIT_ROUTE},
+            )
+        ]
+    active_context = getattr(memory_pack, "active_context", None) if memory_pack else None
+    raw_trace_count = len(traces)
+    traces = _select_answer_audit_traces(traces, active_context)
+    validation: Dict[str, Any] = {
+        "raw_trace_count": raw_trace_count,
+        "trace_count": len(traces),
+        "filtered_non_knowledge_traces": raw_trace_count - len(traces),
+    }
+    if memory_pack:
+        validation.update(memory_pack.to_trace_validation())
+    validation.update(selected_skill.to_trace_validation())
+
+    async def finalize(audit_facts: str) -> tuple[str, List[str], Dict[str, Any]]:
+        if not _get_bool_env("ANSWER_AUDIT_LLM_ENABLED", True):
+            return audit_facts, actions, validation
+        try:
+            prompt_text = SkillPromptBuilder().build_audit_prompt(
+                question=message_now.content_text,
+                audit_context=audit_facts,
+                skill=selected_skill,
+                memory_pack=memory_pack,
+                memory_prompt=_build_memory_prompt(memory_pack),
+            )
+            actions.extend(["build_skill_prompt", "generate_skill_answer"])
+            answer = await _generate_skill_text_answer(
+                prompt_text,
+                max_tokens=_get_positive_int_env("ANSWER_AUDIT_MAX_TOKENS", 1200),
+                timeout=_get_positive_float_env("ANSWER_AUDIT_TIMEOUT", 45.0),
+            )
+            if answer:
+                return answer, actions, validation
+        except Exception as error:
+            actions.append("skill_generation_fallback")
+            validation["skill_generation_error"] = f"{type(error).__name__}: {str(error)[:300]}"
+            print(f"[AnswerAuditSkill] 生成失败，使用审计事实兜底: {type(error).__name__}: {error}")
+        return audit_facts, actions, validation
+
+    if len(traces) < 2:
+        actions.append("fallback_to_message_references")
+        history_refs = await MemoryService(db).load_previous_reference_documents(
+            message_now.session_id,
+            message_now.message_order,
+            limit=_get_positive_int_env("ANSWER_AUDIT_MESSAGE_HISTORY_LIMIT", 8),
+        )
+        validation["fallback_reference_count"] = len(history_refs)
+        if history_refs:
+            docs = _reference_docs_for_trace(history_refs)
+            images = _reference_images_for_trace(history_refs)
+            answer = (
+                "我重新检查了上下文，但最近只有一轮和当前主问题相关的知识回答，"
+                "不能把问候、确认这类闲聊当成第二次回答来比较。\n\n"
+                f"这轮相关回答引用了 {len(docs)} 个文档、{len(images)} 张参考图片。"
+                "如果你是想让我重新回答当前主问题，我会基于当前会话主题和上一轮引用重新组织答案；"
+                "如果你是想比较两次回答差异，需要先有两轮相关知识回答记录。"
+            )
+            return await finalize(answer)
+        answer = (
+            "我重新检查了上下文，但没有找到两轮和当前主问题相关的知识回答。"
+            "我不会拿闲聊或无引用回答来强行比较；后续会只基于相关知识回答记录做复盘。"
+        )
+        return await finalize(answer)
+
+    first, second = traces[-2], traces[-1]
+    comparison = _compare_trace_pair(first, second)
+    validation.update(comparison)
+
+    reasons = []
+    if comparison["query_changed"]:
+        reasons.append("两次用于检索的 query 不同，所以召回结果可能不同。")
+    if comparison["docs_changed"]:
+        reasons.append("两次引用的文档不同，答案依据发生了变化。")
+    if comparison["images_changed"]:
+        reasons.append("两次参考图片列表不同，所以前端展示的图片会不一样。")
+    if int(getattr(second, "used_previous_refs", 0) or 0):
+        reasons.append("最近一次回答复用了上一轮引用，目的是减少上下文追问时的检索漂移。")
+    if not reasons:
+        reasons.append("从执行记录看，两次检索问题、引用文档和图片基本一致；差异更可能来自模型生成措辞不同。")
+
+    lines = ["我重新检查了最近两轮相关知识回答。"]
+    if active_context:
+        lines.append(
+            "当前会话主问题："
+            f"{active_context.get('active_issue') or active_context.get('active_query') or '无明确记录'}"
+        )
+        if active_context.get("active_reference_docs"):
+            lines.append(f"当前会话主题记录了 {len(active_context.get('active_reference_docs') or [])} 个引用文档。")
+        lines.append("")
+    lines.extend(_format_trace_brief("第一次", first))
+    lines.append("")
+    lines.extend(_format_trace_brief("第二次", second))
+    lines.append("")
+    lines.append("差异判断：")
+    for reason in reasons:
+        lines.append(f"- {reason}")
+    recent_events = list(getattr(memory_pack, "recent_context_events", None) or []) if memory_pack else []
+    if recent_events:
+        event_labels = [
+            f"{event.event_type}({event.reason or '无reason'})"
+            for event in recent_events[-3:]
+        ]
+        lines.append(f"- 最近上下文事件：{'；'.join(event_labels)}。")
+    lines.append("")
+    lines.append(
+        "改进动作：后续遇到“上边/刚才的问题再说一下”这类上下文追问时，"
+        "系统会优先复用上一轮参考文档和图片；如果需要重新检索，会使用结合历史改写后的完整问题。"
+    )
+    return await finalize("\n".join(lines))
+
+
+def _rewrite_query_heuristically(current_question: str, history: List[Any]) -> str:
+    current_question = _strip_question_tail(current_question)
+    if not _is_contextual_followup_text(current_question):
+        return current_question
+
+    base_question = _last_substantive_user_question(history)
+    if not base_question:
+        return current_question
+
+    focus = _extract_followup_focus(current_question)
+    if focus and focus not in base_question:
+        rewritten = f"{base_question}的{focus}"
+    else:
+        rewritten = base_question
+    return _strip_question_tail(rewritten)
+
+
+def _clean_rewritten_query(text: str, fallback: str) -> str:
+    candidate = str(text or "").strip()
+    candidate = re.sub(r"^```(?:text|json)?\s*|\s*```$", "", candidate, flags=re.IGNORECASE)
+    candidate = candidate.strip().strip("\"'“”‘’")
+    candidate = re.sub(r"^(改写后问题|改写问题|检索问题|query|问题)\s*[:：]\s*", "", candidate, flags=re.IGNORECASE)
+    candidate = candidate.splitlines()[0].strip() if candidate else ""
+    candidate = _strip_question_tail(candidate)
+    if not candidate or len(candidate) < 4:
+        return fallback
+    if len(candidate) > 240:
+        candidate = candidate[:240].rstrip()
+    return candidate
+
+
+def _format_history_for_query_rewrite(history: List[Any]) -> str:
+    lines = []
+    for message in history or []:
+        text = _message_plain_text(message)
+        if not text or text == "回答生成中，请稍后刷新。":
+            continue
+        lines.append(f"{_message_role_label(message)}：{text}")
+    return "\n".join(lines[-6:])
+
+
+async def _rewrite_query_with_llm(
+    current_question: str,
+    history: List[Any],
+    fallback_query: str,
+) -> str:
+    history_text = _format_history_for_query_rewrite(history)
+    if not history_text:
+        return fallback_query
+
+    request_timeout = _get_positive_float_env("CONTEXT_QUERY_REWRITE_TIMEOUT", 6.0)
+    client = AsyncOpenAI(
+        base_url=get_ai_base_url(),
+        api_key=os.getenv("API_KEY", "EMPTY"),
+        timeout=request_timeout,
+    )
+    response = await asyncio.wait_for(
+        client.chat.completions.create(
+            model=(
+                os.getenv("CONTEXT_QUERY_REWRITE_MODEL")
+                or os.getenv("INTENT_ROUTER_MODEL")
+                or os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+            ),
+            messages=[
+                {"role": "system", "content": QUERY_REWRITE_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"历史对话：\n{history_text}\n\n"
+                        f"当前追问：{current_question}\n\n"
+                        f"若无法从历史中确定指代对象，请原样输出当前追问。"
+                    ),
+                },
+            ],
+            temperature=0,
+            max_tokens=_get_positive_int_env("CONTEXT_QUERY_REWRITE_MAX_TOKENS", 120),
+        ),
+        timeout=request_timeout,
+    )
+    return _clean_rewritten_query(response.choices[0].message.content or "", fallback_query)
+
+
+def _should_rewrite_retrieval_query(question: str, decision: RouteDecision) -> bool:
+    return (
+        decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}
+        or _is_contextual_followup_text(question)
+    )
+
+
+async def _resolve_retrieval_query(
+    db: AsyncSession,
+    message_now: Message,
+    decision: RouteDecision,
+    memory_pack: Optional[MemoryPack] = None,
+) -> str:
+    raw_query = str(decision.query_rewrite or message_now.content_text or "").strip()
+    current_question = str(message_now.content_text or "").strip()
+    if not decision.use_rag or not _should_rewrite_retrieval_query(current_question, decision):
+        return raw_query
+
+    history = list(getattr(memory_pack, "recent_messages", None) or [])
+    if not history:
+        history = await _load_recent_rewrite_history(
+            db,
+            message_now.session_id,
+            message_now.message_order,
+            limit=_get_positive_int_env("CONTEXT_QUERY_REWRITE_HISTORY_LIMIT", 6),
+        )
+    if decision.reason == CONTEXTUAL_RETRY_REASON:
+        active_context = getattr(memory_pack, "active_context", None) if memory_pack else None
+        for key in ("active_query", "active_issue", "active_question"):
+            candidate = _strip_question_tail(str((active_context or {}).get(key) or ""))
+            if candidate and not _is_low_value_history_text(candidate):
+                print(f"[上下文重答] 使用active_context恢复检索问题: {candidate}")
+                return candidate
+        base_question = _last_substantive_user_question(history)
+        if base_question:
+            print(f"[上下文重答] 使用最近有效用户问题恢复检索问题: {base_question}")
+            return base_question
+
+    rewritten_query = _rewrite_query_heuristically(current_question, history)
+
+    heuristic_resolved = (
+        rewritten_query
+        and rewritten_query != current_question
+        and not _is_contextual_followup_text(rewritten_query)
+    )
+    force_llm = _get_bool_env("CONTEXT_QUERY_REWRITE_FORCE_LLM", False)
+    if _get_bool_env("CONTEXT_QUERY_REWRITE_LLM_ENABLED", True) and (force_llm or not heuristic_resolved):
+        try:
+            llm_query = await _rewrite_query_with_llm(current_question, history, rewritten_query)
+            if llm_query and not _is_contextual_followup_text(llm_query):
+                rewritten_query = llm_query
+        except Exception as error:
+            print(f"[上下文改写] LLM改写失败，使用启发式结果: {type(error).__name__}")
+
+    rewritten_query = rewritten_query or raw_query
+    if rewritten_query != raw_query:
+        print(f"[上下文改写] raw={raw_query} rewritten={rewritten_query}")
+    return rewritten_query
+
+
+def _extract_retrieval_query_terms(query: str) -> List[str]:
+    text = str(query or "").strip()
+    if not text:
+        return []
+
+    normalized = re.sub(r"[，。！？、；：,.!?;:()\[\]【】\"'“”‘’]", " ", text)
+    normalized = re.sub(r"\s+", " ", normalized)
+    terms: List[str] = []
+
+    for match in re.findall(r"[A-Za-z][A-Za-z0-9_-]{1,}|[A-Z]{1,5}[-_]?\d{2,}", normalized):
+        term = match.strip()
+        if len(term) >= 2 and term.lower() not in GENERIC_QUERY_TERMS:
+            terms.append(term.lower())
+
+    chinese_text = re.sub(
+        r"上面|上边|上文|前面|之前|刚才|刚刚|相关问题|这个问题|那个问题|该问题|此问题|"
+        r"解决方案|解决办法|处理方法|怎么解决|怎么处理|怎么办|原因|为什么|"
+        r"排查|检查步骤|操作步骤|步骤|再给我|再说|再讲|重新说|详细说|一下|的",
+        " ",
+        normalized,
+    )
+    for sequence in re.findall(r"[\u4e00-\u9fff]{2,}", chinese_text):
+        if sequence in GENERIC_QUERY_TERMS:
+            continue
+        if len(sequence) <= 6:
+            terms.append(sequence)
+            continue
+        for size in (4, 3, 2):
+            for index in range(0, len(sequence) - size + 1):
+                gram = sequence[index:index + size]
+                if gram not in GENERIC_QUERY_TERMS:
+                    terms.append(gram)
+
+    unique_terms = []
+    for term in terms:
+        if term and term not in unique_terms:
+            unique_terms.append(term)
+    return unique_terms[:40]
+
+
+def _reference_doc_match_text(doc: Dict[str, Any]) -> str:
+    pieces = [str(doc.get("title") or ""), str(doc.get("content") or "")]
+    for chunk in (doc.get("chunks") or [])[:5]:
+        if isinstance(chunk, dict):
+            pieces.append(str(chunk.get("title") or ""))
+            pieces.append(str(chunk.get("content") or ""))
+    return "\n".join(pieces).lower()
+
+
+def _filter_reference_documents_by_query_terms(
+    reference_docs: List[Dict[str, Any]],
+    retrieval_query: str,
+    decision: RouteDecision,
+) -> List[Dict[str, Any]]:
+    if not reference_docs or decision.reason != CONTEXTUAL_FOLLOWUP_REASON:
+        return reference_docs
+
+    terms = _extract_retrieval_query_terms(retrieval_query)
+    if len(terms) < 2:
+        return reference_docs
+
+    scored_docs = []
+    for doc in reference_docs:
+        match_text = _reference_doc_match_text(doc)
+        hit_count = sum(1 for term in terms if term.lower() in match_text)
+        scored_docs.append((hit_count, doc))
+
+    max_hits = max(hit_count for hit_count, _doc in scored_docs)
+    if max_hits < 2:
+        return reference_docs
+
+    min_hits = max(2, max_hits // 2)
+    filtered_docs = [doc for hit_count, doc in scored_docs if hit_count >= min_hits]
+    if filtered_docs and len(filtered_docs) != len(reference_docs):
+        print(
+            "[上下文改写][reference_filter] "
+            f"query_terms={terms[:12]} min_hits={min_hits} "
+            f"before={len(reference_docs)} after={len(filtered_docs)}"
+        )
+        return filtered_docs
+    return reference_docs
+
+
+def _build_memory_prompt(memory_pack: Optional[MemoryPack]) -> str:
+    if not memory_pack:
+        return ""
+
+    parts: List[str] = []
+    if memory_pack.summary:
+        summary = str(memory_pack.summary).strip()
+        if summary:
+            parts.append(f"【长对话摘要】\n{summary}")
+
+    context = memory_pack.active_context or {}
+    context_lines = []
+    context_fields = [
+        ("当前主问题", context.get("active_issue")),
+        ("当前设备", context.get("active_device")),
+        ("当前部件", context.get("active_component")),
+        ("当前故障现象", context.get("active_symptom")),
+        ("当前报错码", context.get("active_error_code")),
+        ("上一轮检索问题", context.get("active_query")),
+    ]
+    for label, value in context_fields:
+        if value:
+            context_lines.append(f"{label}：{value}")
+    if context_lines:
+        parts.append("【会话级 active_context】\n" + "\n".join(context_lines))
+
+    if not parts:
+        return ""
+    return "\n\n".join(parts)
+
+
+async def _generate_skill_text_answer(
+    prompt_text: str,
+    max_tokens: Optional[int] = None,
+    timeout: Optional[float] = None,
+) -> str:
+    request_timeout = timeout or _get_positive_float_env("SKILL_GENERATION_TIMEOUT", 45.0)
+    client = AsyncOpenAI(
+        base_url=get_ai_base_url(),
+        api_key=os.getenv("API_KEY", "EMPTY"),
+        timeout=request_timeout,
+    )
+    response = await asyncio.wait_for(
+        client.chat.completions.create(
+            model=os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct"),
+            messages=[{"role": "user", "content": desensitize_text(prompt_text)}],
+            temperature=_get_positive_float_env("SKILL_GENERATION_TEMPERATURE", 0.2),
+            max_tokens=max_tokens or _get_positive_int_env("SKILL_GENERATION_MAX_TOKENS", 1200),
+        ),
+        timeout=request_timeout,
+    )
+    answer = response.choices[0].message.content or ""
+    answer = answer.replace("\n---\n", "---").replace("\n\n", "\n").strip()
+    return desensitize_text(answer)
+
+
+def _merge_reference_documents(
+    primary_docs: List[Dict[str, Any]],
+    secondary_docs: List[Dict[str, Any]],
+    max_docs: int = -1,
+) -> List[Dict[str, Any]]:
+    merged: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+    for doc in (primary_docs or []) + (secondary_docs or []):
+        if doc.get("doc_id") is None:
+            continue
+        key = f"{_normalize_library_type(doc.get('library_type', 'breakdown'))}:{int(doc['doc_id'])}"
+        if key not in merged:
+            merged[key] = dict(doc)
+            merged[key]["chunks"] = list(doc.get("chunks") or [])
+            order.append(key)
+            continue
+        existing = merged[key]
+        existing["score"] = max(float(existing.get("score", 0.0) or 0.0), float(doc.get("score", 0.0) or 0.0))
+        existing_chunks = existing.get("chunks") or []
+        seen_chunks = {
+            str(chunk.get("content") or chunk.get("preview") or "")[:240]
+            for chunk in existing_chunks
+            if isinstance(chunk, dict)
+        }
+        for chunk in doc.get("chunks") or []:
+            if not isinstance(chunk, dict):
+                continue
+            marker = str(chunk.get("content") or chunk.get("preview") or "")[:240]
+            if marker and marker not in seen_chunks:
+                existing_chunks.append(chunk)
+                seen_chunks.add(marker)
+        existing["chunks"] = existing_chunks
+        for image_field in ("matched_image_urls", "evidence_image_urls", "image_urls"):
+            images = _normalize_reference_image_values(existing.get(image_field))
+            for image in _normalize_reference_image_values(doc.get(image_field)):
+                if image and image not in images:
+                    images.append(image)
+            if images:
+                existing[image_field] = images
+
+    docs = [merged[key] for key in order]
+    docs.sort(key=lambda item: float(item.get("score", 0.0) or 0.0), reverse=True)
+    return docs[:max_docs] if max_docs and max_docs > 0 else docs
+
+
+async def _load_reusable_reference_documents_from_memory(
+    memory_service: MemoryService,
+    memory_pack: Optional[MemoryPack],
+    message_now: Message,
+) -> List[Dict[str, Any]]:
+    reusable_reference_documents = await memory_service.load_previous_reference_documents(
+        message_now.session_id,
+        message_now.message_order,
+        limit=_get_positive_int_env("CONTEXT_REFERENCE_REUSE_HISTORY_LIMIT", 8),
+    )
+    if reusable_reference_documents:
+        return reusable_reference_documents
+
+    if memory_pack and memory_pack.active_context:
+        return memory_service.active_context_reference_documents(memory_pack.active_context)
+    return []
+
+
+async def _adaptive_retrieve_reference_documents(
+    db: AsyncSession,
+    retrieval_query: str,
+    user_uploaded_images: Optional[str],
+    route_decision: RouteDecision,
+    memory_pack: Optional[MemoryPack],
+) -> tuple[List[Dict[str, Any]], List[str]]:
+    plan = memory_pack.adaptive_rag if memory_pack else None
+    top_k = plan.top_k if plan else -1
+    top_k_documents = plan.top_k_documents if plan else -1
+    actions = [f"rag_search:{plan.strategy if plan else 'default'}"]
+
+    reference_docs = await get_reference_documents(
+        db,
+        retrieval_query,
+        user_uploaded_images,
+        top_k=top_k,
+        top_k_documents=top_k_documents,
+    )
+
+    if not plan or not plan.iterative_retrieval or not memory_pack or not memory_pack.active_context:
+        return reference_docs, actions
+
+    active_query = str(
+        memory_pack.active_context.get("active_query")
+        or memory_pack.active_context.get("active_issue")
+        or ""
+    ).strip()
+    if not active_query or _compact_for_context(active_query) == _compact_for_context(retrieval_query):
+        return reference_docs, actions
+
+    actions.append("react_context_retrieve")
+    second_query = f"{retrieval_query}\n当前会话主问题：{active_query}"
+    secondary_docs = await get_reference_documents(
+        db,
+        second_query,
+        user_uploaded_images,
+        top_k=top_k,
+        top_k_documents=top_k_documents,
+    )
+    max_docs = top_k_documents if top_k_documents and top_k_documents > 0 else -1
+    return _merge_reference_documents(reference_docs, secondary_docs, max_docs=max_docs), actions
 
 
 def _api_timestamp(value: Optional[datetime]) -> Optional[float]:
@@ -442,13 +1494,16 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
         images.append(normalized)
 
     for doc_index, doc in enumerate(reference_docs or [], start=1):
-        if "evidence_image_urls" in doc:
-            for image in doc.get("evidence_image_urls", []) or []:
+        evidence_images = doc.get("evidence_image_urls", []) or []
+        if evidence_images:
+            for image in evidence_images:
                 add(image, f"doc#{doc_index}.evidence_image_urls")
             if max_images is not None and len(images) >= max_images:
                 break
             continue
 
+        for image in doc.get("image_urls", []) or []:
+            add(image, f"doc#{doc_index}.image_urls")
         for image in doc.get("matched_image_urls", []) or []:
             add(image, f"doc#{doc_index}.matched_image_urls")
         for chunk_index, chunk in enumerate(doc.get("chunks", []) or [], start=1):
@@ -829,6 +1884,7 @@ async def stream_ai_response(
     reference_docs,
     reference_ids_str: str,
     api_v1: bool = False,
+    trace_id: Optional[int] = None,
 ):
     """
     功能说明：
@@ -877,16 +1933,27 @@ async def stream_ai_response(
             return f"data: {json.dumps(envelope, ensure_ascii=False)}\n\n"
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-    async def persist_ai_content(content_text: str, with_token_count: bool = False):
+    async def persist_ai_content(content_text: str, with_token_count: bool = False, status_value: str = "success"):
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
             ai_msg = result.scalar_one_or_none()
+            token_count = None
             if ai_msg:
                 ai_msg.content_text = content_text
                 await db.commit()
                 if with_token_count:
-                    ai_msg.token_count = await _count_text_tokens(content_text)
+                    token_count = await _count_text_tokens(content_text)
+                    ai_msg.token_count = token_count
                     await db.commit()
+            memory_service = MemoryService(db)
+            await memory_service.update_ai_trace(
+                trace_id,
+                answer=content_text,
+                status_value=status_value,
+                output_tokens=token_count,
+            )
+            if with_token_count and status_value == "success":
+                await memory_service.maybe_refresh_summary(session_id)
 
     try:
         stream_start = time.perf_counter()
@@ -1035,7 +2102,7 @@ async def stream_ai_response(
             else "回答生成失败，请稍后重试。"
         )
         try:
-            await persist_ai_content(fallback_content, with_token_count=True)
+            await persist_ai_content(fallback_content, with_token_count=True, status_value="error")
         except Exception as persist_error:
             print(persist_error)
         error_data = {
@@ -1043,6 +2110,34 @@ async def stream_ai_response(
             "message": fallback_content
         }
         yield _format_stream_event(error_data, is_error=True)
+
+
+async def stream_static_ai_response(
+    id: int,
+    session_id: int,
+    answer: str,
+    api_v1: bool = False,
+):
+    data = {
+        "id": id,
+        "session_id": session_id,
+        "answer": answer,
+        "reference": {"total": 0, "doc_aggs": []} if api_v1 else None,
+        "reference_docs": "",
+        "final": True,
+    }
+    if not api_v1:
+        data["code"] = 1
+
+    def format_event(payload: Dict[str, Any]) -> str:
+        if api_v1:
+            return f"data: {json.dumps({'code': 0, 'data': payload}, ensure_ascii=False)}\n\n"
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    yield ": stream-start\n\n"
+    yield format_event(data)
+    yield f"data: {json.dumps({'code': 1, 'data': 'true'}, ensure_ascii=False)}\n\n"
+
 
 async def _create_completion(
     message: MessageCreateNew,
@@ -1067,6 +2162,7 @@ async def _create_completion(
         3. 生成 RAG prompt 和多模态上下文；
         4. 预创建 AI 消息，流式或非流式生成最终回答。
     """
+    trace_id: Optional[int] = None
     try:
         # 校验会话归属（Conversation 表）
         config = get_image_config()
@@ -1106,15 +2202,153 @@ async def _create_completion(
         await db.commit()
         await db.refresh(db_message)
 
-        # 向量检索
-        ai_reference_documents = await get_reference_documents(
-            db, db_message.content_text, db_message.user_uploaded_images
+        # 意图识别：寒暄、感谢、确认等直接对话不进入 RAG，避免短文本误召回知识库。
+        route_decision = await IntentRouterAgent().route(
+            db_message.content_text,
+            db_message.user_uploaded_images,
         )
+        print(
+            "[意图识别] "
+            f"route={route_decision.route.value} "
+            f"use_rag={route_decision.use_rag} "
+            f"confidence={route_decision.confidence} "
+            f"source={route_decision.source} "
+            f"reason={route_decision.reason}"
+        )
+        memory_service = MemoryService(db)
+        memory_pack = await MemoryPackBuilder(memory_service).build(db_message, route_decision)
+        print(
+            "[MemoryPack] "
+            f"strategy={memory_pack.strategy} "
+            f"complexity={memory_pack.complexity} "
+            f"actions={memory_pack.actions}"
+        )
+        selected_skill = SkillRegistry().select(route_decision, memory_pack)
+        print(
+            "[SkillRegistry] "
+            f"skill={selected_skill.name} "
+            f"prompt={selected_skill.prompt_file} "
+            f"description={selected_skill.description}"
+        )
+
+        if route_decision.route.value == ANSWER_AUDIT_ROUTE and _get_bool_env("ANSWER_AUDIT_ENABLED", True):
+            answer, audit_actions, audit_validation = await _build_answer_audit_response(
+                db,
+                db_message,
+                memory_pack=memory_pack,
+                decision=route_decision,
+                skill=selected_skill,
+            )
+            answer_token_count = await _count_text_tokens(answer)
+            conversation.updated_time = datetime.now()
+            if max_order == 0 or conversation.title == "新对话":
+                conversation.title = await get_new_title_by_ai(message.question)
+
+            ai_msg = Message(
+                session_id=message.session_id,
+                role=0,
+                message_order=max_order + 2,
+                content_text=answer,
+                ai_reference_doc_ids="",
+                token_count=answer_token_count,
+                created_time=datetime.now(),
+            )
+            db.add(ai_msg)
+            await db.commit()
+            await db.refresh(ai_msg)
+
+            await memory_service.create_ai_trace(
+                db_message,
+                ai_msg,
+                route_decision,
+                retrieval_query=db_message.content_text,
+                reference_docs=[],
+                actions=audit_actions,
+                used_previous_refs=False,
+                validation={**audit_validation, **memory_pack.to_trace_validation()},
+                answer=answer,
+                status_value="success",
+                output_tokens=answer_token_count,
+            )
+            await memory_service.maybe_refresh_summary(message.session_id)
+
+            data = {
+                "answer": answer,
+                "reference": {"total": 0, "doc_aggs": []} if api_v1 else "",
+                "reference_docs": "",
+                "id": ai_msg.id,
+                "session_id": message.session_id,
+            }
+            if message.stream:
+                return StreamingResponse(
+                    stream_static_ai_response(
+                        ai_msg.id,
+                        message.session_id,
+                        answer,
+                        api_v1=api_v1,
+                    ),
+                    media_type="text/event-stream",
+                )
+            return ResultNew.result(0, None, data) if api_v1 else Result.success_with_data(data)
+
+        # 向量检索
+        retrieval_query = route_decision.query_rewrite or db_message.content_text
+        used_previous_refs = False
+        retrieval_actions: List[str] = []
+        if route_decision.use_rag:
+            retrieval_query = await _resolve_retrieval_query(
+                db,
+                db_message,
+                route_decision,
+                memory_pack=memory_pack,
+            )
+            reusable_reference_documents = []
+            if route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+                reusable_reference_documents = await _load_reusable_reference_documents_from_memory(
+                    memory_service,
+                    memory_pack,
+                    db_message,
+                )
+            if reusable_reference_documents:
+                print(
+                    "[上下文改写] 复用上一轮参考文档 "
+                    f"count={len(reusable_reference_documents)}"
+                )
+                ai_reference_documents = reusable_reference_documents
+                used_previous_refs = True
+                retrieval_actions.append("reuse_previous_references")
+            else:
+                ai_reference_documents, retrieval_actions = await _adaptive_retrieve_reference_documents(
+                    db,
+                    retrieval_query,
+                    db_message.user_uploaded_images,
+                    route_decision,
+                    memory_pack,
+                )
+                ai_reference_documents = _filter_reference_documents_by_confidence(
+                    ai_reference_documents,
+                    route_decision,
+                )
+                ai_reference_documents = _filter_reference_documents_by_query_terms(
+                    ai_reference_documents,
+                    retrieval_query,
+                    route_decision,
+                )
+        else:
+            ai_reference_documents = []
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
 
         # 传给 generate_messages() 用于构建 prompt
-        messages = await generate_messages(db, db_message.session_id, db_message, ai_reference_documents)
+        messages = await generate_messages(
+            db,
+            db_message.session_id,
+            db_message,
+            ai_reference_documents,
+            retrieval_query=retrieval_query,
+            memory_pack=memory_pack,
+            skill=selected_skill,
+        )
         ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
 
         conversation.updated_time = datetime.now()
@@ -1136,6 +2370,44 @@ async def _create_completion(
         await db.commit()
         await db.refresh(ai_msg)
 
+        workflow_actions = ["intent_route", f"select_skill:{selected_skill.name}"]
+        workflow_actions.extend(selected_skill.actions)
+        workflow_actions.extend(memory_pack.actions)
+        if route_decision.use_rag:
+            if route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+                workflow_actions.append("resolve_contextual_query")
+            workflow_actions.extend(retrieval_actions or ["reuse_previous_references" if used_previous_refs else "rag_search"])
+            workflow_actions.extend(["build_prompt", "generate_answer"])
+        else:
+            workflow_actions.append("direct_generate_answer")
+
+        trace_validation = memory_pack.to_trace_validation()
+        trace_validation.update(selected_skill.to_trace_validation())
+        trace_validation.update({
+            "reference_count": len(ai_reference_documents or []),
+            "reference_ids": ai_reference_document_ids,
+        })
+
+        trace_id = await memory_service.create_ai_trace(
+            db_message,
+            ai_msg,
+            route_decision,
+            retrieval_query=retrieval_query,
+            reference_docs=ai_reference_documents,
+            actions=workflow_actions,
+            used_previous_refs=used_previous_refs,
+            validation=trace_validation,
+            status_value="pending" if message.stream else "generating",
+        )
+        await memory_service.update_active_context(
+            db_message,
+            ai_msg,
+            route_decision,
+            retrieval_query,
+            ai_reference_documents,
+            trace_id=trace_id,
+        )
+
         # 传给 stream_ai_response() 用于构建 reference.doc_aggs 和图片
         if message.stream:
             return StreamingResponse(
@@ -1146,12 +2418,20 @@ async def _create_completion(
                     ai_reference_documents,
                     ai_reference_document_ids_str,
                     api_v1=api_v1,
+                    trace_id=trace_id,
                 ),
                 media_type="text/event-stream"
             )
 
         ai_msg = await get_ai_answer(db, messages, ai_msg.id, ai_reference_documents)
         answer = ai_msg.content_text if ai_msg else ""
+        await memory_service.update_ai_trace(
+            trace_id,
+            answer=answer,
+            status_value="success",
+            output_tokens=ai_msg.token_count if ai_msg else None,
+        )
+        await memory_service.maybe_refresh_summary(message.session_id)
         data = {
             "answer": answer,
             "reference": _reference_doc_ids_to_api_reference(ai_reference_documents) if api_v1 else ai_reference_document_ids_str,
@@ -1167,6 +2447,16 @@ async def _create_completion(
     except Exception as e:
         await db.rollback()
         print(e)
+        if trace_id:
+            try:
+                async with AsyncSessionLocal() as trace_db:
+                    await MemoryService(trace_db).update_ai_trace(
+                        trace_id,
+                        status_value="error",
+                        error_message=str(e),
+                    )
+            except Exception as trace_error:
+                print(trace_error)
         if _is_ai_service_unavailable_error(e):
             raise AppException(
                 status.HTTP_502_BAD_GATEWAY,
@@ -1418,7 +2708,15 @@ async def create_chat_completion(
     """
     return await _create_completion(message, db, current_user, api_v1=True)
 
-async def generate_messages(db, id, message_now, documents_id):
+async def generate_messages(
+    db,
+    id,
+    message_now,
+    documents_id,
+    retrieval_query: Optional[str] = None,
+    memory_pack: Optional[MemoryPack] = None,
+    skill: Optional[AgentSkill] = None,
+):
     """
     功能说明：
         构建发送给大模型的上下文消息列表，包含最近历史、RAG 提示词和多模态图片。
@@ -1427,6 +2725,9 @@ async def generate_messages(db, id, message_now, documents_id):
         id：会话 ID。
         message_now：本轮用户消息 ORM 对象。
         documents_id：本轮检索命中的文档引用，包含 doc_id/library_type/chunks。
+        retrieval_query：结合上下文改写后的检索问题；为空时使用当前用户原问题。
+        memory_pack：按意图组装的短期记忆包，包含 active_context 和长对话摘要。
+        skill：本轮选中的业务 Skill，用于决定回答 prompt 的组织方式。
     返回值说明：
         返回 OpenAI Chat Completions 兼容的 messages 数组。
     关键处理流程：
@@ -1520,16 +2821,25 @@ async def generate_messages(db, id, message_now, documents_id):
 
     tokens_tmp = tokens_max - tokens
     prompt = await get_prompt(db, documents_id, tokens_tmp)
+    memory_prompt = _build_memory_prompt(memory_pack)
+    selected_skill = skill or SkillRegistry().select_for_memory(memory_pack)
+    prompt_text = SkillPromptBuilder().build_completion_prompt(
+        question=message_now.content_text,
+        skill=selected_skill,
+        memory_pack=memory_pack,
+        memory_prompt=memory_prompt,
+        rag_prompt=prompt,
+        retrieval_query=retrieval_query,
+    )
 
-    constrain_tip = "\n回答只依据知识文档内容，不添加文档外信息；只要有知识文档，就基于已有内容整理答案，不回复知识库无相关内容；文档信息不完整时，围绕已有依据回答，避免强调文档不足；仅无知识文档时提示知识库无相关内容。要求有关问题内容的回答完全按照我提供的文档内容。"
     msg_content = [{
         "type": "text",
-        "text": desensitize_text(f"{prompt}\n问题：{message_now.content_text}{constrain_tip}"),
+        "text": desensitize_text(prompt_text),
     }]
 
     # 添加文档中命中的参考图片，让多模态模型可结合图片内容回答；最终展示仍由后端追加 Markdown 图片保证稳定。
     doc_image_urls = _collect_reference_image_paths(
-        documents_id if isinstance(documents_id, list) else [],
+        documents_id if prompt and isinstance(documents_id, list) else [],
         max_images=int(os.getenv("MAX_DOC_IMAGES", 5)),
     )
     print(f"[图片排查][generate_messages] doc_image_urls={doc_image_urls}")
@@ -1620,10 +2930,23 @@ async def get_new_title_by_ai(content):
 
     return new_title
 
-async def get_reference_documents(db, question: str, image: str = None):
+async def get_reference_documents(
+    db,
+    question: str,
+    image: str = None,
+    top_k: int = -1,
+    top_k_documents: int = -1,
+):
     """向量检索相关文档，并返回可展示的文档匹配信息。"""
+    from utils.VectorService import VectorService
+
     vector_service = VectorService(db)
-    documents = await vector_service.search_similar_documents(question, image)
+    documents = await vector_service.search_similar_documents(
+        question,
+        image,
+        top_k=top_k,
+        top_k_documents=top_k_documents,
+    )
     print(f"[图片排查][search_raw] docs={len(documents or [])}")
     _debug_reference_doc_image_summary(documents, "search_raw")
     normalized_docs = []
@@ -1960,28 +3283,38 @@ async def get_prompt(db, document_ids, max_tokens):
                 for section in prompt_sections:
                     _extend_unique_images(evidence_images, _section_image_urls(section))
                 _extend_unique_images(evidence_images, _matched_chunk_image_urls(matched_chunks, limit=8))
-                reference_doc["evidence_section_ids"] = [
-                    int(section.id) for section in prompt_sections if section.id is not None
-                ]
-                reference_doc["evidence_section_titles"] = [
-                    section.section_title or "未命名章节" for section in prompt_sections
-                ]
-                reference_doc["evidence_image_urls"] = evidence_images
+                if not (
+                    reference_doc.get("reused_from_history")
+                    and reference_doc.get("evidence_image_urls")
+                ):
+                    reference_doc["evidence_section_ids"] = [
+                        int(section.id) for section in prompt_sections if section.id is not None
+                    ]
+                    reference_doc["evidence_section_titles"] = [
+                        section.section_title or "未命名章节" for section in prompt_sections
+                    ]
+                    reference_doc["evidence_image_urls"] = evidence_images
                 print(
                     f"[图片排查][evidence] doc=knowledge:{document.id} "
-                    f"sections={reference_doc['evidence_section_titles']} images={evidence_images}"
+                    f"sections={reference_doc['evidence_section_titles']} "
+                    f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
                 )
 
             doc_prompt = "\n".join(part for part in doc_parts if part).strip()
         else:
             if reference_doc is not None:
                 evidence_images = _breakdown_document_image_urls(document)
-                reference_doc["evidence_section_ids"] = []
-                reference_doc["evidence_section_titles"] = ["完整故障文档"]
-                reference_doc["evidence_image_urls"] = evidence_images
+                if not (
+                    reference_doc.get("reused_from_history")
+                    and reference_doc.get("evidence_image_urls")
+                ):
+                    reference_doc["evidence_section_ids"] = []
+                    reference_doc["evidence_section_titles"] = ["完整故障文档"]
+                    reference_doc["evidence_image_urls"] = evidence_images
                 print(
                     f"[图片排查][evidence] doc=breakdown:{document.id} "
-                    f"sections={reference_doc['evidence_section_titles']} images={evidence_images}"
+                    f"sections={reference_doc['evidence_section_titles']} "
+                    f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
                 )
             doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}

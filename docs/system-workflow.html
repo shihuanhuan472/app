@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文件处理与问答回复流程图</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #647084;
+      --line: #cdd6e3;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --orange: #ea580c;
+      --red: #dc2626;
+      --violet: #7c3aed;
+      --cyan: #0891b2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    .page {
+      width: min(1420px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 36px 0 48px;
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      max-width: 540px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 5px;
+      background: #edf2f7;
+      color: #334155;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .flow {
+      display: grid;
+      gap: 11px;
+    }
+
+    .node {
+      position: relative;
+      border: 1px solid #d7e0ec;
+      border-left: 5px solid var(--blue);
+      border-radius: 7px;
+      background: #fff;
+      padding: 12px 14px;
+      min-height: 86px;
+    }
+
+    .node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -11px;
+      width: 1px;
+      height: 11px;
+      background: var(--line);
+    }
+
+    .node:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: calc(50% - 5px);
+      bottom: -13px;
+      width: 10px;
+      height: 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      transform: rotate(45deg);
+      background: var(--bg);
+    }
+
+    .node.green {
+      border-left-color: var(--green);
+    }
+
+    .node.orange {
+      border-left-color: var(--orange);
+    }
+
+    .node.red {
+      border-left-color: var(--red);
+    }
+
+    .node.violet {
+      border-left-color: var(--violet);
+    }
+
+    .node.cyan {
+      border-left-color: var(--cyan);
+    }
+
+    .node-title {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #eaf1ff;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .node.green .num {
+      background: #e8f7ee;
+      color: var(--green);
+    }
+
+    .node.orange .num {
+      background: #fff1e8;
+      color: var(--orange);
+    }
+
+    .node.red .num {
+      background: #feecec;
+      color: var(--red);
+    }
+
+    .node.violet .num {
+      background: #f1eafd;
+      color: var(--violet);
+    }
+
+    .node.cyan .num {
+      background: #e7f8fc;
+      color: var(--cyan);
+    }
+
+    .desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .techs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tech {
+      border: 1px solid #d8e1ed;
+      background: #f8fafc;
+      border-radius: 5px;
+      padding: 3px 7px;
+      font-size: 12px;
+      color: #465568;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .mini {
+      border: 1px solid #e0e7f0;
+      border-radius: 6px;
+      padding: 8px;
+      background: #fbfdff;
+      font-size: 12px;
+      color: #435169;
+    }
+
+    .note {
+      margin-top: 22px;
+      background: #fff;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .note-title {
+      font-weight: 700;
+    }
+
+    .note ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .grid,
+      .note {
+        grid-template-columns: 1fr;
+      }
+
+      .titlebar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .stack {
+        justify-content: flex-start;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        width: auto;
+        padding: 18px;
+      }
+
+      .section,
+      .note {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="titlebar">
+      <div>
+        <h1>文件处理流程 + 问答回复流程</h1>
+        <p class="subtitle">当前系统工作流总览，覆盖上传、解析、审核、向量化、检索和大模型回复。</p>
+      </div>
+      <div class="stack" aria-label="技术栈">
+        <span class="pill">FastAPI</span>
+        <span class="pill">MySQL + SQLAlchemy</span>
+        <span class="pill">MinerU / PyMuPDF</span>
+        <span class="pill">Visualized_BGE</span>
+        <span class="pill">Milvus</span>
+        <span class="pill">OpenAI Compatible LLM</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="section">
+        <h2>文件处理流程</h2>
+        <div class="flow">
+          <article class="node">
+            <div class="node-title"><span class="num">01</span>上传源文件</div>
+            <div class="desc">前端通过 FormData 上传，后端只保存源文件并登记来源，不直接写正式文档库。</div>
+            <div class="techs">
+              <span class="tech">POST /api/v1/document/upload_files</span>
+              <span class="tech">FastAPI UploadFile</span>
+              <span class="tech">aiofiles</span>
+            </div>
+          </article>
+
+          <article class="node cyan">
+            <div class="node-title"><span class="num">02</span>源文件记录</div>
+            <div class="desc">文件保存到 source_documents 目录，同时写 SourceDocument，状态为 uploaded。</div>
+            <div class="techs">
+              <span class="tech">upload/source_documents</span>
+              <span class="tech">SourceDocument</span>
+              <span class="tech">MySQL</span>
+            </div>
+          </article>
+
+          <article class="node orange">
+            <div class="node-title"><span class="num">03</span>解析分流</div>
+            <div class="desc">按文件类型进入不同解析器，抽取文本、表格和有效图片，过滤 logo、底图等装饰内容。</div>
+            <div class="split">
+              <div class="mini">PDF: PyMuPDF + MinerU OCR</div>
+              <div class="mini">PPT: LibreOffice 转 PDF + MinerU / python-pptx</div>
+              <div class="mini">HTML: BeautifulSoup + Selenium</div>
+              <div class="mini">Word/TXT/Markdown/Excel/Image: 专用 Parser</div>
+            </div>
+          </article>
+
+          <article class="node violet">
+            <div class="node-title"><span class="num">04</span>AI 结构化整理</div>
+            <div class="desc">将非结构化内容整理成系统字段：标题、问题简介、原因、评估、检查、解决方案、关键要点和图片归属。</div>
+            <div class="techs">
+              <span class="tech">OpenAI Chat Completions</span>
+              <span class="tech">MODEL_AI</span>
+              <span class="tech">JSON 结果解析</span>
+            </div>
+          </article>
+
+          <article class="node green">
+            <div class="node-title"><span class="num">05</span>提交审核</div>
+            <div class="desc">技术人员提交审核稿，管理员在审核页面通过或驳回。</div>
+            <div class="techs">
+              <span class="tech">Document_review</span>
+              <span class="tech">KnowledgeDocumentReview</span>
+              <span class="tech">status=review_pending</span>
+            </div>
+          </article>
+
+          <article class="node">
+            <div class="node-title"><span class="num">06</span>正式入库</div>
+            <div class="desc">审核通过后写入正式文档表；知识库文档额外维护章节表。</div>
+            <div class="techs">
+              <span class="tech">DocumentBreakdown</span>
+              <span class="tech">DocumentKnowledge</span>
+              <span class="tech">KnowledgeDocumentSection</span>
+            </div>
+          </article>
+
+          <article class="node violet">
+            <div class="node-title"><span class="num">07</span>向量化</div>
+            <div class="desc">生成主 chunk、字段 chunk、章节 chunk、表格 chunk，超长内容按 Milvus 字段限制拆分。</div>
+            <div class="techs">
+              <span class="tech">VectorService</span>
+              <span class="tech">VectorStoreMultimodal</span>
+              <span class="tech">Visualized_BGE</span>
+              <span class="tech">PyTorch CPU/CUDA</span>
+            </div>
+          </article>
+
+          <article class="node green">
+            <div class="node-title"><span class="num">08</span>写入向量库</div>
+            <div class="desc">向量写入成功后，文档标记 is_vectorized=1，源文件状态改为 vectorized。</div>
+            <div class="techs">
+              <span class="tech">Milvus</span>
+              <span class="tech">documents_collection_main_chunk</span>
+              <span class="tech">IP + IVF_FLAT</span>
+            </div>
+          </article>
+
+          <article class="node red">
+            <div class="node-title"><span class="num">!</span>失败保护</div>
+            <div class="desc">审核通过阶段如果向量化失败，事务回滚，不把审核状态改为通过，返回具体失败原因。</div>
+            <div class="techs">
+              <span class="tech">DB rollback</span>
+              <span class="tech">Milvus cleanup</span>
+              <span class="tech">失败原因弹窗</span>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>问答回复流程</h2>
+        <div class="flow">
+          <article class="node">
+            <div class="node-title"><span class="num">01</span>创建会话</div>
+            <div class="desc">用户创建聊天会话，后端写 Conversation 并绑定当前用户。</div>
+            <div class="techs">
+              <span class="tech">POST /api/v1/chats/{chat_id}/session</span>
+              <span class="tech">Conversation</span>
+            </div>
+          </article>
+
+          <article class="node cyan">
+            <div class="node-title"><span class="num">02</span>发送问题</div>
+            <div class="desc">用户提交问题，可携带问答图片；后端保存用户消息并统计 token。</div>
+            <div class="techs">
+              <span class="tech">POST /api/v1/chats/{chat_id}/completions</span>
+              <span class="tech">Message role=user</span>
+            </div>
+          </article>
+
+          <article class="node orange">
+            <div class="node-title"><span class="num">03</span>图片语义增强</div>
+            <div class="desc">如有图片，先调用视觉模型生成图片描述，再和用户问题一起用于检索。</div>
+            <div class="techs">
+              <span class="tech">POST /api/v1/chats/{chat_id}/images</span>
+              <span class="tech">describe_image</span>
+              <span class="tech">MODEL_AI</span>
+            </div>
+          </article>
+
+          <article class="node violet">
+            <div class="node-title"><span class="num">04</span>向量检索</div>
+            <div class="desc">查询文本和图片进入 BGE 多模态嵌入，检索 Milvus 中最相似的 chunk。</div>
+            <div class="techs">
+              <span class="tech">VectorService.search_similar_documents</span>
+              <span class="tech">Visualized_BGE</span>
+              <span class="tech">Milvus search</span>
+            </div>
+          </article>
+
+          <article class="node">
+            <div class="node-title"><span class="num">05</span>候选聚合与回查</div>
+            <div class="desc">按 doc_id 和 library_type 合并命中 chunk，过滤低分与已删除文档，补全标题、章节和图片。</div>
+            <div class="techs">
+              <span class="tech">similarity_low_limit</span>
+              <span class="tech">关键词补召回</span>
+              <span class="tech">MySQL 回查</span>
+            </div>
+          </article>
+
+          <article class="node green">
+            <div class="node-title"><span class="num">06</span>构造 RAG Prompt</div>
+            <div class="desc">知识库取命中 chunk 附近章节，故障库拼接七段字段，并加入最近历史消息和参考图片。</div>
+            <div class="techs">
+              <span class="tech">get_prompt</span>
+              <span class="tech">generate_messages</span>
+              <span class="tech">MESSAGE_MAX_TOKEN</span>
+            </div>
+          </article>
+
+          <article class="node violet">
+            <div class="node-title"><span class="num">07</span>生成回答</div>
+            <div class="desc">调用 OpenAI 兼容的大模型接口，支持流式 SSE 或普通响应。</div>
+            <div class="techs">
+              <span class="tech">OpenAI Chat Completions</span>
+              <span class="tech">StreamingResponse</span>
+              <span class="tech">SSE</span>
+            </div>
+          </article>
+
+          <article class="node green">
+            <div class="node-title"><span class="num">08</span>返回与持久化</div>
+            <div class="desc">回答脱敏，参考图片统一转 /upload/... URL 后展示，并保存 AI 消息和引用文档。</div>
+            <div class="techs">
+              <span class="tech">Message role=assistant</span>
+              <span class="tech">ai_reference_doc_ids</span>
+              <span class="tech">reference_docs</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <aside class="note">
+      <div class="note-title">核心约束</div>
+      <ul>
+        <li>源文件、审核稿、正式文档、向量库是分阶段状态流转，不能跳过审核和向量一致性检查。</li>
+        <li>审核通过时向量化失败会回滚，避免正式文档表和 Milvus 出现一对一不一致。</li>
+        <li>问答回复只基于检索到的知识文档组织证据，最终图片由后端统一追加，避免模型输出本地路径。</li>
+      </ul>
+    </aside>
+  </main>
+</body>
+</html>

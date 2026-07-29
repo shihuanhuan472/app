@@ -83,6 +83,21 @@ class RoleGroupResponse(BaseModel):
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
+
+class SensitiveTermCreate(BaseModel):
+    source: str = Field(..., max_length=200)
+    replacement: str = Field(..., max_length=200)
+
+
+class SensitiveTermUpdate(BaseModel):
+    source: str = Field(..., max_length=200)
+    new_source: Optional[str] = Field(default=None, max_length=200)
+    replacement: Optional[str] = Field(default=None, max_length=200)
+
+
+class SensitiveTermDelete(BaseModel):
+    source: str = Field(..., max_length=200)
+
 class Page(BaseModel):
     page: Optional[int] = 1
     size: Optional[int] = 6
