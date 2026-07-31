@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册账号 - 设备维修辅助系统</title>
+    <script>
+        (function () {
+            var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+            var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile/i.test(ua);
+            var isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+            var width = window.innerWidth || document.documentElement.clientWidth || 0;
+            if (isMobileUA || isCoarsePointer || width <= 767) {
+                window.location.replace('/static/mobile/register.html');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .register-shell {
+            width: min(760px, calc(100% - 32px));
+            margin: 38px auto;
+        }
+
+        .register-panel {
+            padding: 32px;
+            border: 1px solid #dbe3ec;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 12px 32px rgba(26, 58, 95, 0.1);
+        }
+
+        .register-header {
+            margin-bottom: 26px;
+            text-align: center;
+        }
+
+        .register-header h1 {
+            margin: 0 0 8px;
+            color: #1a3a5f;
+            font-size: 28px;
+            letter-spacing: 0;
+        }
+
+        .register-header p {
+            margin: 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .register-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .field-note {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .register-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .register-actions .login-btn {
+            flex: 1;
+            background: #1971c2;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 18px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            color: #334155;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .register-error {
+            display: none;
+            margin-top: 18px;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            background: #fef2f2;
+            color: #b91c1c;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .register-error.show {
+            display: block;
+        }
+
+        .register-success {
+            display: none;
+            padding: 28px 18px;
+            border: 1px solid #a7f3d0;
+            border-radius: 8px;
+            background: #ecfdf5;
+            color: #065f46;
+            line-height: 1.7;
+            text-align: center;
+        }
+
+        .register-success.show {
+            display: block;
+        }
+
+        .register-success i {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 38px;
+        }
+
+        @media (max-width: 640px) {
+            .register-shell {
+                margin: 20px auto;
+            }
+
+            .register-panel {
+                padding: 22px 18px;
+            }
+
+            .register-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.full-width {
+                grid-column: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="register-shell">
+        <section class="register-panel" aria-labelledby="registerTitle">
+            <div class="register-header">
+                <h1 id="registerTitle"><i class="fas fa-user-plus"></i> 注册账号</h1>
+                <p>提交后由管理员审核并分配角色，审核通过后即可登录</p>
+            </div>
+
+            <form id="registerForm" novalidate>
+                <div class="register-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="username">用户名</label>
+                        <input class="form-control" id="username" type="text" autocomplete="username" maxlength="50" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="fullName">姓名</label>
+                        <input class="form-control" id="fullName" type="text" autocomplete="name" maxlength="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="phone">手机号</label>
+                        <input class="form-control" id="phone" type="tel" autocomplete="tel" maxlength="20" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="email">邮箱（选填）</label>
+                        <input class="form-control" id="email" type="email" autocomplete="email" maxlength="100">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label" for="department">部门（选填）</label>
+                        <input class="form-control" id="department" type="text" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password">密码</label>
+                        <input class="form-control" id="password" type="password" autocomplete="new-password" maxlength="128" required>
+                        <div class="field-note">至少 6 位</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="confirmPassword">确认密码</label>
+                        <input class="form-control" id="confirmPassword" type="password" autocomplete="new-password" maxlength="128" required>
+                    </div>
+                </div>
+
+                <div class="register-error" id="registerError" role="alert"></div>
+                <div class="register-actions">
+                    <a class="back-link" href="index.html"><i class="fas fa-arrow-left"></i>&nbsp; 返回登录</a>
+                    <button class="login-btn" id="registerBtn" type="submit">
+                        <i class="fas fa-paper-plane"></i> 提交注册申请
+                    </button>
+                </div>
+            </form>
+
+            <div class="register-success" id="registerSuccess">
+                <i class="fas fa-check-circle"></i>
+                <strong>注册申请已提交</strong>
+                <div>管理员审核并分配角色后，你就可以使用注册的账号登录。</div>
+                <a class="back-link" href="index.html" style="margin-top: 18px;">返回登录</a>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = document.getElementById('registerBtn');
+            const error = document.getElementById('registerError');
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                full_name: document.getElementById('fullName').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim() || null,
+                department: document.getElementById('department').value.trim() || null,
+                password: document.getElementById('password').value,
+                confirm_password: document.getElementById('confirmPassword').value
+            };
+
+            error.classList.remove('show');
+            if (!payload.username || !payload.full_name || !payload.phone || !payload.password) {
+                error.textContent = '请完整填写必填信息';
+                error.classList.add('show');
+                return;
+            }
+            if (payload.username.length < 3) {
+                error.textContent = '用户名至少需要 3 个字符';
+                error.classList.add('show');
+                return;
+            }
+            if (payload.password.length < 6) {
+                error.textContent = '密码至少需要 6 位';
+                error.classList.add('show');
+                return;
+            }
+            if (payload.password !== payload.confirm_password) {
+                error.textContent = '两次输入的密码不一致';
+                error.classList.add('show');
+                return;
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+            try {
+                await userAPI.register(payload);
+                form.style.display = 'none';
+                document.getElementById('registerSuccess').classList.add('show');
+            } catch (requestError) {
+                error.textContent = requestError.message || '注册失败，请稍后重试';
+                error.classList.add('show');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-paper-plane"></i> 提交注册申请';
+            }
+        });
+    </script>
+</body>
+</html>

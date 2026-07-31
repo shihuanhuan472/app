@@ -41,6 +41,7 @@ const API_CONFIG = {
 
         // 用户相关
         LOGIN: '/auth/login',
+        REGISTER: '/auth/register',
         USER: '/user',  // 用户相关接口基础路径
         USERS: '/user', // 别名
         USER_PROFILE: '/user/profile',  // 获取用户资料

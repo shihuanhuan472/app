@@ -47,20 +47,6 @@
                     </div>
                 </div>
 
-                <div class="form-field">
-                    <label for="role">身份</label>
-                    <div class="field-control select-control">
-                        <i class="fas fa-id-badge" aria-hidden="true"></i>
-                        <select id="role" name="role" required>
-                            <option value="">请选择身份</option>
-                            <option value="admin">系统管理员</option>
-                            <option value="technician_rw">技术人员</option>
-                            <option value="reviewer">审核人员</option>
-                            <option value="maintenance_staff">维修人员</option>
-                        </select>
-                    </div>
-                </div>
-
                 <p class="form-error" id="loginError" role="alert" aria-live="polite"></p>
 
                 <button class="primary-action" id="submitBtn" type="submit">
@@ -68,6 +54,7 @@
                     <span class="btn-loading" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i> 登录中...</span>
                 </button>
             </form>
+            <p class="auth-switch">还没有账号？<a href="register.html">提交注册申请</a></p>
         </section>
 
         <footer class="login-footer">

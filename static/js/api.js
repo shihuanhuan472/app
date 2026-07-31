@@ -988,13 +988,23 @@ const sensitiveTermsAPI = {
 const userAPI = {
     client: new APIClient(),
 
+    // 注册
+    async register(registrationData) {
+        const response = await this.client.post(
+            API_CONFIG.ENDPOINTS.REGISTER,
+            registrationData,
+            false
+        );
+        if (response.code === 1) {
+            return response;
+        }
+        throw new Error(response.msg || '注册失败');
+    },
+
     // 登录
-    async login(username, password, role = null) {
+    async login(username, password) {
         try {
             const payload = { username, password };
-            if (role) {
-                payload.role = role;
-            }
 
             const response = await this.client.post(
                 API_CONFIG.ENDPOINTS.LOGIN,
@@ -1307,6 +1317,41 @@ const DataManager = {
             console.error('获取角色组失败:', error);
             throw error;
         }
+    },
+
+    async getPendingRegistrations() {
+        const response = await this.client.get('/admin/registrations', true);
+        if (response.code === 1) {
+            return response.data || [];
+        }
+        throw new Error(response.msg || '获取注册申请失败');
+    },
+
+    async approveRegistration(userId, roleGroupId) {
+        const response = await this.client.post(
+            '/admin/registrations/approve',
+            {
+                user_id: userId,
+                role_group_id: roleGroupId
+            },
+            true
+        );
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || '审核注册申请失败');
+    },
+
+    async rejectRegistration(userId) {
+        const response = await this.client.post(
+            '/admin/registrations/reject',
+            { user_id: userId },
+            true
+        );
+        if (response.code === 1) {
+            return true;
+        }
+        throw new Error(response.msg || '拒绝注册申请失败');
     },
 
     async createRoleGroup(roleGroupData) {

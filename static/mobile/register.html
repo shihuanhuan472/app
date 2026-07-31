@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
+    <title>注册账号 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="mobile-page login-page registration-page">
+    <main class="mobile-login-shell" aria-labelledby="registerTitle">
+        <section class="login-brand-panel" aria-label="系统介绍">
+            <div class="brand-mark" aria-hidden="true"><i class="fas fa-tools"></i></div>
+            <div>
+                <p class="brand-kicker">Maintenance Assistant</p>
+                <h1>设备维修辅助系统</h1>
+                <p class="brand-subtitle">创建你的系统账号</p>
+            </div>
+        </section>
+
+        <section class="login-card registration-card" aria-label="注册表单">
+            <div class="login-card-header">
+                <h2 id="registerTitle">提交注册申请</h2>
+                <p>管理员审核并分配角色后即可登录</p>
+            </div>
+
+            <form id="registerForm" class="login-form registration-form" novalidate>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="username">用户名</label>
+                        <div class="field-control"><i class="fas fa-user"></i><input id="username" type="text" autocomplete="username" maxlength="50" required></div>
+                    </div>
+                    <div class="form-field">
+                        <label for="fullName">姓名</label>
+                        <div class="field-control"><i class="fas fa-id-card"></i><input id="fullName" type="text" autocomplete="name" maxlength="100" required></div>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label for="phone">手机号</label>
+                    <div class="field-control"><i class="fas fa-phone"></i><input id="phone" type="tel" autocomplete="tel" maxlength="20" required></div>
+                </div>
+                <div class="form-field">
+                    <label for="email">邮箱（选填）</label>
+                    <div class="field-control"><i class="fas fa-envelope"></i><input id="email" type="email" autocomplete="email" maxlength="100"></div>
+                </div>
+                <div class="form-field">
+                    <label for="department">部门（选填）</label>
+                    <div class="field-control"><i class="fas fa-building"></i><input id="department" type="text" maxlength="100"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="password">密码</label>
+                        <div class="field-control"><i class="fas fa-lock"></i><input id="password" type="password" autocomplete="new-password" placeholder="至少 6 位" maxlength="128" required></div>
+                    </div>
+                    <div class="form-field">
+                        <label for="confirmPassword">确认密码</label>
+                        <div class="field-control"><i class="fas fa-lock"></i><input id="confirmPassword" type="password" autocomplete="new-password" maxlength="128" required></div>
+                    </div>
+                </div>
+                <p class="form-error" id="registerError" role="alert" aria-live="polite"></p>
+                <button class="primary-action" id="registerBtn" type="submit">
+                    <span class="btn-label"><i class="fas fa-paper-plane"></i> 提交注册申请</span>
+                    <span class="btn-loading"><i class="fas fa-spinner fa-spin"></i> 提交中...</span>
+                </button>
+            </form>
+
+            <div class="registration-success" id="registerSuccess">
+                <i class="fas fa-check-circle"></i>
+                注册申请已提交，请等待管理员审核并分配角色。
+            </div>
+            <p class="auth-switch"><a href="login.html"><i class="fas fa-arrow-left"></i> 返回登录</a></p>
+        </section>
+    </main>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="script/register.js"></script>
+</body>
+</html>

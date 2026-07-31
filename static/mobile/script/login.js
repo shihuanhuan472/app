@@ -66,7 +66,6 @@
     async function handleLoginSubmit() {
         const username = getFieldValue('username');
         const password = getFieldValue('password');
-        const role = getFieldValue('role');
 
         if (!username) {
             showError('请输入用户名');
@@ -80,17 +79,11 @@
             return;
         }
 
-        if (!role) {
-            showError('请选择身份');
-            focusField('role');
-            return;
-        }
-
         setLoading(true);
         hideError();
 
         try {
-            const tokenData = await requestLogin({ username, password, role });
+            const tokenData = await requestLogin({ username, password });
             saveLoginResult(tokenData || {});
             showToast('登录成功', 'success');
             window.setTimeout(() => {
@@ -107,7 +100,7 @@
 
     async function requestLogin(payload) {
         if (typeof userAPI !== 'undefined' && userAPI && typeof userAPI.login === 'function') {
-            return await userAPI.login(payload.username, payload.password, payload.role);
+            return await userAPI.login(payload.username, payload.password);
         }
 
         if (typeof API_CONFIG === 'undefined' || !API_CONFIG.BASE_URL || !API_CONFIG.ENDPOINTS) {
@@ -161,8 +154,6 @@
 
         if (code === 40110) return '登录失败：用户名或密码错误';
         if (code === 40311) return '登录失败：账号已被禁用，请联系管理员';
-        if (code === 40111) return '登录失败：账号身份配置异常，请联系管理员';
-        if (code === 40310) return '登录失败：账号权限配置异常，请联系管理员';
 
         if (rawMsg) return `登录失败：${rawMsg}`;
         return '登录失败：请稍后重试';

@@ -361,6 +361,59 @@
             box-shadow: 0 8px 20px rgba(25, 113, 194, 0.3);
         }
 
+        .pending-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 6px;
+            border-radius: 11px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .registration-card {
+            border-top: 4px solid #f59e0b;
+        }
+
+        .registration-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 9px;
+            border-radius: 12px;
+            background: #fff7ed;
+            color: #c2410c;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .registration-role-select {
+            width: 100%;
+            height: 38px;
+            margin: 2px 0 12px;
+            padding: 0 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: #334155;
+            font-size: 13px;
+        }
+
+        .registration-role-select:focus {
+            border-color: #1971c2;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(25, 113, 194, 0.12);
+        }
+
+        .registration-card .user-actions .btn-primary {
+            background: #1971c2;
+            color: #fff;
+        }
+
         /* 响应式调整 */
         @media (max-width: 1200px) {
             .user-list {
@@ -550,7 +603,7 @@
                 </div>
                 <div class="header-right">
                     <!-- 紧凑搜索框 -->
-                    <div class="compact-search">
+                    <div class="compact-search" id="activeUserSearch">
                         <input type="text" placeholder="可查询姓名，电话，部门及用户名..." oninput="searchUsers(this.value)">
                         <i class="fas fa-search"></i>
                     </div>
@@ -558,7 +611,11 @@
                         <button class="btn btn-secondary" onclick="window.location.href='role-management.html'">
                             <i class="fas fa-user-shield"></i> 角色组
                         </button>
-                        <button class="btn btn-primary" onclick="showAddUserPage()">
+                        <button class="btn btn-secondary" id="registrationReviewBtn" onclick="toggleRegistrationView()">
+                            <i class="fas fa-user-clock"></i> 注册审核
+                            <span class="pending-count" id="pendingRegistrationCount" style="display: none;">0</span>
+                        </button>
+                        <button class="btn btn-primary" id="addUserBtn" onclick="showAddUserPage()">
                             <i class="fas fa-user-plus"></i> 添加用户
                         </button>
                     </div>
@@ -568,7 +625,7 @@
             <!-- 用户列表 -->
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">用户列表</div>
+                    <div class="card-title" id="userListTitle">用户列表</div>
                     <div class="card-subtitle" id="userCount">加载中...</div>
                 </div>
                 <!-- 在用户列表后面添加分页控件 -->
@@ -614,6 +671,9 @@
             totalCount: 0,
             isLoading: false,
             currentSearchQuery: '',
+            currentView: 'users',
+            roleGroups: [],
+            pendingRegistrations: [],
 
             // 初始化
             async init() {
@@ -633,8 +693,11 @@
                     // 加载用户信息到侧边栏
                     Utils.loadUserInfo();
 
+                    await this.loadRoleGroups();
+
                     // 加载用户数据
                     await this.loadUsersPage();
+                    await this.refreshPendingRegistrations();
 
                 } catch (error) {
                     console.error('页面初始化失败:', error);
@@ -644,6 +707,10 @@
 
             // 加载用户数据（分页）
             async loadUsersPage() {
+                if (this.currentView !== 'users') {
+                    await this.loadRegistrations();
+                    return;
+                }
                 if (this.isLoading) return;
 
                 try {
@@ -674,6 +741,163 @@
                 } finally {
                     this.isLoading = false;
                     this.showLoading(false);
+                }
+            },
+
+            async loadRoleGroups() {
+                const roleGroups = await DataManager.getRoleGroups();
+                this.roleGroups = (roleGroups || []).filter(group => {
+                    const permissions = Array.isArray(group.permissions) ? group.permissions : [];
+                    return !permissions.includes('admin') && Number(group.is_deleted || 0) === 0;
+                });
+            },
+
+            async refreshPendingRegistrations() {
+                this.pendingRegistrations = await DataManager.getPendingRegistrations();
+                this.updatePendingRegistrationCount();
+            },
+
+            updatePendingRegistrationCount() {
+                const count = this.pendingRegistrations.length;
+                const badge = document.getElementById('pendingRegistrationCount');
+                if (badge) {
+                    badge.textContent = String(count);
+                    badge.style.display = count > 0 && this.currentView === 'users' ? 'inline-flex' : 'none';
+                }
+            },
+
+            async loadRegistrations() {
+                if (this.isLoading) return;
+                try {
+                    this.isLoading = true;
+                    this.showLoading(true);
+                    await this.refreshPendingRegistrations();
+                    this.displayRegistrations(this.pendingRegistrations);
+                    document.getElementById('pagination').style.display = 'none';
+                } catch (error) {
+                    console.error('加载注册申请失败:', error);
+                    this.displayRegistrationEmptyState('加载注册申请失败，请刷新重试');
+                    Utils.showMessage(error.message || '加载注册申请失败', 'error');
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            displayRegistrations(registrations) {
+                const container = document.getElementById('userList');
+                const countElement = document.getElementById('userCount');
+                countElement.textContent = `共 ${registrations.length} 条待审核申请`;
+
+                if (!registrations.length) {
+                    this.displayRegistrationEmptyState('当前没有待审核的注册申请');
+                    return;
+                }
+
+                const roleOptions = this.roleGroups.map(group => (
+                    `<option value="${group.id}">${this.escapeHtml(group.name)}</option>`
+                )).join('');
+
+                container.innerHTML = registrations.map(user => {
+                    const createdDate = user.created_time
+                        ? Utils.formatDate(user.created_time, 'YYYY-MM-DD HH:mm')
+                        : '未知';
+                    return `
+                        <div class="user-card registration-card" data-user-id="${user.id}">
+                            <div class="user-avatar-large" style="background: #f59e0b">
+                                ${this.escapeHtml((user.full_name || user.username || 'U').charAt(0).toUpperCase())}
+                            </div>
+                            <div class="user-info-details">
+                                <div class="user-header-row">
+                                    <div class="user-info-name">${this.escapeHtml(user.full_name || user.username)}</div>
+                                    <span class="registration-status"><i class="fas fa-clock"></i> 待审核</span>
+                                </div>
+                                <div class="user-info-username">用户名：${this.escapeHtml(user.username)}</div>
+                                <ul class="user-info-list">
+                                    <li><i class="fas fa-building"></i> 部门：${this.escapeHtml(user.department || '未设置')}</li>
+                                    <li><i class="fas fa-phone"></i> 电话：${this.escapeHtml(user.phone || '未设置')}</li>
+                                    <li><i class="fas fa-envelope"></i> 邮箱：${this.escapeHtml(user.email || '未设置')}</li>
+                                    <li><i class="fas fa-calendar-alt"></i> 提交：${this.escapeHtml(createdDate)}</li>
+                                </ul>
+                                <select class="registration-role-select" id="registration-role-${user.id}" aria-label="为 ${this.escapeHtml(user.username)} 分配角色">
+                                    <option value="">请选择审核通过后的角色</option>
+                                    ${roleOptions}
+                                </select>
+                                <div class="user-actions">
+                                    <button class="btn btn-primary btn-sm" onclick="UserPagination.approveRegistration(${user.id})">
+                                        <i class="fas fa-check"></i> 通过
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="UserPagination.rejectRegistration(${user.id})">
+                                        <i class="fas fa-times"></i> 拒绝
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            displayRegistrationEmptyState(message) {
+                document.getElementById('userList').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-user-check"></i>
+                        <p>${this.escapeHtml(message)}</p>
+                    </div>
+                `;
+            },
+
+            escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>"']/g, character => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[character]);
+            },
+
+            async toggleRegistrationView() {
+                this.currentView = this.currentView === 'users' ? 'registrations' : 'users';
+                const showingRegistrations = this.currentView === 'registrations';
+                document.getElementById('activeUserSearch').style.display = showingRegistrations ? 'none' : 'block';
+                document.getElementById('addUserBtn').style.display = showingRegistrations ? 'none' : 'inline-flex';
+                document.getElementById('userListTitle').textContent = showingRegistrations ? '注册审核' : '用户列表';
+                document.getElementById('registrationReviewBtn').innerHTML = showingRegistrations
+                    ? '<i class="fas fa-arrow-left"></i> 返回用户列表'
+                    : '<i class="fas fa-user-clock"></i> 注册审核 <span class="pending-count" id="pendingRegistrationCount" style="display: none;">0</span>';
+
+                if (showingRegistrations) {
+                    await this.loadRegistrations();
+                } else {
+                    this.currentPage = 1;
+                    await this.loadUsersPage();
+                    this.updatePendingRegistrationCount();
+                }
+            },
+
+            async approveRegistration(userId) {
+                const roleSelect = document.getElementById(`registration-role-${userId}`);
+                const roleGroupId = Number(roleSelect && roleSelect.value);
+                if (!roleGroupId) {
+                    Utils.showMessage('请先为用户选择一个角色', 'error');
+                    return;
+                }
+                try {
+                    await DataManager.approveRegistration(userId, roleGroupId);
+                    Utils.showMessage('注册申请已通过，账号已启用', 'success');
+                    await this.loadRegistrations();
+                } catch (error) {
+                    Utils.showMessage(error.message || '审核失败', 'error');
+                }
+            },
+
+            async rejectRegistration(userId) {
+                if (!confirm('确定拒绝这条注册申请吗？')) return;
+                try {
+                    await DataManager.rejectRegistration(userId);
+                    Utils.showMessage('注册申请已拒绝', 'success');
+                    await this.loadRegistrations();
+                } catch (error) {
+                    Utils.showMessage(error.message || '拒绝申请失败', 'error');
                 }
             },
 
@@ -1003,6 +1227,7 @@
         window.editUser = (id) => UserPagination.editUser(id);
         window.confirmDeleteUser = (id) => UserPagination.confirmDeleteUser(id);
         window.searchUsers = (query) => UserPagination.searchUsers(query);
+        window.toggleRegistrationView = () => UserPagination.toggleRegistrationView();
     </script>
 </body>
 </html>

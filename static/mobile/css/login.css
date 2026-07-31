@@ -247,6 +247,63 @@
     gap: 0.45rem;
 }
 
+.auth-switch {
+    margin: 1rem 0 0;
+    color: var(--mobile-muted);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.auth-switch a {
+    color: var(--mobile-primary-dark);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.registration-card {
+    padding-bottom: 1.4rem;
+}
+
+.registration-form {
+    gap: 0.85rem;
+}
+
+.registration-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+.registration-page .login-brand-panel > div:last-child {
+    min-width: 0;
+}
+
+.registration-page .login-brand-panel h1 {
+    font-size: 1.55rem;
+    overflow-wrap: anywhere;
+}
+
+.registration-success {
+    display: none;
+    padding: 1.1rem;
+    border: 1px solid #a7f3d0;
+    border-radius: var(--mobile-radius-md);
+    background: #ecfdf5;
+    color: #065f46;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.registration-success.is-visible {
+    display: block;
+}
+
+.registration-success i {
+    display: block;
+    margin-bottom: 0.55rem;
+    font-size: 2rem;
+}
+
 .login-footer {
     color: rgba(52, 66, 86, 0.72);
     font-size: 0.78rem;
@@ -265,6 +322,7 @@
     .login-card {
         padding: 1.05rem;
     }
+
 }
 
 @media (min-width: 400px) {
