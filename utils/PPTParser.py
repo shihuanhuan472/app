@@ -26,6 +26,7 @@ except ModuleNotFoundError:
 from models import Document
 from utils.ai_endpoint import get_ai_base_url_alt
 from utils.error_codes import BizCode
+from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
 from utils.title_utils import normalize_document_title
 from pptx import Presentation
@@ -91,6 +92,7 @@ class PPTParser:
             self.ppt_parse_mode = "mineru_first"
         self.mineru_exe = os.getenv("MINERU_EXE", "").strip()
         self.mineru_timeout = _env_int("MINERU_TIMEOUT", 1800)
+        self.logo_only_filter = LogoOnlyFilter()
         self.last_parse_strategy = None
         self.last_template_cleaning = None
         self.last_error_code = None
@@ -295,6 +297,15 @@ class PPTParser:
         slide_height: int,
         picture_hash_counts: dict,
     ) -> bool:
+        try:
+            if self.logo_only_filter.should_filter_bytes(
+                shape.image.blob,
+                source=f"ppt-shape:{getattr(shape, 'name', 'picture')}",
+            ):
+                return False
+        except Exception:
+            pass
+
         if not self.ppt_skip_decorative_images:
             return True
 
@@ -491,6 +502,8 @@ class PPTParser:
             source_key = str(source_path).lower()
             if source_key in image_indexes:
                 return image_indexes[source_key]
+            if self.logo_only_filter.should_filter_path(source_path):
+                return None
 
             extension = source_path.suffix.lower() or ".png"
             unique_filename = f"{uuid.uuid4().hex}{extension}"
@@ -508,7 +521,7 @@ class PPTParser:
 
         def replace_markdown_image(match: re.Match) -> str:
             image_index = copy_image(match.group(1))
-            return f"\n【图片{image_index}】\n" if image_index else "\n[图片]\n"
+            return f"\n【图片{image_index}】\n" if image_index else "\n"
 
         markdown_text = markdown_image_pattern.sub(replace_markdown_image, markdown_text)
 
@@ -519,7 +532,7 @@ class PPTParser:
 
         def replace_html_image(match: re.Match) -> str:
             image_index = copy_image(match.group(1))
-            return f"\n【图片{image_index}】\n" if image_index else "\n[图片]\n"
+            return f"\n【图片{image_index}】\n" if image_index else "\n"
 
         markdown_text = html_image_pattern.sub(replace_html_image, markdown_text)
         markdown_text = re.sub(r"\n{4,}", "\n\n\n", markdown_text).strip()
