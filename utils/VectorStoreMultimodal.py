@@ -1,14 +1,19 @@
 import os
 import re
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
-os.environ["HF_DATASETS_OFFLINE"] = "1"
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 
 from PIL import Image
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 import base64
 import mimetypes
 from functools import lru_cache
@@ -20,8 +25,84 @@ from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.title_utils import normalize_document_title
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
+
+MILVUS_CONTENT_SAFE_LENGTH = 29000
+MILVUS_METADATA_SAFE_LENGTH = 29000
+MILVUS_TITLE_MAX_LENGTH = 100
+MILVUS_CHUNK_SPLIT_OVERLAP = 800
+VECTOR_TRUNCATION_SUFFIX = "\n[truncated: content exceeds Milvus field limit]"
+MIN_AI_OUTPUT_TOKEN = 128
+
+
+def _env_int(*names: str, default: int) -> int:
+    for name in names:
+        raw_value = os.getenv(name)
+        if raw_value is None:
+            continue
+        match = re.search(r"-?\d+", str(raw_value))
+        if not match:
+            continue
+        try:
+            return int(match.group(0))
+        except ValueError:
+            continue
+    return default
+
+
+def _local_model_dir(path_like: str) -> Optional[str]:
+    if not path_like:
+        return None
+    model_dir = Path(path_like).expanduser()
+    if model_dir.is_dir() and (model_dir / "config.json").is_file():
+        return str(model_dir)
+    return None
+
+
+def _resolve_hf_snapshot_path(model_name: str) -> Optional[str]:
+    """Resolve a Hugging Face model id to a local snapshot under HF_HOME."""
+    for configured_path in (
+        os.getenv("MODEL_LOCAL_PATH"),
+        os.getenv("BGE_MODEL_LOCAL_PATH"),
+        model_name,
+    ):
+        local_dir = _local_model_dir(configured_path or "")
+        if local_dir:
+            return local_dir
+
+    if not model_name or "/" not in model_name:
+        return None
+
+    cache_root = Path(os.environ.get("HF_HOME") or "").expanduser()
+    if not cache_root:
+        return None
+
+    model_cache_name = f"models--{model_name.replace('/', '--')}"
+    for cache_base in (cache_root / "hub", cache_root):
+        model_cache_dir = cache_base / model_cache_name
+        snapshots_dir = model_cache_dir / "snapshots"
+        if not snapshots_dir.is_dir():
+            continue
+
+        ref_file = model_cache_dir / "refs" / "main"
+        if ref_file.is_file():
+            revision = ref_file.read_text(encoding="utf-8").strip()
+            snapshot_dir = snapshots_dir / revision
+            if (snapshot_dir / "config.json").is_file():
+                return str(snapshot_dir)
+
+        snapshots = [
+            snapshot
+            for snapshot in snapshots_dir.iterdir()
+            if snapshot.is_dir() and (snapshot / "config.json").is_file()
+        ]
+        if snapshots:
+            snapshots.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+            return str(snapshots[0])
+
+    return None
 
 
 @lru_cache(maxsize=8192)
@@ -49,16 +130,25 @@ class VectorStoreMultimodal:
 
         self.model_name = os.getenv("MODEL_NAME", "BAAI/bge-m3")
         self.model_weight = os.getenv("MODEL_WEIGHT", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\Visualized_m3.pth")
+        self.model_local_path = _resolve_hf_snapshot_path(self.model_name)
+        if self.model_local_path:
+            print(f"BGE local model path = {self.model_local_path}")
+        elif os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            raise RuntimeError(
+                f"Local BGE model snapshot not found for {self.model_name!r}. "
+                "Check MODEL_DOWNLOAD_URL or set MODEL_LOCAL_PATH to the snapshot directory."
+            )
         self.model = Visualized_BGE(model_name_bge=self.model_name,
-                                    model_weight=self.model_weight)
+                                    model_weight=self.model_weight,
+                                    from_pretrained=self.model_local_path)
         self.model.eval()
         self.model.to(self.device)
         self.image_config = self.get_config()
 
-        self.top_k = int(os.getenv("TOP_K", 3))
+        self.top_k = _env_int("TOP_K", default=3)
         # 虽然有硬分块参数，但是其实根本没用上（最开始怕某个字段特别长，后来感觉再长也不会好几千个字）
-        self.chunk_size = int(os.getenv("CHUNK_SIZE", 500))
-        self.overlap = int(os.getenv("OVERLAP", 50))
+        self.chunk_size = _env_int("CHUNK_SIZE", default=500)
+        self.overlap = _env_int("OVERLAP", default=50)
 
         self.embedding_dim = 1024
 
@@ -72,13 +162,17 @@ class VectorStoreMultimodal:
         # self.collection_name = "documents_collection_reranker" # 主chunk + 图像语义
         self.create_or_load_collection()
 
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = 2000
-        self.chat_context_window = int(os.getenv("LLM_CONTEXT_WINDOW", 4096))
-        self.context_margin_token = int(os.getenv("CONTEXT_MARGIN_TOKEN", 128))
-        self.image_input_token = int(os.getenv("IMAGE_INPUT_TOKEN", 1500))
+        self.max_token = _env_int("MAX_TOKEN", default=2000)
+        self.chat_context_window = _env_int(
+            "LLM_CONTEXT_WINDOW",
+            "INPUT_TOKEN",
+            "MESSAGE_MAX_TOKEN",
+            default=4096,
+        )
+        self.context_margin_token = _env_int("CONTEXT_MARGIN_TOKEN", default=128)
+        self.image_input_token = _env_int("IMAGE_INPUT_TOKEN", default=1500)
         self.enable_vector_image_description = os.getenv("ENABLE_VECTOR_IMAGE_DESCRIPTION", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.enable_knowledge_main_chunk_ai = os.getenv("ENABLE_KNOWLEDGE_MAIN_CHUNK_AI", "0").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -285,6 +379,168 @@ class VectorStoreMultimodal:
             else:
                 print(f"加载集合失败: {e}")
                 raise
+
+    def _truncate_milvus_text(self, value: Any, safe_length: int = MILVUS_CONTENT_SAFE_LENGTH) -> str:
+        text = "" if value is None else str(value)
+        if self._milvus_text_length(text) <= safe_length:
+            return text
+        budget = max(1, safe_length - self._milvus_text_length(VECTOR_TRUNCATION_SUFFIX))
+        low, high = 0, len(text)
+        best = ""
+        while low <= high:
+            mid = (low + high) // 2
+            candidate = text[:mid]
+            if self._milvus_text_length(candidate) <= budget:
+                best = candidate
+                low = mid + 1
+            else:
+                high = mid - 1
+        return best.rstrip() + VECTOR_TRUNCATION_SUFFIX
+
+    def _milvus_text_length(self, value: Any) -> int:
+        return len(("" if value is None else str(value)).encode("utf-8"))
+
+    def _fit_milvus_text_end(self, text: str, start: int, safe_length: int) -> int:
+        low, high = start + 1, len(text)
+        best = start
+        while low <= high:
+            mid = (low + high) // 2
+            if self._milvus_text_length(text[start:mid]) <= safe_length:
+                best = mid
+                low = mid + 1
+            else:
+                high = mid - 1
+        return best
+
+    def _split_milvus_text(
+        self,
+        value: Any,
+        safe_length: int = MILVUS_CONTENT_SAFE_LENGTH,
+        overlap: int = MILVUS_CHUNK_SPLIT_OVERLAP,
+    ) -> List[Dict[str, Any]]:
+        text = "" if value is None else str(value)
+        if self._milvus_text_length(text) <= safe_length:
+            return [{"text": text, "start": 0, "end": len(text)}]
+
+        overlap = max(0, min(overlap, max(0, len(text) // 4)))
+        parts = []
+        start = 0
+        while start < len(text):
+            max_end = self._fit_milvus_text_end(text, start, safe_length)
+            if max_end <= start:
+                max_end = min(len(text), start + 1)
+            end = max_end
+            if max_end < len(text):
+                min_break = start + max(1, int((max_end - start) * 0.7))
+                for marker in ("\n\n", "\n", "。", "；", ";", "！", "？", ".", "，", ","):
+                    marker_index = text.rfind(marker, min_break, max_end)
+                    if marker_index != -1:
+                        end = marker_index + len(marker)
+                        break
+            if end <= start:
+                end = max_end
+
+            part_text = text[start:end]
+            if part_text:
+                parts.append({"text": part_text, "start": start, "end": end})
+            if end >= len(text):
+                break
+            next_start = max(0, end - overlap)
+            start = next_start if next_start > start else end
+
+        return parts or [{"text": "", "start": 0, "end": 0}]
+
+    def _metadata_to_milvus_json(self, metadata: Dict[str, Any]) -> str:
+        metadata_json = json.dumps(metadata, ensure_ascii=False)
+        if self._milvus_text_length(metadata_json) <= MILVUS_METADATA_SAFE_LENGTH:
+            return metadata_json
+
+        compact_metadata = {}
+        for key, value in metadata.items():
+            if isinstance(value, str):
+                compact_metadata[key] = value[:1000] if len(value) > 1000 else value
+            elif isinstance(value, list):
+                compact_metadata[key] = value[:20]
+            elif isinstance(value, dict):
+                compact_metadata[key] = str(value)[:1000]
+            else:
+                compact_metadata[key] = value
+        compact_metadata["metadata_truncated"] = True
+
+        metadata_json = json.dumps(compact_metadata, ensure_ascii=False)
+        if self._milvus_text_length(metadata_json) <= MILVUS_METADATA_SAFE_LENGTH:
+            return metadata_json
+
+        minimal_metadata = {
+            "metadata_truncated": True,
+            "source_doc_id": metadata.get("source_doc_id"),
+            "library_type": metadata.get("library_type"),
+            "chunk_id": metadata.get("chunk_id"),
+            "chunk_size": metadata.get("chunk_size"),
+            "content_type": metadata.get("content_type"),
+            "is_split": metadata.get("is_split"),
+            "split_index": metadata.get("split_index"),
+            "split_total": metadata.get("split_total"),
+            "original_chunk_size": metadata.get("original_chunk_size"),
+        }
+        return json.dumps(minimal_metadata, ensure_ascii=False)
+
+    def _normalize_chunks_for_milvus(self, chunks: List[Dict]) -> List[Dict]:
+        normalized_chunks = []
+        for chunk in chunks:
+            original_content = "" if chunk.get("content") is None else str(chunk.get("content"))
+            original_embedding_content = (
+                None if chunk.get("embedding_content") is None else str(chunk.get("embedding_content"))
+            )
+            content_parts = self._split_milvus_text(original_content)
+            split_total = len(content_parts)
+
+            metadata_raw = chunk.get("metadata") or "{}"
+            try:
+                base_metadata = json.loads(metadata_raw) if isinstance(metadata_raw, str) else dict(metadata_raw)
+            except Exception:
+                base_metadata = {"metadata_raw": str(metadata_raw)}
+            original_metadata_chunk_id = base_metadata.get("chunk_id")
+
+            for split_index, content_part in enumerate(content_parts):
+                normalized = dict(chunk)
+                normalized["content"] = self._truncate_milvus_text(content_part["text"], MILVUS_CONTENT_SAFE_LENGTH)
+                if original_embedding_content is not None:
+                    if len(original_embedding_content) == len(original_content):
+                        embedding_part = original_embedding_content[content_part["start"]:content_part["end"]]
+                    elif original_content:
+                        embedding_start = int(content_part["start"] * len(original_embedding_content) / len(original_content))
+                        embedding_end = int(content_part["end"] * len(original_embedding_content) / len(original_content))
+                        embedding_part = original_embedding_content[embedding_start:embedding_end]
+                    else:
+                        embedding_part = original_embedding_content
+                    normalized["embedding_content"] = self._truncate_milvus_text(
+                        embedding_part,
+                        MILVUS_CONTENT_SAFE_LENGTH,
+                    )
+                normalized["title"] = self._truncate_milvus_text(
+                    normalize_document_title(normalized.get("title") or ""),
+                    MILVUS_TITLE_MAX_LENGTH,
+                )
+
+                metadata = dict(base_metadata)
+                metadata["chunk_size"] = len(normalized["content"])
+                metadata["chunk_byte_size"] = self._milvus_text_length(normalized["content"])
+                if split_total > 1:
+                    metadata["is_split"] = True
+                    metadata["split_index"] = split_index
+                    metadata["split_total"] = split_total
+                    metadata["split_start"] = content_part["start"]
+                    metadata["split_end"] = content_part["end"]
+                    metadata["split_overlap"] = MILVUS_CHUNK_SPLIT_OVERLAP
+                    metadata["original_chunk_size"] = len(original_content)
+                    metadata["original_chunk_byte_size"] = self._milvus_text_length(original_content)
+                    if original_metadata_chunk_id:
+                        metadata["original_chunk_id"] = original_metadata_chunk_id
+                        metadata["chunk_id"] = f"{original_metadata_chunk_id}-part-{split_index + 1}"
+                normalized["metadata"] = self._metadata_to_milvus_json(metadata)
+                normalized_chunks.append(normalized)
+        return normalized_chunks
 
     def chunk_document(self, document: Document, chunk_size: int = -1, overlap: int = -1) -> List[Dict]:
         chunks = []
@@ -858,9 +1114,12 @@ class VectorStoreMultimodal:
         return total
 
     def _safe_max_tokens(self, messages, preferred: int = None) -> int:
-        preferred = preferred or int(os.getenv("VECTOR_AI_MAX_OUTPUT_TOKEN", 512))
+        preferred = preferred or _env_int("VECTOR_AI_MAX_OUTPUT_TOKEN", "MAX_TOKEN", default=512)
         available = self.chat_context_window - self._message_input_tokens(messages) - self.context_margin_token
-        return max(1, min(preferred, self.max_token, available))
+        max_tokens = min(preferred, self.max_token, available)
+        if max_tokens < MIN_AI_OUTPUT_TOKEN:
+            return 0
+        return max_tokens
 
     def generate_descript_image_messages(self, image_url: str):
         prompt = """请详细描述图像信息，重点包含设备信息、操作信息、维修信息或知识点。\n仅返回答案，不要任何markdown渲染。回答长度不超过300字。"""
@@ -894,10 +1153,18 @@ class VectorStoreMultimodal:
                 api_key=self.api_key
             )
 
+            max_tokens = self._safe_max_tokens(
+                messages,
+                _env_int("IMAGE_DESCRIBE_MAX_OUTPUT_TOKEN", default=512),
+            )
+            if max_tokens <= 0:
+                print("AI image description skipped: insufficient output token budget")
+                return None
+
             response = client.chat.completions.create(
                 model=self.model_chat,
                 messages=messages,
-                max_tokens=self._safe_max_tokens(messages, int(os.getenv("IMAGE_DESCRIBE_MAX_OUTPUT_TOKEN", 512)))
+                max_tokens=max_tokens,
             )
             ans = response.choices[0].message.content
             # print(ans)
@@ -996,6 +1263,7 @@ class VectorStoreMultimodal:
                 "metadata": json.dumps(metadata, ensure_ascii=False)
             })
         # print(222)
+        chunks = self._normalize_chunks_for_milvus(chunks)
 
         if not chunks:
             return
@@ -1008,7 +1276,7 @@ class VectorStoreMultimodal:
             data.append([
                 chunk["doc_id"],  # doc_id
                 i,  # chunk_id
-                chunk["title"],  # title
+                normalize_document_title(chunk["title"]),  # title
                 chunk["content"],  # content
                 chunk["image_url"],  # image_url
                 chunk["metadata"]  # metadata
@@ -1037,7 +1305,27 @@ class VectorStoreMultimodal:
 
     def search(self, query_text: str, query_image=None, top_k: int = -1) -> List[Dict]:
         """搜索相似文档"""
-
+        # 返回格式举例
+        # {
+        #     "contributor_id": 2,
+        #     "source_doc_id": 17,
+        #     "library_type": "knowledge",
+        #     "tag": [],
+        #     "first_edit_date": "2026-01-20T08:00:00",
+        #     "section_id": 3,                // 知识库独有：章节主键
+        #     "section_title": "供电模块",     // 知识库独有：章节标题
+        #     "section_type": "3.2",          // 知识库独有：目录编号
+        #     "section_index": 2,             // 知识库独有：章节排序序号
+        #     "image_urls": ["..."],          // 知识库独有：章节关联图片列表
+        #     "image_positions": [],
+        #     "subchunk_index": 0,
+        #     "unit_type": "section_text",
+        #     "content_type": "section_text",
+        #     "chunk_id": "knowledge-section-3-text-0",
+        #     "chunk_size": 412,
+        #     "semantic_method": "knowledge_section_text_v3",
+        #     "chunk_strategy": "enterprise_docx_adaptive_text_v1"
+        # }
         try:
             self.load_collection()
         except:
@@ -1133,6 +1421,7 @@ class VectorStoreMultimodal:
     def generate_message(self, content, images):
         messages = []
         data = {}
+        preferred_output = _env_int("MAIN_CHUNK_MAX_OUTPUT_TOKEN", default=512)
         prompt = """我将提供一段设备维修相关的内容，请根据后续文本和图像内容，按照给定模板，总结提炼核心内容。
 【模板】：
 标题：<简洁的标题>
@@ -1153,6 +1442,7 @@ class VectorStoreMultimodal:
 2. 若包含图像，可以从图像中分析特征。
 3. 回答长度不得超过500个token。
 4. 关键特征部分可相对详细一点。
+5. 回答仅包含JSON对象，不要输出Markdown代码块或其他说明文字。
 
 现在给定内容如下：
 [文本内容]
@@ -1162,6 +1452,7 @@ class VectorStoreMultimodal:
 """.format(text=content)
         msg_content = [{"type": "text", "text": prompt}]
         token_cnt = _count_tokens_cached(prompt)
+        input_budget = self.chat_context_window - preferred_output - self.context_margin_token
         if images is not None:
             for image in images:
                 image = image.strip()
@@ -1178,9 +1469,9 @@ class VectorStoreMultimodal:
                     }.get(ext, 'image/jpeg')
                 image_base64 = self.image_to_base64(compress_image)
 
-                if token_cnt + 578 > 6000:
+                if token_cnt + self.image_input_token > input_budget:
                     break
-                token_cnt += 578
+                token_cnt += self.image_input_token
 
                 msg_content.append({
                     "type": "image_url",
@@ -1190,6 +1481,63 @@ class VectorStoreMultimodal:
         data["content"] = msg_content
         messages.append(data)
         return messages
+
+    def _parse_ai_json_object(self, ans: str) -> Dict[str, Any]:
+        text = (ans or "").strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text).strip()
+        if not text:
+            raise ValueError("AI response is empty")
+
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start < 0 or end <= start:
+                preview = text[:120].replace("\n", "\\n")
+                raise ValueError(f"AI response is not JSON: {preview!r}")
+            parsed = json.loads(text[start:end + 1])
+
+        if not isinstance(parsed, dict):
+            raise ValueError(f"AI response JSON is not an object: {type(parsed).__name__}")
+        return parsed
+
+    def _normalize_main_chunk_fields(
+            self,
+            result: Dict[str, Any],
+            fallback: Dict[str, Any],
+            required_keys: List[str],
+    ) -> Dict[str, Any]:
+        normalized = {}
+        for key in required_keys:
+            value = result.get(key)
+            if value is None or str(value).strip() == "":
+                value = fallback.get(key, "")
+            normalized[key] = str(value or "").strip()
+        return normalized
+
+    def _build_breakdown_main_chunk_fallback(self, document: Document) -> Dict[str, Any]:
+        problem_intro = str(getattr(document, "problem_intro", "") or "").strip()
+        causes = str(getattr(document, "causes", "") or "").strip()
+        feature_parts = []
+        for label, field in (
+                ("评估", "evaluation"),
+                ("检查", "inspection"),
+                ("解决方案", "solutions"),
+                ("关键点", "key_points"),
+        ):
+            value = str(getattr(document, field, "") or "").strip()
+            if value:
+                feature_parts.append(f"{label}：{value}")
+
+        feature = "；".join(feature_parts) or problem_intro or causes
+        return {
+            "title": str(getattr(document, "title", "") or "").strip(),
+            "problem_intro": problem_intro,
+            "causes": causes,
+            "feature": feature,
+        }
 
     def generate_knowledge_message(self, content, images):
         messages = []
@@ -1216,7 +1564,7 @@ class VectorStoreMultimodal:
 [文本内容]
 {text}
 """
-        preferred_output = int(os.getenv("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512))
+        preferred_output = _env_int("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", default=512)
         base_prompt = prompt_template.format(text="")
         text_budget = self.chat_context_window - preferred_output - self.context_margin_token - _count_tokens_cached(base_prompt)
         content = self._truncate_text_by_tokens(content or "", text_budget)
@@ -1297,20 +1645,33 @@ class VectorStoreMultimodal:
                     api_key=self.api_key
                 )
                 messages = self.generate_knowledge_message(content, images)
+                max_tokens = self._safe_max_tokens(
+                    messages,
+                    _env_int("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", default=512),
+                )
+                if max_tokens <= 0:
+                    print("知识库主chunk AI生成跳过，使用文本兜底主chunk: output token budget is too small")
+                    return fallback_main_chunk
                 response = client.chat.completions.create(
                     model=self.model_chat,
                     messages=messages,
-                    max_tokens=self._safe_max_tokens(messages, int(os.getenv("KNOWLEDGE_MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512)))
+                    max_tokens=max_tokens,
                 )
                 ans = response.choices[0].message.content
                 print("生成知识库主chunk的ai回答")
                 print(ans)
-                return json.loads(ans)
+                result = self._parse_ai_json_object(ans)
+                return self._normalize_main_chunk_fields(
+                    result,
+                    fallback_main_chunk,
+                    ["title", "summary", "core_topic", "key_points", "scope", "tags"],
+                )
             except Exception as e:
                 print(f"知识库主chunk AI生成失败，使用文本兜底主chunk: {e}")
                 return fallback_main_chunk
 
         content = f"【标题】：{document.title}\n【问题简介】：{document.problem_intro}\n【成因】：{document.causes}\n"
+        fallback_main_chunk = self._build_breakdown_main_chunk_fallback(document)
 
         if document.image_urls_problem_intro is not None and document.image_urls_problem_intro != "":
             images = document.image_urls_problem_intro.split(", ")
@@ -1325,20 +1686,31 @@ class VectorStoreMultimodal:
                 api_key=self.api_key
             )
             messages = self.generate_message(content, images)
+            max_tokens = self._safe_max_tokens(
+                messages,
+                _env_int("MAIN_CHUNK_MAX_OUTPUT_TOKEN", default=512),
+            )
+            if max_tokens <= 0:
+                print("主chunk AI生成跳过，使用文本兜底主chunk: output token budget is too small")
+                return fallback_main_chunk
 
             response = client.chat.completions.create(
                 model=self.model_chat,
                 messages=messages,
-                max_tokens=self._safe_max_tokens(messages, int(os.getenv("MAIN_CHUNK_MAX_OUTPUT_TOKEN", 512)))
+                max_tokens=max_tokens,
             )
             ans = response.choices[0].message.content
             print("生成主chunk的ai回答")
             print(ans)
-            result = json.loads(ans)
-            return result
+            result = self._parse_ai_json_object(ans)
+            return self._normalize_main_chunk_fields(
+                result,
+                fallback_main_chunk,
+                ["title", "problem_intro", "causes", "feature"],
+            )
         except Exception as e:
-            print(e)
-            return None
+            print(f"主chunk AI生成失败，使用文本兜底主chunk: {e}")
+            return fallback_main_chunk
 
     def embed_multimodal(self, chunks):
         """生成向量"""

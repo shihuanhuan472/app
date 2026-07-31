@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>维修辅助系统流程架构图</title>
+  <style>
+    body {
+      margin: 0;
+      background: #eef2f7;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    .wrap {
+      width: min(1600px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 36px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      color: #334155;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      color: #172033;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      color: #647084;
+      white-space: nowrap;
+    }
+
+    .canvas {
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    img {
+      display: block;
+      width: 1600px;
+      max-width: none;
+      height: 900px;
+    }
+
+    @media (max-width: 760px) {
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hint {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="toolbar">
+      <h1>维修辅助系统流程架构图</h1>
+      <div class="hint">可横向滚动查看完整图；截图时建议浏览器缩放到 80% 或 90%。</div>
+    </div>
+    <div class="canvas">
+      <img src="./system-workflow-architecture.svg" alt="维修辅助系统文件处理与问答回复流程架构图">
+    </div>
+  </main>
+</body>
+</html>

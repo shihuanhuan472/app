@@ -15,6 +15,13 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 
+def _is_offline_mode() -> bool:
+    return any(
+        os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+        for name in ("TRANSFORMERS_OFFLINE", "HF_HUB_OFFLINE")
+    )
+
+
 @dataclass
 class EncoderOutput(ModelOutput):
     q_reps: Optional[Tensor] = None
@@ -51,8 +58,9 @@ class Visualized_BGE(nn.Module):
         else:
             raise Exception(f'Unavailable model_name {model_name_bge}')
         
+        local_files_only = _is_offline_mode()
         if not from_pretrained:
-            bge_config = AutoConfig.from_pretrained(model_name_bge)
+            bge_config = AutoConfig.from_pretrained(model_name_bge, local_files_only=local_files_only)
             bge = AutoModel.from_config(bge_config)
         else:
             print("Loading from local path.")
@@ -91,9 +99,17 @@ class Visualized_BGE(nn.Module):
         self.load_model(model_weight)
         
         if not from_pretrained:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name_bge, use_fast=False)
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_name_bge,
+                use_fast=False,
+                local_files_only=local_files_only,
+            )
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(from_pretrained, use_fast=False)
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                from_pretrained,
+                use_fast=False,
+                local_files_only=True,
+            )
 
         if torch.cuda.is_available():
             self.device = torch.device('cuda')

@@ -13,7 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/api.js?v=20260717-sse-parser"></script>
     <script src="js/menu.js"></script>
     <style>
         /* 为历史对话列表添加滚动条样式 */
@@ -481,8 +481,6 @@
         </div>
     </div>
 
-<script src="js/common.js"></script>
-<script src="js/api.js"></script>
 <script>
 
     function ensureTableSpacing(text) {
@@ -508,6 +506,29 @@
             }
         }
         return modified ? lines.join('\n') : text;
+    }
+
+    /*
+     * 功能说明：流式展示专用清理，隐藏图片 Markdown 和本地/Web 图片路径。
+     * 参数说明：text 为后端返回的当前累计回答内容。
+     * 返回值说明：返回仅适合逐字展示的文本；最终图片由流结束后的 final 事件或重新加载消息统一渲染。
+     * 关键流程：移除完整/未闭合的图片 Markdown，再移除 img_url、Windows 绝对路径和 /upload 路径。
+     */
+    function sanitizeStreamingContent(text) {
+        if (!text || typeof text !== 'string') return '';
+        let output = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
+        const lastImageStart = output.lastIndexOf('![');
+        if (lastImageStart !== -1) {
+            const tail = output.slice(lastImageStart);
+            if (!tail.includes(')')) {
+                output = output.slice(0, lastImageStart);
+            }
+        }
+        output = output.replace(/^.*(?:img_url|image_url|配图路径|本文配图路径).*$(\r?\n)?/gmi, '');
+        output = output.replace(/[A-Za-z]:[/\\][^\s)\]]+/g, '');
+        output = output.replace(/\/upload\/[^\s)\]]+/g, '');
+        output = output.replace(/\bupload\/(?:images|ask)\/[^\s)\]]+/g, '');
+        return output.trimEnd();
     }
 
     // Markdown解析配置
@@ -697,15 +718,30 @@
         normalizeReferenceDocuments(referenceInput) {
             if (!referenceInput) return [];
 
+            const normalizeDocId = (value) => {
+                const raw = String(value || '').trim();
+                const parts = raw.includes(':') ? raw.split(':') : ['', raw];
+                return parseInt(parts[parts.length - 1], 10);
+            };
+
             if (Array.isArray(referenceInput)) {
                 return referenceInput
                     .map(doc => ({
-                        doc_id: parseInt(doc.doc_id, 10),
+                        doc_id: normalizeDocId(doc.doc_id),
                         library_type: doc.library_type === 'knowledge' ? 'knowledge' : 'breakdown',
-                        title: doc.title || '',
+                        title: doc.title || doc.doc_name || '',
                         score: doc.score !== undefined && doc.score !== null ? Number(doc.score) : null
                     }))
                     .filter(doc => Number.isInteger(doc.doc_id));
+            }
+
+            if (typeof referenceInput === 'object') {
+                if (Array.isArray(referenceInput.doc_aggs)) {
+                    return this.normalizeReferenceDocuments(referenceInput.doc_aggs);
+                }
+                if (Array.isArray(referenceInput.documents)) {
+                    return this.normalizeReferenceDocuments(referenceInput.documents);
+                }
             }
 
             if (typeof referenceInput === 'string') {
@@ -729,7 +765,7 @@
                         const trimmed = value.trim();
                         const parts = trimmed.includes(':') ? trimmed.split(':') : ['breakdown', trimmed];
                         const libraryType = parts[0] === 'knowledge' ? 'knowledge' : 'breakdown';
-                        const docId = parseInt(parts[1], 10);
+                        const docId = normalizeDocId(trimmed);
                         return { doc_id: docId, library_type: libraryType, title: '', score: null };
                     })
                     .filter(doc => Number.isInteger(doc.doc_id));
@@ -842,14 +878,14 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        updateStreamingMessage(content) {
+        updateStreamingMessage(content, renderImages = false) {
             const msgDiv = document.getElementById('streamingAIMessage');
             if (!msgDiv) return;
 
             const textDiv = msgDiv.querySelector('.message-text');
             if (textDiv) {
                 
-                textDiv.innerHTML = MarkdownParser.render(content);
+                textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
                 
                 const container = document.getElementById('conversationContent');
                 if (container) container.scrollTop = container.scrollHeight;
@@ -1899,7 +1935,7 @@
                                 this.updateReferenceDocuments(chunk.reference_docs);
                             }
                             if (chunk.answer !== undefined) {
-                                this.updateStreamingMessage(chunk.answer);
+                                this.updateStreamingMessage(chunk.answer, chunk.final === true);
                             }
                         }
                     },
@@ -1947,14 +1983,14 @@
         }
 
         // 更新流式消息内容
-        updateStreamingMessage(content) {
+        updateStreamingMessage(content, renderImages = false) {
             const msgDiv = document.getElementById('streamingAIMessage');
             if (!msgDiv) return;
 
             const textDiv = msgDiv.querySelector('.message-text');
             if (textDiv) {
                 // 使用 Markdown 渲染（可选，如果流式逐步渲染可能会影响性能，可先纯文本�?
-                textDiv.innerHTML = MarkdownParser.render(content);
+                textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
                 // 滚动到消息底部
                 const container = document.getElementById('conversationContent');
                 container.scrollTop = container.scrollHeight;

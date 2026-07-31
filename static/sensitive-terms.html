@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敏感词管理 - 设备维修辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/menu.js"></script>
+    <style>
+        .sensitive-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 360px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .sensitive-panel {
+            background: #fff;
+            border: 1px solid #e8eef7;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
+        }
+
+        .term-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .term-toolbar .search-box {
+            max-width: 440px;
+        }
+
+        .term-toolbar-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .term-count {
+            color: #667085;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .term-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .term-table th,
+        .term-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #edf2f7;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .term-table th {
+            color: #5f6f85;
+            font-weight: 600;
+            background: #f8fafc;
+        }
+
+        .term-value {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .term-mask {
+            display: inline-flex;
+            max-width: 100%;
+            align-items: center;
+            min-height: 26px;
+            padding: 3px 8px;
+            border: 1px solid #c7d7ee;
+            border-radius: 6px;
+            background: #f5f9ff;
+            color: #1a3a5f;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .term-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #d9e3f0;
+            background: #fff;
+            color: #4a5568;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            color: #4a9eff;
+            border-color: #4a9eff;
+            background: #f5f9ff;
+        }
+
+        .icon-btn.danger:hover {
+            color: #ef4444;
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+
+        .term-empty {
+            padding: 56px 20px;
+            text-align: center;
+            color: #667085;
+        }
+
+        .term-form-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            color: #1a3a5f;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .term-form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .term-form-actions .btn {
+            flex: 1;
+        }
+
+        @media (max-width: 980px) {
+            .sensitive-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .term-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .term-toolbar .search-box {
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="system-container">
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon"><i class="fas fa-tools"></i></div>
+                    <span>维修辅助系统</span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="source-documents.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                    <span>源文档库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="document-review.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+                    <span>文档审核</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI 辅助</span>
+                </a>
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <a href="sensitive-terms.html" class="nav-item active" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user-shield"></i></span>
+                    <span>敏感词管理</span>
+                </a>
+                <a href="tag-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tags"></i></span>
+                    <span>标签管理</span>
+                </a>
+                <a href="user-profile.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div>
+                        <div class="user-name" id="userName">用户</div>
+                        <div class="user-role" id="userRole">用户</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content" id="sensitivePageMain" style="visibility: hidden;">
+            <div class="header">
+                <div>
+                    <div class="page-title">敏感词管理</div>
+                    <div class="page-subtitle">机构名、人名替换规则</div>
+                </div>
+            </div>
+
+            <div class="sensitive-layout">
+                <section class="sensitive-panel">
+                    <div class="term-toolbar">
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="search-input" id="termSearchInput" placeholder="搜索原词或替换词">
+                        </div>
+                        <div class="term-toolbar-actions">
+                            <button class="btn btn-secondary" type="button" onclick="resetTermSearch()">
+                                <i class="fas fa-rotate-left"></i> 清空搜索
+                            </button>
+                            <button class="btn btn-secondary" type="button" onclick="loadSensitiveTerms()">
+                                <i class="fas fa-rotate"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="term-count" id="termCount">共 0 条</div>
+                    <div id="termTableWrap"></div>
+                </section>
+
+                <aside class="sensitive-panel">
+                    <div class="term-form-title">
+                        <span id="termFormTitle">新增规则</span>
+                        <button class="icon-btn" type="button" title="新建" onclick="resetTermForm()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <form id="termForm">
+                        <input type="hidden" id="termOriginalSource">
+                        <div class="form-group">
+                            <label class="form-label required" for="termSource">原词</label>
+                            <input type="text" id="termSource" class="form-control" maxlength="200" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required" for="termReplacement">替换词</label>
+                            <input type="text" id="termReplacement" class="form-control" maxlength="200" required>
+                        </div>
+                        <div class="term-form-actions">
+                            <button class="btn btn-primary" type="submit" id="termSubmitBtn">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
+                            <button class="btn btn-secondary" type="button" onclick="resetTermForm()">
+                                <i class="fas fa-eraser"></i> 清空
+                            </button>
+                        </div>
+                    </form>
+
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sensitiveTerms = [];
+        let visibleTerms = [];
+        let termKeyword = '';
+        let termSubmitting = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = Utils.checkLogin();
+            Utils.loadUserInfo();
+            if (!Utils.hasPermission(user, Utils.PERMISSION.ADMIN)) {
+                Utils.showMessage('当前身份没有权限访问敏感词管理', 'error');
+                setTimeout(() => window.location.href = 'main.html', 900);
+                return;
+            }
+            document.getElementById('sensitivePageMain').style.visibility = 'visible';
+
+            document.getElementById('termSearchInput').addEventListener('input', Utils.debounce((event) => {
+                termKeyword = event.target.value.trim();
+                renderSensitiveTerms();
+            }, 250));
+
+            document.getElementById('termForm').addEventListener('submit', submitSensitiveTerm);
+            loadSensitiveTerms();
+        });
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function loadSensitiveTerms() {
+            const wrap = document.getElementById('termTableWrap');
+            wrap.innerHTML = '<div class="term-empty"><i class="fas fa-spinner fa-spin"></i> 正在加载</div>';
+            try {
+                const data = await sensitiveTermsAPI.getTerms();
+                sensitiveTerms = Array.isArray(data.terms) ? data.terms : [];
+                renderSensitiveTerms();
+            } catch (error) {
+                wrap.innerHTML = `<div class="term-empty">${escapeHtml(error.message || '加载失败')}</div>`;
+                document.getElementById('termCount').textContent = '共 0 条';
+            }
+        }
+
+        function renderSensitiveTerms() {
+            const wrap = document.getElementById('termTableWrap');
+            const keyword = termKeyword.toLowerCase();
+            visibleTerms = sensitiveTerms.filter((term) => {
+                if (!keyword) return true;
+                return String(term.source || '').toLowerCase().includes(keyword)
+                    || String(term.replacement || '').toLowerCase().includes(keyword);
+            });
+
+            document.getElementById('termCount').textContent = `共 ${sensitiveTerms.length} 条，当前 ${visibleTerms.length} 条`;
+
+            if (!visibleTerms.length) {
+                wrap.innerHTML = '<div class="term-empty">暂无敏感词规则</div>';
+                return;
+            }
+
+            const rows = visibleTerms.map((term, index) => `
+                <tr>
+                    <td><span class="term-value" title="${escapeHtml(term.source)}">${escapeHtml(term.source)}</span></td>
+                    <td><span class="term-mask" title="${escapeHtml(term.replacement)}">${escapeHtml(term.replacement)}</span></td>
+                    <td>
+                        <div class="term-actions">
+                            <button class="icon-btn" type="button" title="编辑" data-index="${index}" data-action="edit">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="icon-btn danger" type="button" title="删除" data-index="${index}" data-action="delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            wrap.innerHTML = `
+                <table class="term-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 42%;">原词</th>
+                            <th>替换词</th>
+                            <th style="width: 96px; text-align: right;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+
+            wrap.querySelectorAll('button[data-action="edit"]').forEach((button) => {
+                button.addEventListener('click', () => editSensitiveTerm(Number(button.dataset.index)));
+            });
+            wrap.querySelectorAll('button[data-action="delete"]').forEach((button) => {
+                button.addEventListener('click', () => deleteSensitiveTerm(Number(button.dataset.index)));
+            });
+        }
+
+        function resetTermSearch() {
+            document.getElementById('termSearchInput').value = '';
+            termKeyword = '';
+            renderSensitiveTerms();
+        }
+
+        function editSensitiveTerm(index) {
+            const term = visibleTerms[index];
+            if (!term) return;
+            document.getElementById('termFormTitle').textContent = '编辑规则';
+            document.getElementById('termOriginalSource').value = term.source || '';
+            document.getElementById('termSource').value = term.source || '';
+            document.getElementById('termReplacement').value = term.replacement || '';
+        }
+
+        function resetTermForm() {
+            document.getElementById('termFormTitle').textContent = '新增规则';
+            document.getElementById('termOriginalSource').value = '';
+            document.getElementById('termSource').value = '';
+            document.getElementById('termReplacement').value = '';
+        }
+
+        async function submitSensitiveTerm(event) {
+            event.preventDefault();
+            if (termSubmitting) return;
+
+            const originalSource = document.getElementById('termOriginalSource').value.trim();
+            const source = document.getElementById('termSource').value.trim();
+            const replacement = document.getElementById('termReplacement').value.trim();
+
+            if (!source || !replacement) {
+                Utils.showMessage('原词和替换词不能为空', 'warning');
+                return;
+            }
+
+            termSubmitting = true;
+            const btn = document.getElementById('termSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中';
+
+            try {
+                if (originalSource) {
+                    await sensitiveTermsAPI.updateTerm({ source: originalSource, new_source: source, replacement });
+                    Utils.showMessage('敏感词规则已更新', 'success');
+                } else {
+                    await sensitiveTermsAPI.addTerm({ source, replacement });
+                    Utils.showMessage('敏感词规则已新增', 'success');
+                }
+                resetTermForm();
+                await loadSensitiveTerms();
+            } catch (error) {
+                Utils.showMessage(error.message || '保存失败', 'error');
+            } finally {
+                termSubmitting = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> 保存';
+            }
+        }
+
+        async function deleteSensitiveTerm(index) {
+            const term = visibleTerms[index];
+            if (!term) return;
+            if (!confirm(`确定删除“${term.source}”这条替换规则吗？`)) return;
+
+            try {
+                await sensitiveTermsAPI.deleteTerm(term.source);
+                if (document.getElementById('termOriginalSource').value === term.source) {
+                    resetTermForm();
+                }
+                Utils.showMessage('敏感词规则已删除', 'success');
+                await loadSensitiveTerms();
+            } catch (error) {
+                Utils.showMessage(error.message || '删除失败', 'error');
+            }
+        }
+
+    </script>
+</body>
+</html>

@@ -13,7 +13,10 @@ from urllib.parse import unquote, urlparse
 import requests
 from PIL import Image
 from openai import OpenAI
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 
 # 允许直接运行 utils/TxtParser.py 时，也能找到项目根目录下的 models.py
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -23,6 +26,7 @@ if PROJECT_ROOT not in sys.path:
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 
 
 """
@@ -53,7 +57,6 @@ class TxtParser:
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
 
         # 本地 OpenAI 兼容接口配置，和你原来的 MarkdownParser 保持一致
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
 
@@ -540,6 +543,7 @@ class TxtParser:
             ans_clean = re.sub(r"\s*```$", "", ans_clean)
 
             result = json.loads(ans_clean)
+            result["title"] = normalize_document_title(result.get("title"))
             flag = [0] * len(image_names)
 
             for key in result.keys():

@@ -11,10 +11,11 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
+from utils.SearchIndexService import SearchIndexService
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 
@@ -98,9 +99,20 @@ class VectorService:
         self.top_k = int(os.getenv("TOP_K", 10))
         self.batch_size = int(os.getenv("BATCH_SIZE", 10))
         self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
-        self.keyword_recall_seed_score = float(
-            os.getenv("KEYWORD_RECALL_SEED_SCORE", max(0.0, self.similarity_low_limit - 0.08))
+        self.enable_lexical_retrieval = str(
+            os.getenv("LEXICAL_RETRIEVAL_ENABLED", "true")
+        ).strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        self.lexical_retrieval_limit = int(os.getenv("LEXICAL_RETRIEVAL_LIMIT", 40))
+        self.lexical_recall_seed_score = float(
+            os.getenv("LEXICAL_RECALL_SEED_SCORE", max(0.0, self.similarity_low_limit - 0.05))
         )
+        self.lexical_score_span = float(os.getenv("LEXICAL_SCORE_SPAN", 0.28))
+        self.lexical_vector_bonus_max = float(os.getenv("LEXICAL_VECTOR_BONUS_MAX", 0.2))
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
         # self.enable_llm_rerank = True
         # self.rerank_top_k = 8
@@ -111,6 +123,7 @@ class VectorService:
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
+        self.search_index_service = SearchIndexService()
 
     async def add_document_to_vector_store(self, document: Document, commit: bool = True):
         """将文档添加到向量库。"""
@@ -144,6 +157,7 @@ class VectorService:
             if knowledge_sections:
                 vector_document.knowledge_sections = knowledge_sections
             await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
+            await self.search_index_service.index_document(vector_document, knowledge_sections)
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
             if commit:
@@ -160,6 +174,7 @@ class VectorService:
         """从向量库删除文档。"""
         try:
             await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id, _normalize_library_type(library_type))
+            await self.search_index_service.delete_document(doc_id, library_type)
             print(f"文档 {doc_id} 已从向量库删除")
         except Exception as e:
             print(f"从向量库删除文档失败: {e}")
@@ -331,12 +346,8 @@ class VectorService:
         adjusted_results = []
         for item in results:
             vector_score = float(item.get("score", 0.0))
-            metadata = item.get("metadata") or {}
-            if isinstance(metadata, str):
-                try:
-                    metadata = json.loads(metadata)
-                except Exception:
-                    metadata = {}
+            metadata = VectorService._metadata_dict(item.get("metadata"))
+            retrieval_source = str(metadata.get("retrieval_source") or "")
             title = str(item.get("title") or "").lower()
             content = str(item.get("content") or "").lower()
 
@@ -357,7 +368,7 @@ class VectorService:
                 coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
                 title_coverage = title_hit_count / max(len(set(terms)), 1)
                 # Short term queries need a stronger exact-hit signal; cap the bonus to avoid score inflation.
-                if metadata.get("retrieval_source") == "keyword":
+                if VectorService._is_lexical_source(retrieval_source):
                     bonus = float(item.get("term_bonus", 0.0))
                 else:
                     bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
@@ -366,7 +377,7 @@ class VectorService:
                 bonus = 0.0
 
             missing_penalty = float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.18))
-            if metadata.get("retrieval_source") == "keyword":
+            if VectorService._is_lexical_source(retrieval_source):
                 adjusted_score = vector_score
             elif matched_terms:
                 adjusted_score = min(1.0, vector_score + bonus)
@@ -382,52 +393,6 @@ class VectorService:
         return adjusted_results
 
     @staticmethod
-    def _term_alias_patterns(terms: List[str]) -> List[str]:
-        patterns: List[str] = []
-        seen = set()
-        for term in terms:
-            for alias in DOMAIN_TERM_ALIASES.get(term, [term]):
-                alias = str(alias or "").strip()
-                if not alias:
-                    continue
-                key = alias.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                patterns.append(f"%{alias}%")
-        return patterns
-
-    @staticmethod
-    def _keyword_hit_score(
-        title: str,
-        content: str,
-        terms: List[str],
-        base_bonus: float,
-    ) -> Dict[str, Any]:
-        matched_terms = []
-        title_hit_count = 0
-        for term in terms:
-            aliases = DOMAIN_TERM_ALIASES.get(term, [term])
-            title_hit = VectorService._contains_term_alias(title, aliases)
-            content_hit = VectorService._contains_term_alias(content, aliases)
-            if not title_hit and not content_hit:
-                continue
-            matched_terms.append(term)
-            if title_hit:
-                title_hit_count += 1
-
-        if not matched_terms:
-            return {"bonus": 0.0, "matched_terms": []}
-
-        coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
-        title_coverage = title_hit_count / max(len(set(terms)), 1)
-        bonus = base_bonus + (0.05 * coverage) + (0.02 * title_coverage)
-        return {
-            "bonus": min(bonus, 0.15),
-            "matched_terms": matched_terms,
-        }
-
-    @staticmethod
     def _first_image_url(value: Any) -> str:
         if isinstance(value, list):
             return str(value[0]) if value else ""
@@ -441,132 +406,45 @@ class VectorService:
             return value.split(",")[0].strip() if value.strip() else ""
         return ""
 
-    async def _search_by_domain_terms(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
-        terms = self._extract_domain_terms(query)
-        if not terms:
+    @staticmethod
+    def _metadata_dict(metadata: Any) -> Dict[str, Any]:
+        if isinstance(metadata, dict):
+            return metadata
+        if isinstance(metadata, str):
+            try:
+                parsed = json.loads(metadata)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @staticmethod
+    def _retrieval_source(metadata: Any) -> str:
+        return str(VectorService._metadata_dict(metadata).get("retrieval_source") or "")
+
+    @staticmethod
+    def _is_lexical_source(source: str) -> bool:
+        return source == "lexical"
+
+    async def _search_by_lexical_recall(self, query: str, limit: int = 40) -> List[Dict[str, Any]]:
+        """Recall lexical matches from OpenSearch/Elasticsearch only."""
+        if not self.enable_lexical_retrieval or not str(query or "").strip():
             return []
 
-        patterns = self._term_alias_patterns(terms)
-        if not patterns:
-            return []
-
-        candidates: List[Dict[str, Any]] = []
-
-        breakdown_fields = [
-            DocumentBreakdown.title,
-            DocumentBreakdown.problem_intro,
-            DocumentBreakdown.causes,
-            DocumentBreakdown.evaluation,
-            DocumentBreakdown.inspection,
-            DocumentBreakdown.solutions,
-            DocumentBreakdown.key_points,
-        ]
-        breakdown_conditions = [
-            field.like(pattern)
-            for field in breakdown_fields
-            for pattern in patterns
-        ]
-        breakdown_result = await self.db.execute(
-            select(DocumentBreakdown)
-            .where(DocumentBreakdown.is_deleted == 0, or_(*breakdown_conditions))
-            .order_by(DocumentBreakdown.first_edit_date.desc())
-            .limit(limit)
+        search_index_results = await self.search_index_service.search(
+            query=query,
+            limit=limit,
+            seed_score=self.lexical_recall_seed_score,
+            score_span=self.lexical_score_span,
+            vector_bonus_max=self.lexical_vector_bonus_max,
         )
-
-        for doc in breakdown_result.scalars().all():
-            parts = [
-                getattr(doc, "problem_intro", "") or "",
-                getattr(doc, "causes", "") or "",
-                getattr(doc, "evaluation", "") or "",
-                getattr(doc, "inspection", "") or "",
-                getattr(doc, "solutions", "") or "",
-                getattr(doc, "key_points", "") or "",
-            ]
-            content = "\n".join(part for part in parts if part).strip()
-            score_info = self._keyword_hit_score(doc.title or "", content, terms, 0.04)
-            if not score_info["matched_terms"]:
-                continue
-            keyword_bonus = float(score_info["bonus"])
-            candidates.append({
-                "doc_id": doc.id,
-                "library_type": "breakdown",
-                "title": doc.title or "",
-                "content": content,
-                "image_url": self._first_image_url(doc.image_urls),
-                "score": min(1.0, self.keyword_recall_seed_score + keyword_bonus),
-                "vector_score": 0.0,
-                "term_bonus": keyword_bonus,
-                "matched_terms": score_info["matched_terms"],
-                "metadata": {
-                    "content_type": "keyword_document",
-                    "retrieval_source": "keyword",
-                },
-            })
-
-        knowledge_conditions = [
-            field.like(pattern)
-            for field in (
-                DocumentKnowledge.title,
-                KnowledgeDocumentSection.section_title,
-                KnowledgeDocumentSection.plain_text,
-            )
-            for pattern in patterns
-        ]
-        knowledge_result = await self.db.execute(
-            select(DocumentKnowledge, KnowledgeDocumentSection)
-            .join(KnowledgeDocumentSection, KnowledgeDocumentSection.document_id == DocumentKnowledge.id)
-            .where(
-                DocumentKnowledge.is_deleted == 0,
-                KnowledgeDocumentSection.document_library_type == "knowledge",
-                or_(*knowledge_conditions),
-            )
-            .order_by(DocumentKnowledge.first_edit_date.desc(), KnowledgeDocumentSection.section_index.asc())
-            .limit(limit)
-        )
-
-        for doc, section in knowledge_result.all():
-            section_title = section.section_title or ""
-            content = "\n".join(part for part in [section_title, section.plain_text or ""] if part).strip()
-            title_hit = self._keyword_hit_score(doc.title or "", content, terms, 0.08)
-            section_hit = self._keyword_hit_score(section_title, content, terms, 0.06)
-            body_hit = self._keyword_hit_score(doc.title or "", content, terms, 0.04)
-            score_info = max([title_hit, section_hit, body_hit], key=lambda item: float(item["bonus"]))
-            if not score_info["matched_terms"]:
-                continue
-            keyword_bonus = float(score_info["bonus"])
-            metadata = dict(section.section_metadata or {})
-            metadata.update({
-                "content_type": "keyword_section",
-                "retrieval_source": "keyword",
-                "section_title": section_title,
-                "section_index": section.section_index,
-            })
-            candidates.append({
-                "doc_id": doc.id,
-                "library_type": "knowledge",
-                "title": doc.title or "",
-                "content": content,
-                "image_url": self._first_image_url(section.image_urls),
-                "score": min(1.0, self.keyword_recall_seed_score + keyword_bonus),
-                "vector_score": 0.0,
-                "term_bonus": keyword_bonus,
-                "matched_terms": score_info["matched_terms"],
-                "metadata": metadata,
-            })
-
-        candidates.sort(key=lambda item: float(item.get("score", 0.0)), reverse=True)
-        return candidates[:limit]
+        return search_index_results or []
 
     @staticmethod
     def _merge_retrieval_candidates(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         merged: Dict[str, Dict[str, Any]] = {}
         for item in results:
-            metadata = item.get("metadata") or {}
-            if isinstance(metadata, str):
-                try:
-                    metadata = json.loads(metadata)
-                except Exception:
-                    metadata = {}
+            metadata = VectorService._metadata_dict(item.get("metadata"))
             key = "|".join([
                 str(item.get("library_type") or "breakdown"),
                 str(item.get("doc_id") or ""),
@@ -579,22 +457,24 @@ class VectorService:
 
             existing_score = float(existing.get("score", 0.0))
             item_score = float(item.get("score", 0.0))
-            existing_source = (existing.get("metadata") or {}).get("retrieval_source") if isinstance(existing.get("metadata"), dict) else ""
-            item_source = (item.get("metadata") or {}).get("retrieval_source") if isinstance(item.get("metadata"), dict) else ""
+            existing_source = VectorService._retrieval_source(existing.get("metadata"))
+            item_source = VectorService._retrieval_source(item.get("metadata"))
             existing_bonus = float(existing.get("term_bonus", 0.0))
             item_bonus = float(item.get("term_bonus", 0.0))
 
-            if existing_source == "keyword" and item_source != "keyword":
+            if VectorService._is_lexical_source(existing_source) and not VectorService._is_lexical_source(item_source):
                 item["score"] = min(1.0, item_score + existing_bonus)
                 item["term_bonus"] = max(float(item.get("term_bonus", 0.0)), existing_bonus)
                 item["matched_terms"] = existing.get("matched_terms") or item.get("matched_terms") or []
+                item["bm25_score"] = max(float(item.get("bm25_score", 0.0)), float(existing.get("bm25_score", 0.0)))
                 merged[key] = item
                 continue
 
-            if item_source == "keyword" and existing_source != "keyword":
+            if VectorService._is_lexical_source(item_source) and not VectorService._is_lexical_source(existing_source):
                 existing["score"] = min(1.0, existing_score + item_bonus)
                 existing["term_bonus"] = max(existing_bonus, item_bonus)
                 existing["matched_terms"] = item.get("matched_terms") or existing.get("matched_terms") or []
+                existing["bm25_score"] = max(float(existing.get("bm25_score", 0.0)), float(item.get("bm25_score", 0.0)))
                 continue
 
             if item_score > existing_score:
@@ -608,12 +488,7 @@ class VectorService:
     def _debug_print_search_results(stage: str, results: List[Dict[str, Any]], limit: int = 20):
         print(f"\n========== RAG DEBUG: {stage} count={len(results or [])} ==========")
         for index, item in enumerate((results or [])[:limit], start=1):
-            metadata = item.get("metadata") or {}
-            if isinstance(metadata, str):
-                try:
-                    metadata = json.loads(metadata)
-                except Exception:
-                    metadata = {}
+            metadata = VectorService._metadata_dict(item.get("metadata"))
             content = str(item.get("content") or "").replace("\n", " ").strip()
             preview = content[:180]
             print(
@@ -624,7 +499,9 @@ class VectorService:
                 f"score={float(item.get('score', 0.0)):.6f} "
                 f"vector_score={float(item.get('vector_score', item.get('score', 0.0))):.6f} "
                 f"term_bonus={float(item.get('term_bonus', 0.0)):.6f} "
+                f"bm25_score={float(item.get('bm25_score', 0.0)):.6f} "
                 f"matched_terms={item.get('matched_terms', [])} "
+                f"signals={metadata.get('lexical_signals', [])} "
                 f"content_type={metadata.get('content_type')} "
                 f"section={metadata.get('section_title')} "
                 f"preview={preview}"
@@ -636,12 +513,51 @@ class VectorService:
         query: str,
         query_images: str = None,
         top_k: int = -1,
+        top_k_documents: int = -1,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
+        # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）
+        # {
+        #         "doc_id": 17,
+        #         "library_type": "knowledge",     # 知识库类型
+        #         "title": "SBC 系列主板硬件设计手册",
+        #         "content": "3.3V 电源模块由 TPS6521815 芯片提供，典型工作电压范围为...",
+        #         "image_url": "upload/images/sbc_power_design.png",
+        #         "score": 0.691,
+        #         "score_max": 0.725,
+        #         "chunks": [
+        #             {
+        #                 "doc_id": "17",
+        #                 "library_type": "knowledge",
+        #                 "title": "SBC 系列主板硬件设计手册",
+        #                 "content": "3.3V 电源模块由 TPS6521815 芯片提供...",
+        #                 "image_url": "upload/images/sbc_power_design.png",
+        #                 "metadata": {"source_doc_id": 17, "library_type": "knowledge", "section_id": 3},
+        #                 "score": 0.725
+        #             },
+        #             {
+        #                 "doc_id": "17",
+        #                 "library_type": "knowledge",
+        #                 "title": "SBC 系列主板硬件设计手册",
+        #                 "content": "供电异常排查：若 3.3V 输出低于 2.8V...",
+        #                 "image_url": "",
+        #                 "metadata": {"source_doc_id": 17, "library_type": "knowledge", "section_id": 5},
+        #                 "score": 0.688
+        #             }
+        #         ],
+        #         # ===== 知识库专属字段 =====
+        #         "matched_section_ids": [3, 5],   # 匹配到的章节 ID 列表（去重）
+        #         "matched_image_urls": [          # 匹配到的图片 URL 列表（去重）
+        #             "upload/images/sbc_power_design.png"
+        #         ]
+        #     }
         try:
             top_k = self.top_k if top_k < 1 else top_k
+            top_k_documents = self.top_k_documents if top_k_documents < 1 else top_k_documents
             all_results: List[Dict[str, Any]] = []
 
+            # 如果有图片：describe_image() 调用视觉模型提取语义然后与文本一起Milvus 多模态检索
+            # 否则：Milvus 纯文本检索
             images = [img.strip() for img in (query_images or "").split(",") if img and img.strip()]
 
             if images:
@@ -665,14 +581,15 @@ class VectorService:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
                 all_results.extend(results)
 
-            keyword_results = await self._search_by_domain_terms(query)
-            if keyword_results:
-                self._debug_print_search_results("keyword term results", keyword_results)
-                all_results.extend(keyword_results)
+            lexical_results = await self._search_by_lexical_recall(query, limit=self.lexical_retrieval_limit)
+            if lexical_results:
+                self._debug_print_search_results("lexical recall results", lexical_results)
+                all_results.extend(lexical_results)
 
             if not all_results:
                 return []
 
+            # 合并/去重/按分数排序
             all_results = self._merge_retrieval_candidates(all_results)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("raw vector results", all_results)
@@ -695,6 +612,8 @@ class VectorService:
             #     if not all_results:
             #         return []
 
+
+            # 按 (library_type, doc_id) 分组聚合
             grouped: Dict[str, Dict[str, Any]] = {}
             for item in all_results:
                 score = float(item.get("score", 0.0))
@@ -720,6 +639,7 @@ class VectorService:
                 else:
                     grouped[group_key]["chunks"].append(item)
 
+            # 知识库文档：提取 matched_section_ids + matched_image_urls
             docs = []
             for doc in grouped.values():
                 chunks_sorted = sorted(
@@ -730,11 +650,26 @@ class VectorService:
                 doc["image_url"] = best_chunk.get("image_url", "")
                 doc["score_max"] = float(best_chunk.get("score", 0.0))
                 doc["score"] = self._aggregate_doc_score(chunks_sorted)
+                # 提取知识库文档匹配到的 section_id 和图片，供 get_prompt 按相关性取章节
+                if doc.get("library_type") == "knowledge":
+                    matched_section_ids = []
+                    matched_image_urls = []
+                    for chunk in chunks_sorted:
+                        metadata = self._metadata_dict(chunk.get("metadata"))
+                        section_id = metadata.get("section_id")
+                        if section_id is not None and section_id not in matched_section_ids:
+                            matched_section_ids.append(section_id)
+                        img = chunk.get("image_url")
+                        if img and img not in matched_image_urls:
+                            matched_image_urls.append(img)
+                    doc["matched_section_ids"] = matched_section_ids
+                    doc["matched_image_urls"] = matched_image_urls
                 docs.append(doc)
 
+            # 过滤低于阈值的低分文档
             docs.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("grouped docs after threshold", docs)
-            return docs[: self.top_k_documents]
+            return docs[:top_k_documents]
 
         except Exception as e:
             print(f"向量检索失败: {e}")
@@ -756,4 +691,50 @@ class VectorService:
             return total
         except Exception as e:
             print(f"批量向量化失败: {e}")
+            return 0
+
+    async def batch_reindex_search_documents(self, batch_size: int = -1) -> int:
+        """Rebuild the OpenSearch/Elasticsearch lexical index from approved MySQL documents."""
+        if not self.search_index_service.enabled:
+            print("搜索索引未启用，跳过重建")
+            return 0
+
+        try:
+            batch_size = self.batch_size if batch_size < 1 else batch_size
+            total = 0
+
+            breakdown_result = await self.db.execute(
+                select(DocumentBreakdown)
+                .where(DocumentBreakdown.is_deleted == 0)
+                .order_by(DocumentBreakdown.id.asc())
+                .limit(batch_size)
+            )
+            for document in breakdown_result.scalars().all():
+                await self.search_index_service.index_document(_snapshot_document_for_vector_store(document))
+                total += 1
+
+            knowledge_result = await self.db.execute(
+                select(DocumentKnowledge)
+                .where(DocumentKnowledge.is_deleted == 0)
+                .order_by(DocumentKnowledge.id.asc())
+                .limit(batch_size)
+            )
+            for document in knowledge_result.scalars().all():
+                section_result = await self.db.execute(
+                    select(KnowledgeDocumentSection)
+                    .where(KnowledgeDocumentSection.document_id == document.id)
+                    .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
+                )
+                section_snapshots = [
+                    _snapshot_section_for_vector_store(section)
+                    for section in section_result.scalars().all()
+                ]
+                vector_document = _snapshot_document_for_vector_store(document)
+                vector_document.knowledge_sections = section_snapshots
+                await self.search_index_service.index_document(vector_document, section_snapshots)
+                total += 1
+
+            return total
+        except Exception as e:
+            print(f"批量重建搜索索引失败: {e}")
             return 0

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument, User
+from models import DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentReview, SourceDocument, User
 from schemas import Result, SourceDocumentResponse
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/source-documents", tags=["源文档"])
 
 
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+REVIEW_LIBRARY_MODELS = {"breakdown": Document_review, "knowledge": KnowledgeDocumentReview}
 
 
 def _normalize_library_type(library_type: str) -> str:
@@ -31,6 +32,16 @@ def _normalize_library_type(library_type: str) -> str:
 
 def _get_document_model(library_type: str):
     return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _get_review_model(library_type: str):
+    return REVIEW_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _review_library_type(review) -> str:
+    if isinstance(review, KnowledgeDocumentReview):
+        return "knowledge"
+    return _normalize_library_type(getattr(review, "document_library_type", "breakdown"))
 
 
 def source_document_to_response(source: SourceDocument, uploader_name: Optional[str]) -> SourceDocumentResponse:
@@ -49,6 +60,7 @@ def source_document_to_response(source: SourceDocument, uploader_name: Optional[
         parse_started_time=source.parse_started_time,
         document_id=source.document_id,
         document_library_type=source.document_library_type,
+        review_library_type=source.review_library_type,
         review_id=source.review_id,
     )
 
@@ -69,6 +81,78 @@ async def _repair_stale_source_link(db: AsyncSession, source: SourceDocument) ->
     source.document_id = None
     source.document_library_type = "breakdown"
     source.parse_error = None
+    source.parse_started_time = None
+    return True
+
+
+def _review_matches_source(review, source: SourceDocument) -> bool:
+    origin_file_dir = getattr(review, "origin_file_dir", None)
+    origin_file_name = getattr(review, "origin_file_name", None)
+    if origin_file_dir and normalize_upload_path(origin_file_dir) == normalize_upload_path(source.stored_file_path):
+        return True
+    if origin_file_name and origin_file_name == source.origin_file_name:
+        return True
+    return False
+
+
+async def _get_review_for_source(db: AsyncSession, source: SourceDocument):
+    if not source.review_id:
+        return None
+
+    preferred_model = _get_review_model(source.review_library_type)
+    result = await db.execute(select(preferred_model).where(preferred_model.id == source.review_id))
+    preferred_review = result.scalar_one_or_none()
+    if preferred_review and _review_matches_source(preferred_review, source):
+        return preferred_review
+
+    for review_model in REVIEW_LIBRARY_MODELS.values():
+        if review_model is preferred_model:
+            continue
+        result = await db.execute(select(review_model).where(review_model.id == source.review_id))
+        review = result.scalar_one_or_none()
+        if review and _review_matches_source(review, source):
+            source.review_library_type = _review_library_type(review)
+            return review
+    if preferred_review:
+        return preferred_review
+    return None
+
+
+async def _repair_stale_review_link(db: AsyncSession, source: SourceDocument) -> bool:
+    if source.review_id is None and source.status == "review_pending":
+        source.status = "uploaded"
+        source.review_library_type = "breakdown"
+        source.parse_error = None
+        source.parse_started_time = None
+        return True
+    if source.review_id is None:
+        return False
+
+    review = await _get_review_for_source(db, source)
+    if not review:
+        source.status = "uploaded"
+        source.review_id = None
+        source.review_library_type = "breakdown"
+        source.parse_error = None
+        source.parse_started_time = None
+        return True
+
+    if review.status == 0:
+        source.status = "review_pending"
+        source.review_library_type = _review_library_type(review)
+        return False
+
+    if review.status == 1 and getattr(review, "action_type", None) == 1 and getattr(review, "document_id", None):
+        source.status = "vectorized"
+        source.document_id = review.document_id
+        source.document_library_type = _review_library_type(review)
+        source.parse_error = None
+    else:
+        source.status = "uploaded"
+        source.parse_error = getattr(review, "review_comment", None) if review.status == 2 else None
+
+    source.review_id = None
+    source.review_library_type = "breakdown"
     source.parse_started_time = None
     return True
 
@@ -122,6 +206,18 @@ async def get_source_documents_page(
     repaired = False
     for source in repair_candidates:
         repaired = await _repair_stale_source_link(db, source) or repaired
+
+    review_repair_candidates_result = await db.execute(
+        select(SourceDocument)
+        .where(
+            SourceDocument.is_deleted == 0,
+            or_(SourceDocument.review_id.is_not(None), SourceDocument.status == "review_pending"),
+        )
+        .order_by(SourceDocument.id.desc())
+    )
+    review_repair_candidates = review_repair_candidates_result.scalars().all()
+    for source in review_repair_candidates:
+        repaired = await _repair_stale_review_link(db, source) or repaired
     if repaired:
         await db.commit()
 
@@ -179,6 +275,8 @@ async def delete_source_document(
 
     if await _repair_stale_source_link(db, source):
         await db.flush()
+    if await _repair_stale_review_link(db, source):
+        await db.flush()
 
     if source.document_id:
         document_model = _get_document_model(source.document_library_type)
@@ -193,10 +291,11 @@ async def delete_source_document(
             )
 
     if source.review_id:
+        review_model = KnowledgeDocumentReview if source.review_library_type == "knowledge" else Document_review
         review_result = await db.execute(
-            select(Document_review.id).where(
-                Document_review.id == source.review_id,
-                Document_review.status == 0,
+            select(review_model.id).where(
+                review_model.id == source.review_id,
+                review_model.status == 0,
             )
         )
         if review_result.scalar_one_or_none() is not None:

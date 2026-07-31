@@ -426,14 +426,14 @@
             const options = {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token') || ''}`
                 },
                 body: formData
             };
 
             const response = await fetch(url, options);
 
-            if (response.status === 401 && sessionStorage.getItem('token')) {
+            if (response.status === 401 && (localStorage.getItem('token') || sessionStorage.getItem('token'))) {
                 console.log('Token可能已过期，尝试刷新...');
 
                 try {
@@ -852,61 +852,6 @@ const documentAPI = {
             console.error('解析文件失败:', error);
             throw error;
         }
-    },
-
-    async createParseTask(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
-        try {
-            const response = await this.client.post(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks`,
-                {
-                    file_list: fileList,
-                    file_name: fileNames,
-                    submit_for_review: submitForReview,
-                    library_type: libraryType,
-                    tag: tag
-                },
-                true
-            );
-            if (response.code === 1) {
-                return response.data;
-            }
-            throw new Error(response.msg || '创建解析任务失败');
-        } catch (error) {
-            console.error('创建解析任务失败:', error);
-            throw error;
-        }
-    },
-
-    async getParseTask(taskId) {
-        try {
-            const response = await this.client.get(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks/${taskId}`,
-                true
-            );
-            if (response.code === 1) {
-                return response.data;
-            }
-            throw new Error(response.msg || '获取解析任务失败');
-        } catch (error) {
-            console.error('获取解析任务失败:', error);
-            throw error;
-        }
-    },
-
-    async getActiveParseTask() {
-        try {
-            const response = await this.client.get(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/parse_tasks/active`,
-                true
-            );
-            if (response.code === 1) {
-                return response.data;
-            }
-            throw new Error(response.msg || '获取解析任务失败');
-        } catch (error) {
-            console.error('获取当前解析任务失败:', error);
-            throw error;
-        }
     }
 };
 
@@ -1000,6 +945,42 @@ const tagAPI = {
             return true;
         }
         throw new Error(response.msg || response.message || '删除标签失败');
+    }
+};
+
+const sensitiveTermsAPI = {
+    client: new APIClient(),
+
+    async getTerms() {
+        const response = await this.client.get('/admin/sensitive_terms', true);
+        if (response.code === 1) {
+            return response.data || { terms: [], total_count: 0 };
+        }
+        throw new Error(response.msg || response.message || '获取敏感词失败');
+    },
+
+    async addTerm(termData) {
+        const response = await this.client.post('/admin/sensitive_terms', termData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '新增敏感词失败');
+    },
+
+    async updateTerm(termData) {
+        const response = await this.client.patch('/admin/sensitive_terms', termData, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || response.message || '更新敏感词失败');
+    },
+
+    async deleteTerm(source) {
+        const response = await this.client.delete('/admin/sensitive_terms', { source }, true);
+        if (response.code === 1) {
+            return true;
+        }
+        throw new Error(response.msg || response.message || '删除敏感词失败');
     }
 };
 
@@ -1371,6 +1352,44 @@ const DataManager = {
     }
 };
 
+// AI 对话相关配置：api.md 规定所有对话资源收敛到 /api/v1/chats/{chat_id}
+const AI_CHAT_ID = 'test';
+const AI_CHAT_BASE = `/chats/${AI_CHAT_ID}`;
+
+function normalizeChatTimestamp(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') {
+        return new Date(value * 1000).toISOString();
+    }
+    return value;
+}
+
+function normalizeChatSession(session) {
+    if (!session || typeof session !== 'object') return session;
+    return {
+        ...session,
+        id: Number(session.id),
+        title: session.title || session.name || '新对话',
+        name: session.name || session.title || '新对话',
+        created_time: normalizeChatTimestamp(session.created_time || session.create_time),
+        updated_time: normalizeChatTimestamp(session.updated_time || session.update_time),
+        messages: Array.isArray(session.messages) ? session.messages.map(normalizeChatMessage) : []
+    };
+}
+
+function normalizeChatMessage(message) {
+    if (!message || typeof message !== 'object') return message;
+    const roleValue = message.role_value !== undefined
+        ? Number(message.role_value)
+        : (message.role === 'user' ? 1 : 0);
+    return {
+        ...message,
+        role: roleValue,
+        content_text: message.content_text !== undefined ? message.content_text : message.content,
+        created_time: normalizeChatTimestamp(message.created_time || message.create_time)
+    };
+}
+
 // 对话相关的 API
 const conversationAPI = {
     client: new APIClient(),
@@ -1379,15 +1398,15 @@ const conversationAPI = {
     async createConversation() {
         try {
             const response = await this.client.post(
-                '/conversation/create',
-                null,  // 不需要请求体
+                `${AI_CHAT_BASE}/session`,
+                { name: '新对话' },
                 true   // 需要认证
             );
 
-            if (response.code === 1) {
-                return response.data;
+            if (response.code === 0) {
+                return normalizeChatSession(response.data);
             } else {
-                throw new Error(response.msg || '创建对话失败');
+                throw new Error(response.message || response.msg || '创建对话失败');
             }
         } catch (error) {
             console.error('创建对话失败:', error);
@@ -1399,14 +1418,14 @@ const conversationAPI = {
     async getHistory() {
         try {
             const response = await this.client.get(
-                '/conversation/history',
+                `${AI_CHAT_BASE}/sessions?page=1&page_size=30&order_by=update_time&desc=true`,
                 true
             );
 
-            if (response.code === 1) {
-                return response.data || [];
+            if (response.code === 0) {
+                return (response.data?.sessions || []).map(normalizeChatSession);
             } else {
-                throw new Error(response.msg || '获取历史对话失败');
+                throw new Error(response.message || response.msg || '获取历史对话失败');
             }
         } catch (error) {
             console.error('获取历史对话失败:', error);
@@ -1421,12 +1440,8 @@ const conversationAPI = {
             const page = pageParams.page || 1;
             const size = pageParams.size || 5;
 
-            const response = await this.client.post(
-                '/conversation/history/page',
-                {
-                    page: page,
-                    size: size
-                },
+            const response = await this.client.get(
+                `${AI_CHAT_BASE}/sessions?page=${page}&page_size=${size}&order_by=update_time&desc=true`,
                 true
             );
 
@@ -1435,10 +1450,13 @@ const conversationAPI = {
             if (response && typeof response === 'object') {
                 if (response.code !== undefined) {
                     // 完整的 Result 对象
-                    if (response.code === 1) {
-                        resultData = response.data;
+                    if (response.code === 0) {
+                        resultData = response.data || {};
+                        resultData.history = (resultData.sessions || []).map(normalizeChatSession);
+                        resultData.total_count = resultData.total || 0;
+                        resultData.total_pages = Math.ceil((resultData.total || 0) / (resultData.page_size || size || 1));
                     } else {
-                        throw new Error(response.msg || '获取分页对话历史失败');
+                        throw new Error(response.message || response.msg || '获取分页对话历史失败');
                     }
                 } else {
                     // 直接的数据对象
@@ -1465,14 +1483,15 @@ const conversationAPI = {
     async getConversationById(id) {
         try {
             const response = await this.client.get(
-                `/conversation/get_by_id/${id}`,
+                `${AI_CHAT_BASE}/sessions?id=${id}`,
                 true
             );
 
-            if (response.code === 1) {
-                return response.data;
+            if (response.code === 0) {
+                const session = response.data?.sessions?.[0] || null;
+                return normalizeChatSession(session);
             } else {
-                console.error('获取对话失败:', response.msg);
+                console.error('获取对话失败:', response.message || response.msg);
                 return null;
             }
         } catch (error) {
@@ -1485,15 +1504,15 @@ const conversationAPI = {
     async updateTitle(id, newTitle) {
         try {
             const response = await this.client.put(
-                `/conversation/update_title?id=${id}&new_title=${encodeURIComponent(newTitle)}`,
-                null,
+                `${AI_CHAT_BASE}/session/${id}`,
+                { name: newTitle },
                 true
             );
 
-            if (response.code === 1) {
-                return response.data;
+            if (response.code === 0) {
+                return true;
             } else {
-                throw new Error(response.msg || '更新对话标题失败');
+                throw new Error(response.message || response.msg || '更新对话标题失败');
             }
         } catch (error) {
             console.error('更新对话标题失败:', error);
@@ -1505,15 +1524,15 @@ const conversationAPI = {
     async deleteConversation(id) {
         try {
             const response = await this.client.delete(
-                `/conversation/delete?id=${id}`,
-                null,
+                `${AI_CHAT_BASE}/sessions`,
+                { ids: [id] },
                 true
             );
 
-            if (response.code === 1) {
+            if (response.code === 0) {
                 return true;
             } else {
-                throw new Error(response.msg || '删除对话失败');
+                throw new Error(response.message || response.msg || '删除对话失败');
             }
         } catch (error) {
             console.error('删除对话失败:', error);
@@ -1525,14 +1544,14 @@ const conversationAPI = {
     async searchConversations(query) {
         try {
             const response = await this.client.get(
-                `/conversation/query?data=${encodeURIComponent(query)}`,
+                `${AI_CHAT_BASE}/sessions?name=${encodeURIComponent(query)}&page=1&page_size=30&order_by=update_time&desc=true`,
                 true
             );
 
-            if (response.code === 1) {
-                return response.data || [];
+            if (response.code === 0) {
+                return (response.data?.sessions || []).map(normalizeChatSession);
             } else {
-                console.error('搜索对话失败:', response.msg);
+                console.error('搜索对话失败:', response.message || response.msg);
                 return [];
             }
         } catch (error) {
@@ -1550,7 +1569,7 @@ const messageAPI = {
     async uploadImages(files) {
         try {
             const response = await this.client.uploadImages(
-                '/message/upload_images',
+                `${AI_CHAT_BASE}/images`,
                 files
             );
 
@@ -1569,15 +1588,20 @@ const messageAPI = {
     async ask(messageData) {
         try {
             const response = await this.client.post(
-                '/message/ask',
-                messageData,
+                `${AI_CHAT_BASE}/completions`,
+                {
+                    question: messageData.question || messageData.content_text || '',
+                    session_id: messageData.session_id,
+                    stream: false,
+                    user_uploaded_images: messageData.user_uploaded_images || null
+                },
                 true
             );
 
-            if (response.code === 1) {
-                return response.data || [];
+            if (response.code === 0) {
+                return response.data || {};
             } else {
-                throw new Error(response.msg || '发送消息失败');
+                throw new Error(response.message || response.msg || '发送消息失败');
             }
         } catch (error) {
             console.error('发送消息失败:', error);
@@ -1589,14 +1613,15 @@ const messageAPI = {
     async getMessagesByConversation(id) {
         try {
             const response = await this.client.get(
-                `/message/get_by_conversation?id=${id}`,
+                `${AI_CHAT_BASE}/sessions?id=${id}`,
                 true
             );
 
-            if (response.code === 1) {
-                return response.data || [];
+            if (response.code === 0) {
+                const session = response.data?.sessions?.[0];
+                return (session?.messages || []).map(normalizeChatMessage);
             } else {
-                console.error('获取消息失败:', response.msg);
+                console.error('获取消息失败:', response.message || response.msg);
                 return [];
             }
         } catch (error) {
@@ -1606,7 +1631,7 @@ const messageAPI = {
     },
 
     async askStream(messageData, onChunk, onComplete, onError) {
-    const url = `${this.client.baseUrl}/message/ask`;
+    const url = `${this.client.baseUrl}${AI_CHAT_BASE}/completions`;
     const token = localStorage.getItem('token');
 
     return new Promise((resolve, reject) => {
@@ -1617,9 +1642,9 @@ const messageAPI = {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
+                question: messageData.question || messageData.content_text || '',
                 session_id: messageData.session_id,
-                content_text: messageData.content_text,
-                user_uploaded_images: messageData.user_uploaded_images,
+                user_uploaded_images: messageData.user_uploaded_images || null,
                 stream: true
             })
         })
@@ -1645,12 +1670,19 @@ const messageAPI = {
 
                         for (const line of lines) {
                             const trimmedLine = line.trim();
-                            if (!trimmedLine) continue;
+                            if (!trimmedLine || trimmedLine.startsWith(':')) continue;
 
-                            let jsonStr = trimmedLine;
+                            let jsonStr = '';
                             if (trimmedLine.startsWith('data:')) {
                                 jsonStr = trimmedLine.slice(5).trim();
+                            } else if (trimmedLine.startsWith('event:') || trimmedLine.startsWith('id:') || trimmedLine.startsWith('retry:')) {
+                                continue;
+                            } else if (trimmedLine.startsWith('{') || trimmedLine.startsWith('[')) {
+                                jsonStr = trimmedLine;
+                            } else {
+                                continue;
                             }
+                            if (!jsonStr) continue;
 
                             try {
                                 const parsed = JSON.parse(jsonStr);
@@ -1660,15 +1692,24 @@ const messageAPI = {
                                     resolve(); // 流式正常结束
                                     return;
                                 }
-                                if (parsed.code === 0) {
+                                if (parsed.code !== 0 && parsed.code !== 1) {
                                     throw new Error(parsed.message || parsed.msg || '回答生成失败');
                                 }
-                                // 正常流数据
-                                if (parsed.code === 1 && typeof parsed.answer === 'string') {
-                                    onChunk && onChunk(parsed);
+                                // /chats/{chat_id}/completions 返回 {code:0,data:{...}}；
+                                // code=1,data="true" 为流结束标记。
+                                const payload = parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+                                if (payload && typeof payload.answer === 'string') {
+                                    onChunk && onChunk({
+                                        ...payload,
+                                        code: 1,
+                                        reference_docs: payload.reference_docs || payload.reference
+                                    });
                                 }
                             } catch (e) {
                                 console.warn('解析 JSON 失败:', e);
+                                onError && onError(e);
+                                reject(e);
+                                return;
                             }
                         }
                     }
@@ -1700,5 +1741,6 @@ window.DataManager = DataManager;
 window.documentAPI = documentAPI;
 window.userAPI = userAPI;
 window.tagAPI = tagAPI;
+window.sensitiveTermsAPI = sensitiveTermsAPI;
 // 导出到全局
 // window.adminAPI = adminAPI;

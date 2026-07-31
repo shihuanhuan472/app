@@ -11,7 +11,11 @@ from openai import OpenAI
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
-from qwen_token_counter import get_token_count
+from utils.title_utils import normalize_document_title
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 from utils.error_codes import BizCode
 
 
@@ -27,7 +31,6 @@ class ImageParser:
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
@@ -154,7 +157,7 @@ class ImageParser:
 1. 所有内容必须基于图片可见信息，不可杜撰。若图片信息不足，对应字段填""或[]。
 2. 你给出的回答仅包含我要求的JSON格式答案，不要有其他解释。
 3. 图片编号固定为[1]，因为只传入一张图片。
-4. title字段不可为空，请尽量从图片中提取关键信息生成。
+4. title字段不可为空，必须控制在100个字符以内，请尽量从图片中提取关键信息生成。
 5. 内容需专业、连贯、详细，避免过分精简。
 6. 检查步骤和解决方案请尽可能具体可操作。
 
@@ -262,6 +265,7 @@ class ImageParser:
             # 4. 解析JSON结果
             result = json.loads(ans)
             result = self._post_process_result(result, unique_name)
+            result["title"] = normalize_document_title(result.get("title"))
             
             # 5. 创建Document对象
             document = Document(**result, is_vectorized=0)

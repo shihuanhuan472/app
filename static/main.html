@@ -31,6 +31,10 @@
                     <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>我的提交</span>
                 </a>
+                <a href="document-review.html" class="nav-item" id="reviewCenterNav">
+                    <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+                    <span>文档审核</span>
+                </a>
                 <a href="ai-assist.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
                     <span>AI辅助</span>
@@ -595,7 +599,7 @@
 
         function isBatchDeleteAllowed() {
             const user = Utils.getCurrentUser();
-            return !!user && Utils.hasRole(user, Utils.ROLE.ADMIN);
+            return !!user && Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
         }
 
         function toggleBatchDeleteMode() {
@@ -983,8 +987,8 @@
 
                 const message = isSearching ? '没有找到相关文档' : '暂无文档数据';
                 const user = Utils.getCurrentUser();
-                const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
-                const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
+                const isAdmin = !!user && Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
+                const isTechnician = !!user && !isAdmin && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
                 const addHref = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
                 const addText = isTechnician && !isAdmin ? '提交第一个文档' : '添加第一个文档';
                 container.innerHTML = `
@@ -1218,16 +1222,19 @@
             const importBtn = document.getElementById('importDocumentsBtn');
             const batchDeleteBtn = document.getElementById('batchDeleteBtn');
             const mySubmissionsNav = document.getElementById('mySubmissionsNav');
+            const reviewCenterNav = document.getElementById('reviewCenterNav');
             if (!user) {
                 setActionButtonDisabled(addBtn, true);
                 setActionButtonDisabled(importBtn, true);
                 if (batchDeleteBtn) batchDeleteBtn.style.display = 'none';
                 if (mySubmissionsNav) mySubmissionsNav.style.display = 'none';
+                if (reviewCenterNav) reviewCenterNav.style.display = 'none';
                 return;
             }
 
-            const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
-            const isTechnician = Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+            const isAdmin = Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
+            const canReview = Utils.hasPermission(user, Utils.PERMISSION.ADMIN, Utils.PERMISSION.REVIEW);
+            const isTechnician = !isAdmin && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
             if (addBtn) {
                 addBtn.href = isTechnician && !isAdmin ? 'add-document.html?mode=review' : 'add-document.html';
                 addBtn.innerHTML = isTechnician && !isAdmin
@@ -1247,6 +1254,9 @@
             }
             if (mySubmissionsNav) {
                 mySubmissionsNav.style.display = isTechnician ? 'flex' : 'none';
+            }
+            if (reviewCenterNav) {
+                reviewCenterNav.style.display = canReview ? 'flex' : 'none';
             }
         }
 

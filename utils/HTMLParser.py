@@ -13,7 +13,10 @@ from email import policy
 from email.parser import BytesParser
 import base64
 from PIL import Image
-from qwen_token_counter import get_token_count
+try:
+    from utils.token_counter import get_token_count
+except ModuleNotFoundError:
+    from token_counter import get_token_count
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -22,6 +25,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 
 
 """
@@ -34,7 +38,6 @@ class HTMLParser:
         self.document_base_dir = os.getenv("DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System")
         self.document_dir = os.getenv("DOCUMENT_DIR", "upload/documents")
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
-        self.ai = os.getenv("SERVER_IP", "192.168.246.200")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("MAX_TOKEN", 2000))
@@ -444,6 +447,7 @@ class HTMLParser:
             ans = response.choices[0].message.content
             print(ans)
             result = json.loads(ans)
+            result["title"] = normalize_document_title(result.get("title"))
             flag = [0] * len(image_urls)
 
             # ai回答的是图像的id，从id得到路径，并从服务器中删除无用图片

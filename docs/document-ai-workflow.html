@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文档解析与 AI 问答流程图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: #eef3f8;
+      color: #12304a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(238, 243, 248, 0.96), rgba(221, 230, 240, 0.96));
+    }
+
+    .wrap {
+      max-width: 1940px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      color: #54677c;
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: right;
+    }
+
+    .canvas {
+      overflow: auto;
+      border: 1px solid #c6d4e3;
+      background: #ffffff;
+      box-shadow: 0 14px 36px rgba(38, 62, 88, 0.16);
+    }
+
+    img {
+      display: block;
+      width: 1900px;
+      height: 1100px;
+      max-width: none;
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        padding: 14px;
+      }
+
+      .toolbar {
+        display: block;
+      }
+
+      .hint {
+        margin-top: 8px;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="toolbar">
+      <h1>文档解析与 AI 问答流程图</h1>
+      <div class="hint">聚焦文档解析、审核入库、向量化和 AI 基于文档回复。</div>
+    </div>
+    <div class="canvas">
+      <img src="./document-ai-workflow.svg" alt="文档解析与 AI 问答流程图">
+    </div>
+  </main>
+</body>
+</html>

@@ -11,7 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
 from dependencies import get_current_active_user
-from models import User, Document, DocumentBreakdown, DocumentKnowledge, Document_review, SourceDocument
+from models import (
+    User,
+    Document,
+    DocumentBreakdown,
+    DocumentKnowledge,
+    Document_review,
+    KnowledgeDocumentReview,
+    SourceDocument,
+)
 from schemas import UploadDocumentRequestNew, ResultNew, AnalyzeRequest, UploadDocumentResponse, DeleteDocumentRequestNew
 from utils.PdfParser import pdf_parser
 from utils.PPTParser import ppt_parser
@@ -32,11 +40,13 @@ from utils.file_classifier import (
 )
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
+from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from sqlalchemy import or_, select, func, delete
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
+REVIEW_LIBRARY_MODELS = {"breakdown": Document_review, "knowledge": KnowledgeDocumentReview}
 
 
 def _normalize_library_type(library_type: str) -> str:
@@ -48,12 +58,21 @@ def _title_from_source_filename(file_name: str) -> str:
     """导入标题优先使用源文件名，去掉目录和扩展名。"""
     filename = os.path.basename(str(file_name or "").replace("\\", "/"))
     title = os.path.splitext(filename)[0].strip()
-    return title or filename.strip() or "未命名文档"
+    return normalize_document_title(title or filename.strip())
 
 
 def _get_document_model(library_type: str):
     """根据库类型选择批量接口要操作的 ORM 模型。"""
     return DOCUMENT_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _get_review_model(library_type: str):
+    return REVIEW_LIBRARY_MODELS[_normalize_library_type(library_type)]
+
+
+def _filter_model_data(model, data: dict) -> dict:
+    allowed_fields = set(model.__table__.columns.keys())
+    return {key: value for key, value in data.items() if key in allowed_fields}
 
 
 def _normalize_tags(tag):
@@ -75,7 +94,7 @@ def _copy_document_to_library(document: Document, library_type: str, tag=None):
     document_model = _get_document_model(library_type)
     copied_data = {field: getattr(document, field, None) for field in DOCUMENT_COPY_FIELDS}
     copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
-    return document_model(**copied_data)
+    return document_model(**_filter_model_data(document_model, copied_data))
 ALLOWED_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS
 SOURCE_STATUS_UPLOADED = "uploaded"
 SOURCE_STATUS_PARSING = "parsing"
@@ -105,6 +124,8 @@ def _normalize_document_for_db(document: Document) -> None:
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
             setattr(document, field, str(value))
+        if field == "title":
+            setattr(document, field, normalize_document_title(getattr(document, field, None)))
 
     for field in image_fields:
         value = getattr(document, field, None)
@@ -117,35 +138,82 @@ def _normalize_document_for_db(document: Document) -> None:
             setattr(document, field, str(value))
 
 
-def _build_create_review_from_document(document: Document, contributor_id: int) -> Document_review:
-    return Document_review(
-        document_id=None,
-        document_library_type=getattr(document, "library_type", "breakdown"),
-        title=document.title,
-        contributor_id=contributor_id,
-        reviewer_id=None,
-        first_edit_date=document.first_edit_date or datetime.now(),
-        reviewed_time=None,
-        status=0,
-        problem_intro=document.problem_intro,
-        image_urls=document.image_urls,
-        causes=document.causes,
-        evaluation=document.evaluation,
-        inspection=document.inspection,
-        solutions=document.solutions,
-        key_points=document.key_points,
-        origin_file_name=document.origin_file_name,
-        origin_file_dir=normalize_upload_path(document.origin_file_dir),
-        tag=_normalize_tags(getattr(document, "tag", [])),
-        image_urls_problem_intro=document.image_urls_problem_intro,
-        image_urls_causes=document.image_urls_causes,
-        image_urls_evaluation=document.image_urls_evaluation,
-        image_urls_inspection=document.image_urls_inspection,
-        image_urls_solutions=document.image_urls_solutions,
-        image_urls_key_points=document.image_urls_key_points,
-        action_type=1,
-        review_comment=None,
-    )
+def _legacy_knowledge_sections_from_document(document: Document):
+    text_parts = [
+        getattr(document, "problem_intro", None),
+        getattr(document, "causes", None),
+        getattr(document, "evaluation", None),
+        getattr(document, "inspection", None),
+        getattr(document, "solutions", None),
+        getattr(document, "key_points", None),
+    ]
+    plain_text = "\n\n".join(str(part).strip() for part in text_parts if str(part or "").strip())
+    if not plain_text:
+        return None
+    image_urls = []
+    for field in [
+        "image_urls",
+        "image_urls_problem_intro",
+        "image_urls_causes",
+        "image_urls_evaluation",
+        "image_urls_inspection",
+        "image_urls_solutions",
+        "image_urls_key_points",
+    ]:
+        value = getattr(document, field, None)
+        if not value:
+            continue
+        for url in str(value).split(","):
+            url = url.strip()
+            if url and url not in image_urls:
+                image_urls.append(url)
+    return [
+        {
+            "section_index": 0,
+            "section_title": getattr(document, "title", None) or "section-1",
+            "section_type": "1",
+            "plain_text": plain_text,
+            "image_urls": image_urls,
+            "char_start": 0,
+            "char_end": len(plain_text),
+            "metadata": {},
+        }
+    ]
+
+
+def _build_create_review_from_document(document: Document, contributor_id: int):
+    library_type = _normalize_library_type(getattr(document, "library_type", "breakdown"))
+    review_model = _get_review_model(library_type)
+    review_data = {
+        "document_id": None,
+        "document_library_type": library_type,
+        "title": document.title,
+        "contributor_id": contributor_id,
+        "reviewer_id": None,
+        "first_edit_date": document.first_edit_date or datetime.now(),
+        "reviewed_time": None,
+        "status": 0,
+        "problem_intro": getattr(document, "problem_intro", None),
+        "image_urls": getattr(document, "image_urls", None),
+        "causes": getattr(document, "causes", None),
+        "evaluation": getattr(document, "evaluation", None),
+        "inspection": getattr(document, "inspection", None),
+        "solutions": getattr(document, "solutions", None),
+        "key_points": getattr(document, "key_points", None),
+        "origin_file_name": getattr(document, "origin_file_name", None),
+        "origin_file_dir": normalize_upload_path(getattr(document, "origin_file_dir", None)),
+        "tag": _normalize_tags(getattr(document, "tag", [])),
+        "sections": _legacy_knowledge_sections_from_document(document) if library_type == "knowledge" else None,
+        "image_urls_problem_intro": getattr(document, "image_urls_problem_intro", None),
+        "image_urls_causes": getattr(document, "image_urls_causes", None),
+        "image_urls_evaluation": getattr(document, "image_urls_evaluation", None),
+        "image_urls_inspection": getattr(document, "image_urls_inspection", None),
+        "image_urls_solutions": getattr(document, "image_urls_solutions", None),
+        "image_urls_key_points": getattr(document, "image_urls_key_points", None),
+        "action_type": 1,
+        "review_comment": None,
+    }
+    return review_model(**_filter_model_data(review_model, review_data))
 
 
 async def _get_source_document_by_path(
@@ -199,6 +267,7 @@ async def _claim_source_document_for_parse(
     source.status = SOURCE_STATUS_PARSING
     source.parse_error = None
     source.review_id = None
+    source.review_library_type = "breakdown"
     source.document_id = None
     source.document_library_type = _normalize_library_type(library_type)
     source.parse_started_time = datetime.now()
@@ -237,6 +306,7 @@ async def _mark_source_parse_failed(
         source.status = "parse_failed"
         source.parse_error = error_message
         source.review_id = None
+        source.review_library_type = "breakdown"
         source.document_id = None
         source.document_library_type = _normalize_library_type(library_type)
         source.parse_started_time = None
@@ -411,6 +481,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 if source:
                     source.status = "review_pending"
                     source.review_id = review.id
+                    source.review_library_type = document.library_type
                     source.document_library_type = document.library_type
                     source.parse_error = None
                     source.parse_started_time = None
@@ -501,7 +572,7 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
 
             # 删除文档的时候，把文档里的图片都删掉
             for attr in attrs:
-                value = getattr(document, attr)
+                value = getattr(document, attr, None)
                 if value is not None:
                     image_urls = value.split(", ")
                     for image_url in image_urls:
@@ -525,6 +596,8 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
                 source_document.status = "uploaded"
                 source_document.document_id = None
                 source_document.document_library_type = "breakdown"
+                source_document.review_id = None
+                source_document.review_library_type = "breakdown"
                 source_document.parse_error = None
                 source_document.parse_started_time = None
 
@@ -532,11 +605,14 @@ async def delete_documents(dataset_id: str, ids: DeleteDocumentRequestNew,
             await vector_service.delete_document_from_vector_store(id, getattr(document, "library_type", "breakdown"))
             print(f"成功删除文档{id}")
 
-            review_refs_result = await db.execute(
-                select(Document_review).where(
-                    Document_review.document_id == id,
-                    Document_review.document_library_type == getattr(document, "library_type", "breakdown"),
+            review_model = _get_review_model(getattr(document, "library_type", "breakdown"))
+            review_conditions = [review_model.document_id == id]
+            if hasattr(review_model, "document_library_type"):
+                review_conditions.append(
+                    review_model.document_library_type == getattr(document, "library_type", "breakdown")
                 )
+            review_refs_result = await db.execute(
+                select(review_model).where(*review_conditions)
             )
             review_refs = review_refs_result.scalars().all()
             for review_ref in review_refs:

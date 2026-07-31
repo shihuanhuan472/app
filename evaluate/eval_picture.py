@@ -9,6 +9,7 @@ from typing import List, Set, Dict, Any
 from database import AsyncSessionLocal
 from models import Document
 from utils.VectorService import VectorService
+from utils.ai_endpoint import get_ai_base_url
 from openai import OpenAI
 import time
 db = AsyncSessionLocal()
@@ -267,10 +268,9 @@ def get_vision(pic: str):
     ]
     #
     # print(111)
-    server_ip = os.getenv("SERVER_IP", "192.168.246.200")
     api_key = os.getenv("API_KEY", "EMPTY")
     client = OpenAI(
-        base_url=f"http://{server_ip}:8000/v1",
+        base_url=get_ai_base_url(),
         api_key=api_key
     )
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")

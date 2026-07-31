@@ -78,8 +78,9 @@ class SourceDocument(Base):
     document_library_type = Column(
         String(32), default="breakdown", nullable=False, index=True
     )
-    review_id = Column(
-        Integer, ForeignKey("document_reviews.id"), nullable=True, index=True
+    review_id = Column(Integer, nullable=True, index=True)
+    review_library_type = Column(
+        String(32), default="breakdown", nullable=False, index=True
     )
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     deleted_time = Column(DateTime)
@@ -268,6 +269,31 @@ class Document_review(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 
 
+class KnowledgeDocumentReview(Base):
+    __tablename__ = "knowledge_document_reviews"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    document_id = Column(Integer, nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    contributor_id = Column(Integer, ForeignKey("users.id"), index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    first_edit_date = Column(DateTime)
+    reviewed_time = Column(DateTime, nullable=True)
+    status = Column(
+        Integer, default=0, nullable=False, index=True
+    )  # 0-pending, 1-approved, 2-rejected, 3-withdrawn
+    image_urls = Column(LargeText)
+    origin_file_name = Column(String(255))
+    origin_file_dir = Column(Text)
+    tag = Column(JSON, default=list)
+    sections = Column(JSON, nullable=True)
+    action_type = Column(Integer, nullable=False)  # 1-create, 2-update, 3-delete
+    review_comment = Column(Text)
+
+    contributor = relationship("User", foreign_keys=[contributor_id])
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+
+
 class Conversation(Base):
     __tablename__ = "conversation"
 
@@ -279,6 +305,71 @@ class Conversation(Base):
 
     user = relationship("User")
     messages = relationship("Message", back_populates="conversation")
+
+
+class ConversationContext(Base):
+    __tablename__ = "conversation_contexts"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, unique=True, index=True)
+    status = Column(String(32), default="active", nullable=False, index=True)
+    active_issue = Column(Text)
+    active_device = Column(String(255))
+    active_component = Column(String(255))
+    active_symptom = Column(Text)
+    active_error_code = Column(String(64))
+    active_question = Column(Text)
+    active_query = Column(Text)
+    active_route = Column(String(64), index=True)
+    active_reason = Column(String(255))
+    active_reference_docs_json = Column(LargeText)
+    active_reference_images_json = Column(LargeText)
+    slots_json = Column(LargeText)
+    summary_text = Column(LargeText)
+    last_user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    last_ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    last_trace_id = Column(Integer, nullable=True, index=True)
+    turn_count = Column(Integer, default=0, nullable=False)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    conversation = relationship("Conversation")
+
+
+class ConversationContextEvent(Base):
+    __tablename__ = "conversation_context_events"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
+    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    route = Column(String(64), index=True)
+    reason = Column(String(255))
+    source = Column(String(64))
+    previous_context_json = Column(LargeText)
+    new_context_json = Column(LargeText)
+    created_time = Column(DateTime)
+
+    conversation = relationship("Conversation")
+    user_message = relationship("Message", foreign_keys=[user_message_id])
+    ai_message = relationship("Message", foreign_keys=[ai_message_id])
+
+
+class ConversationSummary(Base):
+    __tablename__ = "conversation_summaries"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
+    start_message_order = Column(Integer, default=1, nullable=False)
+    end_message_order = Column(Integer, nullable=False, index=True)
+    message_count = Column(Integer, default=0, nullable=False)
+    token_count = Column(Integer, default=0, nullable=False)
+    summary_text = Column(LargeText, nullable=False)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    conversation = relationship("Conversation")
 
 
 class Message(Base):
@@ -295,3 +386,60 @@ class Message(Base):
     created_time = Column(DateTime)
 
     conversation = relationship("Conversation", back_populates="messages")
+
+
+class AiMessageTrace(Base):
+    __tablename__ = "ai_message_traces"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
+    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=False, index=True)
+    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    route = Column(String(64), nullable=False, index=True)
+    reason = Column(String(255))
+    original_question = Column(Text)
+    query_rewrite = Column(Text)
+    retrieval_query = Column(Text)
+    used_previous_refs = Column(Integer, default=0, nullable=False)
+    reference_docs_json = Column(LargeText)
+    reference_images_json = Column(LargeText)
+    actions_json = Column(LargeText)
+    validation_json = Column(LargeText)
+    answer_preview = Column(Text)
+    model_name = Column(String(255))
+    input_tokens = Column(Integer, default=0, nullable=False)
+    output_tokens = Column(Integer, default=0, nullable=False)
+    latency_ms = Column(Integer, default=0, nullable=False)
+    status = Column(String(32), default="success", nullable=False, index=True)
+    error_message = Column(Text)
+    created_time = Column(DateTime)
+    updated_time = Column(DateTime)
+
+    conversation = relationship("Conversation")
+    user_message = relationship("Message", foreign_keys=[user_message_id])
+    ai_message = relationship("Message", foreign_keys=[ai_message_id])
+
+
+class AiUsageLog(Base):
+    __tablename__ = "ai_usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    session_id = Column(Integer, ForeignKey("conversation.id"), nullable=True, index=True)
+    message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    provider = Column(String(32), default="openai", nullable=False, index=True)
+    model = Column(String(255), default="", nullable=False, index=True)
+    request_type = Column(String(64), default="", nullable=False, index=True)
+    status = Column(String(32), default="success", nullable=False, index=True)
+    input_tokens = Column(Integer, default=0, nullable=False)
+    output_tokens = Column(Integer, default=0, nullable=False)
+    total_tokens = Column(Integer, default=0, nullable=False)
+    prompt_tokens = Column(Integer, default=0, nullable=False)
+    completion_tokens = Column(Integer, default=0, nullable=False)
+    raw_usage_json = Column(Text)
+    error_message = Column(Text)
+    created_time = Column(DateTime, index=True)
+
+    user = relationship("User")
+    conversation = relationship("Conversation")
+    message = relationship("Message")

@@ -17,12 +17,14 @@ from sqlalchemy import or_
 # from sqlalchemy.orm import Session
 from typing import List
 from utils.VectorService import VectorService
+from utils.title_utils import normalize_document_title
 from dependencies import get_current_active_user
 from models import (
     Document,
     DocumentBreakdown,
     DocumentKnowledge,
     Document_review,
+    KnowledgeDocumentReview,
     KnowledgeDocumentSection,
     ParseTask,
     ParseTaskItem,
@@ -58,6 +60,7 @@ from knowledge_parsers import knowledge_parser
 from knowledge_parsers.section_service import (
     get_knowledge_document_sections,
     replace_knowledge_document_sections,
+    delete_section_images_for_document,
 )
 from utils.file_classifier import (
     ALLOWED_DOCUMENT_EXTENSIONS,
@@ -107,7 +110,7 @@ def _title_from_source_filename(file_name: str) -> str:
     """导入标题优先使用源文件名，去掉目录和扩展名。"""
     filename = Path(str(file_name or "").replace("\\", "/")).name
     title = os.path.splitext(filename)[0].strip()
-    return title or filename.strip() or "未命名文档"
+    return normalize_document_title(title or filename.strip())
 
 
 def _get_document_model(library_type: str):
@@ -194,6 +197,13 @@ DOCUMENT_COPY_FIELDS = [
 
 def _is_knowledge_library(library_type: str) -> bool:
     return _normalize_library_type(library_type) == "knowledge"
+
+
+def _parse_image_urls_to_set(value) -> set:
+    """将逗号分隔的图片 URL 字符串解析为去重集合。"""
+    if not value:
+        return set()
+    return set(url.strip() for url in str(value).split(", ") if url.strip())
 
 
 def _join_image_urls(image_urls) -> str:
@@ -287,11 +297,54 @@ def _knowledge_sections_from_request(sections):
     return result
 
 
+def _knowledge_sections_to_review_payload(sections):
+    payload = []
+    for index, section in enumerate(sections or []):
+        if hasattr(section, "model_dump"):
+            data = section.model_dump()
+        elif isinstance(section, dict):
+            data = dict(section)
+        else:
+            data = {
+                "section_index": getattr(section, "section_index", None),
+                "section_title": getattr(section, "section_title", None),
+                "section_type": getattr(section, "section_type", None),
+                "plain_text": getattr(section, "plain_text", None),
+                "image_urls": getattr(section, "image_urls", None),
+                "char_start": getattr(section, "char_start", None),
+                "char_end": getattr(section, "char_end", None),
+                "metadata": getattr(section, "metadata", None) or getattr(section, "section_metadata", None),
+            }
+
+        image_urls = data.get("image_urls") or []
+        if isinstance(image_urls, str):
+            image_urls = [url.strip() for url in image_urls.split(",") if url.strip()]
+
+        metadata = data.get("metadata")
+        if metadata is None:
+            metadata = data.get("section_metadata") or {}
+
+        payload.append(
+            {
+                "section_index": data.get("section_index") if data.get("section_index") is not None else index,
+                "section_title": data.get("section_title") or f"section-{index + 1}",
+                "section_type": data.get("section_type") or str(index + 1),
+                "plain_text": data.get("plain_text") or "",
+                "image_urls": image_urls,
+                "char_start": data.get("char_start"),
+                "char_end": data.get("char_end"),
+                "metadata": metadata,
+            }
+        )
+    return payload
+
+
 def _knowledge_document_from_parsed(
     parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags
 ):
     return DocumentKnowledge(
-        title=parsed.title or file_name,
+        library_type="knowledge",
+        title=normalize_document_title(parsed.title or file_name, fallback=file_name),
         contributor_id=contributor_id,
         first_edit_date=datetime.now(),
         image_urls=_join_image_urls(parsed.image_urls),
@@ -330,6 +383,11 @@ SOURCE_STATUS_REVIEW_PENDING = "review_pending"
 SOURCE_STATUS_VECTORIZED = "vectorized"
 SOURCE_PARSE_ALLOWED_STATUSES = {SOURCE_STATUS_UPLOADED, SOURCE_STATUS_PARSE_FAILED}
 SOURCE_PARSE_TIMEOUT_MINUTES = int(os.getenv("SOURCE_PARSE_TIMEOUT_MINUTES", "30"))
+PARSE_TASK_ACTIVE_STATUSES = {"pending", "running"}
+PARSE_TASK_ITEM_ACTIVE_STATUSES = {"pending", "parsing"}
+PARSE_TASK_STALE_TIMEOUT_MINUTES = int(
+    os.getenv("PARSE_TASK_STALE_TIMEOUT_MINUTES", str(SOURCE_PARSE_TIMEOUT_MINUTES))
+)
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -366,6 +424,8 @@ def _normalize_document_for_db(document: Document) -> None:
             setattr(document, field, json.dumps(value, ensure_ascii=False))
         elif value is not None and not isinstance(value, str):
             setattr(document, field, str(value))
+        if field == "title":
+            setattr(document, field, normalize_document_title(getattr(document, field, None)))
 
     for field in image_fields:
         value = getattr(document, field, None)
@@ -412,36 +472,42 @@ def _is_ai_result_effectively_empty(document: Document) -> bool:
 
 
 def _build_create_review_from_document(
-    document: Document, contributor_id: int
+    document: Document, contributor_id: int, sections=None, library_type: str = None
 ) -> Document_review:
-    return Document_review(
+    document_library_type = _normalize_library_type(
+        library_type or getattr(document, "library_type", "breakdown")
+    )
+    review_model = KnowledgeDocumentReview if document_library_type == "knowledge" else Document_review
+    review_data = dict(
         document_id=None,
-        document_library_type=getattr(document, "library_type", "breakdown"),
-        title=document.title,
+        document_library_type=document_library_type,
+        title=normalize_document_title(document.title),
         contributor_id=contributor_id,
         reviewer_id=None,
         first_edit_date=document.first_edit_date or datetime.now(),
         reviewed_time=None,
         status=0,
-        problem_intro=document.problem_intro,
-        image_urls=document.image_urls,
-        causes=document.causes,
-        evaluation=document.evaluation,
-        inspection=document.inspection,
-        solutions=document.solutions,
-        key_points=document.key_points,
-        origin_file_name=document.origin_file_name,
-        origin_file_dir=normalize_upload_path(document.origin_file_dir),
+        problem_intro=getattr(document, "problem_intro", None),
+        image_urls=getattr(document, "image_urls", None),
+        causes=getattr(document, "causes", None),
+        evaluation=getattr(document, "evaluation", None),
+        inspection=getattr(document, "inspection", None),
+        solutions=getattr(document, "solutions", None),
+        key_points=getattr(document, "key_points", None),
+        origin_file_name=getattr(document, "origin_file_name", None),
+        origin_file_dir=normalize_upload_path(getattr(document, "origin_file_dir", None)),
         tag=_normalize_tags(getattr(document, "tag", [])),
-        image_urls_problem_intro=document.image_urls_problem_intro,
-        image_urls_causes=document.image_urls_causes,
-        image_urls_evaluation=document.image_urls_evaluation,
-        image_urls_inspection=document.image_urls_inspection,
-        image_urls_solutions=document.image_urls_solutions,
-        image_urls_key_points=document.image_urls_key_points,
+        sections=_knowledge_sections_to_review_payload(sections),
+        image_urls_problem_intro=getattr(document, "image_urls_problem_intro", None),
+        image_urls_causes=getattr(document, "image_urls_causes", None),
+        image_urls_evaluation=getattr(document, "image_urls_evaluation", None),
+        image_urls_inspection=getattr(document, "image_urls_inspection", None),
+        image_urls_solutions=getattr(document, "image_urls_solutions", None),
+        image_urls_key_points=getattr(document, "image_urls_key_points", None),
         action_type=1,
         review_comment=None,
     )
+    return review_model(**_filter_model_data(review_model, review_data))
 
 
 async def _get_source_document_by_path(
@@ -497,6 +563,7 @@ async def _claim_source_document_for_parse(
     source.status = SOURCE_STATUS_PARSING
     source.parse_error = None
     source.review_id = None
+    source.review_library_type = "breakdown"
     source.document_id = None
     source.document_library_type = _normalize_library_type(library_type)
     source.parse_started_time = datetime.now()
@@ -527,6 +594,19 @@ def _source_document_filter_for_document(document_id: int, library_type: str):
 async def _delete_source_documents_for_document(
     db: AsyncSession, document_base_dir: str, document_id: int, library_type: str
 ):
+    """删除源文档记录及其物理文件（兼容旧调用，内部拆分为 DB + 文件两步）。"""
+    # 先删文件
+    await _delete_source_document_files(
+        db, document_base_dir, document_id, library_type
+    )
+    # 再标记 DB
+    await _mark_source_documents_deleted(db, document_id, library_type)
+
+
+async def _delete_source_document_files(
+    db: AsyncSession, document_base_dir: str, document_id: int, library_type: str
+):
+    """仅删除 SourceDocument 关联的物理文件，不修改数据库。"""
     result = await db.execute(
         select(SourceDocument).where(
             *_source_document_filter_for_document(document_id, library_type),
@@ -541,11 +621,25 @@ async def _delete_source_documents_for_document(
                 or source_document.stored_file_path,
             )
             await asyncio.to_thread(delete_file_if_exists, absolute_path)
+
+
+async def _mark_source_documents_deleted(
+    db: AsyncSession, document_id: int, library_type: str
+):
+    """仅标记 SourceDocument 为已删除，不删除物理文件。"""
+    result = await db.execute(
+        select(SourceDocument).where(
+            *_source_document_filter_for_document(document_id, library_type),
+        )
+    )
+    source_documents = result.scalars().all()
+    for source_document in source_documents:
         source_document.is_deleted = 1
         source_document.status = "deleted"
         source_document.deleted_time = datetime.now()
         source_document.document_id = None
         source_document.review_id = None
+        source_document.review_library_type = "breakdown"
         source_document.parse_error = None
         source_document.parse_started_time = None
 
@@ -561,6 +655,7 @@ async def _mark_source_parse_failed(
         source.status = "parse_failed"
         source.parse_error = error_message
         source.review_id = None
+        source.review_library_type = "breakdown"
         source.document_id = None
         source.document_library_type = _normalize_library_type(library_type)
         source.parse_started_time = None
@@ -647,6 +742,75 @@ async def _refresh_parse_task_counts(db: AsyncSession, task: ParseTask) -> None:
     counts = {status_value: int(count) for status_value, count in result.all()}
     task.success_count = counts.get("success", 0)
     task.failed_count = counts.get("failed", 0)
+
+
+def _parse_task_last_activity_time(task: ParseTask, items: List[ParseTaskItem]) -> datetime | None:
+    active_item_times = [
+        item.started_time
+        for item in items
+        if item.status in PARSE_TASK_ITEM_ACTIVE_STATUSES and item.started_time
+    ]
+    if active_item_times:
+        return max(active_item_times)
+    return task.started_time or task.created_time
+
+
+def _parse_task_is_stale(task: ParseTask, items: List[ParseTaskItem]) -> bool:
+    if task.status not in PARSE_TASK_ACTIVE_STATUSES:
+        return False
+    last_activity = _parse_task_last_activity_time(task, items)
+    if not last_activity:
+        return False
+    return datetime.now() - last_activity > timedelta(minutes=PARSE_TASK_STALE_TIMEOUT_MINUTES)
+
+
+async def _fail_stale_parse_task_if_needed(db: AsyncSession, task: ParseTask) -> bool:
+    items_result = await db.execute(
+        select(ParseTaskItem)
+        .where(ParseTaskItem.task_id == task.id)
+        .order_by(ParseTaskItem.id)
+    )
+    items = list(items_result.scalars().all())
+    if not _parse_task_is_stale(task, items):
+        return False
+
+    now = datetime.now()
+    reason = (
+        f"解析任务超过 {PARSE_TASK_STALE_TIMEOUT_MINUTES} 分钟未完成，"
+        "已自动标记为失败；如果后台服务曾重启，请重新发起解析。"
+    )
+
+    for item in items:
+        if item.status not in PARSE_TASK_ITEM_ACTIVE_STATUSES:
+            continue
+
+        item.status = "failed"
+        item.error_reason = reason
+        item.error_code = int(BizCode.DOC_PARSE_FAILED)
+        if not item.started_time:
+            item.started_time = task.started_time or task.created_time or now
+        item.finished_time = now
+        item.elapsed_seconds = _parse_task_elapsed_seconds(item.started_time, item.finished_time)
+
+        source = await _get_source_document_by_path(db, item.file_path)
+        if source and source.status == SOURCE_STATUS_PARSING:
+            source.status = SOURCE_STATUS_PARSE_FAILED
+            source.parse_error = reason
+            source.review_id = None
+            source.review_library_type = "breakdown"
+            source.document_id = None
+            source.document_library_type = _normalize_library_type(task.library_type)
+            source.parse_started_time = None
+
+    await _refresh_parse_task_counts(db, task)
+    task.status = "finished"
+    task.current_file_name = None
+    task.error_message = "解析任务超时，已自动停止"
+    task.finished_time = now
+    if not task.started_time:
+        task.started_time = task.created_time or now
+    await db.commit()
+    return True
 
 
 async def _run_parse_task(task_id: int, user_id: int) -> None:
@@ -844,19 +1008,23 @@ async def get_active_parse_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await db.execute(
-        select(ParseTask)
-        .where(
-            ParseTask.user_id == current_user.id,
-            ParseTask.status.in_(["pending", "running"]),
+    for _ in range(3):
+        result = await db.execute(
+            select(ParseTask)
+            .where(
+                ParseTask.user_id == current_user.id,
+                ParseTask.status.in_(["pending", "running"]),
+            )
+            .order_by(desc(ParseTask.id))
+            .limit(1)
         )
-        .order_by(desc(ParseTask.id))
-        .limit(1)
-    )
-    task = result.scalar_one_or_none()
-    if not task:
-        return Result.success_with_data(None)
-    return Result.success_with_data(await _serialize_parse_task(db, task))
+        task = result.scalar_one_or_none()
+        if not task:
+            return Result.success_with_data(None)
+        if await _fail_stale_parse_task_if_needed(db, task):
+            continue
+        return Result.success_with_data(await _serialize_parse_task(db, task))
+    return Result.success_with_data(None)
 
 
 @router.get("/parse_tasks/{task_id}", summary="获取解析任务进度")
@@ -878,6 +1046,7 @@ async def get_parse_task(
             biz_code=BizCode.FORBIDDEN,
             message="无权查看该解析任务",
         )
+    await _fail_stale_parse_task_if_needed(db, task)
     return Result.success_with_data(await _serialize_parse_task(db, task))
 
 
@@ -1070,6 +1239,8 @@ async def create_document(
         exclude_fields = {"library_type", "tag", "sections"}
         exclude_fields.update({"summary", "content"})
         document_payload = document.dict(exclude=exclude_fields)
+        if "title" in document_payload:
+            document_payload["title"] = normalize_document_title(document_payload.get("title"))
         document_payload.update(
             tag=_normalize_tags(document.tag),
             contributor_id=contributor_id,
@@ -1270,6 +1441,13 @@ async def update_document(
             if hasattr(document_now, attr)
         ]
 
+        # 更新前：记录旧图片 URL 集合，用于差异删除
+        old_urls_by_attr = {}
+        for attr in attrs:
+            old_urls_by_attr[attr] = _parse_image_urls_to_set(
+                getattr(document_now, attr, None)
+            )
+
         for attr in attrs:
             urls_str = ""
             image_url = getattr(document, attr)
@@ -1304,6 +1482,21 @@ async def update_document(
                     urls_str = urls_str.removesuffix(", ")
             setattr(document_now, attr, urls_str)
 
+        # 更新后：删除旧版本中有、新版本中没有的图片
+        for attr in attrs:
+            new_urls = _parse_image_urls_to_set(
+                getattr(document_now, attr, None)
+            )
+            old_urls = old_urls_by_attr.get(attr, set())
+            removed = old_urls - new_urls
+            for url in removed:
+                filename = os.path.basename(url)
+                if filename.strip():
+                    file_path = os.path.join(
+                        base_url, filename.lstrip("/").lstrip("\\")
+                    )
+                    await asyncio.to_thread(delete_image_with_variants, file_path)
+
         # if document.image_urls:
         #     image_urls = [url.strip() for url in document.image_urls.split(", ") if url.strip()]
         #     for image_url in image_urls:
@@ -1326,6 +1519,8 @@ async def update_document(
                 exclude={"library_type", "sections", "summary", "content"},
             ),
         )
+        if "title" in document_data:
+            document_data["title"] = normalize_document_title(document_data.get("title"))
         for key, value in document_data.items():
             # print(key, value)
             if key == "id" or key in attrs:
@@ -1397,8 +1592,6 @@ async def delete(
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        # document = db.query(Document).filter(Document.id == id).first()
-
         document_model = _get_document_model(library_type)
         result = await db.execute(
             select(document_model)
@@ -1414,13 +1607,24 @@ async def delete(
             raise AppException(
                 status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "文档不存在"
             )
-        # 文档表直删仅允许管理员；技术人员必须走删除审核流程
         if not has_role(current_user, UserRole.ADMIN):
             raise AppException(
                 status.HTTP_403_FORBIDDEN,
                 BizCode.FORBIDDEN,
                 "技术人员需提交删除审核，审核通过后才会删除文档",
             )
+
+        doc_library_type = getattr(document, "library_type", library_type)
+        config = get_image_config()
+        base_url = os.path.join(
+            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
+        )
+        document_base_dir = os.getenv(
+            "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
+        )
+
+        # === 阶段一：收集所有待删除的文件路径 ===
+        image_paths = []
         attrs = [
             attr
             for attr in [
@@ -1434,69 +1638,49 @@ async def delete(
             ]
             if hasattr(document, attr)
         ]
-        config = get_image_config()
-        base_url = os.path.join(
-            config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
-        )
-
-        # 删除文档的时候，把文档里的图片都删掉
         for attr in attrs:
             value = getattr(document, attr, None)
-            if value is not None:
-                image_urls = value.split(", ")
-                for image_url in image_urls:
+            if value:
+                for image_url in value.split(", "):
                     filename = os.path.basename(image_url)
                     if filename.strip():
-                        url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-                        # if os.path.exists(url):
-                        #     os.remove(url)
-                        #     print(f"删除了{url}")
+                        image_paths.append(
+                            os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
+                        )
 
-                        await asyncio.to_thread(delete_image_with_variants, url)
-
-        # if document.image_urls:
-        #     config = get_image_config()
-        #     base_url = os.path.join(config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\"))
-        #     image_urls = document.image_urls.split(", ")
-        #     print("删除的image_urls: ", image_urls)
-        #     for image_url in image_urls:
-        #         filename = os.path.basename(image_url)
-        #         url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
-        #         if os.path.exists(url):
-        #             os.remove(url)
-        #             print(f"删除了{url}")
-
-        # 把原始文件也删掉
+        origin_file_path = None
         if document.origin_file_dir:
-            url = os.path.join(
+            origin_file_path = os.path.join(
                 config["BASE_DIR"],
                 normalize_upload_path(document.origin_file_dir)
                 or document.origin_file_dir,
             )
-            # if os.path.exists(url):
-            #     os.remove(url)
-            #     print(f"已删除源文件{document.origin_file_dir}")
-            await asyncio.to_thread(delete_file_if_exists, url)
-            print(f"已删除源文件{document.origin_file_dir}")
 
-        document_base_dir = os.getenv(
-            "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
-        )
-        await _delete_source_documents_for_document(
-            db, document_base_dir, id, getattr(document, "library_type", "breakdown")
-        )
+        # 收集章节图片路径（知识库）
+        section_image_paths = []
+        if _is_knowledge_library(doc_library_type):
+            old_sections = await get_knowledge_document_sections(db, id)
+            for section in old_sections:
+                for url in (section.image_urls or []):
+                    url_str = str(url).strip()
+                    if url_str:
+                        filename = os.path.basename(url_str)
+                        if filename.strip():
+                            section_image_paths.append(
+                                os.path.join(
+                                    base_url, filename.lstrip("/").lstrip("\\")
+                                )
+                            )
 
-        # 软删除场景下，保留审核记录与 document_id 的关联，仅对待审核记录自动撤回
-        review_refs_result = await db.execute(
-            select(Document_review).where(
-                Document_review.document_id == id,
-                Document_review.document_library_type
-                == getattr(document, "library_type", "breakdown"),
-            )
-        )
+        # === 阶段二：数据库 + 向量库操作（事务内） ===
+        # 处理审核记录
+        review_model = KnowledgeDocumentReview if _is_knowledge_library(doc_library_type) else Document_review
+        review_conditions = [review_model.document_id == id]
+        if hasattr(review_model, "document_library_type"):
+            review_conditions.append(review_model.document_library_type == doc_library_type)
+        review_refs_result = await db.execute(select(review_model).where(*review_conditions))
         review_refs = review_refs_result.scalars().all()
         for review_ref in review_refs:
-            # 待审核记录自动撤回，并补充系统备注
             if review_ref.status == 0:
                 review_ref.status = 3
                 auto_msg = "源文档已被管理员删除，系统自动撤回"
@@ -1510,21 +1694,34 @@ async def delete(
 
         await db.flush()
 
-        # 删掉向量
-        vector_service = VectorService(db)
-        # vector_service.delete_document_from_vector_store(id)
-        await vector_service.delete_document_from_vector_store(
-            id, getattr(document, "library_type", "breakdown")
-        )
+        # 标记源文档为已删除（仅 DB）
+        await _mark_source_documents_deleted(db, id, doc_library_type)
 
-        print("成功删除文档")
+        # 删除向量
+        vector_service = VectorService(db)
+        await vector_service.delete_document_from_vector_store(id, doc_library_type)
+
+        # 标记文档为已删除
         document.is_deleted = 1
         await db.commit()
+        print("成功删除文档（DB + Milvus）")
+
+        # === 阶段三：删除磁盘文件（commit 之后） ===
+        for path in image_paths:
+            await asyncio.to_thread(delete_image_with_variants, path)
+        for path in section_image_paths:
+            await asyncio.to_thread(delete_image_with_variants, path)
+        if origin_file_path:
+            await asyncio.to_thread(delete_file_if_exists, origin_file_path)
+            print(f"已删除源文件{document.origin_file_dir}")
+        await _delete_source_document_files(
+            db, document_base_dir, id, doc_library_type
+        )
+
         return Result.success()
     except AppException:
         raise
     except Exception as e:
-        # 其他异常回滚
         print(e)
         await db.rollback()
         raise AppException(
@@ -1536,15 +1733,48 @@ async def delete(
 
 async def _delete_single_document(db: AsyncSession, document, library_type: str):
     """
-    内部辅助函数：执行单个文档的物理资源清理和逻辑软删除。
-    包括：图片、原文件、源记录、审核记录撤回、向量删除、数据库标记。
+    内部辅助函数：执行单个文档的数据库 + 向量库清理。
+    磁盘文件清理应在 commit 之后由调用方执行。
     """
+    # 1. 处理关联的审核记录（自动撤回待审核项）
+    review_model = KnowledgeDocumentReview if _is_knowledge_library(library_type) else Document_review
+    review_conditions = [review_model.document_id == document.id]
+    if hasattr(review_model, "document_library_type"):
+        review_conditions.append(review_model.document_library_type == library_type)
+    review_refs_result = await db.execute(select(review_model).where(*review_conditions))
+    review_refs = review_refs_result.scalars().all()
+    for review_ref in review_refs:
+        if review_ref.status == 0:
+            review_ref.status = 3
+            auto_msg = "源文档已被管理员批量删除，系统自动撤回"
+            review_ref.review_comment = (
+                f"{review_ref.review_comment}\n{auto_msg}"
+                if review_ref.review_comment
+                else auto_msg
+            )
+            review_ref.reviewed_time = datetime.now()
+
+    # 2. 标记源文档为已删除（仅 DB）
+    await _mark_source_documents_deleted(db, document.id, library_type)
+
+    # 3. 删除向量库索引
+    vector_service = VectorService(db)
+    await vector_service.delete_document_from_vector_store(document.id, library_type)
+
+    # 4. 标记数据库记录为已删除
+    document.is_deleted = 1
+
+
+async def _cleanup_document_disk_files(
+    db: AsyncSession, document, library_type: str
+):
+    """删除文档关联的磁盘文件（commit 之后调用）。"""
     config = get_image_config()
     base_url = os.path.join(
         config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
     )
 
-    # 1. 删除关联图片
+    # 删除文档级图片
     attrs = [
         attr
         for attr in [
@@ -1558,58 +1788,35 @@ async def _delete_single_document(db: AsyncSession, document, library_type: str)
         ]
         if hasattr(document, attr)
     ]
-
     for attr in attrs:
         value = getattr(document, attr, None)
-        if value is not None:
-            image_urls = value.split(", ")
-            for image_url in image_urls:
+        if value:
+            for image_url in value.split(", "):
                 filename = os.path.basename(image_url)
                 if filename.strip():
                     url = os.path.join(base_url, filename.lstrip("/").lstrip("\\"))
                     await asyncio.to_thread(delete_image_with_variants, url)
 
-    # 2. 删除原始上传文件
+    # 删除章节图片（知识库）
+    if library_type == "knowledge":
+        await delete_section_images_for_document(db, document.id, base_url)
+
+    # 删除原始上传文件
     if document.origin_file_dir:
         url = os.path.join(
             config["BASE_DIR"],
-            normalize_upload_path(document.origin_file_dir) or document.origin_file_dir,
+            normalize_upload_path(document.origin_file_dir)
+            or document.origin_file_dir,
         )
         await asyncio.to_thread(delete_file_if_exists, url)
 
-    # 3. 删除源文档记录 (SourceDocument)
+    # 删除源文档物理文件
     document_base_dir = os.getenv(
         "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
     )
-    await _delete_source_documents_for_document(
+    await _delete_source_document_files(
         db, document_base_dir, document.id, library_type
     )
-
-    # 4. 处理关联的审核记录 (自动撤回待审核项)
-    review_refs_result = await db.execute(
-        select(Document_review).where(
-            Document_review.document_id == document.id,
-            Document_review.document_library_type == library_type,
-        )
-    )
-    review_refs = review_refs_result.scalars().all()
-    for review_ref in review_refs:
-        if review_ref.status == 0:
-            review_ref.status = 3
-            auto_msg = "源文档已被管理员批量删除，系统自动撤回"
-            review_ref.review_comment = (
-                f"{review_ref.review_comment}\n{auto_msg}"
-                if review_ref.review_comment
-                else auto_msg
-            )
-            review_ref.reviewed_time = datetime.now()
-
-    # 5. 删除向量库索引
-    vector_service = VectorService(db)
-    await vector_service.delete_document_from_vector_store(document.id, library_type)
-
-    # 6. 标记数据库记录为已删除
-    document.is_deleted = 1
 
 
 @router.post("/deletes", summary="批量删除文档")
@@ -1654,6 +1861,7 @@ async def delete_documents(
 
         deleted_count = 0
         failed_items = []
+        deleted_documents = []  # 记录成功删除的文档，用于 commit 后清理文件
 
         # 4. 处理故障库文档
         if breakdown_ids:
@@ -1669,6 +1877,7 @@ async def delete_documents(
                 try:
                     await _delete_single_document(db, document, "breakdown")
                     deleted_count += 1
+                    deleted_documents.append((document, "breakdown"))
                 except Exception as e:
                     logger.exception(f"批量删除故障库文档失败, id={document.id}")
                     failed_items.append(
@@ -1689,6 +1898,7 @@ async def delete_documents(
                 try:
                     await _delete_single_document(db, document, "knowledge")
                     deleted_count += 1
+                    deleted_documents.append((document, "knowledge"))
                 except Exception as e:
                     logger.exception(f"批量删除知识库文档失败, id={document.id}")
                     failed_items.append(
@@ -1697,6 +1907,15 @@ async def delete_documents(
 
         # 6. 提交事务
         await db.commit()
+
+        # 6.1 事务提交成功后，清理磁盘文件（单个文件删除失败不影响整体结果）
+        for document, lib_type in deleted_documents:
+            try:
+                await _cleanup_document_disk_files(db, document, lib_type)
+            except Exception as e:
+                logger.warning(
+                    f"文档 {document.id} 磁盘文件清理失败（DB 已标记删除）: {e}"
+                )
 
         # 7. 返回结果
         if failed_items:
@@ -2140,12 +2359,6 @@ async def analyze_files(file_list: AnalyzeRequest,
             message="请求核心参数无效",
         )
     submit_for_review = bool(file_list.submit_for_review)
-    if _is_knowledge_library(file_list.library_type) and submit_for_review:
-        raise AppException(
-            http_status=status.HTTP_400_BAD_REQUEST,
-            biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="知识库导入暂不支持审核流程，请由管理员直接导入",
-        )
     if submit_for_review and not has_role(current_user, UserRole.TECHNICIAN):
         raise AppException(
             http_status=status.HTTP_403_FORBIDDEN,
@@ -2333,6 +2546,35 @@ async def analyze_files(file_list: AnalyzeRequest,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
                 )
+                if submit_for_review:
+                    review = _build_create_review_from_document(
+                        document,
+                        current_user_id,
+                        parsed.sections,
+                        library_type="knowledge",
+                    )
+                    db.add(review)
+                    await db.flush()
+                    await db.refresh(review)
+                    source = await _get_source_document_by_path(db, file)
+                    if source:
+                        source.status = "review_pending"
+                        source.review_id = review.id
+                        source.review_library_type = "knowledge"
+                        source.document_library_type = "knowledge"
+                        source.parse_error = None
+                        source.parse_started_time = None
+                    await db.commit()
+                    success_file_url.append(file)
+                    success_origin_filename.append(file_name)
+                    logger.info(
+                        "knowledge document analyze review created, file=%s, review_id=%s, elapsed=%.2fs",
+                        file_name,
+                        review.id,
+                        time.perf_counter() - file_started,
+                    )
+                    continue
+
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
@@ -2513,7 +2755,11 @@ async def analyze_files(file_list: AnalyzeRequest,
             _normalize_document_for_db(document)
             print(document.title)
             if submit_for_review:
-                review = _build_create_review_from_document(document, current_user_id)
+                review = _build_create_review_from_document(
+                    document,
+                    current_user_id,
+                    library_type=document.library_type,
+                )
                 db.add(review)
                 await db.flush()
                 await db.refresh(review)
@@ -2521,6 +2767,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 if source:
                     source.status = "review_pending"
                     source.review_id = review.id
+                    source.review_library_type = document.library_type
                     source.document_library_type = document.library_type
                     source.parse_error = None
                     source.parse_started_time = None

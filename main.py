@@ -40,6 +40,9 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ['HF_HOME'] = os.getenv("MODEL_DOWNLOAD_URL", "D:\Pycharm\code\Maintenance_Assistance_System\\bge\model")
 from fastapi import FastAPI, Request, HTTPException
@@ -49,8 +52,8 @@ from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, conversation_v1, file_manage, review, source_documents, tags
-# from routers import auth, conversation_v1
+from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags
+# conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
 from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
@@ -593,6 +596,21 @@ async def ensure_source_document_library_columns():
         for row in fk_result.all():
             await conn.execute(text(f"ALTER TABLE source_documents DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
 
+        review_fk_result = await conn.execute(
+            text(
+                """
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'source_documents'
+                  AND COLUMN_NAME = 'review_id'
+                  AND REFERENCED_TABLE_NAME = 'document_reviews'
+                """
+            )
+        )
+        for row in review_fk_result.all():
+            await conn.execute(text(f"ALTER TABLE source_documents DROP FOREIGN KEY `{row.CONSTRAINT_NAME}`"))
+
         library_column_result = await conn.execute(
             text(
                 """
@@ -606,6 +624,9 @@ async def ensure_source_document_library_columns():
         )
         if int(library_column_result.scalar_one() or 0) == 0:
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN document_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER document_id"))
+
+        if not await _column_exists(conn, "source_documents", "review_library_type"):
+            await conn.execute(text("ALTER TABLE source_documents ADD COLUMN review_library_type VARCHAR(32) NOT NULL DEFAULT 'breakdown' AFTER review_id"))
 
         if not await _column_exists(conn, "source_documents", "parse_started_time"):
             await conn.execute(text("ALTER TABLE source_documents ADD COLUMN parse_started_time DATETIME NULL AFTER parse_error"))
@@ -627,6 +648,43 @@ async def ensure_message_token_count_column():
         if int(token_column_result.scalar_one() or 0) == 0:
             await conn.execute(
                 text("ALTER TABLE message ADD COLUMN token_count INT NOT NULL DEFAULT 0 AFTER ai_reference_doc_ids")
+            )
+
+
+async def ensure_ai_usage_logs_table():
+    async with engine.begin() as conn:
+        if not await _table_exists(conn, "ai_usage_logs"):
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE ai_usage_logs (
+                        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NULL,
+                        session_id INT NULL,
+                        message_id INT NULL,
+                        provider VARCHAR(32) NOT NULL DEFAULT 'openai',
+                        model VARCHAR(255) NOT NULL DEFAULT '',
+                        request_type VARCHAR(64) NOT NULL DEFAULT '',
+                        status VARCHAR(32) NOT NULL DEFAULT 'success',
+                        input_tokens INT NOT NULL DEFAULT 0,
+                        output_tokens INT NOT NULL DEFAULT 0,
+                        total_tokens INT NOT NULL DEFAULT 0,
+                        prompt_tokens INT NOT NULL DEFAULT 0,
+                        completion_tokens INT NOT NULL DEFAULT 0,
+                        raw_usage_json TEXT NULL,
+                        error_message TEXT NULL,
+                        created_time DATETIME NULL,
+                        INDEX idx_ai_usage_logs_user_id (user_id),
+                        INDEX idx_ai_usage_logs_session_id (session_id),
+                        INDEX idx_ai_usage_logs_message_id (message_id),
+                        INDEX idx_ai_usage_logs_provider (provider),
+                        INDEX idx_ai_usage_logs_model (model),
+                        INDEX idx_ai_usage_logs_request_type (request_type),
+                        INDEX idx_ai_usage_logs_status (status),
+                        INDEX idx_ai_usage_logs_created_time (created_time)
+                    )
+                    """
+                )
             )
 
 
@@ -681,6 +739,7 @@ async def migrate_legacy_upload_document_paths_to_source_documents():
         ("document_breakdown", "origin_file_dir"),
         ("document_knowledge", "origin_file_dir"),
         ("document_reviews", "origin_file_dir"),
+        ("knowledge_document_reviews", "origin_file_dir"),
     ]
 
     async with engine.begin() as conn:
@@ -745,6 +804,7 @@ async def on_startup():
     await ensure_review_library_columns()
     await ensure_source_document_library_columns()
     await ensure_message_token_count_column()
+    await ensure_ai_usage_logs_table()
     await migrate_legacy_documents_to_breakdown()
     await migrate_legacy_tags_to_tag_tables()
     await migrate_legacy_upload_document_paths_to_source_documents()
@@ -780,8 +840,6 @@ app.include_router(review.router)
 app.include_router(source_documents.router)
 app.include_router(tags.router)
 app.include_router(conversation.router)
-app.include_router(message.router)
-app.include_router(conversation_v1.router)
 app.include_router(file_manage.router)
 
 # Enterprise-facing API namespace. Keep legacy routes above for backward
@@ -795,7 +853,7 @@ app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)
 app.include_router(tags.router, prefix=API_V1_PREFIX)
 app.include_router(conversation.router, prefix=API_V1_PREFIX)
-app.include_router(message.router, prefix=API_V1_PREFIX)
+app.include_router(message.chat_router)
 
 @app.get("/", summary="根路径")
 async def root():

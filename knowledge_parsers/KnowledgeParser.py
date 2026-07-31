@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import uuid
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from PIL import Image
 
 from knowledge_parsers.enterprise_word_chunker import EnterpriseWordChunker
 from utils.error_codes import BizCode
+from utils.ppt_template_cleaner import clean_pptx_template
 
 try:
     import pymupdf
@@ -1563,20 +1565,45 @@ class KnowledgeParser:
             from pptx import Presentation
         except Exception:
             raise RuntimeError("python-pptx 未安装，无法解析 PPT")
-        presentation = Presentation(file_path)
-        blocks: List[Dict] = []
-        for slide_index, slide in enumerate(presentation.slides, start=1):
-            blocks.append({"type": "text", "text": f"第{slide_index}页", "is_heading": True})
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text = shape.text.strip()
-                    if text:
-                        blocks.append({"type": "text", "text": text})
-                if getattr(shape, "shape_type", None) == 13 and hasattr(shape, "image"):
-                    ext = shape.image.ext or "png"
-                    image_url = self._save_image_blob(shape.image.blob, ext)
-                    blocks.append({"type": "image", "image_url": image_url})
-        return self._build_document(file_path, blocks)
+        parse_path = file_path
+        cleanup_context = None
+        source_path = Path(file_path)
+        if source_path.suffix.lower() == ".pptx":
+            cleanup_context = tempfile.TemporaryDirectory(prefix="ppt_clean_")
+            cleaned_path = Path(cleanup_context.name) / source_path.name
+            try:
+                clean_stats = clean_pptx_template(str(source_path), str(cleaned_path))
+                parse_path = str(cleaned_path)
+                print(
+                    "[KnowledgeParser] PPT 已先清模板：templates={templates} slide_placeholders={placeholders} backgrounds={backgrounds}".format(
+                        templates=clean_stats.get("removed_template_shapes", 0),
+                        placeholders=clean_stats.get("removed_slide_placeholders", 0),
+                        backgrounds=clean_stats.get("removed_backgrounds", 0),
+                    )
+                )
+            except Exception as error:
+                cleanup_context.cleanup()
+                cleanup_context = None
+                print(f"[KnowledgeParser] 清模板失败，继续使用原始 PPT：{error}")
+
+        try:
+            presentation = Presentation(parse_path)
+            blocks: List[Dict] = []
+            for slide_index, slide in enumerate(presentation.slides, start=1):
+                blocks.append({"type": "text", "text": f"第{slide_index}页", "is_heading": True})
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text = shape.text.strip()
+                        if text:
+                            blocks.append({"type": "text", "text": text})
+                    if getattr(shape, "shape_type", None) == 13 and hasattr(shape, "image"):
+                        ext = shape.image.ext or "png"
+                        image_url = self._save_image_blob(shape.image.blob, ext)
+                        blocks.append({"type": "image", "image_url": image_url})
+            return self._build_document(file_path, blocks)
+        finally:
+            if cleanup_context is not None:
+                cleanup_context.cleanup()
 
 
 knowledge_parser = KnowledgeParser()

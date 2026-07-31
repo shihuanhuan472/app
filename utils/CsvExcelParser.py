@@ -6,6 +6,7 @@ import pandas as pd
 
 from models import Document
 from utils.error_codes import BizCode
+from utils.title_utils import normalize_document_title
 
 
 TableData = Tuple[str, List[str], List[Dict[str, str]]]
@@ -196,8 +197,8 @@ class CsvExcelParser:
         if title:
             title = title.split("] ", 1)[-1].strip()
         if title:
-            return title
-        return f"Table Parse - {Path(file_path).stem}"
+            return normalize_document_title(title)
+        return normalize_document_title(f"Table Parse - {Path(file_path).stem}")
 
     def _tables_to_document(self, file_path: str, tables: List[TableData]):
         title = self._build_title(file_path, tables)

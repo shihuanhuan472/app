@@ -2,7 +2,6 @@
 class MenuManager {
     constructor() {
         this.currentUser = null;
-        this.parseProgressTimer = null;
         this.init();
     }
 
@@ -19,7 +18,6 @@ class MenuManager {
 
             this.updateMenuByRole();
             this.setActiveMenu();
-            this.initParseProgressIndicator();
         } catch (error) {
             console.error('Failed to load menu:', error);
         }
@@ -33,12 +31,13 @@ class MenuManager {
         const isReviewer = this.isUserReviewer();
         const canReview = isAdmin || isReviewer;
         const canManageTags = isAdmin || isTechnician;
+        const canManageSensitiveTerms = isAdmin;
 
         this.ensureDashboardMenuLink();
         this.ensureSourceDocumentMenuLink();
-        this.ensureParseProgressMenuLink();
         this.ensureReviewMenuLink();
         this.ensureTagManagementMenuLink();
+        this.ensureSensitiveTermsMenuLink();
         this.normalizeMenuOrder();
 
         const dashboardLink = document.querySelector('a[href="dashboard.html"]');
@@ -48,7 +47,7 @@ class MenuManager {
         const reviewCenterLink = document.querySelector('a[href="document-review.html"]');
         const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
         const tagManagementLink = document.querySelector('a[href="tag-management.html"]');
-        const parseProgressLink = document.querySelector('a[data-parse-progress-link="true"]');
+        const sensitiveTermsLink = document.querySelector('a[href="sensitive-terms.html"]');
 
         if (dashboardLink) {
             dashboardLink.style.display = isAdmin ? 'flex' : 'none';
@@ -80,27 +79,27 @@ class MenuManager {
             tagManagementLink.style.display = canManageTags ? 'flex' : 'none';
         }
 
-        if (parseProgressLink) {
-            parseProgressLink.style.display = 'none';
+        if (sensitiveTermsLink) {
+            sensitiveTermsLink.style.display = canManageSensitiveTerms ? 'flex' : 'none';
         }
     }
 
     isUserAdmin() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.ADMIN);
+        return Utils.hasPermission(user, Utils.PERMISSION.ADMIN);
     }
 
     isUserTechnician() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.TECHNICIAN);
+        return !this.isUserAdmin() && Utils.hasPermission(user, Utils.PERMISSION.READ_WRITE);
     }
 
     isUserReviewer() {
         const user = this.currentUser;
         if (!user) return false;
-        return Utils.hasRole(user, Utils.ROLE.REVIEWER);
+        return Utils.hasPermission(user, Utils.PERMISSION.REVIEW);
     }
 
     ensureDashboardMenuLink() {
@@ -181,34 +180,6 @@ class MenuManager {
         }
     }
 
-    ensureParseProgressMenuLink() {
-        const navMenu = document.querySelector('.nav-menu');
-        if (!navMenu) return;
-
-        const exists = navMenu.querySelector('a[data-parse-progress-link="true"]');
-        if (exists) return;
-
-        const progressLink = document.createElement('a');
-        progressLink.href = 'import-documents.html?view=parse-progress';
-        progressLink.className = 'nav-item parse-progress-nav-item';
-        progressLink.dataset.parseProgressLink = 'true';
-        progressLink.style.display = 'none';
-        progressLink.innerHTML = `
-            <span class="nav-icon"><i class="fas fa-spinner fa-spin"></i></span>
-            <span class="parse-progress-nav-label">解析进度</span>
-            <span class="parse-progress-nav-badge" data-parse-progress-badge>0%</span>
-        `;
-
-        const sourceLink = navMenu.querySelector('a[href="source-documents.html"]');
-        if (sourceLink && sourceLink.nextElementSibling) {
-            navMenu.insertBefore(progressLink, sourceLink.nextElementSibling);
-        } else if (sourceLink) {
-            navMenu.appendChild(progressLink);
-        } else {
-            navMenu.appendChild(progressLink);
-        }
-    }
-
     ensureTagManagementMenuLink() {
         const navMenu = document.querySelector('.nav-menu');
         if (!navMenu) return;
@@ -235,6 +206,35 @@ class MenuManager {
         }
     }
 
+    ensureSensitiveTermsMenuLink() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) return;
+
+        const exists = navMenu.querySelector('a[href="sensitive-terms.html"]');
+        if (exists) return;
+
+        const sensitiveLink = document.createElement('a');
+        sensitiveLink.href = 'sensitive-terms.html';
+        sensitiveLink.className = 'nav-item';
+        sensitiveLink.style.display = 'none';
+        sensitiveLink.innerHTML = `
+            <span class="nav-icon"><i class="fas fa-user-shield"></i></span>
+            <span>敏感词管理</span>
+        `;
+
+        const tagManagementLink = navMenu.querySelector('a[href="tag-management.html"]');
+        if (tagManagementLink) {
+            navMenu.insertBefore(sensitiveLink, tagManagementLink);
+        } else {
+            const userManagementLink = navMenu.querySelector('a[href="user-management.html"]');
+            if (userManagementLink) {
+                navMenu.insertBefore(sensitiveLink, userManagementLink.nextElementSibling);
+            } else {
+                navMenu.appendChild(sensitiveLink);
+            }
+        }
+    }
+
     normalizeMenuOrder() {
         const navMenu = document.querySelector('.nav-menu');
         if (!navMenu) return;
@@ -243,11 +243,11 @@ class MenuManager {
             'dashboard.html',
             'main.html',
             'source-documents.html',
-            'import-documents.html?view=parse-progress',
             'my-submissions.html',
             'document-review.html',
             'ai-assist.html',
             'user-management.html',
+            'sensitive-terms.html',
             'tag-management.html',
             'user-profile.html',
         ];
@@ -269,14 +269,6 @@ class MenuManager {
         const query = new URLSearchParams(window.location.search);
         const source = query.get('source');
         const mode = query.get('mode');
-
-        if (fileName.includes('import-documents') && query.get('view') === 'parse-progress') {
-            const progressLink = document.querySelector('a[data-parse-progress-link="true"]');
-            if (progressLink) {
-                progressLink.classList.add('active');
-                return;
-            }
-        }
 
         if (fileName.includes('user-form')) {
             const link = document.querySelector('a[href="user-management.html"]');
@@ -327,143 +319,6 @@ class MenuManager {
         if (currentLink) {
             currentLink.classList.add('active');
         }
-    }
-
-    getAuthHeaders() {
-        const headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        };
-        const token = localStorage.getItem('token');
-        if (token) headers.Authorization = `Bearer ${token}`;
-        return headers;
-    }
-
-    getApiBaseUrl() {
-        if (typeof API_CONFIG === 'undefined' || !API_CONFIG.BASE_URL) return '';
-        return API_CONFIG.BASE_URL.replace(/\/$/, '');
-    }
-
-    async fetchParseTaskById(taskId) {
-        const baseUrl = this.getApiBaseUrl();
-        if (!baseUrl || !taskId) return null;
-
-        const response = await fetch(`${baseUrl}/document/parse_tasks/${encodeURIComponent(taskId)}`, {
-            method: 'GET',
-            headers: this.getAuthHeaders(),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const result = await response.json();
-        if (result && result.code === 1) return result.data;
-        throw new Error((result && result.msg) || '获取解析任务失败');
-    }
-
-    async fetchActiveParseTask() {
-        const baseUrl = this.getApiBaseUrl();
-        if (!baseUrl) return null;
-
-        const response = await fetch(`${baseUrl}/document/parse_tasks/active`, {
-            method: 'GET',
-            headers: this.getAuthHeaders(),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const result = await response.json();
-        if (result && result.code === 1) return result.data;
-        throw new Error((result && result.msg) || '获取解析任务失败');
-    }
-
-    isParseTaskActive(task) {
-        return task && (task.status === 'pending' || task.status === 'running');
-    }
-
-    isParseTaskFinished(task) {
-        return task && task.status === 'finished';
-    }
-
-    calculateParseTaskProgress(task) {
-        const total = Number(task && task.total_count) || 0;
-        const success = Number(task && task.success_count) || 0;
-        const failed = Number(task && task.failed_count) || 0;
-        const finished = success + failed;
-        const percent = total > 0 ? Math.min(100, Math.round((finished / total) * 100)) : 0;
-        return { total, finished, percent };
-    }
-
-    updateParseProgressLink(task) {
-        const link = document.querySelector('a[data-parse-progress-link="true"]');
-        if (!link) return;
-
-        if (!this.isParseTaskActive(task) && !this.isParseTaskFinished(task)) {
-            link.style.display = 'none';
-            return;
-        }
-
-        const progress = this.calculateParseTaskProgress(task);
-        const badge = link.querySelector('[data-parse-progress-badge]');
-        const label = link.querySelector('.parse-progress-nav-label');
-        const icon = link.querySelector('.nav-icon i');
-        const isFinished = this.isParseTaskFinished(task);
-
-        link.style.display = 'flex';
-        link.href = `import-documents.html?view=parse-progress&task_id=${encodeURIComponent(task.id)}`;
-        link.title = isFinished
-            ? `解析完成：${progress.finished}/${progress.total}`
-            : (task.current_file_name ? `正在解析：${task.current_file_name}` : `解析进度：${progress.finished}/${progress.total}`);
-
-        if (icon) {
-            icon.className = isFinished ? 'fas fa-check-circle' : 'fas fa-spinner fa-spin';
-        }
-
-        if (badge) {
-            badge.textContent = isFinished
-                ? '完成'
-                : progress.total > 0
-                ? `${progress.finished}/${progress.total}`
-                : `${progress.percent}%`;
-        }
-        if (label) {
-            label.textContent = isFinished ? '解析完成' : '解析进度';
-        }
-    }
-
-    async refreshParseProgressIndicator() {
-        try {
-            let task = null;
-            const localTaskId = localStorage.getItem('current_parse_task_id');
-            if (localTaskId) {
-                task = await this.fetchParseTaskById(localTaskId);
-                if (!this.isParseTaskActive(task) && !this.isParseTaskFinished(task)) {
-                    task = null;
-                }
-            }
-
-            if (!task) {
-                task = await this.fetchActiveParseTask();
-                if (this.isParseTaskActive(task)) {
-                    localStorage.setItem('current_parse_task_id', String(task.id));
-                }
-            }
-
-            this.updateParseProgressLink(task);
-        } catch (error) {
-            console.warn('刷新解析进度入口失败:', error);
-            this.updateParseProgressLink(null);
-        }
-    }
-
-    initParseProgressIndicator() {
-        this.ensureParseProgressMenuLink();
-        if (this.parseProgressTimer) {
-            clearInterval(this.parseProgressTimer);
-            this.parseProgressTimer = null;
-        }
-
-        this.refreshParseProgressIndicator();
-        this.parseProgressTimer = setInterval(() => {
-            this.refreshParseProgressIndicator();
-        }, 5000);
     }
 }
 

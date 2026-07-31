@@ -282,29 +282,6 @@ body {
     font-size: 18px;
 }
 
-.parse-progress-nav-item {
-    gap: 0;
-}
-
-.parse-progress-nav-label {
-    flex: 1;
-    min-width: 0;
-}
-
-.parse-progress-nav-badge {
-    flex-shrink: 0;
-    min-width: 36px;
-    margin-left: 8px;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: rgba(74, 158, 255, 0.24);
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 18px;
-    text-align: center;
-}
-
 .user-info {
     padding: 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
