@@ -462,7 +462,12 @@ async def ensure_user_api_key_column():
             await conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR(128) NULL AFTER department"))
 
         users_without_key_result = await conn.execute(
-            text("SELECT id FROM users WHERE api_key IS NULL OR api_key = ''")
+            text(
+                "SELECT id FROM users "
+                "WHERE (api_key IS NULL OR api_key = '') "
+                "AND status = 1 "
+                "AND registration_status = 'approved'"
+            )
         )
         for row in users_without_key_result.all():
             api_key = generate_api_key()
@@ -484,6 +489,31 @@ async def ensure_user_api_key_column():
         )
         if int(index_result.scalar_one() or 0) == 0:
             await conn.execute(text("CREATE UNIQUE INDEX idx_users_api_key ON users (api_key)"))
+
+
+async def ensure_user_registration_schema():
+    async with engine.begin() as conn:
+        if not await _column_exists(conn, "users", "registration_status"):
+            await conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN registration_status VARCHAR(20) NOT NULL "
+                    "DEFAULT 'approved' AFTER status"
+                )
+            )
+        await conn.execute(
+            text(
+                "UPDATE users SET registration_status = 'approved' "
+                "WHERE registration_status IS NULL OR registration_status = ''"
+            )
+        )
+        if not await _index_exists(conn, "users", "idx_users_registration_status"):
+            await conn.execute(
+                text(
+                    "CREATE INDEX idx_users_registration_status "
+                    "ON users (registration_status)"
+                )
+            )
 
 
 async def ensure_role_group_schema():
@@ -661,7 +691,7 @@ async def ensure_ai_usage_logs_table():
                         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NULL,
                         session_id INT NULL,
-                        message_id INT NULL,
+                        message_id BIGINT NULL,
                         provider VARCHAR(32) NOT NULL DEFAULT 'openai',
                         model VARCHAR(255) NOT NULL DEFAULT '',
                         request_type VARCHAR(64) NOT NULL DEFAULT '',
@@ -798,6 +828,7 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await ensure_user_registration_schema()
     await ensure_role_group_schema()
     await ensure_user_api_key_column()
     await ensure_document_tables_for_library_split()

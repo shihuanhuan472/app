@@ -1,5 +1,6 @@
 ﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy import BigInteger
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -18,6 +19,9 @@ class User(Base):
     email = Column(String(100), unique=True)
     full_name = Column(String(100), nullable=False)
     status = Column(Integer, default=1)  # 0-disabled, 1-enabled
+    registration_status = Column(
+        String(20), default="approved", nullable=False, index=True
+    )  # pending, approved, rejected
     role = Column(
         Integer, default=1
     )  # 0-admin, 1-technician, 2-reviewer, 3-maintenance
@@ -326,8 +330,8 @@ class ConversationContext(Base):
     active_reference_images_json = Column(LargeText)
     slots_json = Column(LargeText)
     summary_text = Column(LargeText)
-    last_user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
-    last_ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    last_user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    last_ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
     last_trace_id = Column(Integer, nullable=True, index=True)
     turn_count = Column(Integer, default=0, nullable=False)
     created_time = Column(DateTime)
@@ -341,8 +345,8 @@ class ConversationContextEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
-    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
-    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
     event_type = Column(String(64), nullable=False, index=True)
     route = Column(String(64), index=True)
     reason = Column(String(255))
@@ -375,7 +379,7 @@ class ConversationSummary(Base):
 class Message(Base):
     __tablename__ = "message"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False)
     message_order = Column(Integer, nullable=False)
     role = Column(Integer, nullable=False)  # 0-AI, 1-user
@@ -393,8 +397,8 @@ class AiMessageTrace(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
-    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=False, index=True)
-    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=False, index=True)
+    ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
     route = Column(String(64), nullable=False, index=True)
     reason = Column(String(255))
     original_question = Column(Text)
@@ -426,7 +430,7 @@ class AiUsageLog(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=True, index=True)
-    message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
     provider = Column(String(32), default="openai", nullable=False, index=True)
     model = Column(String(255), default="", nullable=False, index=True)
     request_type = Column(String(64), default="", nullable=False, index=True)

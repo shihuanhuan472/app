@@ -28,6 +28,8 @@ from models import (
 )
 from schemas import (
     Page,
+    RegistrationApproval,
+    RegistrationRejection,
     Result,
     RoleGroupCreate,
     RoleGroupUpdate,
@@ -45,6 +47,7 @@ from utils.api_key import generate_api_key
 from utils.desensitize import read_sensitive_terms, write_sensitive_terms
 from utils.pagination import build_pagination_payload
 from utils.roles import (
+    PermissionCode,
     get_expected_perm_for_role,
     get_user_permissions,
     is_role_perm_consistent,
@@ -111,6 +114,8 @@ def _serialize_user(user: User) -> dict:
         "role_group_id": getattr(user, "role_group_id", None),
         "role_group_name": getattr(role_group, "name", None),
         "permissions": sorted(get_user_permissions(user)),
+        "status": user.status,
+        "registration_status": getattr(user, "registration_status", "approved"),
         "department": user.department,
         "api_key": getattr(user, "api_key", None),
         "created_time": user.created_time,
@@ -173,6 +178,7 @@ async def _apply_role_group_to_user(db: AsyncSession, user: User, role_group_id:
     user.role_group_id = role_group.id
     user.role = legacy_role
     user.perm = legacy_perm
+    return role_group
 
 
 async def _generate_unique_api_key(db: AsyncSession) -> str:
@@ -992,6 +998,94 @@ async def update_role_group(
     return Result.success_with_data(_serialize_role_group(role_group))
 
 
+@router.get("/registrations", summary="管理员查询待审核注册申请")
+async def get_pending_registrations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+        .where(User.registration_status == "pending")
+        .order_by(User.created_time.asc(), User.id.asc())
+    )
+    return Result.success_with_data(
+        [_serialize_user(user) for user in result.scalars().all()]
+    )
+
+
+@router.post("/registrations/approve", summary="管理员通过注册申请")
+async def approve_registration(
+    approval: RegistrationApproval,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    result = await db.execute(
+        select(User).where(
+            User.id == approval.user_id,
+            User.registration_status == "pending",
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise AppException(
+            status.HTTP_404_NOT_FOUND,
+            BizCode.NOT_FOUND,
+            "待审核的注册申请不存在",
+        )
+
+    role_group = await _get_role_group_or_400(db, approval.role_group_id)
+    permission_codes = {
+        permission.permission_code for permission in (role_group.permissions or [])
+    }
+    if PermissionCode.ADMIN in permission_codes:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            "注册审核不能直接授予管理员权限，请先分配普通角色",
+        )
+
+    await _apply_role_group_to_user(db, user, approval.role_group_id)
+    user.registration_status = "approved"
+    user.status = 1
+    if not user.api_key:
+        user.api_key = await _generate_unique_api_key(db)
+
+    await db.commit()
+    refreshed_result = await db.execute(
+        select(User)
+        .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
+        .where(User.id == user.id)
+    )
+    return Result.success_with_data(_serialize_user(refreshed_result.scalar_one()))
+
+
+@router.post("/registrations/reject", summary="管理员拒绝注册申请")
+async def reject_registration(
+    rejection: RegistrationRejection,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    result = await db.execute(
+        select(User).where(
+            User.id == rejection.user_id,
+            User.registration_status == "pending",
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise AppException(
+            status.HTTP_404_NOT_FOUND,
+            BizCode.NOT_FOUND,
+            "待审核的注册申请不存在",
+        )
+
+    user.registration_status = "rejected"
+    user.status = 0
+    await db.commit()
+    return Result.success()
+
+
 @router.post("/add_user", summary="管理员添加用户")
 async def add_user(
     user: UserCreate,
@@ -1029,6 +1123,7 @@ async def add_user(
 
         if user_delete:
             user_delete.status = user.status if user.status is not None else 1
+            user_delete.registration_status = "approved"
             user_delete.phone = phone
             user_delete.email = email
             if role_group_id:
@@ -1055,6 +1150,7 @@ async def add_user(
                 password=hashed_password,
                 api_key=await _generate_unique_api_key(db),
                 status=user.status if user.status is not None else 1,
+                registration_status="approved",
                 created_time=datetime.now(),
                 last_login=None,
             )

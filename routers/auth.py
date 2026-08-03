@@ -3,67 +3,26 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
-from sqlalchemy import select, text, update
+from sqlalchemy import or_, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database import AsyncSessionLocal, get_db
 from models import RoleGroup, User
-from schemas import Result, UserLogin
+from schemas import Result, UserLogin, UserRegister
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.JwtUtils import jwt_utils
-from utils.roles import PermissionCode, get_user_permissions, has_permission
+from utils.roles import get_user_permissions
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 logger = logging.getLogger(__name__)
 
-ROLE_ADMIN = "admin"
-ROLE_TECH_RW = "technician_rw"
-ROLE_REVIEWER = "reviewer"
-ROLE_MAINTENANCE = "maintenance_staff"
 LAST_LOGIN_LOCK_WAIT_TIMEOUT = 2
-
-
-def _normalize_role(selected_role: str):
-    """Normalize frontend role value and keep compatibility aliases."""
-    if not selected_role:
-        return None
-
-    role = selected_role.strip().lower()
-    aliases = {
-        "admin": ROLE_ADMIN,
-        "technician_rw": ROLE_TECH_RW,
-        "reviewer": ROLE_REVIEWER,
-        "maintenance_staff": ROLE_MAINTENANCE,
-        "readonly": ROLE_MAINTENANCE,
-        "maintenance": ROLE_MAINTENANCE,
-        "维修人员": ROLE_MAINTENANCE,
-        "technician": ROLE_TECH_RW,
-        "技术人员": ROLE_TECH_RW,
-        "review": ROLE_REVIEWER,
-        "审核人员": ROLE_REVIEWER,
-        "管理员": ROLE_ADMIN,
-        "0": ROLE_ADMIN,
-        "1": ROLE_TECH_RW,
-        "2": ROLE_REVIEWER,
-        "3": ROLE_MAINTENANCE,
-    }
-    return aliases.get(role)
-
-
-def _role_match(user: User, canonical_role: str) -> bool:
-    """Keep login role selection compatible, but validate against role-group permissions."""
-    permission_map = {
-        ROLE_ADMIN: PermissionCode.ADMIN,
-        ROLE_TECH_RW: PermissionCode.READ_WRITE,
-        ROLE_REVIEWER: PermissionCode.REVIEW,
-        ROLE_MAINTENANCE: PermissionCode.READ_ONLY,
-    }
-    expected_permission = permission_map.get(canonical_role)
-    if expected_permission is None:
-        return False
-    return has_permission(user, expected_permission)
+REGISTRATION_PENDING = "pending"
+REGISTRATION_APPROVED = "approved"
+REGISTRATION_REJECTED = "rejected"
 
 
 async def _update_last_login_best_effort(user_id: int, login_time: datetime):
@@ -87,6 +46,84 @@ async def _update_last_login_best_effort(user_id: int, login_time: datetime):
             logger.warning("更新用户最后登录时间失败，已忽略 user_id=%s", user_id, exc_info=True)
 
 
+@router.post("/register", summary="用户注册")
+async def register(
+    registration: UserRegister,
+    db: AsyncSession = Depends(get_db),
+):
+    username = registration.username.strip()
+    password = registration.password
+    phone = registration.phone.strip()
+    email = (registration.email or "").strip() or None
+    full_name = registration.full_name.strip()
+    department = (registration.department or "").strip() or None
+
+    if not username or not phone or not full_name:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请完整填写必填信息")
+    if len(username) < 3:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名至少需要 3 个字符")
+    if len(phone) < 5:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号格式不正确")
+    if password != registration.confirm_password:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "两次输入的密码不一致")
+    if email and ("@" not in email or " " in email):
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "邮箱格式不正确")
+
+    duplicate_conditions = [User.username == username, User.phone == phone]
+    if email:
+        duplicate_conditions.append(User.email == email)
+    duplicate_result = await db.execute(select(User).where(or_(*duplicate_conditions)))
+    duplicate_user = duplicate_result.scalars().first()
+    if duplicate_user:
+        if duplicate_user.username == username:
+            message = "用户名已存在"
+            biz_code = BizCode.USER_DUPLICATE_USERNAME
+        elif duplicate_user.phone == phone:
+            message = "手机号已被使用"
+            biz_code = BizCode.USER_DUPLICATE_PHONE
+        else:
+            message = "邮箱已被使用"
+            biz_code = BizCode.USER_DUPLICATE_EMAIL
+        raise AppException(status.HTTP_400_BAD_REQUEST, biz_code, message)
+
+    new_user = User(
+        username=username,
+        password=hashlib.md5(password.encode()).hexdigest(),
+        phone=phone,
+        email=email,
+        full_name=full_name,
+        department=department,
+        status=0,
+        registration_status=REGISTRATION_PENDING,
+        role=3,
+        perm=3,
+        role_group_id=None,
+        api_key=None,
+        created_time=datetime.now(),
+        last_login=None,
+    )
+    db.add(new_user)
+    try:
+        await db.commit()
+        await db.refresh(new_user)
+    except IntegrityError:
+        await db.rollback()
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            "注册信息已存在，请检查用户名、手机号或邮箱",
+        )
+
+    return Result(
+        code=1,
+        msg="注册申请已提交，请等待管理员审核",
+        data={
+            "user_id": new_user.id,
+            "registration_status": new_user.registration_status,
+        },
+    )
+
+
 @router.post("/login", summary="用户登录")
 async def login(
     login_data: UserLogin,
@@ -103,19 +140,18 @@ async def login(
     if not user:
         raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_INVALID_CREDENTIALS, "用户名或密码错误")
 
-    if user.status == 0:
-        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.AUTH_ACCOUNT_DISABLED, "账户不可用")
-
     hashed_password = hashlib.md5(login_data.password.encode()).hexdigest()
     if user.password != hashed_password:
         raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_INVALID_CREDENTIALS, "用户名或密码错误")
 
-    canonical_role = _normalize_role(login_data.role)
-    if login_data.role and not canonical_role:
-        raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_ROLE_INVALID, "登录身份非法")
+    registration_status = getattr(user, "registration_status", REGISTRATION_APPROVED) or REGISTRATION_APPROVED
+    if registration_status == REGISTRATION_PENDING:
+        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "注册申请正在审核中")
+    if registration_status == REGISTRATION_REJECTED:
+        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "注册申请未通过，请联系管理员")
 
-    if canonical_role and not _role_match(user, canonical_role):
-        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.AUTH_ROLE_MISMATCH, "所选身份与账号角色/权限配置不匹配")
+    if user.status == 0:
+        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.AUTH_ACCOUNT_DISABLED, "账户不可用")
 
     login_time = datetime.now()
     permissions = sorted(get_user_permissions(user))
@@ -129,7 +165,6 @@ async def login(
         "role_group_id": getattr(user, "role_group_id", None),
         "role_group_name": role_group_name,
         "permissions": permissions,
-        "login_role": canonical_role,
         "user_id": user.id,
     }
 

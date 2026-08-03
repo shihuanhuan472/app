@@ -18,6 +18,7 @@ except ModuleNotFoundError:
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
 from utils.error_codes import BizCode
+from utils.logo_only_filter import LogoOnlyFilter
 from utils.title_utils import normalize_document_title
 
 """
@@ -34,6 +35,7 @@ class WordParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
         self.max_token = int(os.getenv("SUMMARY_MAX_TOKEN", 2000))
         self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        self.logo_only_filter = LogoOnlyFilter()
         self.last_error_code = None
         self.last_error_detail = None
         base_url = os.path.join(self.document_base_dir, self.document_dir)
@@ -99,6 +101,12 @@ class WordParser:
         return rel_ids
 
     def _save_image_part(self, image_part):
+        if self.logo_only_filter.should_filter_bytes(
+            image_part.blob,
+            source=f"word-image:{getattr(image_part, 'partname', 'embedded')}",
+        ):
+            return None
+
         img_ext = image_part.content_type.split('/')[-1]
         if img_ext == "jpeg":
             img_ext = "jpg"
@@ -120,7 +128,10 @@ class WordParser:
             rel = doc.part.rels[rel_id]
             if "image" not in rel.target_ref:
                 continue
-            img_path, unique_filename = self._save_image_part(rel.target_part)
+            saved_image = self._save_image_part(rel.target_part)
+            if saved_image is None:
+                continue
+            img_path, unique_filename = saved_image
             image_urls.append(img_path)
             file_names.append(unique_filename)
             image_indexes.append(len(image_urls))

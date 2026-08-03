@@ -33,6 +33,7 @@ except ModuleNotFoundError:
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.logo_only_filter import LogoOnlyFilter
 from utils.title_utils import normalize_document_title
 import pymupdf
 from openai import OpenAI
@@ -153,6 +154,7 @@ class PdfParser:
         self.pdf_background_image_area_ratio = _env_float("PDF_BACKGROUND_IMAGE_AREA_RATIO", 0.65)
         self.pdf_repeated_image_page_threshold = _env_int("PDF_REPEATED_IMAGE_PAGE_THRESHOLD", 2)
         self.pdf_decorative_text_min_chars = _env_int("PDF_DECORATIVE_TEXT_MIN_CHARS", 30)
+        self.logo_only_filter = LogoOnlyFilter()
 
         self.last_error_code = None
         self.last_error_detail = None
@@ -373,6 +375,8 @@ class PdfParser:
             return 1.0
 
     def _should_keep_image_file(self, image_path: Path, image_hash_counts: dict = None) -> bool:
+        if self.logo_only_filter.should_filter_path(image_path):
+            return False
         if not self.pdf_skip_decorative_images:
             return True
 
@@ -439,6 +443,17 @@ class PdfParser:
             return 0
 
     def _should_keep_pdf_layout_image(self, doc, image_item: dict, xref_page_counts: dict) -> bool:
+        try:
+            image_info = doc.extract_image(image_item["xref"])
+            image_bytes = image_info.get("image")
+            if image_bytes and self.logo_only_filter.should_filter_bytes(
+                image_bytes,
+                source=f"pdf-xref:{image_item['xref']}",
+            ):
+                return False
+        except Exception:
+            pass
+
         if not self.pdf_skip_decorative_images:
             return True
 
@@ -849,7 +864,7 @@ class PdfParser:
         def replace_markdown_image(match):
             image_index = register_image(match.group(1))
             if image_index is None:
-                return "\n[图片]\n"
+                return "\n"
             return f"\n{self._format_image_position_hint([image_index])}\n"
 
         markdown_text = re.sub(
@@ -861,7 +876,7 @@ class PdfParser:
         def replace_html_image(match):
             image_index = register_image(match.group(1))
             if image_index is None:
-                return "\n[图片]\n"
+                return "\n"
             return f"\n{self._format_image_position_hint([image_index])}\n"
 
         markdown_text = re.sub(
@@ -2307,14 +2322,56 @@ if __name__ == "__main__":
     pdf_path = r"C:\Users\exile\xwechat_files\wxid_rgs337i28sad22_66b4\msg\file\2026-07\(其他-TS相关-NCMR报告&让步放行报告)-SJ240605 不合格品报告 20241128.pdf"
 
     try:
-        text = pdf_parser.parse_pdf_by_mineru(pdf_path)
+        # 执行完整 PDF 解析流程：
+        # 1. 判断普通 PDF / 扫描 PDF
+        # 2. PyMuPDF / MinerU 提取内容
+        # 3. 提取图片
+        # 4. 调用大模型进行结构化
+        # 5. 转换为 Document 对象
+        document = pdf_parser.parse(pdf_path)
 
-        print("=" * 50)
-        print("MinerU解析成功")
-        print("=" * 50)
+        if document is None:
+            print("=" * 50)
+            print("PDF 结构化失败")
+            print("=" * 50)
+            print("错误码：", pdf_parser.last_error_code)
+            print("错误信息：", pdf_parser.last_error_detail)
 
-        print(text)
+        else:
+            print("=" * 50)
+            print("大模型结构化结果")
+            print("=" * 50)
+
+            # SQLAlchemy Document 对象转成字典
+            result = {
+                "title": document.title,
+                "problem_intro": document.problem_intro,
+                "image_urls_problem_intro": document.image_urls_problem_intro,
+                "causes": document.causes,
+                "image_urls_causes": document.image_urls_causes,
+                "evaluation": document.evaluation,
+                "image_urls_evaluation": document.image_urls_evaluation,
+                "inspection": document.inspection,
+                "image_urls_inspection": document.image_urls_inspection,
+                "solutions": document.solutions,
+                "image_urls_solutions": document.image_urls_solutions,
+                "key_points": document.key_points,
+                "image_urls_key_points": document.image_urls_key_points,
+                "is_vectorized": document.is_vectorized,
+            }
+
+            # 格式化输出 JSON
+            print(
+                json.dumps(
+                    result,
+                    ensure_ascii=False,
+                    indent=4
+                )
+            )
 
     except Exception as e:
-        print("MinerU解析失败：")
+        print("=" * 50)
+        print("PDF 解析失败")
+        print("=" * 50)
+        print(type(e).__name__)
         print(e)

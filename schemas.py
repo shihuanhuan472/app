@@ -17,6 +17,25 @@ class UserCreate(BaseModel):
     status: Optional[int] = 1
 
 
+class UserRegister(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=128)
+    confirm_password: str = Field(..., min_length=6, max_length=128)
+    phone: str = Field(..., min_length=5, max_length=20)
+    email: Optional[str] = Field(default=None, max_length=100)
+    full_name: str = Field(..., min_length=1, max_length=100)
+    department: Optional[str] = Field(default=None, max_length=100)
+
+
+class RegistrationApproval(BaseModel):
+    user_id: int = Field(..., gt=0)
+    role_group_id: int = Field(..., gt=0)
+
+
+class RegistrationRejection(BaseModel):
+    user_id: int = Field(..., gt=0)
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -28,6 +47,8 @@ class UserResponse(BaseModel):
     role_group_id: Optional[int] = None
     role_group_name: Optional[str] = None
     permissions: Optional[List[str]] = None
+    status: Optional[int] = None
+    registration_status: str = "approved"
     department: Optional[str]
     api_key: Optional[str] = None
     created_time: Optional[datetime]
@@ -138,7 +159,6 @@ class TagResponse(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
-    role: Optional[str] = None
 
 
 class UserChangePassword(BaseModel):
