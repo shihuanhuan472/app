@@ -105,3 +105,20 @@ def test_complaint_feedback_is_casual_chat():
     assert result.decision.route == IntentRoute.CASUAL_CHAT
     assert result.decision.use_rag is False
     assert result.decision.reason == "feedback_pattern"
+
+
+def test_vague_device_quality_question_is_casual_chat():
+    result = route_semantically("你们设备出问题是不是很多？")
+    assert result.high_confidence is True
+    assert result.decision.route == IntentRoute.CASUAL_CHAT
+    assert result.decision.use_rag is False
+    assert result.decision.reason == "vague_domain_chat"
+    assert result.decision.dialog_act == "topic_redirect"
+
+
+def test_specific_fault_task_still_uses_knowledge_search():
+    result = route_semantically("设备经常报错怎么解决？")
+    assert result.high_confidence is True
+    assert result.decision.route == IntentRoute.KNOWLEDGE_SEARCH
+    assert result.decision.use_rag is True
+    assert result.decision.reason == "knowledge_signal"

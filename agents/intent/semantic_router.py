@@ -42,6 +42,17 @@ FEEDBACK_PATTERNS = (
     r"(我要|想|需要)?(投诉|反馈|差评)",
     r"(不满意|很差|太差|胡说|乱说|瞎说)",
 )
+VAGUE_DOMAIN_CHAT_PATTERNS = (
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(问题|故障|毛病|异常|报错|坏|出问题).*(多|很多|好多|不少|严重|频繁|经常|老是|总是|容易|故障率|问题率|稳定|可靠|靠谱|质量|是不是|是否)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(多|很多|好多|不少|严重|频繁|经常|老是|总是|容易|是不是|是否).*(问题|故障|毛病|异常|报错|坏|出问题)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(质量|稳定性?|可靠性?|故障率|问题率).*(怎么样|如何|好吗|高吗|低吗|靠谱吗|可靠吗|稳定吗|吗|嘛)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(靠谱吗|可靠吗|稳定吗|质量怎么样|容易坏吗)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家).*(设备|仪器|机器|产品|系统).*(有)?(问题|故障|毛病|异常|报错|坏|出问题).*(吗|嘛)",
+)
+VAGUE_DOMAIN_TASK_BLOCKERS = (
+    r"怎么|如何|怎样|怎么办|有哪些|列举|常见|清单|排查|处理|解决|修复|维修|维护|步骤|操作|参数|"
+    r"手册|说明书|文档|知识库|阈值|范围|方案|对策|流程|SOP"
+)
 CONTEXT_REFERENCE_PATTERNS = (
     r"上面|上边|上文|前面|之前|刚才|刚刚|上一(个|条|轮)|前一(个|条|轮)",
     r"相关问题|这个问题|那个问题|该问题|此问题|这个故障|那个故障",
@@ -98,6 +109,14 @@ def _is_low_value_feedback(text: str) -> bool:
     if not _matches_any(LOW_VALUE_FEEDBACK_PATTERNS, text):
         return False
     return not re.search(LOW_VALUE_FEEDBACK_AUDIT_BLOCKERS, text, flags=re.IGNORECASE)
+
+
+def _is_vague_domain_chat(text: str, slots: IntentSlots) -> bool:
+    if slots.error_code or slots.metric:
+        return False
+    if not _matches_any(VAGUE_DOMAIN_CHAT_PATTERNS, text):
+        return False
+    return not re.search(VAGUE_DOMAIN_TASK_BLOCKERS, text, flags=re.IGNORECASE)
 
 
 def _extract_slots(text: str) -> IntentSlots:
@@ -167,6 +186,12 @@ def route_semantically(question: str, has_images: bool = False) -> SemanticRoute
         return SemanticRouteResult(RouteDecision(
             route=IntentRoute.CASUAL_CHAT, use_rag=False, confidence=0.97,
             reason="feedback_pattern", slots=slots,
+        ), True)
+
+    if _is_vague_domain_chat(compact, slots):
+        return SemanticRouteResult(RouteDecision(
+            route=IntentRoute.CASUAL_CHAT, use_rag=False, confidence=0.96,
+            reason="vague_domain_chat", dialog_act="topic_redirect", slots=slots,
         ), True)
 
     if _matches_any(TOOL_PATTERNS, compact):

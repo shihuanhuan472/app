@@ -28,7 +28,11 @@ from schemas import (
     MessageCreateNew,
 )
 from models import (
+    AiUsageLog,
     AiMessageTrace,
+    ConversationContext,
+    ConversationContextEvent,
+    ConversationSummary,
     Message,
     User,
     Conversation,
@@ -2673,6 +2677,11 @@ async def delete_chat_sessions(
             if conversation.user_id != current_user.id:
                 forbidden_ids.append(session_id)
                 continue
+            await db.execute(delete(AiUsageLog).where(AiUsageLog.session_id == session_id))
+            await db.execute(delete(AiMessageTrace).where(AiMessageTrace.session_id == session_id))
+            await db.execute(delete(ConversationContextEvent).where(ConversationContextEvent.session_id == session_id))
+            await db.execute(delete(ConversationContext).where(ConversationContext.session_id == session_id))
+            await db.execute(delete(ConversationSummary).where(ConversationSummary.session_id == session_id))
             await db.execute(delete(Message).where(Message.session_id == session_id))
             await db.execute(delete(Conversation).where(Conversation.id == session_id))
         await db.commit()

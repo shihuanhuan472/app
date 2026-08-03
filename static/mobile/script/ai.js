@@ -577,7 +577,7 @@
                 }
             }
 
-            const messageTime = message.created_time ? MobileUtils.formatDate(message.created_time, 'HH:mm') : '';
+            const messageTime = message.created_time ? MobileUtils.formatDate(message.created_time, 'YYYY-MM-DD HH:mm') : '';
             html += `<div class="message-time">${messageTime}</div></div>`;
             container.innerHTML = html;
 

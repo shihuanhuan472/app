@@ -320,6 +320,7 @@
     color: #8a96a8;
     font-size: 0.7rem;
     text-align: right;
+    white-space: nowrap;
 }
 
 .message-image-previews {

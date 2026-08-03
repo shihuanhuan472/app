@@ -5316,6 +5316,7 @@ body.batch-delete-active .pagination {
     text-align: right;
     margin-top: 8px;
     letter-spacing: 0.2px;
+    white-space: nowrap;
 }
 
 .message-content.user .message-time {

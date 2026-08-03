@@ -82,7 +82,7 @@ class SkillRegistry:
             return SKILLS["clarify_fault"]
         if route == "casual_chat" and dialog_act == "topic_redirect":
             return SKILLS["topic_redirect"]
-        if route == "casual_chat" and reason in {"low_value_feedback", "feedback_pattern"}:
+        if route == "casual_chat" and reason in {"low_value_feedback", "feedback_pattern", "vague_domain_chat"}:
             return SKILLS["topic_redirect"]
         if route == "casual_chat":
             return SKILLS["casual_chat"]
@@ -105,7 +105,7 @@ class SkillRegistry:
             return SKILLS["contextual_retry"]
         if route == "clarify":
             return SKILLS["clarify_fault"]
-        if route == "casual_chat" and (dialog_act == "topic_redirect" or reason in {"low_value_feedback", "feedback_pattern"}):
+        if route == "casual_chat" and (dialog_act == "topic_redirect" or reason in {"low_value_feedback", "feedback_pattern", "vague_domain_chat"}):
             return SKILLS["topic_redirect"]
         if route == "knowledge_search":
             return SKILLS["fault_qa"]

@@ -1464,7 +1464,7 @@
                 // 消息时间
                 let messageTime = '';
                 try {
-                    messageTime = message.created_time ? Utils.formatDate(message.created_time, 'HH:mm') : '';
+                    messageTime = message.created_time ? Utils.formatDate(message.created_time, 'YYYY-MM-DD HH:mm') : '';
                 } catch (e) {
                     console.error('格式化时间失败', e);
                     messageTime = '';
@@ -1601,7 +1601,7 @@
                     <div class="message-text" style="color: #ef4444;">
                         <i class="fas fa-exclamation-circle"></i> ${errorText}
                     </div>
-                    <div class="message-time">${Utils.formatDate(new Date(), 'HH:mm')}</div>
+                    <div class="message-time">${Utils.formatDate(new Date(), 'YYYY-MM-DD HH:mm')}</div>
                 </div>
             `;
             return container;
