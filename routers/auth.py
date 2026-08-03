@@ -1,5 +1,6 @@
 ﻿import hashlib
 import logging
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
@@ -23,6 +24,7 @@ LAST_LOGIN_LOCK_WAIT_TIMEOUT = 2
 REGISTRATION_PENDING = "pending"
 REGISTRATION_APPROVED = "approved"
 REGISTRATION_REJECTED = "rejected"
+PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 
 
 async def _update_last_login_best_effort(user_id: int, login_time: datetime):
@@ -62,7 +64,7 @@ async def register(
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请完整填写必填信息")
     if len(username) < 3:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名至少需要 3 个字符")
-    if len(phone) < 5:
+    if not PHONE_PATTERN.fullmatch(phone):
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号格式不正确")
     if password != registration.confirm_password:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "两次输入的密码不一致")

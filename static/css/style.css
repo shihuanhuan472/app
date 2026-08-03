@@ -404,6 +404,31 @@ body {
     font-size: 13px;
 }
 
+.btn .fa-plus,
+.btn .fa-save {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    flex: 0 0 1em;
+    background-color: currentColor;
+    -webkit-mask: var(--btn-icon) center / contain no-repeat;
+    mask: var(--btn-icon) center / contain no-repeat;
+}
+
+.btn .fa-plus {
+    --btn-icon: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z'/%3E%3C/svg%3E");
+}
+
+.btn .fa-save {
+    --btn-icon: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 3h12l2 2v16H5V3Zm2 2v14h10V7.8L16.2 7H15v4H8V5H7Zm3 0v4h3V5h-3Zm-1 9h6v2H9v-2Z'/%3E%3C/svg%3E");
+}
+
+.btn.btn-primary .fa-plus,
+.btn.btn-primary .fa-save {
+    color: #fff;
+    background-color: #fff;
+}
+
 /* 卡片样式 */
 .card {
     background: white;

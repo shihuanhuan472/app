@@ -15,7 +15,13 @@
 
         if (Array.isArray(detail)) {
             const parts = detail
-                .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+                .map((item) => {
+                    if (typeof item === 'string') return item;
+                    if (item && typeof item === 'object' && ('loc' in item || 'type' in item || 'msg' in item)) {
+                        return this._formatValidationError(item);
+                    }
+                    return this._formatErrorDetail(item);
+                })
                 .filter(Boolean);
             return parts.join('；');
         }
@@ -43,6 +49,98 @@
         }
 
         return String(detail);
+    }
+
+    _formatValidationError(errorItem) {
+        const fieldName = this._getReadableFieldName(errorItem.loc);
+        const ctx = errorItem.ctx || {};
+        const type = errorItem.type || '';
+
+        if (type === 'missing') {
+            return `请填写${fieldName}`;
+        }
+        if (type === 'string_too_short') {
+            return `${fieldName}至少需要 ${ctx.min_length || 1} 个字符`;
+        }
+        if (type === 'string_too_long') {
+            return `${fieldName}不能超过 ${ctx.max_length || '规定'} 个字符`;
+        }
+        if (type === 'string_pattern_mismatch') {
+            return `${fieldName}格式不正确`;
+        }
+        if (type === 'int_parsing' || type === 'float_parsing' || type === 'bool_parsing') {
+            return `${fieldName}格式不正确`;
+        }
+        if (type === 'greater_than') {
+            return `${fieldName}必须大于 ${ctx.gt}`;
+        }
+        if (type === 'greater_than_equal') {
+            return `${fieldName}必须大于或等于 ${ctx.ge}`;
+        }
+        if (type === 'less_than') {
+            return `${fieldName}必须小于 ${ctx.lt}`;
+        }
+        if (type === 'less_than_equal') {
+            return `${fieldName}必须小于或等于 ${ctx.le}`;
+        }
+
+        if (typeof errorItem.msg === 'string' && errorItem.msg.trim()) {
+            return `${fieldName}：${this._translateValidationMessage(errorItem.msg, ctx)}`;
+        }
+
+        return `${fieldName}填写不正确`;
+    }
+
+    _getReadableFieldName(loc) {
+        const labels = {
+            username: '用户名',
+            full_name: '姓名',
+            phone: '手机号',
+            email: '邮箱',
+            department: '部门',
+            password: '密码',
+            confirm_password: '确认密码',
+            role_group_id: '角色',
+            status: '状态',
+            files: '文件',
+            file: '文件',
+            images: '图片',
+            image: '图片'
+        };
+        const ignored = new Set(['body', 'query', 'path', 'header']);
+
+        if (!Array.isArray(loc) || loc.length === 0) {
+            return '输入内容';
+        }
+
+        const parts = loc
+            .map((part) => String(part))
+            .filter((part) => !ignored.has(part));
+        const key = parts.length > 0 ? parts[parts.length - 1] : '';
+        return labels[key] || key || '输入内容';
+    }
+
+    _translateValidationMessage(message, ctx = {}) {
+        const text = String(message).trim();
+        const lowerText = text.toLowerCase();
+
+        if (lowerText === 'field required') {
+            return '不能为空';
+        }
+        if (lowerText.includes('should have at least') && ctx.min_length) {
+            return `至少需要 ${ctx.min_length} 个字符`;
+        }
+        if (lowerText.includes('should have at most') && ctx.max_length) {
+            return `不能超过 ${ctx.max_length} 个字符`;
+        }
+        if (lowerText.includes('valid email')) {
+            return '邮箱格式不正确';
+        }
+        if (lowerText.includes('valid integer') || lowerText.includes('valid number')) {
+            return '格式不正确';
+        }
+
+        return text;
     }
 
     _extractErrorMessage(errorData) {

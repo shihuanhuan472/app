@@ -3,11 +3,13 @@ from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List, TypeVar, Generic
 from datetime import datetime
 
+PHONE_PATTERN = r"^1[3-9]\d{9}$"
+
 
 # 用户相关的Schema
 class UserCreate(BaseModel):
     username: str
-    phone: str
+    phone: str = Field(..., min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = None
     full_name: str
     department: Optional[str] = None
@@ -21,7 +23,7 @@ class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6, max_length=128)
     confirm_password: str = Field(..., min_length=6, max_length=128)
-    phone: str = Field(..., min_length=5, max_length=20)
+    phone: str = Field(..., min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = Field(default=None, max_length=100)
     full_name: str = Field(..., min_length=1, max_length=100)
     department: Optional[str] = Field(default=None, max_length=100)
@@ -59,7 +61,7 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    phone: Optional[str] = None
+    phone: Optional[str] = Field(default=None, min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = None
     full_name: Optional[str] = None
     department: Optional[str] = None
@@ -67,7 +69,7 @@ class UserUpdate(BaseModel):
 
 class UserUpdateByAdmin(BaseModel):
     id: int
-    phone: Optional[str] = None
+    phone: Optional[str] = Field(default=None, min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = None
     full_name: Optional[str] = None
     department: Optional[str] = None

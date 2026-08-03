@@ -270,7 +270,7 @@ class MenuManager {
         const source = query.get('source');
         const mode = query.get('mode');
 
-        if (fileName.includes('user-form')) {
+        if (fileName.includes('user-form') || fileName.includes('role-management')) {
             const link = document.querySelector('a[href="user-management.html"]');
             if (link) {
                 link.classList.add('active');

@@ -27,6 +27,10 @@
             showError('用户名至少需要 3 个字符');
             return;
         }
+        if (!/^1[3-9]\d{9}$/.test(payload.phone)) {
+            showError('请输入有效的手机号码');
+            return;
+        }
         if (payload.password.length < 6) {
             showError('密码至少需要 6 位');
             return;

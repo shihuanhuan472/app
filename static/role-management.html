@@ -21,33 +21,84 @@
         .role-item-meta { margin-top: 6px; color: #64748b; font-size: 13px; }
         .permission-grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
         .permission-option { display: flex; align-items: center; gap: 8px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+        .permission-option input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 16px;
+            margin: 0;
+            padding: 0;
+            border-radius: 3px;
+            box-shadow: none;
+            accent-color: #4a9eff;
+            background: initial;
+        }
+        .permission-option input[type="checkbox"]:focus {
+            outline: none;
+            border-color: #e5e7eb;
+            box-shadow: none;
+        }
+        .permission-option input[type="checkbox"]:focus-visible {
+            outline: 2px solid rgba(74, 158, 255, 0.35);
+            outline-offset: 2px;
+        }
         .form-actions { display: flex; gap: 10px; margin-top: 18px; }
         @media (max-width: 900px) { .role-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-<div class="app-container">
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <div class="logo"><i class="fas fa-tools"></i><span>维修辅助系统</span></div>
-        </div>
-        <nav class="nav-menu">
-            <a href="main.html" class="nav-item"><span class="nav-icon"><i class="fas fa-book"></i></span><span>知识库</span></a>
-            <a href="ai-assist.html" class="nav-item"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI助手</span></a>
-            <a href="user-management.html" class="nav-item active"><span class="nav-icon"><i class="fas fa-users"></i></span><span>用户管理</span></a>
-            <a href="tag-management.html" class="nav-item"><span class="nav-icon"><i class="fas fa-tags"></i></span><span>标签管理</span></a>
-            <a href="user-profile.html" class="nav-item"><span class="nav-icon"><i class="fas fa-user"></i></span><span>个人资料</span></a>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-        <header class="top-bar">
-            <h1>角色组管理</h1>
-            <div class="user-info">
-                <div class="user-avatar" id="userAvatar">U</div>
-                <div><div class="user-name" id="userName">当前用户</div><div class="user-role" id="userRole">用户</div></div>
+<div class="system-container">
+    <div class="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-icon">&#128295;</div>
+                <span>维修辅助系统</span>
             </div>
-        </header>
+        </div>
+
+        <div class="nav-menu">
+            <a href="main.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                <span>知识库</span>
+            </a>
+            <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                <span>我的提交</span>
+            </a>
+            <a href="ai-assist.html" class="nav-item">
+                <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                <span>AI辅助</span>
+            </a>
+            <a href="user-management.html" class="nav-item" id="userManagementLink" style="display: none;">
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
+                <span>用户管理</span>
+            </a>
+            <a href="user-profile.html" class="nav-item" id="userProfileLink" style="display: none;">
+                <span class="nav-icon"><i class="fas fa-user"></i></span>
+                <span>我的资料</span>
+            </a>
+        </div>
+
+        <div class="user-info">
+            <div class="user-details">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div>
+                    <div class="user-name" id="userName">用户</div>
+                    <div class="user-role" id="userRole">用户</div>
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div>
+                <div class="page-title">角色组管理</div>
+                <div class="page-subtitle">配置系统角色组和权限</div>
+            </div>
+        </div>
 
         <section class="role-layout">
             <div class="role-grid">
@@ -90,7 +141,7 @@
                 </form>
             </div>
         </section>
-    </main>
+    </div>
 </div>
 
 <script>
