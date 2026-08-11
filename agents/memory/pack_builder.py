@@ -1,10 +1,10 @@
-import os
 import re
 from typing import Optional
 
 from agents.intent import RouteDecision
 from models import Message
 
+from .context_scorer import build_slot_confidence, slots_from_decision
 from .schemas import AdaptiveRagPlan, MemoryPack
 from .service import (
     ANSWER_AUDIT_ROUTE,
@@ -15,6 +15,9 @@ from .service import (
     route_value,
 )
 
+
+RECENT_MESSAGE_ROUTES = {"knowledge_search", ANSWER_AUDIT_ROUTE}
+CONTEXTUAL_REASONS = {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}
 
 COMPLEX_QUERY_RE = re.compile(
     r"结合|综合|对比|比较|复盘|重新检查|完整分析|根因|定位|"
@@ -35,9 +38,43 @@ class MemoryPackBuilder:
         route = route_value(decision)
         actions = ["load_active_context"]
         active_context = await self.memory_service.get_active_context_dict(message_now.session_id)
+        decision_slots = slots_from_decision(decision)
+        context_analysis = await self.memory_service.analyze_context_transition(
+            current_text=message_now.content_text,
+            active_context=active_context,
+            decision_slots=decision_slots,
+            retrieval_query=getattr(decision, "query_rewrite", None) or "",
+        )
+        raw_working_memory = self.memory_service.merge_structured_working_memory(
+            ((active_context or {}).get("working_memory") or {}) if isinstance(active_context, dict) else {},
+            context_analysis.working_memory_delta,
+            should_reset=context_analysis.should_switch,
+            current_turn_id=getattr(message_now, "message_order", None) or getattr(message_now, "id", None),
+            source_turn_id=getattr(message_now, "message_order", None) or getattr(message_now, "id", None),
+            source="pack_context_delta",
+        )
+        working_memory = self.memory_service.retrieve_relevant_working_memory(
+            raw_working_memory,
+            query=" ".join(
+                part
+                for part in [
+                    message_now.content_text,
+                    getattr(decision, "query_rewrite", None),
+                    (active_context or {}).get("active_query") if isinstance(active_context, dict) else "",
+                ]
+                if part
+            ),
+            active_context=active_context,
+            context_analysis={
+                **context_analysis.to_dict(),
+                "current_turn_id": getattr(message_now, "message_order", None) or getattr(message_now, "id", None),
+            },
+        )
+        slot_confidence = build_slot_confidence(decision_slots, context_analysis)
+        actions.extend([f"context:{context_analysis.action}", "retrieve_working_memory"])
 
         recent_messages = []
-        if route in {"knowledge_search", ANSWER_AUDIT_ROUTE} or decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+        if self._should_load_recent_messages(route, decision.reason):
             recent_messages = await self.memory_service.load_recent_messages(
                 message_now.session_id,
                 message_now.message_order,
@@ -47,7 +84,7 @@ class MemoryPackBuilder:
 
         recent_traces = []
         recent_context_events = []
-        if route == ANSWER_AUDIT_ROUTE:
+        if self._should_load_audit_state(route):
             recent_traces = await self.memory_service.load_recent_ai_traces(
                 message_now.session_id,
                 limit=get_positive_int_env("ANSWER_AUDIT_HISTORY_LIMIT", 12),
@@ -65,7 +102,12 @@ class MemoryPackBuilder:
             summary = latest_summary.summary_text
             actions.append("load_conversation_summary")
 
-        adaptive_rag = self._build_adaptive_rag_plan(message_now, decision, active_context)
+        adaptive_rag = self._build_adaptive_rag_plan(
+            message_now,
+            decision,
+            active_context,
+            context_analysis=context_analysis.to_dict(),
+        )
         actions.extend(adaptive_rag.actions)
 
         return MemoryPack(
@@ -79,15 +121,25 @@ class MemoryPackBuilder:
             recent_traces=recent_traces,
             recent_context_events=recent_context_events,
             summary=summary,
+            context_analysis=context_analysis.to_dict(),
+            working_memory=working_memory,
+            slot_confidence=slot_confidence,
             adaptive_rag=adaptive_rag,
             actions=actions,
         )
+
+    def _should_load_recent_messages(self, route: str, reason: str) -> bool:
+        return route in RECENT_MESSAGE_ROUTES or reason in CONTEXTUAL_REASONS
+
+    def _should_load_audit_state(self, route: str) -> bool:
+        return route == ANSWER_AUDIT_ROUTE
 
     def _build_adaptive_rag_plan(
         self,
         message_now: Message,
         decision: RouteDecision,
         active_context: Optional[dict],
+        context_analysis: Optional[dict] = None,
     ) -> AdaptiveRagPlan:
         route = route_value(decision)
         question = str(message_now.content_text or "").strip()
@@ -109,7 +161,11 @@ class MemoryPackBuilder:
                 actions=["adaptive_direct"],
             )
 
-        if decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+        context_action = str((context_analysis or {}).get("action") or "")
+        if (
+            decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}
+            and context_action != "switch"
+        ):
             return AdaptiveRagPlan(
                 strategy="contextual_rag",
                 complexity="contextual",
@@ -160,7 +216,7 @@ class MemoryPackBuilder:
         if has_images:
             return True
         compact = re.sub(r"\s+", "", question)
-        if len(compact) >= int(os.getenv("ADAPTIVE_RAG_COMPLEX_MIN_CHARS", "60")):
+        if len(compact) >= get_positive_int_env("ADAPTIVE_RAG_COMPLEX_MIN_CHARS", 60):
             return True
         if COMPLEX_QUERY_RE.search(compact):
             return True
@@ -170,7 +226,7 @@ class MemoryPackBuilder:
 
     def _is_simple_knowledge_question(self, question: str) -> bool:
         compact = re.sub(r"\s+", "", question)
-        if len(compact) > int(os.getenv("ADAPTIVE_RAG_SIMPLE_MAX_CHARS", "28")):
+        if len(compact) > get_positive_int_env("ADAPTIVE_RAG_SIMPLE_MAX_CHARS", 28):
             return False
         if COMPLEX_QUERY_RE.search(compact):
             return False

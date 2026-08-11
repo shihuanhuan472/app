@@ -29,6 +29,7 @@ class MenuManager {
         const isAdmin = this.isUserAdmin();
         const isTechnician = this.isUserTechnician();
         const isReviewer = this.isUserReviewer();
+        const isMaintenance = this.isUserMaintenance();
         const canReview = isAdmin || isReviewer;
         const canManageTags = isAdmin || isTechnician;
         const canManageSensitiveTerms = isAdmin;
@@ -41,6 +42,7 @@ class MenuManager {
         this.normalizeMenuOrder();
 
         const dashboardLink = document.querySelector('a[href="dashboard.html"]');
+        const knowledgeBaseLink = document.querySelector('a[href="main.html"]');
         const userManagementLink = document.querySelector('a[href="user-management.html"]');
         const myProfileLink = document.querySelector('a[href="user-profile.html"]');
         const mySubmissionsLink = document.querySelector('a[href="my-submissions.html"]');
@@ -55,6 +57,10 @@ class MenuManager {
 
         if (userManagementLink) {
             userManagementLink.style.display = isAdmin ? 'flex' : 'none';
+        }
+
+        if (knowledgeBaseLink) {
+            knowledgeBaseLink.style.display = isMaintenance ? 'none' : 'flex';
         }
 
         if (myProfileLink) {
@@ -82,6 +88,8 @@ class MenuManager {
         if (sensitiveTermsLink) {
             sensitiveTermsLink.style.display = canManageSensitiveTerms ? 'flex' : 'none';
         }
+
+        this.redirectMaintenanceFromKnowledgeBase(isMaintenance);
     }
 
     isUserAdmin() {
@@ -100,6 +108,31 @@ class MenuManager {
         const user = this.currentUser;
         if (!user) return false;
         return Utils.hasPermission(user, Utils.PERMISSION.REVIEW);
+    }
+
+    isUserMaintenance() {
+        const user = this.currentUser;
+        if (!user || this.isUserAdmin() || this.isUserTechnician() || this.isUserReviewer()) {
+            return false;
+        }
+
+        const roleValue = Utils.normalizeRoleValue(user.role ?? user.role_id);
+        if (roleValue === Utils.ROLE.MAINTENANCE) {
+            return true;
+        }
+
+        const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+        return permissions.length > 0
+            && permissions.every(permission => permission === Utils.PERMISSION.READ_ONLY);
+    }
+
+    redirectMaintenanceFromKnowledgeBase(isMaintenance) {
+        if (!isMaintenance) return;
+
+        const fileName = window.location.pathname.split('/').pop() || 'main.html';
+        if (fileName === 'main.html' || fileName === 'knowledge-base.html') {
+            window.location.replace('ai-assist.html');
+        }
     }
 
     ensureDashboardMenuLink() {

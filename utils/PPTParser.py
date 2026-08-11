@@ -28,6 +28,7 @@ from utils.ai_endpoint import get_ai_base_url_alt
 from utils.error_codes import BizCode
 from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
+from utils.ppt_noise_filter import PPTNoiseFilter
 from utils.title_utils import normalize_document_title
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -87,12 +88,14 @@ class PPTParser:
         self.ppt_clean_template_enabled = _env_bool("PPT_CLEAN_TEMPLATE_ENABLED", True)
         self.ppt_keep_cleaned_ppt = _env_bool("PPT_KEEP_CLEANED_PPT", False)
         self.ppt_clean_slide_placeholder_noise = _env_bool("PPT_CLEAN_SLIDE_PLACEHOLDER_NOISE", True)
-        self.ppt_parse_mode = os.getenv("PPT_PARSE_MODE", "mineru_first").strip().lower() or "mineru_first"
+        self.ppt_parse_mode = os.getenv("PPT_PARSE_MODE", "strategy").strip().lower() or "strategy"
         if self.ppt_parse_mode not in {"mineru", "mineru_first", "pdf_mineru", "always", "auto", "strategy", "native"}:
-            self.ppt_parse_mode = "mineru_first"
+            self.ppt_parse_mode = "strategy"
         self.mineru_exe = os.getenv("MINERU_EXE", "").strip()
         self.mineru_timeout = _env_int("MINERU_TIMEOUT", 1800)
+        self.ppt_repeated_image_max_area_ratio = _env_float("PPT_REPEATED_IMAGE_MAX_AREA_RATIO", 0.08)
         self.logo_only_filter = LogoOnlyFilter()
+        self.ppt_noise_filter = PPTNoiseFilter()
         self.last_parse_strategy = None
         self.last_template_cleaning = None
         self.last_error_code = None
@@ -122,7 +125,7 @@ class PPTParser:
             if clean_stats:
                 self.last_parse_strategy["template_cleaning"] = clean_stats
 
-            if self.ppt_parse_mode != "native":
+            if self.ppt_parse_mode in {"mineru", "mineru_first", "pdf_mineru", "always"}:
                 document = self._parse_with_mineru_if_available(parse_file_path)
                 if document is not None:
                     return document
@@ -143,6 +146,16 @@ class PPTParser:
                 )
             except Exception as error:
                 print(f"[PPTParser] 原生 PPT 策略分析失败，继续尝试原生解析：{error}")
+
+            if self._should_try_mineru_route(self.last_parse_strategy):
+                if self.last_parse_strategy is not None:
+                    self.last_parse_strategy["selected_route"] = "mineru"
+                document = self._parse_with_mineru_if_available(parse_file_path)
+                if document is not None:
+                    return document
+
+            if self.last_parse_strategy is not None:
+                self.last_parse_strategy["selected_route"] = "native"
 
             text, image_urls, image_names, section_image_indexes = self.get_content(parse_file_path)
             document = self.file2document(text, image_urls, image_names, section_image_indexes)
@@ -176,12 +189,21 @@ class PPTParser:
                 str(source_path),
                 str(cleaned_path),
                 remove_slide_placeholder_noise=self.ppt_clean_slide_placeholder_noise,
+                remove_slide_noise=True,
+                noise_filter=self.ppt_noise_filter,
             )
             print(
                 "[PPTParser] 已先清模板：templates={templates} slide_placeholders={placeholders} backgrounds={backgrounds}".format(
                     templates=clean_stats.get("removed_template_shapes", 0),
                     placeholders=clean_stats.get("removed_slide_placeholders", 0),
                     backgrounds=clean_stats.get("removed_backgrounds", 0),
+                )
+            )
+            print(
+                "[PPTParser] slide noise filtered: shapes={shapes} text={text} pictures={pictures}".format(
+                    shapes=clean_stats.get("removed_slide_noise_shapes", 0),
+                    text=clean_stats.get("removed_slide_noise_text_shapes", 0),
+                    pictures=clean_stats.get("removed_slide_noise_picture_shapes", 0),
                 )
             )
             return str(cleaned_path), cleanup_context, clean_stats
@@ -257,7 +279,7 @@ class PPTParser:
             table_text = self._table_to_markdown(shape.table)
             if table_text:
                 parts.append(table_text)
-        return "\n".join(parts)
+        return self.ppt_noise_filter.sanitize_text("\n".join(parts))
 
     def _shape_area_ratio(self, shape, slide_width: int, slide_height: int) -> float:
         slide_area = max(int(slide_width) * int(slide_height), 1)
@@ -306,10 +328,26 @@ class PPTParser:
         except Exception:
             pass
 
+        area_ratio = self._shape_area_ratio(shape, slide_width, slide_height)
+        try:
+            should_filter, reason = self.ppt_noise_filter.should_filter_image_bytes(
+                shape.image.blob,
+                area_ratio=area_ratio,
+                source=f"ppt-shape:{getattr(shape, 'name', 'picture')}",
+            )
+            if should_filter:
+                print(
+                    f"[PPTNoiseFilter] filtered PPT image reason={reason} "
+                    f"shape={getattr(shape, 'name', 'picture')}",
+                    flush=True,
+                )
+                return False
+        except Exception:
+            pass
+
         if not self.ppt_skip_decorative_images:
             return True
 
-        area_ratio = self._shape_area_ratio(shape, slide_width, slide_height)
         if area_ratio < self.ppt_min_image_area_ratio:
             return False
 
@@ -317,6 +355,7 @@ class PPTParser:
         if (
             picture_hash
             and picture_hash_counts.get(picture_hash, 0) >= self.ppt_repeated_image_slide_threshold
+            and area_ratio <= self.ppt_repeated_image_max_area_ratio
         ):
             return False
 
@@ -437,6 +476,17 @@ class PPTParser:
             "slides": slide_stats,
         }
 
+    def _should_try_mineru_route(self, strategy: dict | None) -> bool:
+        if self.ppt_parse_mode in {"native", "mineru", "mineru_first", "pdf_mineru", "always"}:
+            return False
+        if not strategy:
+            return False
+        if strategy.get("strategy") == "mineru":
+            return True
+        if strategy.get("strategy") == "mixed":
+            return int(strategy.get("image_page_count") or 0) > 0 and int(strategy.get("native_page_count") or 0) == 0
+        return False
+
     def _resolve_mineru_executable(self) -> str:
         if self.mineru_exe:
             mineru_path = os.path.abspath(os.path.expanduser(self.mineru_exe))
@@ -503,6 +553,18 @@ class PPTParser:
             if source_key in image_indexes:
                 return image_indexes[source_key]
             if self.logo_only_filter.should_filter_path(source_path):
+                return None
+            should_filter, reason = self.ppt_noise_filter.should_filter_image_path(
+                source_path,
+                source="mineru-ppt-image",
+            )
+            if should_filter:
+                print(
+                    f"[PPTNoiseFilter] filtered MinerU image reason={reason} "
+                    f"path={source_path.name}",
+                    flush=True,
+                )
+                image_indexes[source_key] = None
                 return None
 
             extension = source_path.suffix.lower() or ".png"
@@ -588,6 +650,7 @@ class PPTParser:
                 markdown_text,
                 markdown_file.parent,
             )
+            markdown_text = self.ppt_noise_filter.sanitize_text(markdown_text)
             if not markdown_text:
                 raise RuntimeError("MinerU 解析 PPTX 完成，但提取到的文本为空。")
 
@@ -840,6 +903,7 @@ class PPTParser:
             os.remove(compressed_path)
 
     def generate_message(self, text, image_urls):
+        text = self.ppt_noise_filter.sanitize_text(text)
         messages = []
         data = {}
         # print(text)

@@ -56,6 +56,7 @@ from utils.desensitize import (
 from utils.token_counter import get_token_count
 from utils.ai_usage import record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
+from agents.intent.taxonomy import IntentRoute
 from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
 from agents.skills import AgentSkill, SkillPromptBuilder, SkillRegistry
 from fastapi.responses import StreamingResponse
@@ -78,7 +79,16 @@ FOLLOWUP_TASK_RE = re.compile(
     r"再(给我)?(说|讲|解释|总结)(一下)?|重新(说|讲|解释)|详细(说|讲|解释)|展开(说|讲)?"
 )
 LOW_VALUE_HISTORY_RE = re.compile(
-    r"^(你好|您好|谢谢|多谢|感谢|好的?|收到|明白|ok|okay|不对|你回答|我要投诉|投诉|再见|拜拜).*$",
+    r"^(你好|您好|谢谢|多谢|感谢|好的?|收到|明白|ok|okay|不对|你回答|我要投诉|投诉|再见|拜拜|"
+    r"问题太多了|问题很多|太多了|随便|无所谓|不知道|没事).*$",
+    re.IGNORECASE,
+)
+RETRY_BASE_DOMAIN_RE = re.compile(
+    r"知识库|文档|手册|说明书|报错|异常|报警|排查|维修|维护|修复|解决|操作|步骤|参数|阈值|范围|"
+    r"设备|仪器|试剂|测序|芯片|相机|温控|注射泵|barcode|"
+    r"冰箱|洗衣机|洗碗机|烘干机|干衣机|笔记本|电脑|耳机|电视|电源|PLC|激光|切割机|CNC|"
+    r"Q30|ECR|DNBSEQ|DL-T7|G50|FIT|NSB|SBC|DNQ|Cycle|PE|"
+    r"(?:error|err)[\s:_-]*[a-z0-9_-]+|[A-Z]{1,5}[-_]?[0-9]{2,}",
     re.IGNORECASE,
 )
 QUERY_REWRITE_SYSTEM_PROMPT = (
@@ -280,6 +290,19 @@ def _is_low_value_history_text(text: str) -> bool:
     return not compact or bool(LOW_VALUE_HISTORY_RE.fullmatch(compact))
 
 
+def _is_valid_contextual_retry_base_question(text: str) -> bool:
+    text = _strip_question_tail(text)
+    if _is_low_value_history_text(text) or _is_contextual_followup_text(text):
+        return False
+    return bool(RETRY_BASE_DOMAIN_RE.search(text))
+
+
+def _rag_query_passes_context_gate(query: str, uploaded_images: str = "") -> bool:
+    if str(uploaded_images or "").strip():
+        return True
+    return _is_valid_contextual_retry_base_question(query)
+
+
 async def _load_recent_rewrite_history(
     db: AsyncSession,
     session_id: int,
@@ -322,10 +345,23 @@ def _last_substantive_user_question(history: List[Any]) -> str:
         if int(getattr(message, "role", 0) or 0) != 1:
             continue
         text = _strip_question_tail(_message_plain_text(message, max_chars=240))
-        if _is_low_value_history_text(text) or _is_contextual_followup_text(text):
+        if not _is_valid_contextual_retry_base_question(text):
             continue
         return text
     return ""
+
+
+def _contextual_retry_base_question(memory_pack: Optional[MemoryPack]) -> str:
+    active_context = getattr(memory_pack, "active_context", None) if memory_pack else None
+    for key in ("active_query", "active_issue", "active_question"):
+        candidate = _strip_question_tail(str((active_context or {}).get(key) or ""))
+        if _is_valid_contextual_retry_base_question(candidate):
+            return candidate
+    return _last_substantive_user_question(getattr(memory_pack, "recent_messages", None) or [])
+
+
+def _contextual_retry_has_base_question(memory_pack: Optional[MemoryPack]) -> bool:
+    return bool(_contextual_retry_base_question(memory_pack))
 
 
 def _normalize_stored_reference_chunk(chunk: Any) -> Dict[str, Any]:
@@ -937,16 +973,14 @@ async def _resolve_retrieval_query(
             limit=_get_positive_int_env("CONTEXT_QUERY_REWRITE_HISTORY_LIMIT", 6),
         )
     if decision.reason == CONTEXTUAL_RETRY_REASON:
-        active_context = getattr(memory_pack, "active_context", None) if memory_pack else None
-        for key in ("active_query", "active_issue", "active_question"):
-            candidate = _strip_question_tail(str((active_context or {}).get(key) or ""))
-            if candidate and not _is_low_value_history_text(candidate):
-                print(f"[上下文重答] 使用active_context恢复检索问题: {candidate}")
-                return candidate
-        base_question = _last_substantive_user_question(history)
+        if memory_pack is not None and not getattr(memory_pack, "recent_messages", None):
+            memory_pack.recent_messages = history
+        base_question = _contextual_retry_base_question(memory_pack)
         if base_question:
-            print(f"[上下文重答] 使用最近有效用户问题恢复检索问题: {base_question}")
+            print(f"[上下文重答] 使用有效上下文恢复检索问题: {base_question}")
             return base_question
+        print("[上下文重答] 未找到有效主问题，停止上下文检索")
+        return ""
 
     rewritten_query = _rewrite_query_heuristically(current_question, history)
 
@@ -1056,32 +1090,13 @@ def _filter_reference_documents_by_query_terms(
 def _build_memory_prompt(memory_pack: Optional[MemoryPack]) -> str:
     if not memory_pack:
         return ""
-
-    parts: List[str] = []
-    if memory_pack.summary:
-        summary = str(memory_pack.summary).strip()
-        if summary:
-            parts.append(f"【长对话摘要】\n{summary}")
-
-    context = memory_pack.active_context or {}
-    context_lines = []
-    context_fields = [
-        ("当前主问题", context.get("active_issue")),
-        ("当前设备", context.get("active_device")),
-        ("当前部件", context.get("active_component")),
-        ("当前故障现象", context.get("active_symptom")),
-        ("当前报错码", context.get("active_error_code")),
-        ("上一轮检索问题", context.get("active_query")),
-    ]
-    for label, value in context_fields:
-        if value:
-            context_lines.append(f"{label}：{value}")
-    if context_lines:
-        parts.append("【会话级 active_context】\n" + "\n".join(context_lines))
-
-    if not parts:
-        return ""
-    return "\n\n".join(parts)
+    return memory_pack.to_prompt(
+        include_recent_messages=_get_bool_env("MEMORY_PROMPT_INCLUDE_RECENT_MESSAGES", False),
+        include_context_events=_get_bool_env("MEMORY_PROMPT_INCLUDE_CONTEXT_EVENTS", False),
+        max_recent_messages=_get_positive_int_env("MEMORY_PROMPT_RECENT_MESSAGES", 4),
+        max_message_chars=_get_positive_int_env("MEMORY_PROMPT_MESSAGE_MAX_CHARS", 260),
+        max_reference_docs=_get_positive_int_env("MEMORY_PROMPT_REFERENCE_DOCS", 3),
+    )
 
 
 async def _generate_skill_text_answer(
@@ -1889,6 +1904,9 @@ async def stream_ai_response(
     reference_ids_str: str,
     api_v1: bool = False,
     trace_id: Optional[int] = None,
+    user_message_id: Optional[int] = None,
+    decision: Optional[RouteDecision] = None,
+    retrieval_query: str = "",
 ):
     """
     功能说明：
@@ -1941,6 +1959,10 @@ async def stream_ai_response(
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
             ai_msg = result.scalar_one_or_none()
+            user_msg = None
+            if user_message_id:
+                user_result = await db.execute(select(Message).where(Message.id == user_message_id))
+                user_msg = user_result.scalar_one_or_none()
             token_count = None
             if ai_msg:
                 ai_msg.content_text = content_text
@@ -1957,6 +1979,17 @@ async def stream_ai_response(
                 output_tokens=token_count,
             )
             if with_token_count and status_value == "success":
+                if user_msg and ai_msg and decision:
+                    await memory_service.refine_after_answer(
+                        user_msg,
+                        ai_msg,
+                        decision,
+                        retrieval_query,
+                        reference_docs or [],
+                        content_text,
+                        trace_id=trace_id,
+                        source="stream_answer_refinement",
+                    )
                 await memory_service.maybe_refresh_summary(session_id)
 
     try:
@@ -2221,6 +2254,21 @@ async def _create_completion(
         )
         memory_service = MemoryService(db)
         memory_pack = await MemoryPackBuilder(memory_service).build(db_message, route_decision)
+        if (
+            route_decision.reason == CONTEXTUAL_RETRY_REASON
+            and not _contextual_retry_has_base_question(memory_pack)
+        ):
+            print("[上下文重答] 当前会话没有可恢复的主问题，改为澄清并跳过RAG")
+            route_decision = RouteDecision(
+                route=IntentRoute.CLARIFY,
+                use_rag=False,
+                confidence=route_decision.confidence,
+                reason="contextual_retry_without_context",
+                need_clarification=True,
+                clarification_question="当前对话里还没有可重新回答的问题，请先描述具体设备、故障现象或报错信息。",
+                source=route_decision.source,
+            )
+            memory_pack = await MemoryPackBuilder(memory_service).build(db_message, route_decision)
         print(
             "[MemoryPack] "
             f"strategy={memory_pack.strategy} "
@@ -2306,38 +2354,58 @@ async def _create_completion(
                 route_decision,
                 memory_pack=memory_pack,
             )
-            reusable_reference_documents = []
-            if route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
-                reusable_reference_documents = await _load_reusable_reference_documents_from_memory(
-                    memory_service,
-                    memory_pack,
-                    db_message,
-                )
-            if reusable_reference_documents:
+            if not _rag_query_passes_context_gate(retrieval_query, db_message.user_uploaded_images):
                 print(
-                    "[上下文改写] 复用上一轮参考文档 "
-                    f"count={len(reusable_reference_documents)}"
+                    "[RAG Gate] 检索问题缺少有效维修领域锚点，改为澄清并跳过RAG "
+                    f"query={retrieval_query or db_message.content_text}"
                 )
-                ai_reference_documents = reusable_reference_documents
-                used_previous_refs = True
-                retrieval_actions.append("reuse_previous_references")
+                route_decision = RouteDecision(
+                    route=IntentRoute.CLARIFY,
+                    use_rag=False,
+                    confidence=route_decision.confidence,
+                    reason="rag_query_without_domain_anchor",
+                    need_clarification=True,
+                    clarification_question="当前问题缺少可检索的设备、故障现象、报错码或参数信息，请补充后我再帮您排查。",
+                    source=route_decision.source,
+                )
+                memory_pack = await MemoryPackBuilder(memory_service).build(db_message, route_decision)
+                selected_skill = SkillRegistry().select(route_decision, memory_pack)
+                retrieval_query = db_message.content_text
+                ai_reference_documents = []
+                retrieval_actions.append("rag_gate_clarify")
             else:
-                ai_reference_documents, retrieval_actions = await _adaptive_retrieve_reference_documents(
-                    db,
-                    retrieval_query,
-                    db_message.user_uploaded_images,
-                    route_decision,
-                    memory_pack,
-                )
-                ai_reference_documents = _filter_reference_documents_by_confidence(
-                    ai_reference_documents,
-                    route_decision,
-                )
-                ai_reference_documents = _filter_reference_documents_by_query_terms(
-                    ai_reference_documents,
-                    retrieval_query,
-                    route_decision,
-                )
+                reusable_reference_documents = []
+                if route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+                    reusable_reference_documents = await _load_reusable_reference_documents_from_memory(
+                        memory_service,
+                        memory_pack,
+                        db_message,
+                    )
+                if reusable_reference_documents:
+                    print(
+                        "[上下文改写] 复用上一轮参考文档 "
+                        f"count={len(reusable_reference_documents)}"
+                    )
+                    ai_reference_documents = reusable_reference_documents
+                    used_previous_refs = True
+                    retrieval_actions.append("reuse_previous_references")
+                else:
+                    ai_reference_documents, retrieval_actions = await _adaptive_retrieve_reference_documents(
+                        db,
+                        retrieval_query,
+                        db_message.user_uploaded_images,
+                        route_decision,
+                        memory_pack,
+                    )
+                    ai_reference_documents = _filter_reference_documents_by_confidence(
+                        ai_reference_documents,
+                        route_decision,
+                    )
+                    ai_reference_documents = _filter_reference_documents_by_query_terms(
+                        ai_reference_documents,
+                        retrieval_query,
+                        route_decision,
+                    )
         else:
             ai_reference_documents = []
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
@@ -2423,6 +2491,9 @@ async def _create_completion(
                     ai_reference_document_ids_str,
                     api_v1=api_v1,
                     trace_id=trace_id,
+                    user_message_id=db_message.id,
+                    decision=route_decision,
+                    retrieval_query=retrieval_query,
                 ),
                 media_type="text/event-stream"
             )
@@ -2435,6 +2506,16 @@ async def _create_completion(
             status_value="success",
             output_tokens=ai_msg.token_count if ai_msg else None,
         )
+        if ai_msg:
+            await memory_service.refine_after_answer(
+                db_message,
+                ai_msg,
+                route_decision,
+                retrieval_query,
+                ai_reference_documents,
+                answer,
+                trace_id=trace_id,
+            )
         await memory_service.maybe_refresh_summary(message.session_id)
         data = {
             "answer": answer,
@@ -2677,11 +2758,7 @@ async def delete_chat_sessions(
             if conversation.user_id != current_user.id:
                 forbidden_ids.append(session_id)
                 continue
-            await db.execute(delete(AiUsageLog).where(AiUsageLog.session_id == session_id))
-            await db.execute(delete(AiMessageTrace).where(AiMessageTrace.session_id == session_id))
-            await db.execute(delete(ConversationContextEvent).where(ConversationContextEvent.session_id == session_id))
-            await db.execute(delete(ConversationContext).where(ConversationContext.session_id == session_id))
-            await db.execute(delete(ConversationSummary).where(ConversationSummary.session_id == session_id))
+            await MemoryService(db).delete_session_runtime_state(session_id)
             await db.execute(delete(Message).where(Message.session_id == session_id))
             await db.execute(delete(Conversation).where(Conversation.id == session_id))
         await db.commit()

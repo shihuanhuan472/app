@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
 from sqlalchemy import or_, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -132,12 +132,20 @@ async def login(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    username = (login_data.username or "").strip()
+    if not username:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请输入登录账号")
+
     result = await db.execute(
         select(User)
         .options(selectinload(User.role_group).selectinload(RoleGroup.permissions))
-        .where(User.username == login_data.username)
+        .where(User.username == username)
     )
-    user = result.scalar_one_or_none()
+    try:
+        user = result.scalar_one_or_none()
+    except MultipleResultsFound:
+        logger.error("登录用户名存在重复记录 username=%s", username)
+        raise AppException(status.HTTP_409_CONFLICT, BizCode.BAD_REQUEST, "用户名存在重复记录，请联系管理员处理")
 
     if not user:
         raise AppException(status.HTTP_401_UNAUTHORIZED, BizCode.AUTH_INVALID_CREDENTIALS, "用户名或密码错误")
@@ -161,6 +169,7 @@ async def login(
     role_group_name = getattr(role_group, "name", None)
     payload = {
         "username": user.username,
+        "full_name": user.full_name,
         "phone": user.phone,
         "role": user.role,
         "perm": getattr(user, "perm", None),
@@ -183,6 +192,7 @@ async def login(
             "user": {
                 "id": user.id,
                 "username": user.username,
+                "full_name": user.full_name,
                 "phone": user.phone,
                 "role": user.role,
                 "perm": getattr(user, "perm", None),

@@ -61,6 +61,37 @@
 
     <script src="js/common.js"></script>
     <script>
+        function getStoredUserForAccess() {
+            const rawUser = localStorage.getItem('user')
+                || sessionStorage.getItem('user')
+                || localStorage.getItem('currentUser');
+            if (!rawUser) return null;
+            try {
+                return JSON.parse(rawUser);
+            } catch (error) {
+                console.warn('用户信息解析失败:', error);
+                return null;
+            }
+        }
+
+        function isMaintenanceUser(user) {
+            if (!user || !window.Utils) return false;
+            const roleValue = Utils.normalizeRoleValue(user.role ?? user.role_id);
+            const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+            const hasElevatedPermission = permissions.includes(Utils.PERMISSION.ADMIN)
+                || permissions.includes(Utils.PERMISSION.READ_WRITE)
+                || permissions.includes(Utils.PERMISSION.REVIEW);
+            const hasReadOnlyOnly = permissions.length > 0
+                && permissions.every(permission => permission === Utils.PERMISSION.READ_ONLY);
+            return !hasElevatedPermission
+                && (roleValue === Utils.ROLE.MAINTENANCE || hasReadOnlyOnly);
+        }
+
+        const accessUser = getStoredUserForAccess();
+        if (isMaintenanceUser(accessUser)) {
+            window.location.replace('ai-assist.html');
+        }
+
         // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
             // 设置当前用户显示

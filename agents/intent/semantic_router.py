@@ -42,6 +42,18 @@ FEEDBACK_PATTERNS = (
     r"(我要|想|需要)?(投诉|反馈|差评)",
     r"(不满意|很差|太差|胡说|乱说|瞎说)",
 )
+EMOTIONAL_FEEDBACK_PATTERNS = (
+    r"(你|您)?(回答|答复|回复|答案|结论).*(不对|不准|不准确|不好|有问题|错了|错误|很差|太差|离谱|胡说|乱说|瞎说)",
+    r"(不对|不准|不准确|不好|错了|错误|很差|太差|离谱|胡说|乱说|瞎说).*(你|您)?(回答|答复|回复|答案|结论)",
+    r"(我要|想|需要)?(投诉|反馈|差评|抱怨|吐槽)",
+    r"(不满意|很差|太差|离谱|胡说|乱说|瞎说|无语|糟糕)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统|测序仪|测序设备|测序平台).*(问题|故障|毛病|异常|报错|坏|出问题).*(多|很多|好多|不少|严重|频繁|经常|老是|总是|容易|无语|离谱|糟糕|很差|太差)",
+    r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统|测序仪|测序设备|测序平台).*(不稳定|质量差|不可靠|不靠谱|靠不住|经常坏|老坏|总坏)",
+)
+EMOTIONAL_FEEDBACK_TASK_BLOCKERS = (
+    r"怎么|如何|怎样|怎么办|为什么|为啥|原因|有哪些|列举|常见|清单|排查|检查|处理|解决|修复|维修|维护|步骤|操作|参数|"
+    r"手册|说明书|文档|知识库|阈值|范围|方案|对策|流程|SOP|统计|故障率|问题率|对比|比较"
+)
 VAGUE_DOMAIN_CHAT_PATTERNS = (
     r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(问题|故障|毛病|异常|报错|坏|出问题).*(多|很多|好多|不少|严重|频繁|经常|老是|总是|容易|故障率|问题率|稳定|可靠|靠谱|质量|是不是|是否)",
     r"(你们|你这边|你这里|你们的|贵司|厂家)?.*(设备|仪器|机器|产品|系统).*(多|很多|好多|不少|严重|频繁|经常|老是|总是|容易|是不是|是否).*(问题|故障|毛病|异常|报错|坏|出问题)",
@@ -109,6 +121,14 @@ def _is_low_value_feedback(text: str) -> bool:
     if not _matches_any(LOW_VALUE_FEEDBACK_PATTERNS, text):
         return False
     return not re.search(LOW_VALUE_FEEDBACK_AUDIT_BLOCKERS, text, flags=re.IGNORECASE)
+
+
+def _is_emotional_feedback(text: str, slots: IntentSlots) -> bool:
+    if slots.error_code or slots.metric:
+        return False
+    if not _matches_any(EMOTIONAL_FEEDBACK_PATTERNS, text):
+        return False
+    return not re.search(EMOTIONAL_FEEDBACK_TASK_BLOCKERS, text, flags=re.IGNORECASE)
 
 
 def _is_vague_domain_chat(text: str, slots: IntentSlots) -> bool:
@@ -184,13 +204,20 @@ def route_semantically(question: str, has_images: bool = False) -> SemanticRoute
 
     if _matches_any(FEEDBACK_PATTERNS, compact):
         return SemanticRouteResult(RouteDecision(
-            route=IntentRoute.CASUAL_CHAT, use_rag=False, confidence=0.97,
-            reason="feedback_pattern", slots=slots,
+            route=IntentRoute.EMOTIONAL_FEEDBACK, use_rag=False, confidence=0.97,
+            reason="feedback_pattern", dialog_act="topic_redirect", slots=slots,
+        ), True)
+
+    if _is_emotional_feedback(compact, slots):
+        return SemanticRouteResult(RouteDecision(
+            route=IntentRoute.EMOTIONAL_FEEDBACK, use_rag=False, confidence=0.97,
+            reason="emotional_feedback_pattern", dialog_act="topic_redirect",
+            slots=slots,
         ), True)
 
     if _is_vague_domain_chat(compact, slots):
         return SemanticRouteResult(RouteDecision(
-            route=IntentRoute.CASUAL_CHAT, use_rag=False, confidence=0.96,
+            route=IntentRoute.EMOTIONAL_FEEDBACK, use_rag=False, confidence=0.96,
             reason="vague_domain_chat", dialog_act="topic_redirect", slots=slots,
         ), True)
 

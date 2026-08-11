@@ -1,0 +1,24 @@
+{
+  "footer_zone_ratio": 0.22,
+  "blank_light_ratio": 0.985,
+  "blank_dark_ratio": 0.985,
+  "blank_dynamic_range": 18.0,
+  "blank_channel_std": 7.0,
+  "blue_ratio": 0.52,
+  "blue_mean_delta": 32.0,
+  "decorative_min_width": 520,
+  "decorative_min_height": 240,
+  "wide_footer_aspect_ratio": 3.5,
+  "low_saturation": 24.0,
+  "text_patterns": [
+    "MGI-service",
+    "www\\.mgi-tech\\.com",
+    "mgi-tech\\.com",
+    "Building No\\.11",
+    "Beishan Industrial Zone",
+    "Yantian District",
+    "Shenzhen 518083",
+    "深圳市盐田区北山工业区",
+    "北山工业区11栋"
+  ]
+}

@@ -116,8 +116,8 @@
 
             <form id="loginForm">
                 <div class="form-group">
-                    <label class="form-label">用户名</label>
-                    <input type="text" class="form-control" id="username" placeholder="请输入用户名" required>
+                    <label class="form-label">登录账号（用户名）</label>
+                    <input type="text" class="form-control" id="username" placeholder="请输入登录账号" required>
                 </div>
 
                 <div class="form-group">
@@ -152,6 +152,36 @@
     <script>
         const LOGIN_REQUEST_TIMEOUT_MS = 30000;
 
+        function normalizeRoleValue(role) {
+            if (typeof role === 'number' && !Number.isNaN(role)) return role;
+            if (typeof role === 'string') {
+                const value = role.trim().toLowerCase();
+                if (value === '0' || value === 'admin' || value === '管理员' || value === '系统管理员') return 0;
+                if (value === '1' || value === 'technician' || value === '技术人员' || value === '维修工程师') return 1;
+                if (value === '2' || value === 'reviewer' || value === '审核人员') return 2;
+                if (value === '3' || value === 'maintenance' || value === '维修人员') return 3;
+                const parsed = Number(value);
+                if (!Number.isNaN(parsed)) return parsed;
+            }
+            return null;
+        }
+
+        function isMaintenanceUser(user) {
+            if (!user) return false;
+            const roleValue = normalizeRoleValue(user.role ?? user.role_id);
+            const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+            const hasElevatedPermission = permissions.includes('admin')
+                || permissions.includes('read_write')
+                || permissions.includes('review');
+            const hasReadOnlyOnly = permissions.length > 0
+                && permissions.every(permission => permission === 'read_only');
+            return !hasElevatedPermission && (roleValue === 3 || hasReadOnlyOnly);
+        }
+
+        function resolveLandingPage(user) {
+            return isMaintenanceUser(user) ? 'ai-assist.html' : 'main.html';
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('loginForm');
             const submitBtn = document.getElementById('submitBtn');
@@ -169,7 +199,7 @@
 
                 // 验证输入
                 if (!username) {
-                    showError('请输入用户名');
+                    showError('请输入登录账号');
                     return;
                 }
 
@@ -227,9 +257,9 @@
                         // 显示成功消息
                         Utils.showMessage('登录成功！', 'success');
 
-                        // 跳转到主页面
+                        // 跳转到角色对应首页
                         setTimeout(() => {
-                            window.location.href = 'main.html';
+                            window.location.href = resolveLandingPage(tokenData.user);
                         }, 1000);
                     } else {
                         const failedMessage = resolveLoginErrorMessage(result);
@@ -282,9 +312,15 @@
             }
 
             if (token && user) {
-                console.log('检测到已登录，自动跳转到主页面');
+                console.log('检测到已登录，自动跳转到角色对应首页');
                 setTimeout(() => {
-                    window.location.href = 'main.html';
+                    let userInfo = null;
+                    try {
+                        userInfo = JSON.parse(user);
+                    } catch (error) {
+                        console.warn('本地用户信息解析失败，使用默认首页:', error);
+                    }
+                    window.location.href = resolveLandingPage(userInfo);
                 }, 500);
             }
         }

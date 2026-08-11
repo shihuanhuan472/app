@@ -166,6 +166,36 @@ async def _index_exists(conn, table_name: str, index_name: str) -> bool:
     return int(result.scalar_one() or 0) > 0
 
 
+async def _index_on_columns_exists(conn, table_name: str, column_names, unique: bool = False) -> bool:
+    if isinstance(column_names, str):
+        column_names = [column_names]
+    rows = await conn.execute(
+        text(
+            """
+            SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, NON_UNIQUE
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX
+            """
+        ),
+        {"table_name": table_name},
+    )
+    indexes = {}
+    for row in rows.mappings().all():
+        index_name = row["INDEX_NAME"]
+        indexes.setdefault(index_name, {"columns": [], "non_unique": int(row["NON_UNIQUE"] or 0)})
+        indexes[index_name]["columns"].append(row["COLUMN_NAME"])
+    expected = list(column_names)
+    for payload in indexes.values():
+        if payload["columns"][:len(expected)] != expected:
+            continue
+        if unique and payload["non_unique"] != 0:
+            continue
+        return True
+    return False
+
+
 def _parse_json_list(raw_value):
     if raw_value is None:
         return []
@@ -718,6 +748,135 @@ async def ensure_ai_usage_logs_table():
             )
 
 
+MEMORY_TABLE_COLUMNS = {
+    "conversation_contexts": {
+        "session_id": "INT NOT NULL",
+        "status": "VARCHAR(32) NOT NULL DEFAULT 'active'",
+        "active_issue": "MEDIUMTEXT NULL",
+        "active_device": "VARCHAR(255) NULL",
+        "active_component": "VARCHAR(255) NULL",
+        "active_symptom": "MEDIUMTEXT NULL",
+        "active_error_code": "VARCHAR(64) NULL",
+        "active_question": "MEDIUMTEXT NULL",
+        "active_query": "MEDIUMTEXT NULL",
+        "active_route": "VARCHAR(64) NULL",
+        "active_reason": "VARCHAR(255) NULL",
+        "active_reference_docs_json": "MEDIUMTEXT NULL",
+        "active_reference_images_json": "MEDIUMTEXT NULL",
+        "slots_json": "MEDIUMTEXT NULL",
+        "summary_text": "MEDIUMTEXT NULL",
+        "last_user_message_id": "BIGINT NULL",
+        "last_ai_message_id": "BIGINT NULL",
+        "last_trace_id": "INT NULL",
+        "turn_count": "INT NOT NULL DEFAULT 0",
+        "created_time": "DATETIME NULL",
+        "updated_time": "DATETIME NULL",
+    },
+    "conversation_context_events": {
+        "session_id": "INT NOT NULL",
+        "user_message_id": "BIGINT NULL",
+        "ai_message_id": "BIGINT NULL",
+        "event_type": "VARCHAR(64) NOT NULL",
+        "route": "VARCHAR(64) NULL",
+        "reason": "VARCHAR(255) NULL",
+        "source": "VARCHAR(64) NULL",
+        "previous_context_json": "MEDIUMTEXT NULL",
+        "new_context_json": "MEDIUMTEXT NULL",
+        "created_time": "DATETIME NULL",
+    },
+    "conversation_summaries": {
+        "session_id": "INT NOT NULL",
+        "start_message_order": "INT NOT NULL DEFAULT 1",
+        "end_message_order": "INT NOT NULL",
+        "message_count": "INT NOT NULL DEFAULT 0",
+        "token_count": "INT NOT NULL DEFAULT 0",
+        "summary_text": "MEDIUMTEXT NULL",
+        "created_time": "DATETIME NULL",
+        "updated_time": "DATETIME NULL",
+    },
+    "ai_message_traces": {
+        "session_id": "INT NOT NULL",
+        "user_message_id": "BIGINT NOT NULL",
+        "ai_message_id": "BIGINT NULL",
+        "route": "VARCHAR(64) NOT NULL",
+        "reason": "VARCHAR(255) NULL",
+        "original_question": "MEDIUMTEXT NULL",
+        "query_rewrite": "MEDIUMTEXT NULL",
+        "retrieval_query": "MEDIUMTEXT NULL",
+        "used_previous_refs": "INT NOT NULL DEFAULT 0",
+        "reference_docs_json": "MEDIUMTEXT NULL",
+        "reference_images_json": "MEDIUMTEXT NULL",
+        "actions_json": "MEDIUMTEXT NULL",
+        "validation_json": "MEDIUMTEXT NULL",
+        "answer_preview": "TEXT NULL",
+        "model_name": "VARCHAR(255) NULL",
+        "input_tokens": "INT NOT NULL DEFAULT 0",
+        "output_tokens": "INT NOT NULL DEFAULT 0",
+        "latency_ms": "INT NOT NULL DEFAULT 0",
+        "status": "VARCHAR(32) NOT NULL DEFAULT 'success'",
+        "error_message": "TEXT NULL",
+        "created_time": "DATETIME NULL",
+        "updated_time": "DATETIME NULL",
+    },
+}
+
+MEMORY_TABLE_INDEXES = {
+    "conversation_contexts": [
+        ("idx_conversation_contexts_session_id", ["session_id"], True),
+        ("idx_conversation_contexts_status", ["status"], False),
+        ("idx_conversation_contexts_active_route", ["active_route"], False),
+        ("idx_conversation_contexts_last_user_message_id", ["last_user_message_id"], False),
+        ("idx_conversation_contexts_last_ai_message_id", ["last_ai_message_id"], False),
+        ("idx_conversation_contexts_last_trace_id", ["last_trace_id"], False),
+    ],
+    "conversation_context_events": [
+        ("idx_context_events_session_id", ["session_id"], False),
+        ("idx_context_events_user_message_id", ["user_message_id"], False),
+        ("idx_context_events_ai_message_id", ["ai_message_id"], False),
+        ("idx_context_events_event_type", ["event_type"], False),
+    ],
+    "conversation_summaries": [
+        ("idx_conversation_summaries_session_id", ["session_id"], False),
+        ("idx_conversation_summaries_end_order", ["end_message_order"], False),
+    ],
+    "ai_message_traces": [
+        ("idx_ai_message_traces_session_id", ["session_id"], False),
+        ("idx_ai_message_traces_user_message_id", ["user_message_id"], False),
+        ("idx_ai_message_traces_route", ["route"], False),
+        ("idx_ai_message_traces_status", ["status"], False),
+    ],
+}
+
+
+async def ensure_memory_tables_schema():
+    async with engine.begin() as conn:
+        for table_name, table in Base.metadata.tables.items():
+            if table_name not in MEMORY_TABLE_COLUMNS:
+                continue
+            if not await _table_exists(conn, table_name):
+                await conn.run_sync(lambda sync_conn, table=table: table.create(sync_conn, checkfirst=True))
+
+        for table_name, columns in MEMORY_TABLE_COLUMNS.items():
+            if not await _table_exists(conn, table_name):
+                continue
+            for column_name, ddl in columns.items():
+                if not await _column_exists(conn, table_name, column_name):
+                    await conn.execute(text(f"ALTER TABLE `{table_name}` ADD COLUMN `{column_name}` {ddl}"))
+            for column_name, ddl in columns.items():
+                if "MEDIUMTEXT" in ddl.upper():
+                    await _ensure_mediumtext_column(conn, table_name, column_name)
+
+        for table_name, indexes in MEMORY_TABLE_INDEXES.items():
+            if not await _table_exists(conn, table_name):
+                continue
+            for index_name, columns, unique in indexes:
+                if await _index_on_columns_exists(conn, table_name, columns, unique=unique):
+                    continue
+                keyword = "UNIQUE INDEX" if unique else "INDEX"
+                column_sql = ", ".join(f"`{column}`" for column in columns)
+                await conn.execute(text(f"CREATE {keyword} `{index_name}` ON `{table_name}` ({column_sql})"))
+
+
 async def migrate_legacy_documents_to_breakdown():
     async with engine.begin() as conn:
         if not await _table_exists(conn, "documents"):
@@ -836,6 +995,7 @@ async def on_startup():
     await ensure_source_document_library_columns()
     await ensure_message_token_count_column()
     await ensure_ai_usage_logs_table()
+    await ensure_memory_tables_schema()
     await migrate_legacy_documents_to_breakdown()
     await migrate_legacy_tags_to_tag_tables()
     await migrate_legacy_upload_document_paths_to_source_documents()

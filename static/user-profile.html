@@ -942,11 +942,28 @@
 
         // 更新菜单显示
         function updateMenuByRole(user) {
+            const knowledgeBaseLink = document.querySelector('a[href="main.html"]');
             const userManagementLink = document.querySelector('a[href="user-management.html"]');
             const myProfileLink = document.querySelector('a[href="user-profile.html"]');
             const aiAssistLink = document.querySelector('a[href="ai-assist.html"]');
 
             const isAdmin = Utils.hasRole(user, Utils.ROLE.ADMIN);
+            const roleValue = Utils.normalizeRoleValue(user.role ?? user.role_id);
+            const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+            const isMaintenance = !isAdmin
+                && !permissions.includes(Utils.PERMISSION.READ_WRITE)
+                && !permissions.includes(Utils.PERMISSION.REVIEW)
+                && (
+                    roleValue === Utils.ROLE.MAINTENANCE
+                    || (
+                        permissions.length > 0
+                        && permissions.every(permission => permission === Utils.PERMISSION.READ_ONLY)
+                    )
+                );
+
+            if (knowledgeBaseLink) {
+                knowledgeBaseLink.style.display = isMaintenance ? 'none' : 'flex';
+            }
 
             if (userManagementLink) {
                 userManagementLink.style.display = isAdmin ? 'flex' : 'none';

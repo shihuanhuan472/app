@@ -801,17 +801,19 @@
                     const createdDate = user.created_time
                         ? Utils.formatDate(user.created_time, 'YYYY-MM-DD HH:mm')
                         : '未知';
+                    const displayName = user.full_name || '未设置';
+                    const loginName = user.username || '未设置';
                     return `
                         <div class="user-card registration-card" data-user-id="${user.id}">
                             <div class="user-avatar-large" style="background: #f59e0b">
-                                ${this.escapeHtml((user.full_name || user.username || 'U').charAt(0).toUpperCase())}
+                                ${this.escapeHtml((displayName !== '未设置' ? displayName : loginName).charAt(0).toUpperCase())}
                             </div>
                             <div class="user-info-details">
                                 <div class="user-header-row">
-                                    <div class="user-info-name">${this.escapeHtml(user.full_name || user.username)}</div>
+                                    <div class="user-info-name" title="姓名：${this.escapeHtml(displayName)}">姓名：${this.escapeHtml(displayName)}</div>
                                     <span class="registration-status"><i class="fas fa-clock"></i> 待审核</span>
                                 </div>
-                                <div class="user-info-username">用户名：${this.escapeHtml(user.username)}</div>
+                                <div class="user-info-username" title="登录账号：${this.escapeHtml(loginName)}">登录账号：${this.escapeHtml(loginName)}</div>
                                 <ul class="user-info-list">
                                     <li><i class="fas fa-building"></i> 部门：${this.escapeHtml(user.department || '未设置')}</li>
                                     <li><i class="fas fa-phone"></i> 电话：${this.escapeHtml(user.phone || '未设置')}</li>
@@ -949,16 +951,19 @@
                         if (!text) return '未设置';
                         return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
                     };
+                    const displayName = user.full_name || '未设置';
+                    const loginName = user.username || '未设置';
+                    const displayAvatarText = displayName !== '未设置' ? displayName : loginName;
 
                     html += `
                         <div class="user-card" data-user-id="${user.id}">
                             <div class="user-avatar-large" style="background: ${avatarColor}">
-                                ${user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
+                                ${this.escapeHtml(displayAvatarText.charAt(0).toUpperCase())}
                             </div>
                             <div class="user-info-details">
                                 <div class="user-header-row">
-                                    <div class="user-info-name" title="${user.full_name || user.username}">
-                                        ${truncateText(user.full_name || user.username, 12)}
+                                    <div class="user-info-name" title="姓名：${this.escapeHtml(displayName)}">
+                                        姓名：${this.escapeHtml(truncateText(displayName, 10))}
                                     </div>
                                     <div class="user-info-role">
                                         <span class="badge" style="background: ${roleBgColor}; color: ${roleColor}; border: 1px solid ${roleColor}20;">
@@ -966,8 +971,8 @@
                                         </span>
                                     </div>
                                 </div>
-                                <div class="user-info-username" title="${user.username}">
-                                    用户名：${truncateText(user.username, 10)}
+                                <div class="user-info-username" title="登录账号：${this.escapeHtml(loginName)}">
+                                    登录账号：${this.escapeHtml(truncateText(loginName, 10))}
                                 </div>
                                 <ul class="user-info-list">
                                     <li title="${user.department || '未设置'}">

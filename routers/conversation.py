@@ -13,6 +13,7 @@ from database import get_db
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
+from agents.memory import MemoryService
 
 router = APIRouter(prefix="/conversation", tags=["对话"])
 
@@ -139,23 +140,17 @@ async def update_title(id: int,
 async def delete_conversation(id: int,
                  db: AsyncSession = Depends(get_db),
                  current_user: User = Depends(get_current_active_user)):
-    print(1)
     try:
-        # conversation = db.query(Conversation).filter(Conversation.id == id).first()
-        print(2)
         result = await db.execute(select(Conversation).where(Conversation.id == id))
         conversation = result.scalar_one_or_none()
-        print(4)
         if not conversation:
             raise AppException(status.HTTP_404_NOT_FOUND, BizCode.CONVERSATION_NOT_FOUND, "对话不存在")
 
         if conversation.user_id != current_user.id:
             raise AppException(status.HTTP_403_FORBIDDEN, BizCode.CONVERSATION_FORBIDDEN, "您无权删除此对话")
-        print(5)
-        # db.query(Message).filter(Message.session_id == id).delete()
 
+        await MemoryService(db).delete_session_runtime_state(id)
         await db.execute(delete(Message).where(Message.session_id == id))
-        print(6)
         await db.execute(delete(Conversation).where(Conversation.id == id))
         await db.commit()
         print(f"对话{id}已删除")

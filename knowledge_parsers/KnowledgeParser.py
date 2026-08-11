@@ -19,7 +19,9 @@ from PIL import Image
 
 from knowledge_parsers.enterprise_word_chunker import EnterpriseWordChunker
 from utils.error_codes import BizCode
+from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
+from utils.ppt_noise_filter import PPTNoiseFilter
 
 try:
     import pymupdf
@@ -61,6 +63,8 @@ class KnowledgeParser:
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
         self.last_error_code = None
         self.last_error_detail = None
+        self.logo_only_filter = LogoOnlyFilter()
+        self.ppt_noise_filter = PPTNoiseFilter()
         os.makedirs(os.path.join(self.document_base_dir, self.image_dir), exist_ok=True)
 
     def parse(self, file_path: str) -> Optional[KnowledgeParsedDocument]:
@@ -1560,6 +1564,69 @@ class KnowledgeParser:
                     blocks.append({"type": "text", "text": line})
         return self._build_document(file_path, blocks)
 
+    def _iter_ppt_shapes(self, shapes):
+        for shape in shapes:
+            yield shape
+            nested_shapes = getattr(shape, "shapes", None)
+            if nested_shapes is not None:
+                yield from self._iter_ppt_shapes(nested_shapes)
+
+    def _ppt_shape_text(self, shape) -> str:
+        parts = []
+        if getattr(shape, "has_text_frame", False):
+            for paragraph in shape.text_frame.paragraphs:
+                text = paragraph.text.strip()
+                if text:
+                    parts.append(text)
+        if getattr(shape, "has_table", False):
+            rows = []
+            for row in shape.table.rows:
+                rows.append([cell.text.strip().replace("\n", " ") for cell in row.cells])
+            table_text = self._table_to_markdown(rows)
+            if table_text:
+                parts.append(table_text)
+        return self.ppt_noise_filter.sanitize_text("\n".join(parts))
+
+    def _ppt_shape_bbox(self, shape) -> Tuple[int, int, int, int]:
+        left = int(getattr(shape, "left", 0) or 0)
+        top = int(getattr(shape, "top", 0) or 0)
+        width = int(getattr(shape, "width", 0) or 0)
+        height = int(getattr(shape, "height", 0) or 0)
+        return (left, top, left + width, top + height)
+
+    def _ppt_shape_area_ratio(self, shape, slide_area: int) -> float:
+        width = int(getattr(shape, "width", 0) or 0)
+        height = int(getattr(shape, "height", 0) or 0)
+        return max(width * height, 0) / max(slide_area, 1)
+
+    def _is_ppt_picture_shape(self, shape) -> bool:
+        return getattr(shape, "shape_type", None) == 13 and hasattr(shape, "image")
+
+    def _should_keep_ppt_image(self, shape, slide_index: int, slide_area: int) -> bool:
+        try:
+            if self.logo_only_filter.should_filter_bytes(
+                shape.image.blob,
+                source=f"knowledge-ppt-slide-{slide_index}",
+            ):
+                return False
+        except Exception:
+            pass
+
+        area_ratio = self._ppt_shape_area_ratio(shape, slide_area)
+        should_filter, reason = self.ppt_noise_filter.should_filter_image_bytes(
+            shape.image.blob,
+            area_ratio=area_ratio,
+            source=f"knowledge-ppt-slide-{slide_index}",
+        )
+        if should_filter:
+            print(
+                f"[PPTNoiseFilter] filtered knowledge PPT image "
+                f"slide={slide_index} reason={reason}",
+                flush=True,
+            )
+            return False
+        return True
+
     def _parse_ppt(self, file_path: str) -> KnowledgeParsedDocument:
         try:
             from pptx import Presentation
@@ -1572,7 +1639,12 @@ class KnowledgeParser:
             cleanup_context = tempfile.TemporaryDirectory(prefix="ppt_clean_")
             cleaned_path = Path(cleanup_context.name) / source_path.name
             try:
-                clean_stats = clean_pptx_template(str(source_path), str(cleaned_path))
+                clean_stats = clean_pptx_template(
+                    str(source_path),
+                    str(cleaned_path),
+                    remove_slide_noise=True,
+                    noise_filter=self.ppt_noise_filter,
+                )
                 parse_path = str(cleaned_path)
                 print(
                     "[KnowledgeParser] PPT 已先清模板：templates={templates} slide_placeholders={placeholders} backgrounds={backgrounds}".format(
@@ -1588,18 +1660,57 @@ class KnowledgeParser:
 
         try:
             presentation = Presentation(parse_path)
-            blocks: List[Dict] = []
+            slide_width = int(presentation.slide_width)
+            slide_height = int(presentation.slide_height)
+            slide_area = max(slide_width * slide_height, 1)
+            layout_items: List[Dict] = []
             for slide_index, slide in enumerate(presentation.slides, start=1):
-                blocks.append({"type": "text", "text": f"第{slide_index}页", "is_heading": True})
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        text = shape.text.strip()
-                        if text:
-                            blocks.append({"type": "text", "text": text})
-                    if getattr(shape, "shape_type", None) == 13 and hasattr(shape, "image"):
+                layout_items.append(
+                    {
+                        "type": "text",
+                        "text": f"第{slide_index}页",
+                        "is_heading": True,
+                        "page": slide_index,
+                        "bbox": (0, -1, slide_width, 0),
+                        "block_order": len(layout_items),
+                    }
+                )
+                for shape in self._iter_ppt_shapes(slide.shapes):
+                    left, top, right, bottom = self._ppt_shape_bbox(shape)
+                    text = self._ppt_shape_text(shape)
+                    if text:
+                        layout_items.append(
+                            {
+                                "type": "table" if getattr(shape, "has_table", False) else "text",
+                                "text": text,
+                                "page": slide_index,
+                                "bbox": (left, top, right, bottom),
+                                "block_order": len(layout_items),
+                            }
+                        )
+                    if self._is_ppt_picture_shape(shape):
+                        if not self._should_keep_ppt_image(shape, slide_index, slide_area):
+                            continue
                         ext = shape.image.ext or "png"
                         image_url = self._save_image_blob(shape.image.blob, ext)
-                        blocks.append({"type": "image", "image_url": image_url})
+                        layout_items.append(
+                            {
+                                "type": "image",
+                                "image_url": image_url,
+                                "page": slide_index,
+                                "bbox": (left, top, right, bottom),
+                                "block_order": len(layout_items),
+                            }
+                        )
+            blocks = sorted(
+                layout_items,
+                key=lambda item: (
+                    item.get("page") or 0,
+                    (item.get("bbox") or (0, 0, 0, 0))[1],
+                    (item.get("bbox") or (0, 0, 0, 0))[0],
+                    item.get("block_order") or 0,
+                ),
+            )
             return self._build_document(file_path, blocks)
         finally:
             if cleanup_context is not None:
