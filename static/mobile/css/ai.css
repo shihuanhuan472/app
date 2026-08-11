@@ -938,6 +938,128 @@
     margin: 0.55rem 0;
 }
 
+/* Keep AI answers compact and keep inline markdown images as previews. */
+.message-container.ai {
+    margin-bottom: 0.62rem;
+}
+
+.message-content.ai {
+    padding: 0.62rem 0.78rem;
+}
+
+.message-content.ai .message-text {
+    margin-bottom: 0;
+    white-space: normal;
+    line-height: 1.48;
+}
+
+.message-content.ai .message-text > *:first-child {
+    margin-top: 0 !important;
+}
+
+.message-content.ai .message-text > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.message-content.ai .message-text p {
+    margin: 0 0 0.36rem;
+    line-height: 1.48;
+}
+
+.message-content.ai .message-text h1,
+.message-content.ai .message-text h2,
+.message-content.ai .message-text h3,
+.message-content.ai .message-text h4,
+.message-content.ai .message-text h5,
+.message-content.ai .message-text h6 {
+    margin: 0.5rem 0 0.24rem;
+    line-height: 1.32;
+}
+
+.message-content.ai .message-text ul,
+.message-content.ai .message-text ol {
+    margin: 0.22rem 0 0.42rem;
+    padding-left: 1.1rem;
+}
+
+.message-content.ai .message-text li {
+    margin: 0.08rem 0;
+    line-height: 1.45;
+}
+
+.message-content.ai .message-text hr {
+    height: 1px;
+    margin: 0.58rem 0;
+    border: 0;
+    background: #e5e7eb;
+}
+
+.message-content.ai .message-text img {
+    display: block;
+    width: auto;
+    max-width: min(100%, 18rem);
+    max-height: 11.5rem;
+    margin: 0.45rem 0;
+    border-radius: 0.6rem;
+    object-fit: contain;
+    cursor: zoom-in;
+}
+
+.message-content.ai .message-text .reference-image-grid {
+    --reference-image-columns: 2;
+    display: grid;
+    grid-template-columns: repeat(var(--reference-image-columns), minmax(0, 1fr));
+    gap: 0.48rem;
+    width: 100%;
+    margin: 0.45rem 0 0;
+}
+
+.message-content.ai .message-text .reference-image-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.62rem;
+    background: #f8fafc;
+}
+
+.message-content.ai .message-text .reference-image-grid img {
+    width: 100%;
+    max-width: 100%;
+    height: 8.5rem;
+    max-height: 8.5rem;
+    margin: 0;
+    border-radius: 0.62rem;
+    box-shadow: none;
+    object-fit: contain;
+    background: #fff;
+}
+
+.message-content.ai .message-text p:has(> img) {
+    --reference-image-columns: 2;
+    display: grid;
+    grid-template-columns: repeat(var(--reference-image-columns), minmax(0, 1fr));
+    gap: 0.48rem;
+    width: 100%;
+    margin: 0.45rem 0 0;
+}
+
+.message-content.ai .message-text p:has(> img) br {
+    display: none;
+}
+
+.message-content.ai .message-text p:has(> img) img {
+    width: 100%;
+    max-width: 100%;
+    height: 8.5rem;
+    max-height: 8.5rem;
+    margin: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.62rem;
+    box-shadow: none;
+    object-fit: contain;
+    background: #fff;
+}
+
 @media (max-width: 350px) {
     .input-section {
         padding-inline: 0.5rem;
@@ -961,5 +1083,10 @@
 
     .message-input {
         font-size: 0.9rem;
+    }
+
+    .message-content.ai .message-text .reference-image-grid,
+    .message-content.ai .message-text p:has(> img) {
+        --reference-image-columns: 1;
     }
 }

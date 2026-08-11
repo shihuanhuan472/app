@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI辅助 - 设备维修辅助系统</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=20260811-ref-grid">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- 在已有的link标签后面添加 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
@@ -886,6 +886,7 @@
             if (textDiv) {
                 
                 textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
+                this.bindInlineMessageImages(msgDiv);
                 
                 const container = document.getElementById('conversationContent');
                 if (container) container.scrollTop = container.scrollHeight;
@@ -1499,6 +1500,10 @@
                 }
 
                 // 如果这是AI消息且有相关文档，立即显示文档链接
+                if (isAI) {
+                    this.bindInlineMessageImages(container);
+                }
+
                 if (isAI && message.ai_reference_doc_ids && message.ai_reference_doc_ids.trim()) {
                     this.createDocumentLinks(container, message.ai_reference_doc_ids);
                 }
@@ -1619,6 +1624,19 @@
 
             // 用户消息：简单换行处理
             return content.replace(/\n/g, '<br>');
+        }
+
+        bindInlineMessageImages(container) {
+            if (!container) return;
+            container.querySelectorAll('.message-text img').forEach((image) => {
+                if (image.dataset.previewBound === '1') return;
+                image.dataset.previewBound = '1';
+                image.setAttribute('title', '点击查看大图');
+                image.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this.previewImage(image.getAttribute('src') || '');
+                });
+            });
         }
 
         // 预览图片
@@ -1991,6 +2009,7 @@
             if (textDiv) {
                 // 使用 Markdown 渲染（可选，如果流式逐步渲染可能会影响性能，可先纯文本�?
                 textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
+                this.bindInlineMessageImages(msgDiv);
                 // 滚动到消息底部
                 const container = document.getElementById('conversationContent');
                 container.scrollTop = container.scrollHeight;

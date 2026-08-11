@@ -585,6 +585,10 @@
                 item.addEventListener('click', () => this.previewImage(item.dataset.imageUrl));
             });
 
+            if (isAI) {
+                this.bindInlineMessageImages(container);
+            }
+
             if (isAI && message.ai_reference_doc_ids && String(message.ai_reference_doc_ids).trim()) {
                 this.loadAndDisplayDocuments(container, message.ai_reference_doc_ids);
             }
@@ -791,6 +795,7 @@
             const textDiv = msgDiv?.querySelector('.message-text');
             if (!textDiv) return;
             textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
+            this.bindInlineMessageImages(msgDiv);
             this.scrollToBottom();
         }
 
@@ -964,6 +969,19 @@
         updateVoiceStatus(text) {
             const el = document.getElementById('voiceStatus');
             if (el) el.textContent = text || '';
+        }
+
+        bindInlineMessageImages(container) {
+            if (!container) return;
+            container.querySelectorAll('.message-text img').forEach((image) => {
+                if (image.dataset.previewBound === '1') return;
+                image.dataset.previewBound = '1';
+                image.setAttribute('title', '点击查看大图');
+                image.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this.previewImage(image.getAttribute('src') || '');
+                });
+            });
         }
 
         previewImage(imageUrl) {

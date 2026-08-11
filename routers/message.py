@@ -8,6 +8,7 @@ import time
 import uuid
 import base64
 from functools import lru_cache
+from html import escape as html_escape
 
 import aiofiles
 from PIL import Image
@@ -1577,10 +1578,31 @@ def _image_to_web_url_if_exists(image_path: str) -> Optional[str]:
     return f"/{fallback_relative}" if filename and os.path.exists(fallback_absolute) else None
 
 
+def _build_reference_image_grid_html(image_urls: List[str]) -> str:
+    image_cards = []
+    for index, web_url in enumerate(image_urls, start=1):
+        safe_url = html_escape(str(web_url or ""), quote=True)
+        if not safe_url:
+            continue
+        alt = f"参考图片{index}"
+        image_cards.append(
+            '<div class="reference-image-card">'
+            f'<img src="{safe_url}" alt="{alt}" title="点击查看大图">'
+            "</div>"
+        )
+    if not image_cards:
+        return ""
+    return (
+        f'<div class="reference-image-grid" data-reference-image-count="{len(image_cards)}">'
+        + "".join(image_cards)
+        + "</div>"
+    )
+
+
 async def _append_reference_images_to_answer(answer: str, reference_docs: List[Dict[str, Any]]) -> str:
     """
     功能说明：
-        为 AI 最终回答稳定补充可渲染的参考图片 Markdown。
+        为 AI 最终回答稳定补充可渲染的参考图片网格。
     参数说明：
         answer：大模型生成的原始回答文本。
         reference_docs：本轮 RAG 检索命中的参考文档列表。
@@ -1589,7 +1611,7 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
     关键处理流程：
         1. 收集命中 Chunk 中的图片路径；
         2. 先把回答里已有的本地路径转换为 /upload/... Web URL；
-        3. 若回答未包含这些图片，则在末尾追加“参考图片”Markdown，避免依赖模型
+        3. 若回答未包含这些图片，则在末尾追加“参考图片”HTML 网格，避免依赖模型
            一定按提示词输出图片路径。
     """
     final_answer = answer or ""
@@ -1601,7 +1623,7 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
 
     if image_paths:
         final_answer = await _replace_image_urls_in_text(final_answer, config, image_paths)
-        appended_lines = []
+        appended_urls = []
         for index, image_path in enumerate(image_paths, start=1):
             web_url = _image_to_web_url_if_exists(image_path)
             if not web_url:
@@ -1610,13 +1632,14 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
             if image_path in final_answer or web_url in final_answer:
                 print(f"[图片排查][append_skip_exists] image={image_path} web_url={web_url}")
                 continue
-            print(f"[图片排查][append_markdown] image={image_path} web_url={web_url}")
-            appended_lines.append(f"![参考图片{index}]({web_url})")
-        if appended_lines:
-            final_answer = final_answer.rstrip() + "\n\n参考图片：\n" + "\n".join(appended_lines)
-            print(f"[图片排查][append_done] appended={len(appended_lines)}")
+            print(f"[图片排查][append_grid_image] image={image_path} web_url={web_url}")
+            appended_urls.append(web_url)
+        appended_grid = _build_reference_image_grid_html(appended_urls)
+        if appended_grid:
+            final_answer = final_answer.rstrip() + "\n\n参考图片：\n\n" + appended_grid
+            print(f"[图片排查][append_done] appended={len(appended_urls)}")
         else:
-            print("[图片排查][append_done] 没有新增图片 Markdown")
+            print("[图片排查][append_done] 没有新增参考图片")
     else:
         print("[图片排查][append_answer] 未收集到可用参考图片")
         final_answer = await _replace_image_urls_in_text(final_answer, config)
