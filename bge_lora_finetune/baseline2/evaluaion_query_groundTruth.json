@@ -1,0 +1,26 @@
+[
+  {
+    "question": "AF模块斜率异常的判断标准是什么？",
+    "ground_truth": "AF模块斜率异常的判断标准是超出5±0.25。"
+  },
+  {
+    "question": "当相对焦面上移10um时，signal值应调整至什么范围？",
+    "ground_truth": "相对焦面上移10um时，signal值应调整至45~55之间。"
+  },
+  {
+    "question": "ZTRON LITE入仓耗时从2小时变为4小时可能由哪些原因导致",
+    "ground_truth": "客户存储容量超过80%、硬件异常（如光纤破损或光口松动）、客户集群高io任务与入仓同时发生"
+  },
+  {
+    "question": "光学chuck平整度的合格标准是什么？",
+    "ground_truth": "光学chuck的平整度≤0.01mm"
+  },
+  {
+    "question": "如何通过FOV图片判断光学chuck是否不平整？",
+    "ground_truth": "若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整"
+  },
+  {
+    "question": "T7写cal失败导致cal文件丢失的主要原因是什么",
+    "ground_truth": "ztron lite上入仓和T7写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动"
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "model_kind": "lora",
+  "top_k": 5,
+  "dataset": "bge_lora_finetune/baseline2/evaluaion_query_groundTruth.json",
+  "collection": "documents_collection_main_chunk",
+  "timestamp": "20260828_165526",
+  "total": 6,
+  "hit": 5,
+  "hit_at_k": 83.33,
+  "hit_rates": {
+    "1": 66.67,
+    "3": 83.33,
+    "5": 83.33
+  },
+  "ranks": [
+    1,
+    null,
+    1,
+    1,
+    1,
+    2
+  ]
+}

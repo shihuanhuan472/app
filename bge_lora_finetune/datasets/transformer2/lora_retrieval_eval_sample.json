@@ -1,0 +1,5821 @@
+[
+  {
+    "question": "AF模块斜率异常的判断标准是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 65,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 218,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当相对焦面上移10um时，signal值应调整至什么范围？",
+    "relevant_docs": [
+      {
+        "doc_id": 92,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 65,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "ZTRON LITE入仓耗时从2小时变为4小时可能由哪些原因导致",
+    "relevant_docs": [
+      {
+        "doc_id": 66,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 68,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "光学chuck平整度的合格标准是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 67,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "如何通过FOV图片判断光学chuck是否不平整？",
+    "relevant_docs": [
+      {
+        "doc_id": 67,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 93,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7写cal失败导致cal文件丢失的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 68,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 160,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过ganglia界面判断是否因IO wait过高导致T7写cal失败",
+    "relevant_docs": [
+      {
+        "doc_id": 68,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 66,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "物镜脏污会导致FOV图片出现哪些异常现象",
+    "relevant_docs": [
+      {
+        "doc_id": 69,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 144,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决物镜脏污问题时应使用什么工具取下物镜",
+    "relevant_docs": [
+      {
+        "doc_id": 69,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当原图信号过高导致basecall无法分辨DNB点时，表现为哪些具体现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 70,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 205,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "PA机械臂掉电后，除J1轴外其他轴的状态是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "大族机械臂掉电后，哪些部分可以手动滑动？",
+    "relevant_docs": [
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "检查注射器时需要进行哪三个动作",
+    "relevant_docs": [
+      {
+        "doc_id": 72,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "对于高度差不足的机器，为何需要勤换oring",
+    "relevant_docs": [
+      {
+        "doc_id": 188,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 85,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "200芯片underloading问题中，导致黑影污染的主要试剂是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 73,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 161,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 234,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决200芯片underloading问题时，纯水溢流时间从多少分钟调整到多少分钟？",
+    "relevant_docs": [
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 161,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7ECR4.3版本中集成了什么功能用于判断流体状态？",
+    "relevant_docs": [
+      {
+        "doc_id": 74,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T7ECR4.3版本中如何查看压力曲线？",
+    "relevant_docs": [
+      {
+        "doc_id": 74,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 99,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过脚本测试loader电磁阀的开闭状态？",
+    "relevant_docs": [
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "检查loader电磁阀时需要观察哪些关键点？",
+    "relevant_docs": [
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "App-D IP1污染导致测序异常时，一链前60bp的信号及Q30出现什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在App-D IP1引物配液过程中，污染是如何发生的？",
+    "relevant_docs": [
+      {
+        "doc_id": 76,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "CAN服务器2无法打开的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 77,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 252,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "更改CAN服务器2的IP地址后是否可以打开设备",
+    "relevant_docs": [
+      {
+        "doc_id": 77,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Dolphin系统配准过程中需要先进行哪个步骤，再进行FineAlign？",
+    "relevant_docs": [
+      {
+        "doc_id": 78,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当相机不出图时，应检查哪些方面以排查问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 226,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 78,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Y轴在匀速运动阶段相机的拍照频率是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      },
+      {
+        "doc_id": 142,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "拍照过程中出现丢图现象，可能与哪些因素有关？",
+    "relevant_docs": [
+      {
+        "doc_id": 80,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "trigger信号丢失可能导致什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 236,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7-Oring结晶在哪些位置会发生？",
+    "relevant_docs": [
+      {
+        "doc_id": 81,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "ECR4.1版本后采取了哪些措施来改善Oring结晶问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 81,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 138,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 82,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 83,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 82,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 83,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "生化平台升降温超时故障中，PT100测温探头异常或硅脂干涸会导致什么现象",
+    "relevant_docs": [
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 150,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当生化chuck散热风扇损坏或散热片积尘时，应采取什么措施",
+    "relevant_docs": [
+      {
+        "doc_id": 180,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "新版生化chuck的结构件厚度相比旧版提升了多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 85,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片开胶现象在DNB Loading或测序过程中表现为载片中心出现什么异常？",
+    "relevant_docs": [
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片开胶导致的故障会污染哪些部件？",
+    "relevant_docs": [
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片Underloading故障中，载片缩略图部分区域发黑的直接表现是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T7-FCL载片定位检查步骤中，首Cycle QC metrics中的Signal A值应不低于正常值的多少百分比？",
+    "relevant_docs": [
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 89,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片Overloading现象中，工程区3个FOV的荧光亮度呈现什么变化趋势？",
+    "relevant_docs": [
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7-FCL载片定位检查步骤中，首Cycle FIT值低于多少时可判定为异常？",
+    "relevant_docs": [
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片在去胶后出现非特异性吸附（NSB）时，缩略图标志区的荧光亮点特征是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 89,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用4楼去胶用溶液混合瓶在7楼进行去胶操作时是否复现了NSB现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 89,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 E2芯片在测序过程中出现的亮圈现象随着什么因素增加而变得显著且变大",
+    "relevant_docs": [
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 β5#样机chuck D在20200214至20200218期间，有多少个电磁阀发生失效？",
+    "relevant_docs": [
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7电磁阀失效的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 193,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 152,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在部分区域Q30异常现象中，当Z值曲线显示异常波动尖峰且signal值从10降至9.04时，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当Z值曲线稳定平滑但signal值随Z值减小而下降至8.55，且Gain2设置为0.025时，应如何解决？",
+    "relevant_docs": [
+      {
+        "doc_id": 92,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 206,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "起始Q30低时，文库定量浓度应至少达到多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "DNB存在长草现象可能导致什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 97,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 93,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "物镜脏污导致Q30陡降的故障现象是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决物镜脏污导致Q30陡降的方法是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "二链Q30下降快的界定标准是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "MDA试剂批次问题包括哪些具体成分批次异常",
+    "relevant_docs": [
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 95,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "雅特生3000W电源在T7设备上出现OVP和OCP失效的具体原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 96,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 169,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对雅特生3000W电源OVP和OCP失效问题，解决方案中建议如何选择电源模块",
+    "relevant_docs": [
+      {
+        "doc_id": 96,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 211,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "4500和G400在使用手持Loader上机时出现的长草现象中，长草区域的DNB呈现什么形态？",
+    "relevant_docs": [
+      {
+        "doc_id": 97,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 93,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决长草问题的方案中，芯片加载好DNB后应先降温至多少摄氏度？",
+    "relevant_docs": [
+      {
+        "doc_id": 97,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在PCRFree HG001数据测试中，不使用VQSR时SNP Precision和SNP Sensitivity的正常比例是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 98,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "GATK中用于评估链偏的两个判定指标是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 98,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当部分lane报pressure low警告时，压力曲线中异常lane的压力值通常表现为怎样的特征？",
+    "relevant_docs": [
+      {
+        "doc_id": 99,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 108,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "导致部分lane报pressure low警告的根本原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 99,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "导致配准失败的图像质量问题有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 100,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 78,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 159,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "试剂槽合成试剂SR1和CR未按压混匀会导致芯片在cycle1出现什么报错？",
+    "relevant_docs": [
+      {
+        "doc_id": 101,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过流体压力曲线判断试剂槽合成试剂未按压混匀的问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 199,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7平台在2023年8月韩国客户反馈中，哪些基因的覆盖出现缺失？",
+    "relevant_docs": [
+      {
+        "doc_id": 102,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用SM v1.0测序试剂的T7客户更换为SM v2.0后，覆盖度有何变化？",
+    "relevant_docs": [
+      {
+        "doc_id": 102,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "载片外部杂质无法通过压缩空气罐吹拭去除时，应如何处理",
+    "relevant_docs": [
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "芯片脏污影响测序区域且影响面积大于1 cm时，应收集哪些信息",
+    "relevant_docs": [
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "载片破损的判定标准中，破损影响的最小长度是多少",
+    "relevant_docs": [
+      {
+        "doc_id": 104,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "载片破损包含哪些具体现象",
+    "relevant_docs": [
+      {
+        "doc_id": 104,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "芯片表面出现边缘清晰显著的不均匀现象属于什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 105,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 67,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7早期开发历史中是否多次发生芯片表面出现边缘清晰显著的不均匀现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 105,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 184,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "芯片边框出现烧灼痕迹的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 106,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 69,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 118,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决芯片边框烧灼问题的长期方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 106,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 118,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "载片无法吸附上载片平台时，应首先排查哪个系统？",
+    "relevant_docs": [
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "清洁载片平台和载片背面后仍无法吸附，下一步应如何操作？",
+    "relevant_docs": [
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 103,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "芯片lane4出口端流道堵塞导致callN的具体原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 108,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 147,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在芯片lane4流道堵塞的情况下，测序阶段的压力曲线异常表现是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 108,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 99,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "芯片入口端出现抛物线形状黑区且四条lane起始Q值低的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过压力曲线判断芯片入口端抛物线黑区问题",
+    "relevant_docs": [
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "测序过程中反应区或拍照区出现颗粒状物质会导致什么后果",
+    "relevant_docs": [
+      {
+        "doc_id": 110,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 81,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "反应区或拍照区的颗粒状物质是由什么形成的",
+    "relevant_docs": [
+      {
+        "doc_id": 110,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T1+ 1.0试剂中试期间V4文库环化数据出现AT分离>1%的现象与哪种环化方式相关？",
+    "relevant_docs": [
+      {
+        "doc_id": 111,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 257,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "碱基分离问题的根本原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 111,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 168,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "纯WGBS文库在重亚硫酸盐处理后，未甲基化的C会转化为哪种碱基？",
+    "relevant_docs": [
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "TDI相机gain过高可能导致哪种碱基分离现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当相机在reverse区域图片发生异常且持续异常的图超过6条row时，最可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 113,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "若所有图片都出现换向异常，应优先检查什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 113,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "相机丢图问题中，固件判断第二张图不拍或曝光时间不满足要求导致丢图的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 80,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 189,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决相机丢图问题的固件优化措施有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 80,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Z一致性异常会导致什么后果",
+    "relevant_docs": [
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "XY一致性异常的检查方法是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常的具体原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 117,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 116,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 222,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用示波器测试α样机转移模组启动瞬间冲击电流时，触发电流点应设置为多少安培？",
+    "relevant_docs": [
+      {
+        "doc_id": 117,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 116,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 222,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "mammoth α样机转移模组X轴在回零过程中，当运动到硬限位后往回走约5mm时，台达电源48V输出异常的具体原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 117,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 116,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 222,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在测试α样机转移模组启动瞬间冲击电流时，示波器触发电流点应设置为多少安培？",
+    "relevant_docs": [
+      {
+        "doc_id": 117,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 116,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 222,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "拍照时序不匹配属于哪一类根本原因",
+    "relevant_docs": [
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在滑台闭环扫频操作中，X轴的Excitation Current参数应设置为多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 119,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 120,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "进行滑台闭环扫频时，FRF Analyzer中X轴的Min Frequency和Max Frequency分别应设置为多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 120,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 119,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "在滑台闭环扫频过程中，X轴的Excitation Current参数应设置为多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 119,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 120,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "扫频完成后，如何判断滑台是否合格？",
+    "relevant_docs": [
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 120,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 119,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "滑台在某频率点出现震动异常和位置误差过大的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 121,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过示波器检测滑台共振的频率点",
+    "relevant_docs": [
+      {
+        "doc_id": 121,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 184,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T20 alpha机温控板055-000013-00的1#、3#温度显示为0的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 122,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决温控板055-000013-00因SPI时钟频率过高导致的温度读数为0问题",
+    "relevant_docs": [
+      {
+        "doc_id": 122,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 216,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 251,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "A1口附近及B2口附近出现区域性Q30差，其根本原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "B1B2中间位置区域质量异常的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "MGISEQ-2000测序试剂包装盒破裂的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 124,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对MGISEQ-2000测序试剂包装盒破裂问题的解决方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 124,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "滑台在行扫完成后到芯片被抓走的过程中出现时间异常增长的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过日志判断滑台是否发生了异常回零操作",
+    "relevant_docs": [
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用USBTinyISP烧录boot引导程序时，需要在Arduino IDE中选择哪个功能选项？",
+    "relevant_docs": [
+      {
+        "doc_id": 126,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在设备管理器中，FTAT板卡被正确识别的标志是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在注液头清洗过程中，清洗液无法正常抽走且液体在注液头周围累积溢出，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 127,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 135,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何判断cleanoring支路阻断电磁阀是否内部堵塞？",
+    "relevant_docs": [
+      {
+        "doc_id": 127,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7用Tecan Cavro XLP注射泵在运行过程中出现注射器定位销脱落的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 128,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对T7用Tecan Cavro XLP注射泵注射器定位销脱落问题的解决方案有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 128,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "水冷测序过程中报错液位异常的根本原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 150,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "补液时应将冷却液加至哪个位置",
+    "relevant_docs": [
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用生工品牌的次氯酸钠配置溶液时是否会出现沉淀",
+    "relevant_docs": [
+      {
+        "doc_id": 130,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "配置1%浓度的次氯酸钠溶液时沉淀情况如何",
+    "relevant_docs": [
+      {
+        "doc_id": 130,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "TDI系统中图片在扫描方向上出现一段清晰一段模糊的现象，其模糊段可能呈现何种形态？",
+    "relevant_docs": [
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "条纹虚焦问题的判定标准中，sigma,sigmaX或SigmaY的波动量（峰谷差）需大于多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片转移至Chuck过程中出现位置漂移的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 132,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "电动夹爪开合失败的可能原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 261,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7四轴机械臂在运行中出现掉电现象的原因之一是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "六轴机械臂因24V电源电压降至多少伏时会触发安全保护机制导致掉电？",
+    "relevant_docs": [
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "PA机械臂掉电后，除了J1轴有抱闸保护外，其他轴是否可以手动推动？",
+    "relevant_docs": [
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "大族机械臂掉电后，其运动轴处于什么状态？",
+    "relevant_docs": [
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "进口旋转阀和国产AB的旋转阀定转子材质是什么，长期使用容易出现什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 135,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "垦拓旋转阀的定转子采用什么材质，若杂质进入接触面会导致什么后果？",
+    "relevant_docs": [
+      {
+        "doc_id": 135,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "数据产量低可能影响哪些方面",
+    "relevant_docs": [
+      {
+        "doc_id": 136,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决数据产量低问题需要采取什么方法",
+    "relevant_docs": [
+      {
+        "doc_id": 205,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "机械臂设备出现运动异常时应遵循的故障排查流程是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 137,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在进行机械臂故障排查时，文档中提到的关键要点有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 137,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "ECR4.0-4.2版本中拼图错误的表现是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 138,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "天津诺和案例中出现的拼图错误现象及恢复情况如何？",
+    "relevant_docs": [
+      {
+        "doc_id": 138,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "拍照Offset问题中，芯片1个pixel对应的物理尺寸是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 106,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在解决拍照Offset问题时，现场调试的优先级中，第三项是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "拍照Offset问题中，芯片的1个像素对应多少纳米？",
+    "relevant_docs": [
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 236,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在解决拍照Offset问题时，现场调试的优先级中，第三项是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在STM32G4系列MCU上，将uint8*指针ptr+1强制转换为float*并解引用会导致什么异常？",
+    "relevant_docs": [
+      {
+        "doc_id": 141,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "为何通过(float*)(ptr+1)访问数据会违反严格别名规则？",
+    "relevant_docs": [
+      {
+        "doc_id": 141,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Z轴静止位置误差呈周期性波动的频率约为多少Hz？",
+    "relevant_docs": [
+      {
+        "doc_id": 142,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 119,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 120,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "真空泵固定件未解开导致的振动问题通过什么操作解决？",
+    "relevant_docs": [
+      {
+        "doc_id": 142,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 128,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 72,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "DNBSEQ-T7RS PE150测序中，MDA聚合酶混合液未轻弹混匀而剧烈震荡会导致什么后果",
+    "relevant_docs": [
+      {
+        "doc_id": 143,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在DNB制备过程中，终止缓冲液加入量不准确会影响哪些指标",
+    "relevant_docs": [
+      {
+        "doc_id": 143,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 93,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FOV内部图像清晰度不一致的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 144,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决图像清晰度不一致问题的关键措施是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 144,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "相机行频设置错误会导致图像出现什么异常现象",
+    "relevant_docs": [
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何确认相机查找表功能是否被开启",
+    "relevant_docs": [
+      {
+        "doc_id": 145,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 226,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "TDI系统中图像拉长的常见表现是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "检查TDI系统图像拉长问题时，应评估SigmaY与SigmaX的什么指标",
+    "relevant_docs": [
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "四联针戳到清洗池的PEI材料后，导致什么物质卡在针内造成堵塞？",
+    "relevant_docs": [
+      {
+        "doc_id": 147,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 232,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过流体压力曲线判断四联针问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "四联排注射泵I口闭合异常导致孵育时压力下降报错的具体原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 232,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 128,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过流体压力曲线判断四联排注射泵I口闭合异常问题",
+    "relevant_docs": [
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 152,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7系统中单双扫Q值差异的典型表现是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 149,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 185,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "排查单双扫Q值差异时，若相邻row同col原图信号差异超过300应如何处理",
+    "relevant_docs": [
+      {
+        "doc_id": 149,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "测序前自检报错升降温超时，可能的原因包括哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 150,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 216,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "若发现TEC损坏，应采取什么措施？",
+    "relevant_docs": [
+      {
+        "doc_id": 123,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "出口电磁阀过热导致lane2、lane3出现黑影的具体原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 151,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在排查出口电磁阀过热问题时，哪些检测措施未发现异常",
+    "relevant_docs": [
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "出口电磁阀端子脱落会导致哪些具体故障现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 152,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 127,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过EUI手动开关按钮检查出口电磁阀是否正常工作？",
+    "relevant_docs": [
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 152,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7冰箱底部冷凝水不能完全排出的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 153,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 219,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决T7冰箱冷凝水无法完全排出的方案有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 153,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "光电液位传感器在储液池通道通光孔较大时，为何相邻通道会产生采样值变化？",
+    "relevant_docs": [
+      {
+        "doc_id": 154,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过设置通光孔长度来减少光电液位传感器通道间的干扰？",
+    "relevant_docs": [
+      {
+        "doc_id": 154,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 181,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 253,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "储液池液位传感器假True导致泵空时，Q30曲线会出现什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过补液日志判断储液池液位传感器是否出现假True？",
+    "relevant_docs": [
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 213,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E250041943设备在下机报告中出现多个cycle callN现象的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 260,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "为何在metrics中QC信息正常但fq文件中仍出现多个cycle的callN",
+    "relevant_docs": [
+      {
+        "doc_id": 260,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "仪器电脑病毒和威胁防护应用升级后，为何会导致FQ文件丢失？",
+    "relevant_docs": [
+      {
+        "doc_id": 157,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 160,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何防止D:\\Result\\OutputFq文件夹中的FQ文件被病毒防护软件误删？",
+    "relevant_docs": [
+      {
+        "doc_id": 157,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G400平台在2022年出现二链不回升现象的频率是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 177,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 243,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "二链不回升导致的直接后果是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 177,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7四边形芯片在二链1Cycle配准失败时，其CoarseTheta图出现什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 159,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E100076264芯片在解码过程中出现配准不过的故障，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 159,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 100,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "WFQ失败时，若cal文件全部生成但未生成fq文件，可采取什么临时措施？",
+    "relevant_docs": [
+      {
+        "doc_id": 160,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 157,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "WFQ失败的常见原因中，哪些与系统配置相关？",
+    "relevant_docs": [
+      {
+        "doc_id": 160,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 252,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 176,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "PMSEQ-4500平台在使用SE50试剂盒测序时，cycle11出现Q30骤降的现象，该现象对应的zebracall算法和litecall算法分别表现为哪些指标异常？",
+    "relevant_docs": [
+      {
+        "doc_id": 161,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 209,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对PMSEQ-4500平台DNB underloading问题的根本解决方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 161,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 93,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "HG001 WGS数据中200平台的Ti/Tv值为何低于2000和500平台",
+    "relevant_docs": [
+      {
+        "doc_id": 162,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "DNBSEQ-E5RS设备在运行过程中出现TECAN泵反馈数据异常（0x1801608）的故障，其根本原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 163,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对TECAN泵通讯异常问题，解决方案中提到的永久纠正措施包括哪些内容？",
+    "relevant_docs": [
+      {
+        "doc_id": 163,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "TDI系统图像中DNB点出现朝某一方向拖尾的现象，其常见拉长方向是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决TDI系统图像拉长问题时，需要检查相机的哪个参数以确认积分方向与平台运动方向是否一致？",
+    "relevant_docs": [
+      {
+        "doc_id": 146,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 164,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 131,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "A11更换JX激光器后T>A错误率的变化情况是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 165,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "GY激光器相比JX激光器在波段和红光特性上的差异是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 165,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7平台载片下机缩略图中靠近Trench区域出现的黑线现象与哪个生化试剂相关？",
+    "relevant_docs": [
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7流体槽表面的微孔尺寸范围是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7起始Q30低的定义是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "导致T7起始Q30低的文库相关原因有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "客户在运行T7 PE150时出现碱基分离现象，分析发现该问题与测序过程中的错误无关，而是由哪个环节引起？",
+    "relevant_docs": [
+      {
+        "doc_id": 168,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "实验三中将日本阔口枪头的滤棉取出浸入DNB mix中30秒左右，结果表明该操作对DNB制备和加载有何影响？",
+    "relevant_docs": [
+      {
+        "doc_id": 168,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 143,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 97,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯驱电容式接近开关在长时间使用后出现按压无反应的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 169,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 191,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决T7芯驱电容式接近开关无反应问题的方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 169,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7测序仪器中载片脱框的直接原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当发生载片脱框故障时，可能观察到哪些现象",
+    "relevant_docs": [
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 107,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 104,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片空腔问题中，气泡导致的总空腔率大于等于多少时需要进行信息收集？",
+    "relevant_docs": [
+      {
+        "doc_id": 171,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 250,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T7-FCL载片定位检查步骤中，若气泡导致的总空腔率大于总FOV的1%，应如何处理？",
+    "relevant_docs": [
+      {
+        "doc_id": 171,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 α阶段前玻璃门隐形铰链出现松脱、变形的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 172,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 133,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对T7玻璃门铰链松脱问题的解决方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 172,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 142,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 128,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7温控板上电无电压输出时，哪个器件更换后电路恢复正常？",
+    "relevant_docs": [
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7温控板TPS54335失效的可能原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 216,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7设备中过芯片压力的正常范围是多少",
+    "relevant_docs": [
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 191,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当抽液负压异常时应检查哪些可能原因",
+    "relevant_docs": [
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 127,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 15#机废液缓存箱液位计管堵塞的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 175,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 147,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7废液缓存箱背板腐蚀的附着物主要成分是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 175,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7用户在使用自有集群进行autoWriteFq时，出现'Address already in use'错误的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 176,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决'No such file or directory'错误的方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 252,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "二链不抬现象中，一链Q30%正常，二链第一个cycle的Q30%不抬升但下降趋势正常属于哪种情况？",
+    "relevant_docs": [
+      {
+        "doc_id": 177,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "2024年Q2国内客户端62例数据异常中，二链不抬占比多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 177,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7设备出现两个COM1端口的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 178,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 197,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何避免T7设备出现双COM1现象",
+    "relevant_docs": [
+      {
+        "doc_id": 178,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 197,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片在测序后半段出现开胶时应重点关注哪些压力曲线？",
+    "relevant_docs": [
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "若发现过芯片动作持续超压，应直接检查哪个部件？",
+    "relevant_docs": [
+      {
+        "doc_id": 179,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 174,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用3年以上的生化chuck在高温切除时可能出现什么温度问题",
+    "relevant_docs": [
+      {
+        "doc_id": 180,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "判断生化chuck老化是否存在的关键检查指标是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 180,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FOV图片出现黑边现象时，使用ImageJ软件查看背景曲线会呈现什么特征",
+    "relevant_docs": [
+      {
+        "doc_id": 181,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 144,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当照明模块未调好导致FOV图片黑边严重时，应如何调节光阑位置以解决照明长度过长或过短的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 181,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 144,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 67,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当使用激光功率计测试物镜端的红绿激光功率时，若透过率低于多少百分比说明激光器功率衰减",
+    "relevant_docs": [
+      {
+        "doc_id": 262,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 182,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 165,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在检查激光器是否故障时，若外接工装输入5V电压后功率小于等于5W，说明什么问题",
+    "relevant_docs": [
+      {
+        "doc_id": 182,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 262,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 210,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7测序仪在四边同时跑RUN时测序时间变长的原因之一是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 183,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 125,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "导致T7测序过程中磁盘读写IO占用过大的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 183,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 83,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7平台平整度异常时，部分区域Q30偏低的表现是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 184,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7平台平整度异常的可能原因中，哪些与imager相关？",
+    "relevant_docs": [
+      {
+        "doc_id": 184,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 65,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 105,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T7设备中，当1*1扫描时发现当前cycle的Q值heatmap分布不均，其可能原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 123,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 185,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 92,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对T7设备单双扫Q值差异大的问题，调节AF模块光斑位置的具体操作步骤有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 185,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 65,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7系统中单双扫信号Q值差异显著的原因有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 149,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 185,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T7系统中如何通过1*1 Q30标准页评估单双扫差异程度？",
+    "relevant_docs": [
+      {
+        "doc_id": 186,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 149,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "T7-Processor在测序过程中自动重启会导致什么后果",
+    "relevant_docs": [
+      {
+        "doc_id": 187,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 183,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Dell驱动异常导致T7-Processor自动重启的解决方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 187,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "一体化manifold固定o-ring的高度比旧版本低多少毫米",
+    "relevant_docs": [
+      {
+        "doc_id": 188,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "高度差小于0.1的chuck应如何处理",
+    "relevant_docs": [
+      {
+        "doc_id": 188,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 85,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 67,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "相机丢图或拼图异常可能导致单cycle或连续cycle中所有或大部分FOV出现callN现象吗",
+    "relevant_docs": [
+      {
+        "doc_id": 189,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 138,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "PEG信号触发异常导致的CallN可能引起什么现象",
+    "relevant_docs": [
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7+显示屏在哪些样机上出现了闪屏现象",
+    "relevant_docs": [
+      {
+        "doc_id": 190,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 90,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 170,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7+显示屏闪屏的根本解决方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 190,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7+设备在整机耐压测试时报警的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 191,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 173,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7+设备耐压测试的标准电压和测试方式是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 191,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 74,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 83,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7芯片载片泛白现象中，P99参数的定义是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在检查T7-FCL载片定位时，标志区亮度异常的标准是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 88,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 192,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7设备中单向阀止回失效会导致什么现象",
+    "relevant_docs": [
+      {
+        "doc_id": 193,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 163,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7设备中单向阀止回失效的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 193,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 163,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 91,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 SBC设备无法启动的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决T7 SBC无法启动问题的方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 SBC设备出现操作系统错误的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决T7 SBC操作系统错误的建议措施有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 SBC无法启动时，通过什么方式可以解决？",
+    "relevant_docs": [
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LT板USB DATA+信号在SBC上电前的电压范围是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 SBC设备串口出现叹号的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 197,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决T7 SBC设备串口显示叹号的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 197,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7机器在11月24日出现MLG后，上机测序发现Q值曲线部分cycle无点，其对应的allcycleheatmap显示什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 123,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 92,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "美国A客户机器的offset在X方向和Y方向跳动超出正常范围，具体是哪些参数表现出显著波动？",
+    "relevant_docs": [
+      {
+        "doc_id": 198,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 140,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 139,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7测序中barcode Q30曲线异常抖动会导致哪些具体后果",
+    "relevant_docs": [
+      {
+        "doc_id": 199,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当T7仪器的缩略图出现黑线、黑影或杂质时应采取什么措施",
+    "relevant_docs": [
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 87,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 199,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T100样机5#2控制板在5ms时间间隔测试条件下，冲水时长配置指令的响应报文丢包率是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 200,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "读取快速温控冲水表条目、读取快速温控冲水表条目数量、设置快速温控冲水表这3个CANFD指令接口为何会偶发丢包？",
+    "relevant_docs": [
+      {
+        "doc_id": 200,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 256,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T100 5#设备在加载第二张芯片时为何提示内存不足",
+    "relevant_docs": [
+      {
+        "doc_id": 201,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 108,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T1+从dsDNA开始进行make DNB过程中，若产物浓度低于8 ng/ul且5号单管（连接酶/Ligase）试剂接近空，4号单管（环化缓冲液/Splint Buffer）残留量大于30 uL，应检查哪个部件的加样异常？",
+    "relevant_docs": [
+      {
+        "doc_id": 223,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T1+从dsDNA开始进行make DNB时，若执行子脚本Loader_AddSample0.py过程中95℃降温到4℃耗时超过60秒，应检查哪个模块的装配与散热？",
+    "relevant_docs": [
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 223,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 151,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Lane 04的Q30值比前三条Lane低多少个点",
+    "relevant_docs": [
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "导致lane4数据量偏低的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 161,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T1+仪器电源管理板卡程序升级后电源无法启动的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 211,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 245,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何判断T1+仪器电源管理板卡程序是否成功烧录",
+    "relevant_docs": [
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 126,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 225,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T1+测序中dup偏高的根本原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 205,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "采用三合一buffer结合OS方案对dsDNA和ssDNA的dup有何影响",
+    "relevant_docs": [
+      {
+        "doc_id": 205,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "SNR-A在某个cycle陡降的可能原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 206,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决SNR-A陡降的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 206,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 231,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "T7 SBC在更换硬盘后出现COM口丢失的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对T7 SBC串口通信异常的解决方案中，操作系统安装方式应如何调整",
+    "relevant_docs": [
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Q30下降速度在1链和2链分别下降了多少个点",
+    "relevant_docs": [
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Runon值异常偏高的表现是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 263,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "polyT区域在测序过程中导致了什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 209,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对polyT导致Q30陡降的问题，解决方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 209,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "B1测序过程中试剂仓板无MCU心跳指示灯且无数据上报，按板卡复位无法恢复，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 210,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 101,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 225,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对试剂仓板无心跳指示灯且总线进入BUS OFF模式的问题，解决方案中提到的长久措施有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 210,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 95,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "MM电源模块上电自检不通过且所有受控供电模块支路控制不动作的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 211,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 96,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "3个12V/24V/48V台达3000W电源模块的5V Standby接口存在什么问题",
+    "relevant_docs": [
+      {
+        "doc_id": 211,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 96,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth浪潮服务器在alpha和betaⅠ阶段出现的采集卡识别异常问题中，导致故障的原因有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 212,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 221,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对Mammoth浪潮服务器采集卡识别异常问题，解决方案是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 221,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth废液模块称重传感器校准过程中，零点校准时废液仓的状态是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 213,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth废液模块称重传感器校准后，通过哪个CAN通讯协议指令将斜率k和截距b发送至固件？",
+    "relevant_docs": [
+      {
+        "doc_id": 213,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "A5旋转阀通讯超时导致初始化失败的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 163,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "CANFD服务器IP设置冲突会导致什么现象",
+    "relevant_docs": [
+      {
+        "doc_id": 77,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 200,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "MammothChuck板卡在相对运动模式下，当设置的脉冲数小于多少时会导致电机堵转？",
+    "relevant_docs": [
+      {
+        "doc_id": 215,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 220,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 188,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当MammothChuck板卡电机发生堵转后，如何通过指令恢复其正常状态？",
+    "relevant_docs": [
+      {
+        "doc_id": 215,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 220,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 204,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth试剂舱在温度从25°C降至16°C过程中，TEC状态码应如何变化？",
+    "relevant_docs": [
+      {
+        "doc_id": 216,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth试剂舱固件上报温控状态错误的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 216,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 219,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 214,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth试剂仓在beta1-4阶段出现RFID识别率低的原因有哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 254,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth试剂仓优化后测试的结论是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth冠冷TEC在alpha样机阶段存在什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 219,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth冠冷TEC焊盘脆弱的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 218,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "chuck模块在温度性能测试中降温速度超时多少秒？",
+    "relevant_docs": [
+      {
+        "doc_id": 219,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 123,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "水冷液气泡过多导致温控速度不达标的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 219,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 150,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth Chuck控温过程中TEC自动关停的直接原因有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 220,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 123,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当RTD2 Temp数值超过65°C时会发生什么情况",
+    "relevant_docs": [
+      {
+        "doc_id": 220,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Mammoth Beta4#中相机通道1出图慢的主要诱因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 221,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 189,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在Mammoth Beta4#问题排查中，如何确认通道1相机带宽异常",
+    "relevant_docs": [
+      {
+        "doc_id": 221,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 92,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 113,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "伺服驱动器产生的倒灌电压最大值是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 222,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "48V电源过压保护的电压区间范围是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 245,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 117,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 96,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在T1+从ssDNA开始进行make过程中，若产物总量少于预期10ul且浓度小于2ng/ul，同时ligas buffer剩余量远大于预期，应检查哪个部件？",
+    "relevant_docs": [
+      {
+        "doc_id": 223,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "从ssDNA开始进行make时，若不同lane1的试剂剩余量少于预期，且注射泵内部存在气密性问题，应如何处理？",
+    "relevant_docs": [
+      {
+        "doc_id": 202,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 223,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LT板使用的是哪种主控芯片，其最高主频是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 225,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LT板固件通信模式从单工改为哪种模式，通信效率提升了多少倍？",
+    "relevant_docs": [
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LT板心跳灯灭的根因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 225,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LT板固件未同步修改的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 225,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "相机防尘盖未打开会导致Live画面出现黑屏吗",
+    "relevant_docs": [
+      {
+        "doc_id": 226,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 181,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决Live画面黑屏问题时需要检查哪些软件参数",
+    "relevant_docs": [
+      {
+        "doc_id": 226,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 181,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 78,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Lane内Q30不均匀现象的主要原因有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 203,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何确认Lane内Q30不均匀问题的现场定位",
+    "relevant_docs": [
+      {
+        "doc_id": 227,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 199,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "STM32F429芯片在IO板中的固件重构后，通信效率提升了多少倍",
+    "relevant_docs": [
+      {
+        "doc_id": 228,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当上位机发送获取固件版本号指令后无回复时，说明什么问题",
+    "relevant_docs": [
+      {
+        "doc_id": 228,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 224,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在混样测序中，样本A中检出样本B的物种Reads的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 229,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对Index hopping问题，根本解决方案包括哪些措施",
+    "relevant_docs": [
+      {
+        "doc_id": 229,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当MCU作为IIC主机异常复位时，若从机未复位且SDA保持低电平，会导致什么现象？",
+    "relevant_docs": [
+      {
+        "doc_id": 230,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 210,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 206,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "外购液体压力传感器在IIC通信中，从机拉伸SCL信号的时间不得超过多少微秒？",
+    "relevant_docs": [
+      {
+        "doc_id": 230,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "i7 barcode出现陡降的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 231,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 208,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何通过修改IP2引物解决i7 barcode陡降问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 231,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "96孔板在上机前摇晃会导致什么故障现象",
+    "relevant_docs": [
+      {
+        "doc_id": 232,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 151,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 101,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "为何四联针抽液会异常导致loading异常",
+    "relevant_docs": [
+      {
+        "doc_id": 232,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 147,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 148,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E250041938芯片号cycle95出现本地cal缺失的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 156,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 68,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "ztronLite凌晨入仓操作如何影响BIS的cal文件落盘",
+    "relevant_docs": [
+      {
+        "doc_id": 233,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 66,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 68,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G99黑线现象在多少cycle后开始出现",
+    "relevant_docs": [
+      {
+        "doc_id": 234,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 94,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G99黑线问题的根本解决方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 234,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G99平台起始Q30低的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 167,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "postload过程中出现黑影且二链不可恢复的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 234,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 70,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在G99故障中，查找起始点失败时，如果location图片清晰但offset大于50，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 236,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 100,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 115,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用ECR1.1及以前版本时，APP-C 75+1+8+8读长下barcode段测序质量差的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 237,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 199,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 229,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对G99 barcode曲线陡降问题，解决方案中提到的关键措施有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 237,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 231,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "仪器A和C出现起始Q30下降快的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "哪些芯片号属于WH2320SN02批次且存在高风险？",
+    "relevant_docs": [
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "仪器A出现起始Q30下降快的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "哪些芯片号属于WH2320SN02批次且存在高风险？",
+    "relevant_docs": [
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G50设备在2023年7月200冲量期间，武汉FQC的4台机器出现起始Q30下降快的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 238,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 239,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对G50设备DNB管路残留试剂问题，采取了什么解决方案？",
+    "relevant_docs": [
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 241,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G50平台在升级ECR5.0后第四次测序的拆分率是多少？",
+    "relevant_docs": [
+      {
+        "doc_id": 241,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G50平台S103 barcode阶段出现虚焦的主要原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 241,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G50 barcode黑线在测序过程中具体表现为从哪个阶段开始出现黑影？",
+    "relevant_docs": [
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 241,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "为避免BR试剂窜入导致barcode黑线，泵入BP1后应使用哪个孔位的空气进行隔离？",
+    "relevant_docs": [
+      {
+        "doc_id": 242,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G400平台二链第1cycle出现异常黑线时，哪些指标受到显著影响？",
+    "relevant_docs": [
+      {
+        "doc_id": 243,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 166,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用H0050批次试剂更换MDA酶后，测试#178 A边的黑线现象是否消失？",
+    "relevant_docs": [
+      {
+        "doc_id": 243,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 95,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 158,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTRR V3.0试剂在化冻后是否可能出现沉淀问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "RR试剂瓶底部出现结晶会导致什么后果？",
+    "relevant_docs": [
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 81,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 110,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTAT电源在启动过程中触发保护机制的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 245,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决FTAT电源启动保护问题的方案有哪些",
+    "relevant_docs": [
+      {
+        "doc_id": 245,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTAT SBC在运行过程中自动重启的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 194,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何预防FTAT SBC因内存条接触不良导致的自动重启问题",
+    "relevant_docs": [
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 195,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTAT SBC设备在网口物理断开后重新插入无法识别的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 247,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决FTAT SBC网口重新插入后无法识别的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 247,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTAT SBC在待机过程中出现纯蓝色屏幕的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 248,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决FTAT SBC待机时出现纯蓝色屏幕的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 248,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 246,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "FTAT SBC设备com口通信校验错误的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 197,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "解决FTAT SBC设备com口通信校验错误的方法是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 207,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 247,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E25设备在换液过程中出现的较小气泡会如何流动",
+    "relevant_docs": [
+      {
+        "doc_id": 250,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E25设备中停留在芯片反应区的气泡需要经过多少次换液才能被冲走",
+    "relevant_docs": [
+      {
+        "doc_id": 250,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "E25设备出现die白图异常时，MPI信号传输路径中导致问题的主要原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 251,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 70,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 212,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在检查E25设备die白图异常时，应如何检测pogopin通路的阻抗是否正常？",
+    "relevant_docs": [
+      {
+        "doc_id": 251,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "智微智能SBC在高温高湿测试后无法进入系统，卡在加载界面的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 252,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 247,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 196,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用PE系统检查C盘时发现什么问题，最终确认了什么故障",
+    "relevant_docs": [
+      {
+        "doc_id": 252,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 84,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 114,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Festo SPAN-B2R-M5F-PNLK-PNVBA-L1传感器在EUI控制软件中显示数值在45.6kpa、-91.5kpa和58.6kpa之间交替变化的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 253,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "如何解决Dolphin气体压力传感器中ADC1和ADC2共用通道出现的-86kpa、10kpa、76kpa固定数值串扰问题",
+    "relevant_docs": [
+      {
+        "doc_id": 253,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 258,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Dolphin ML试剂盒模组A模组RFID读取成功率低的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 254,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 217,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Dolphin A11型号DST401-S24RJ的JBOD拓展柜中，哪两块硬盘的故障灯点亮？",
+    "relevant_docs": [
+      {
+        "doc_id": 255,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "国鑫售后人员在排查Dolphin A11#国鑫JBOD拓展柜阵列无法访问问题时，最终判断的故障原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 255,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "MSR201-D06R服务器的RAID卡走线从哪个位置穿过导致轻微变形？",
+    "relevant_docs": [
+      {
+        "doc_id": 256,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "LSI9361+LSI9560 RAID卡在异常掉电时为何无法及时保存数据？",
+    "relevant_docs": [
+      {
+        "doc_id": 255,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 256,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 249,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "ALK融合基因突变检测中，环化消化后纯化步骤导致什么问题？",
+    "relevant_docs": [
+      {
+        "doc_id": 257,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 111,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用哪种磁珠可以显著提高小片段文库的回收率？",
+    "relevant_docs": [
+      {
+        "doc_id": 257,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "Dolphin气路控制模块中测量6路气压传感器时出现压力测试值不准确的原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 258,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 253,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      }
+    ]
+  },
+  {
+    "question": "如何解决Dolphin储液池模块中12路液位传感器测量值不准确的问题",
+    "relevant_docs": [
+      {
+        "doc_id": 258,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 129,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 155,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "运行CheckFluidic_1_RotaryValveAndCheckValve脚本时，若发现泵液压力值过大且两侧压力不一致，可能的原因是什么？",
+    "relevant_docs": [
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 193,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当电磁阀性能下降导致压力曲线异常时，应检查哪些具体部件？",
+    "relevant_docs": [
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 75,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 127,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "G99平台16S降噪后拼接数据量低的主要原因是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 260,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对G99平台因气泡导致callN的问题，推荐的解决方案是什么",
+    "relevant_docs": [
+      {
+        "doc_id": 235,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 109,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 240,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "PA机械臂夹爪在检查时若发现前端两个勾子均比后端高或低，应如何处理？",
+    "relevant_docs": [
+      {
+        "doc_id": 261,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "大族机械臂夹爪若L1与L2宽度相差超过1mm，应采取什么措施？",
+    "relevant_docs": [
+      {
+        "doc_id": 134,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 71,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 261,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "激光器偶发不亮导致FOV图片无信号时，若背景光mean值低于多少说明没有激光照射到芯片上",
+    "relevant_docs": [
+      {
+        "doc_id": 262,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 182,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 70,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "使用激光功率计测试物镜端功率时，若透过率低于多少说明激光器功率衰减",
+    "relevant_docs": [
+      {
+        "doc_id": 262,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 182,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 165,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "当所有lane以及R1和R2的Lag/Runon数值均很大时，可能的原因包括哪些？",
+    "relevant_docs": [
+      {
+        "doc_id": 263,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "针对某些lane的runon高而lag正常的情况，应采取哪些对策？",
+    "relevant_docs": [
+      {
+        "doc_id": 263,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 244,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 231,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "在DNBSEQ-T7系列基因测序仪的安装调试中，如何确认ACS滑台Y轴时域检查的位置误差是否合格？",
+    "relevant_docs": [
+      {
+        "doc_id": 79,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 40,
+        "library_type": "knowledge"
+      },
+      {
+        "doc_id": 112,
+        "library_type": "breakdown"
+      }
+    ]
+  },
+  {
+    "question": "执行流体调度验证时，需要满足哪些前提条件？",
+    "relevant_docs": [
+      {
+        "doc_id": 259,
+        "library_type": "breakdown"
+      },
+      {
+        "doc_id": 86,
+        "library_type": "breakdown"
+      }
+    ]
+  }
+]

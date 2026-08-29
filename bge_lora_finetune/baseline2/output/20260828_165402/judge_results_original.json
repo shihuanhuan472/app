@@ -1,0 +1,851 @@
+[
+  {
+    "question": "AF模块斜率异常的判断标准是什么？",
+    "ground_truth": "AF模块斜率异常的判断标准是超出5±0.25。",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 1000000071,
+        "chunk_id": 62,
+        "title": "SOP-016-A18-009",
+        "content": "文档标题：SOP-016-A18-009\n目录编号：5.5.2\n目录标题：AF 模块功能检测\n章节正文：1.\n用无尘布擦拭干净芯驱及生物芯片背面，将Imager Chuck 运动到LoadPosition 位置，用Robot 将生物\n放到Imager Chuck 上，观察对应压力开关传感器显示数值在- 85Kpa~ -100Kpa 之间。\n2.\n将IsEnableAFByPosition 设置为False。\n【图片1】\n3.\n工程师UI 中，打开ACSController，进入Operations 界面，点击X/Y，使滑台运动，使物镜位于生物芯片\n成像区域内。然后再点击Go Default Focus，物镜将会运动至焦面附近。\n【图片2】\n4.\n观察AF Sum ＞60 时，在Auto Focus 处点击勾选Enabled，观察AF Signal 是否在±20 范围内，AF Diff\n是否在± 1 范围内，AF Sum 是否在70 -90 之间。\n如果AF Sum 未达到60 ，则可通过调节Relative moving 处Z 、X 、Y 对应的移动Z 、X 、Y 轴，避\n开胶点气泡，再进行相关参数确认。\nZ 轴移动步进设置在0.005~0.01 之间\n【图片3】\n5.\n将在焦面的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中，确认\n最终计算得斜率满足范围要求；图中数据仅为示例。\n【图片4】\n6.\n在Auto Focus 处点击去掉勾选Enabled；Relative moving 处Z Step 输入0.01，点击+，相对焦面上移10\n微米；将此时的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中；\n点击勾选Auto Focus 处Enabled，观察图片能回到焦面为合格。\n【图片5】\n【图片6】\n7.\n在Auto Focus 处点击去掉勾选Enabled，Relative moving 处Z Step 输入0.01，点击-，相对焦面下移10\n微米，将此时的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中；\n点击勾选Auto Focus 处Enabled,观察图片能回到焦面为合格。\n【图片7】\n8.\n表格自动计算出自动对焦曲线的斜率，验证斜率在5±0.25 范围内，并将斜率记录到《DNBSEQ-T7 整机调\n试数据记录表(售后版)》中；\n如果AF 斜率不在范围内，请重新调试AF 模块。\n【图片8】\n9.\n将当前调试点位置对焦状态下的XYZ 坐标和AFsignal 值记录到《DNBSEQ-T7 整机调试数据记录表(售后\n版)》中；",
+        "score": 0.6414424180984497,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 71,
+          "library_type": "knowledge",
+          "tag": [],
+          "first_edit_date": "2026-07-03T12:09:36",
+          "section_id": 3069,
+          "section_title": "AF 模块功能检测",
+          "section_type": "5.5.2",
+          "section_index": 60,
+          "image_urls": [
+            "upload/images/20260703_120933_b6f9bb56675d4b1cbe7fdb20f421aebe.png",
+            "upload/images/20260703_120933_a714d015bd534a328091b58b9690c4a7.png",
+            "upload/images/20260703_120933_d0a327ad25284c8c9a4e454732f2c8ab.png",
+            "upload/images/20260703_120933_de565ac2226246cdbaecf067b311ad07.png",
+            "upload/images/20260703_120933_3562277b3be34b129bb263253e4c078d.png",
+            "upload/images/20260703_120933_93621a6c7ab64f40a7494c7230544eb4.png",
+            "upload/images/20260703_120933_6f42adc3593e4b068fb2c57f9162362c.png",
+            "upload/images/20260703_120933_2ba11069cf85406690dbc445459f00e1.png"
+          ],
+          "image_positions": [
+            {
+              "page": 100,
+              "image_url": "upload/images/20260703_120933_b6f9bb56675d4b1cbe7fdb20f421aebe.png",
+              "char_offset": 27944,
+              "paragraph_index": 2,
+              "nearby_text_after": "2.",
+              "nearby_text_before": "2.\n将IsEnableAFByPosition 设置为False。"
+            },
+            {
+              "page": 100,
+              "image_url": "upload/images/20260703_120933_a714d015bd534a328091b58b9690c4a7.png",
+              "char_offset": 28056,
+              "paragraph_index": 4,
+              "nearby_text_after": "【图片1】",
+              "nearby_text_before": "成像区域内。然后再点击Go Default Focus，物镜将会运动至焦面附近。"
+            },
+            {
+              "page": 100,
+              "image_url": "upload/images/20260703_120933_d0a327ad25284c8c9a4e454732f2c8ab.png",
+              "char_offset": 28273,
+              "paragraph_index": 9,
+              "nearby_text_after": "4.",
+              "nearby_text_before": "Z 轴移动步进设置在0.005~0.01 之间"
+            },
+            {
+              "page": 100,
+              "image_url": "upload/images/20260703_120933_de565ac2226246cdbaecf067b311ad07.png",
+              "char_offset": 28368,
+              "paragraph_index": 11,
+              "nearby_text_after": "是否在± 1 范围内，AF Sum 是否在70 -90 之间。",
+              "nearby_text_before": "最终计算得斜率满足范围要求；图中数据仅为示例。"
+            },
+            {
+              "page": 101,
+              "image_url": "upload/images/20260703_120933_3562277b3be34b129bb263253e4c078d.png",
+              "char_offset": 28548,
+              "paragraph_index": 14,
+              "nearby_text_after": "Z 轴移动步进设置在0.005~0.01 之间",
+              "nearby_text_before": "点击勾选Auto Focus 处Enabled，观察图片能回到焦面为合格。"
+            },
+            {
+              "page": 101,
+              "image_url": "upload/images/20260703_120933_93621a6c7ab64f40a7494c7230544eb4.png",
+              "char_offset": 28554,
+              "paragraph_index": 14,
+              "nearby_text_after": "Z 轴移动步进设置在0.005~0.01 之间",
+              "nearby_text_before": "点击勾选Auto Focus 处Enabled，观察图片能回到焦面为合格。"
+            },
+            {
+              "page": 101,
+              "image_url": "upload/images/20260703_120933_6f42adc3593e4b068fb2c57f9162362c.png",
+              "char_offset": 28734,
+              "paragraph_index": 17,
+              "nearby_text_after": "将在焦面的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中，确认",
+              "nearby_text_before": "点击勾选Auto Focus 处Enabled,观察图片能回到焦面为合格。"
+            },
+            {
+              "page": 101,
+              "image_url": "upload/images/20260703_120933_2ba11069cf85406690dbc445459f00e1.png",
+              "char_offset": 28838,
+              "paragraph_index": 20,
+              "nearby_text_after": "6.",
+              "nearby_text_before": "如果AF 斜率不在范围内，请重新调试AF 模块。"
+            }
+          ],
+          "subchunk_index": 0,
+          "unit_type": "section_text",
+          "content_type": "section_text",
+          "chunk_id": "knowledge-section-3069-text-0",
+          "chunk_size": 1172,
+          "semantic_method": "knowledge_section_text_v3",
+          "chunk_strategy": "directory_section_v3"
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 9,
+        "chunk_id": 2,
+        "title": "T7-AF参数异常（AF SUM/signal/斜率）",
+        "content": "评估：在D盘对应上机芯片的芯片号的FOV metric文件夹中的表格能查到对焦时的AF SUM值是否＜75；上机过程中的AutoFocus表格的Best AF Target即为对焦时的signal；用一张无气泡的生物芯片/工程芯片/下机芯片手动对焦，可检查SUM、signal是否符合指标；用一张无气泡的生物芯片/工程芯片/下机芯片记录焦面往上10um以及焦面往下10um的signal值计算AF斜率判断是否符合指标（5±0.25）",
+        "score": 0.6408935785293579,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 9,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:37:07",
+          "chunk_index": 2,
+          "subchunk_index": 2,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-9-2",
+          "chunk_size": 216,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 9,
+        "chunk_id": 5,
+        "title": "T7-AF参数异常（AF SUM/signal/斜率）",
+        "content": "解决方案：1、SUM值异常\na）检查物镜是否脏污并擦拭物镜，装上物镜后检查SUM值是否恢复正常，若没有恢复正常则进行下一步；\nb）重调反射棱镜使SUM值最大，调PD位置使diff值最小，反复几次值无明显偏差，调试完成后检查SUM值是否恢复正常，若没有恢复正常则进行下一步；\nc）调节VR3放大SUM，降SUM放大至80~90之间，如下图；\n【图片1】\nd）若VR3调至最大SUM值仍然不能＞80，则更换LED或AF模块，步骤如下图\n【图片2】\n2、signal绝对值偏高\na）调节反射棱镜使SUM值最大，调PD位置使diff值最小，反复几次值无明显偏差，调试完成后检查对焦时的sinal值是否恢复正常，若没有恢复正常则进行下一步；\nb）相对焦面上移10um，检查signal值是否在45~55之间，通过调节VR1将signal调至45~55内；相对焦面下移10um，检查signal值是否在-55~-45之间，通过微调PD位置的精密螺纹副旋钮将signal调至-55~-45内；调试完成后检查对焦时的sinal值是否恢复正常，若仍然异常，则更换PD对应的电路板或更换AF模块。\n3、斜率异常\na）检查Z轴分辨率是否正确：目前不同品牌对应有0.5um和0.25um两种分辨率，ACS软件对应参数EFAC，铭牌颜色为橙色的分辨率为0.5um；\nb）调节反射棱镜使SUM值最大，调PD位置使diff值最小，反复几次值无明显偏差，调试完成后检查斜率是否恢复5±0.25，若没有恢复正常则进行下一步；\nc）相对焦面上移10um，检查signal值是否在45~55之间，通过调节VR1将signal调至45~55内；相对焦面下移10um，检查signal值是否在-55~-45之间，通过微调PD位置的精密螺纹副旋钮将signal调至-55~-45内；调试完成后检查斜率是否恢复正常，若仍然异常，则更换PD对应的电路板或更换AF模块。",
+        "score": 0.6259576678276062,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 9,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:37:07",
+          "chunk_index": 5,
+          "subchunk_index": 5,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-9-5",
+          "chunk_size": 810,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 1000000008,
+        "chunk_id": 406,
+        "title": "SOP-016-A18-009",
+        "content": "标签：4\n文档标题：SOP-016-A18-009\n章节标题：8.\n表格自动计算出自动对焦曲线的斜率，验证斜率在5±0.25 范围内，并将斜率记录到《DNBSEQ-T7 整机调\n章节内容：试数据记录表(售后版)》中；\n如果AF 斜率不在范围内，请重新调试AF 模块。",
+        "score": 0.6223005056381226,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "knowledge",
+          "tag": [
+            4
+          ],
+          "first_edit_date": "2026-06-12T19:15:30",
+          "section_id": 724,
+          "section_title": "8.\n表格自动计算出自动对焦曲线的斜率，验证斜率在5±0.25 范围内，并将斜率记录到《DNBSEQ-T7 整机调",
+          "section_index": 246,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "knowledge-section-724-0",
+          "chunk_size": 133,
+          "semantic_method": "knowledge_section_v1",
+          "image_urls": [],
+          "image_positions": []
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 9,
+        "chunk_id": 1,
+        "title": "T7-AF参数异常（AF SUM/signal/斜率）",
+        "content": "原因：1、SUM值异常\na) LED功率衰减、反射棱镜膜层损坏等，b) 反射棱镜、PD位置偏移，c) 物镜脏污遮挡AF光源\n2、signal绝对值偏高\na) 反射棱镜、PD位置偏移，b) DIV不对称，\n3、AF模块斜率异常\na) DIV不对称或放大倍数异常，b) Z轴分辨率异常",
+        "score": 0.61733078956604,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 9,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:37:07",
+          "chunk_index": 1,
+          "subchunk_index": 1,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-9-1",
+          "chunk_size": 140,
+          "semantic_method": "field_section_v1"
+        }
+      }
+    ],
+    "judge": {
+      "hit": true,
+      "matched_chunk_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "reason": "多个片段明确提到AF模块斜率的判断标准为5±0.25，例如chunk 0第8条、chunk 1、chunk 2第3点a）以及chunk 3均直接说明斜率需在5±0.25范围内，与ground_truth一致。"
+    }
+  },
+  {
+    "question": "当相对焦面上移10um时，signal值应调整至什么范围？",
+    "ground_truth": "相对焦面上移10um时，signal值应调整至45~55之间。",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 1000000008,
+        "chunk_id": 404,
+        "title": "SOP-016-A18-009",
+        "content": "标签：4\n文档标题：SOP-016-A18-009\n章节标题：6.\n在Auto Focus 处点击去掉勾选Enabled；Relative moving 处Z Step 输入0.01，点击+，相对焦面上移10\n章节内容：微米；将此时的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中；\n点击勾选Auto Focus 处Enabled，观察图片能回到焦面为合格。",
+        "score": 0.6687842011451721,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "knowledge",
+          "tag": [
+            4
+          ],
+          "first_edit_date": "2026-06-12T19:15:30",
+          "section_id": 722,
+          "section_title": "6.\n在Auto Focus 处点击去掉勾选Enabled；Relative moving 处Z Step 输入0.01，点击+，相对焦面上移10",
+          "section_index": 244,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "knowledge-section-722-0",
+          "chunk_size": 209,
+          "semantic_method": "knowledge_section_v1",
+          "image_urls": [],
+          "image_positions": []
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 1000000008,
+        "chunk_id": 405,
+        "title": "SOP-016-A18-009",
+        "content": "标签：4\n文档标题：SOP-016-A18-009\n章节标题：7.\n在Auto Focus 处点击去掉勾选Enabled，Relative moving 处Z Step 输入0.01，点击-，相对焦面下移10\n章节内容：微米，将此时的Z 值、AF Signal 和AF Sum 值记录到《DNBSEQ-T7 整机调试数据记录表(售后版)》中；\n点击勾选Auto Focus 处Enabled,观察图片能回到焦面为合格。",
+        "score": 0.6684852242469788,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "knowledge",
+          "tag": [
+            4
+          ],
+          "first_edit_date": "2026-06-12T19:15:30",
+          "section_id": 723,
+          "section_title": "7.\n在Auto Focus 处点击去掉勾选Enabled，Relative moving 处Z Step 输入0.01，点击-，相对焦面下移10",
+          "section_index": 245,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "knowledge-section-723-0",
+          "chunk_size": 209,
+          "semantic_method": "knowledge_section_v1",
+          "image_urls": [],
+          "image_positions": []
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 9,
+        "chunk_id": 2,
+        "title": "T7-AF参数异常（AF SUM/signal/斜率）",
+        "content": "评估：在D盘对应上机芯片的芯片号的FOV metric文件夹中的表格能查到对焦时的AF SUM值是否＜75；上机过程中的AutoFocus表格的Best AF Target即为对焦时的signal；用一张无气泡的生物芯片/工程芯片/下机芯片手动对焦，可检查SUM、signal是否符合指标；用一张无气泡的生物芯片/工程芯片/下机芯片记录焦面往上10um以及焦面往下10um的signal值计算AF斜率判断是否符合指标（5±0.25）",
+        "score": 0.6408758163452148,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 9,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:37:07",
+          "chunk_index": 2,
+          "subchunk_index": 2,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-9-2",
+          "chunk_size": 216,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 9,
+        "chunk_id": 6,
+        "title": "T7-AF参数异常（AF SUM/signal/斜率）",
+        "content": "总结：问题主要表现为AF SUM值偏低、signal绝对值偏高、AF模块斜率异常，导致对焦性能下降。原因包括LED功率衰减、反射棱镜膜层损坏、PD位置偏移、DIV不对称、Z轴分辨率异常等。解决方法包括清洁物镜、调整反射棱镜与PD位置、调节VR1和VR3电位器、更换LED或AF模块。关键在于逐步排查并根据参数调整或更换部件。",
+        "score": 0.626858115196228,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 9,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:37:07",
+          "chunk_index": 6,
+          "subchunk_index": 6,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-9-6",
+          "chunk_size": 162,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 161,
+        "chunk_id": 1,
+        "title": "部分区域Q30异常",
+        "content": "原因：现象①：检查异常区域对应的cycle图片未发现明显视觉异常，但FOVmetrics文件中的Z值曲线显示拍照运动过程中存在异常波动尖峰。此时信号值从最佳焦面的10左右下降至9.04，而SUM值无显著变化，推测为芯片表面存在污物导致面型变化，从而引发Q30波动。现象②：Z值曲线稳定平滑，最大差值为5.4um，但对焦signal值随Z值减小而同步下降，最低降至8.55，偏离最佳焦面值10。由于Z值无异常波动，而signal未能及时响应，判断为对焦跟随速度不足，Gain2参数设置过低（0.025）导致对焦滞后。",
+        "score": 0.6252666711807251,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 161,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-07-01T22:26:45",
+          "chunk_index": 1,
+          "subchunk_index": 1,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-161-1",
+          "chunk_size": 257,
+          "semantic_method": "field_section_v1"
+        }
+      }
+    ],
+    "judge": {
+      "hit": false,
+      "matched_chunk_indices": [],
+      "reason": "召回片段中未提及相对焦面上移10um时signal值的具体调整范围，仅描述了操作步骤或相关参数记录方式，无法直接支持或推理出signal值应调整至45~55之间的结论。"
+    }
+  },
+  {
+    "question": "ZTRON LITE入仓耗时从2小时变为4小时可能由哪些原因导致",
+    "ground_truth": "客户存储容量超过80%、硬件异常（如光纤破损或光口松动）、客户集群高io任务与入仓同时发生",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 8,
+        "chunk_id": 9,
+        "title": "T7-BIT入仓问题",
+        "content": "问题简介：ZTRON LITE设备在入仓过程中出现耗时显著增加的问题，例如从2小时延长至4小时，影响客户交付时效，并可能导致IO wait升高，进而影响测序仪写cal文件速度，甚至引发服务器卡死。\n核心成因：1. 客户存储使用率超过80%，导致性能下降；2. 光纤或光口存在硬件异常；3. 集群高IO任务与入仓操作并发执行。\n关键特征：入仓任务耗时明显延长（如达24小时以上），系统界面显示进度条长时间停滞或缓慢推进，伴随IO等待时间上升，服务器响应迟缓或卡顿，部分任务长时间未完成。图像中可见入仓耗时列标注‘24h+’，且进度条显示为绿色长条持续运行状态，表明任务处于超长处理阶段。",
+        "score": 0.8285201787948608,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:35:25",
+          "chunk_index": 9,
+          "subchunk_index": 9,
+          "unit_type": "text",
+          "content_type": "main_chunk",
+          "chunk_id": "breakdown-main-8",
+          "chunk_size": 292,
+          "semantic_method": "field_main_chunk_v1"
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 8,
+        "chunk_id": 1,
+        "title": "T7-BIT入仓问题",
+        "content": "标题：T7-BIT入仓问题，\n问题简介：在ZTRON LITE入仓详情页面看到入仓耗时明显变长，比如耗时从2小时变成4小时。影响和后果：达不到客户交付的时间要求，也可能导致IO wait 变高，影响测序仪写cal文件的速度，且ZTRON LITE 服务器可能会卡死\n[图像信息]\n图像显示一个数据管理系统界面，当前处于“数据入仓”模块。弹窗中展示样本E200028423_L01的入仓时间轴，绿色条形图表示处理时长为28分57秒，标注为“fq+others”。左侧列表显示多个样本编号，右侧表格记录各样本的入仓开始与完成时间。系统支持多条件查询和批量操作，用于监控数据处理进度。",
+        "score": 0.75065016746521,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:35:25",
+          "chunk_index": 1,
+          "subchunk_index": 1,
+          "unit_type": "text",
+          "content_type": "text_with_image_description",
+          "chunk_id": "breakdown-8-1",
+          "chunk_size": 289,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 8,
+        "chunk_id": 0,
+        "title": "T7-BIT入仓问题",
+        "content": "标题：T7-BIT入仓问题，\n问题简介：在ZTRON LITE入仓详情页面看到入仓耗时明显变长，比如耗时从2小时变成4小时。影响和后果：达不到客户交付的时间要求，也可能导致IO wait 变高，影响测序仪写cal文件的速度，且ZTRON LITE 服务器可能会卡死\n[图像信息]\n该图像展示了一个数据管理系统的“数据入仓”界面，主要显示了多个样本数据的入仓日志。界面上方有查询条件输入框，支持通过样本编号、芯片号、生化载台编号等进行筛选。下方表格列出了样本编号、样本名称、入仓状态、入仓进度、耗时、入仓数据量、文件总数、详细信息链接、目标路径、创建时间、入仓开始与完成时间及最后更新时间等信息。所有样本均已入仓，耗时从28分钟57秒到2小时20分钟不等，数据量在1.08TB至3.28TB之间。界面右侧有暂停、启动和返回按钮，用于控制数据入仓流程。该系统支持对大规模生物样本数据的高效管理和监控。",
+        "score": 0.7333709001541138,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:35:25",
+          "chunk_index": 0,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "text_with_image_description",
+          "chunk_id": "breakdown-8-0",
+          "chunk_size": 398,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 13,
+        "chunk_id": 1,
+        "title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+        "content": "原因：1、ztron lite上入仓和T7写cal同时在运行，客户的入仓存储出现异常，导致IO wait变高\n2、测序仪和ztron lite连接线松动",
+        "score": 0.7100826501846313,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 13,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:42:13",
+          "chunk_index": 1,
+          "subchunk_index": 1,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-13-1",
+          "chunk_size": 76,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 8,
+        "chunk_id": 2,
+        "title": "T7-BIT入仓问题",
+        "content": "原因：1、客户存储比较满，超过80%，性能下降比较严重，导致入仓写数据IO wait变大\n2、硬件异常：检查光纤是否存在破损，光口是否有松动\n3、客户集群高io任务和入仓同时发生",
+        "score": 0.6278659105300903,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:35:25",
+          "chunk_index": 2,
+          "subchunk_index": 2,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-8-2",
+          "chunk_size": 89,
+          "semantic_method": "field_section_v1"
+        }
+      }
+    ],
+    "judge": {
+      "hit": true,
+      "matched_chunk_indices": [
+        0,
+        3,
+        4
+      ],
+      "reason": "片段[0]明确列出了存储使用率超80%、硬件异常（光纤/光口）、集群高IO任务并发三个原因，与ground_truth完全一致；片段[3]提到入仓与T7写cal同时运行导致IO wait升高，以及连接线松动，部分支持硬件异常和并发任务；片段[4]直接列出存储超80%、硬件异常、高IO任务并发，与ground_truth一致。因此存在有效支撑片段。"
+    }
+  },
+  {
+    "question": "光学chuck平整度的合格标准是什么？",
+    "ground_truth": "光学chuck的平整度≤0.01mm",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 7,
+        "chunk_id": 3,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "检查：判断光学chuck的平整度是否需要调整，需要多方面排查判定：1、先用无尘布沾无水乙醇轻轻擦拭光学chuck，将灰尘或试剂等脏污擦干净后，取一张信号好的擦拭干净了的生物芯片吸附在上面。2、用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，得到表格，计算四个角及中间位置的Z值差，初步判断光学chuck平整度。从图1，可得到五个位置的Z轴高度值，比较后能得到整张芯片的高低趋势。同时，要求光学chuck的平整度≤0.01mm。3、再运行T7_TDIimagingFocusSweep.py脚本，处理excel表格数据后，得到焦面一致性结果，观察单一相机焦面一致性的表格数据，若显示4个碱基从左到右的焦面信号的趋势一致，即由小到大或由大到小，说明光学chuck相对相机面需要调整。若趋势不一致，也不能完全证明光学chuck不需要调整。如下图2所示，可以看到A/C/G三个碱基，从左到右的焦面趋势都是从左到右趋势变小，T碱基虽然是左小右大，但是相差很小，这种情况下也能说明光轴与光学chuck不垂直，需要调整两者的相对位置。4、查看整机下机FOV图片，计算FOV图片的SNR，若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整。5、查看FOVmetrics，结合zposition和AF Signal查看平面度heatmap,判断是否符合QC标准",
+        "score": 0.7202458381652832,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 3,
+          "subchunk_index": 3,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-3",
+          "chunk_size": 617,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 7,
+        "chunk_id": 4,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "解决方案：若判定是需要调整光学chuck平整度，步骤如下：1、先用无尘布沾无水乙醇轻轻擦拭光学chuck，将灰尘或试剂等脏污擦干净后，取一张信号好的擦拭干净了的生物芯片吸附在上面。2、用专门调试的工具（如下图所示），调节下所示的两个可调节顶丝，用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，使平整度≤0.01mm。3、再运行T7_TDIimagingFocusSweep.py脚本，处理数据后，单一相机的焦面一致性结果合格，将Z值和AF Target值填入EUI。4、跑1X1脚本后，得到FOV图片和Q30值，要求指标合格。",
+        "score": 0.7015327215194702,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 4,
+          "subchunk_index": 4,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-4",
+          "chunk_size": 278,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 7,
+        "chunk_id": 2,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "评估：用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，得到表格，计算四个角及中间位置的Z值差，初步判断光学chuck平整度。从图1，可得到五个位置的Z轴高度值，比较后能得到整张芯片的高低趋势。同时，要求光学chuck的平整度≤0.01mm。再运行T7_TDIimagingFocusSweep.py脚本，处理excel表格数据后，得到焦面一致性结果，观察单一相机焦面一致性的表格数据，若显示4个碱基从左到右的焦面信号的趋势一致，即由小到大或由大到小，说明光学chuck相对相机面需要调整。若趋势不一致，也不能完全证明光学chuck不需要调整。查看整机下机FOV图片，计算FOV图片的SNR，若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整。查看FOVmetrics，结合zposition和AF Signal查看平面度heatmap,判断是否符合QC标准",
+        "score": 0.679113507270813,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 2,
+          "subchunk_index": 2,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-2",
+          "chunk_size": 424,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 7,
+        "chunk_id": 5,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "总结：1、在进行判断或调试前，先用先用无尘布沾无水乙醇轻轻擦拭光学chuck、生物芯片等，将灰尘或试剂等脏污擦干净。2、若调整光学chuck平整度满足了标准，仍然出现单一相机焦面一致性的趋势相同，或者原图SNR的左右SNR相差大，大小趋势一致的情况，有以下两个方法解决：1）调整物镜的倾斜。2）根据大小趋势，人为的让光学chuck朝某一方向倾斜，不管平整度≤0.01mm的标准。建议是采取第一种调试物镜倾斜的方法。3、若没有专门调试的工具，可用扳手代替。",
+        "score": 0.6589306592941284,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 5,
+          "subchunk_index": 5,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-5",
+          "chunk_size": 227,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 1000000008,
+        "chunk_id": 426,
+        "title": "SOP-016-A18-009",
+        "content": "标签：4\n文档标题：SOP-016-A18-009\n章节标题：5.5.5 Imager Chuck 平面度调节（可选）\n章节内容：下图为imager chuck 的结构图。根据平面度检测的结果来对应调节imager chuck 的平整度。",
+        "score": 0.6383079290390015,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 8,
+          "library_type": "knowledge",
+          "tag": [
+            4
+          ],
+          "first_edit_date": "2026-06-12T19:15:30",
+          "section_id": 734,
+          "section_title": "5.5.5 Imager Chuck 平面度调节（可选）",
+          "section_index": 256,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "knowledge-section-734-0",
+          "chunk_size": 119,
+          "semantic_method": "knowledge_section_v1",
+          "image_urls": [],
+          "image_positions": []
+        }
+      }
+    ],
+    "judge": {
+      "hit": true,
+      "matched_chunk_indices": [
+        0,
+        1,
+        2
+      ],
+      "reason": "片段[0]、[1]和[2]均明确提到光学chuck的平整度要求为≤0.01mm，直接支撑了ground_truth所述内容。"
+    }
+  },
+  {
+    "question": "如何通过FOV图片判断光学chuck是否不平整？",
+    "ground_truth": "若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 7,
+        "chunk_id": 2,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "评估：用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，得到表格，计算四个角及中间位置的Z值差，初步判断光学chuck平整度。从图1，可得到五个位置的Z轴高度值，比较后能得到整张芯片的高低趋势。同时，要求光学chuck的平整度≤0.01mm。再运行T7_TDIimagingFocusSweep.py脚本，处理excel表格数据后，得到焦面一致性结果，观察单一相机焦面一致性的表格数据，若显示4个碱基从左到右的焦面信号的趋势一致，即由小到大或由大到小，说明光学chuck相对相机面需要调整。若趋势不一致，也不能完全证明光学chuck不需要调整。查看整机下机FOV图片，计算FOV图片的SNR，若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整。查看FOVmetrics，结合zposition和AF Signal查看平面度heatmap,判断是否符合QC标准",
+        "score": 0.7243442535400391,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 2,
+          "subchunk_index": 2,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-2",
+          "chunk_size": 424,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 7,
+        "chunk_id": 3,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "检查：判断光学chuck的平整度是否需要调整，需要多方面排查判定：1、先用无尘布沾无水乙醇轻轻擦拭光学chuck，将灰尘或试剂等脏污擦干净后，取一张信号好的擦拭干净了的生物芯片吸附在上面。2、用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，得到表格，计算四个角及中间位置的Z值差，初步判断光学chuck平整度。从图1，可得到五个位置的Z轴高度值，比较后能得到整张芯片的高低趋势。同时，要求光学chuck的平整度≤0.01mm。3、再运行T7_TDIimagingFocusSweep.py脚本，处理excel表格数据后，得到焦面一致性结果，观察单一相机焦面一致性的表格数据，若显示4个碱基从左到右的焦面信号的趋势一致，即由小到大或由大到小，说明光学chuck相对相机面需要调整。若趋势不一致，也不能完全证明光学chuck不需要调整。如下图2所示，可以看到A/C/G三个碱基，从左到右的焦面趋势都是从左到右趋势变小，T碱基虽然是左小右大，但是相差很小，这种情况下也能说明光轴与光学chuck不垂直，需要调整两者的相对位置。4、查看整机下机FOV图片，计算FOV图片的SNR，若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致，即都是左大右小或左小右大，说明光学chuck不平整。5、查看FOVmetrics，结合zposition和AF Signal查看平面度heatmap,判断是否符合QC标准",
+        "score": 0.7160638570785522,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 3,
+          "subchunk_index": 3,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-3",
+          "chunk_size": 617,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 7,
+        "chunk_id": 4,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "解决方案：若判定是需要调整光学chuck平整度，步骤如下：1、先用无尘布沾无水乙醇轻轻擦拭光学chuck，将灰尘或试剂等脏污擦干净后，取一张信号好的擦拭干净了的生物芯片吸附在上面。2、用专门调试的工具（如下图所示），调节下所示的两个可调节顶丝，用EUI软件运行T7_TDIVerifyChuckFlatness.py脚本，使平整度≤0.01mm。3、再运行T7_TDIimagingFocusSweep.py脚本，处理数据后，单一相机的焦面一致性结果合格，将Z值和AF Target值填入EUI。4、跑1X1脚本后，得到FOV图片和Q30值，要求指标合格。",
+        "score": 0.7074917554855347,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 4,
+          "subchunk_index": 4,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-4",
+          "chunk_size": 278,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 7,
+        "chunk_id": 5,
+        "title": "光学chuck不平导致光学质量下降",
+        "content": "总结：1、在进行判断或调试前，先用先用无尘布沾无水乙醇轻轻擦拭光学chuck、生物芯片等，将灰尘或试剂等脏污擦干净。2、若调整光学chuck平整度满足了标准，仍然出现单一相机焦面一致性的趋势相同，或者原图SNR的左右SNR相差大，大小趋势一致的情况，有以下两个方法解决：1）调整物镜的倾斜。2）根据大小趋势，人为的让光学chuck朝某一方向倾斜，不管平整度≤0.01mm的标准。建议是采取第一种调试物镜倾斜的方法。3、若没有专门调试的工具，可用扳手代替。",
+        "score": 0.6553536653518677,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 7,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:34:50",
+          "chunk_index": 5,
+          "subchunk_index": 5,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-7-5",
+          "chunk_size": 227,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 168,
+        "chunk_id": 4,
+        "title": "TDI系统图像拉长",
+        "content": "解决方案：1.检查光学系统的放大倍数，计算PEG值是否匹配\n2.检查chuck是否有松动\n3.检查相机是否有旋转（积分方向与平台运动方向是否一致)\n4.用工程芯片考察面阵拍照是否有拉长\n5.检查平台的X,Y,Z平台的参数和性能\n6.测试排除振动的影响",
+        "score": 0.629672646522522,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 168,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-07-01T22:35:57",
+          "chunk_index": 4,
+          "subchunk_index": 4,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-168-4",
+          "chunk_size": 125,
+          "semantic_method": "field_section_v1"
+        }
+      }
+    ],
+    "judge": {
+      "hit": true,
+      "matched_chunk_indices": [
+        0,
+        1
+      ],
+      "reason": "片段[0]和[1]均明确指出：若4个碱基的原图都显示左右两边的SNR相差大，且大小趋势一致（即都是左大右小或左小右大），则说明光学chuck不平整，这与ground_truth完全一致。"
+    }
+  },
+  {
+    "question": "T7写cal失败导致cal文件丢失的主要原因是什么",
+    "ground_truth": "ztron lite上入仓和T7写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动",
+    "retrieved_chunks": [
+      {
+        "rank": 1,
+        "doc_id": 13,
+        "chunk_id": 0,
+        "title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+        "content": "标题：T7-数据传输异常（上传cal异常&数据传输中断），\n问题简介：T7写cal失败，本地没有缓存，出现cal文件丢失的情况。后果：T7的cal文件丢失。",
+        "score": 0.8026481866836548,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 13,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:42:13",
+          "chunk_index": 0,
+          "subchunk_index": 0,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-13-0",
+          "chunk_size": 78,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 2,
+        "doc_id": 13,
+        "chunk_id": 5,
+        "title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+        "content": "总结：T7写cal失败导致cal文件丢失，主要原因为ztron lite上入仓与写cal同时运行造成IO wait过高或连接线松动。可通过ganglia界面检查资源使用情况，尤其是IO wait是否超过7%。解决方法包括升级BCS basecall版本至最新版，以及排查入仓盘性能问题。",
+        "score": 0.7933254241943359,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 13,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:42:13",
+          "chunk_index": 5,
+          "subchunk_index": 5,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-13-5",
+          "chunk_size": 143,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 3,
+        "doc_id": 13,
+        "chunk_id": 6,
+        "title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+        "content": "问题简介：T7设备在写入cal文件时失败，本地未缓存，导致cal文件丢失。该问题发生在T7测序仪与ztron lite协同工作过程中，影响数据完整性。\n核心成因：1. ztron lite执行入仓任务与T7写cal操作同时进行，导致客户存储系统异常，IO等待时间升高；2. 测序仪与ztron lite之间的连接线松动，造成通信中断。\n关键特征：设备在运行过程中出现数据上传异常，表现为cal文件无法成功写入且无本地缓存备份；系统日志显示IO等待时间显著上升；连接线物理接触不良可能导致间歇性断连，伴随数据传输中断现象；图像中可观察到连接线接口存在松动或未完全插入状态，进一步证实物理连接不稳定。",
+        "score": 0.7546037435531616,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 13,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:42:13",
+          "chunk_index": 6,
+          "subchunk_index": 6,
+          "unit_type": "text",
+          "content_type": "main_chunk",
+          "chunk_id": "breakdown-main-13",
+          "chunk_size": 298,
+          "semantic_method": "field_main_chunk_v1"
+        }
+      },
+      {
+        "rank": 4,
+        "doc_id": 13,
+        "chunk_id": 4,
+        "title": "T7-数据传输异常（上传cal异常&数据传输中断）",
+        "content": "解决方案：1、BCS上的basecall版本升级到最新版本，最新版本能保证cal文件不丢失\n2、如果是客户的入仓盘性能异常引起的，请参考：T7-BIT入仓问题",
+        "score": 0.7016985416412354,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 13,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-06-26T13:42:13",
+          "chunk_index": 4,
+          "subchunk_index": 4,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-13-4",
+          "chunk_size": 79,
+          "semantic_method": "field_section_v1"
+        }
+      },
+      {
+        "rank": 5,
+        "doc_id": 131,
+        "chunk_id": 5,
+        "title": "偶发多个cycle callN",
+        "content": "总结：此问题发生的主要原因是传输cal文件时异常，导致远程cal文件不完整，从而在下机fq文件中出现多个cycle callN现象。主要后果是影响数据质量，造成部分cycle无法正确解码。关键措施是检查网络连接稳定性，确保cal文件完整传输，并监控basecall日志以及时发现写入失败的情况。",
+        "score": 0.5997546315193176,
+        "metadata": {
+          "contributor_id": 1,
+          "source_doc_id": 131,
+          "library_type": "breakdown",
+          "tag": [],
+          "first_edit_date": "2026-07-01T21:50:16",
+          "chunk_index": 5,
+          "subchunk_index": 5,
+          "unit_type": "text",
+          "content_type": "section_text",
+          "chunk_id": "breakdown-131-5",
+          "chunk_size": 147,
+          "semantic_method": "field_section_v1"
+        }
+      }
+    ],
+    "judge": {
+      "hit": true,
+      "matched_chunk_indices": [
+        1,
+        2
+      ],
+      "reason": "片段[1]和[2]均明确指出T7写cal失败导致cal文件丢失的主要原因是ztron lite上入仓与写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动，与标准答案完全一致。"
+    }
+  }
+]
