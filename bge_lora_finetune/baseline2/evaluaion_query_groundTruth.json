@@ -22,5 +22,133 @@
   {
     "question": "T7写cal失败导致cal文件丢失的主要原因是什么",
     "ground_truth": "ztron lite上入仓和T7写cal同时运行造成IO wait过高，或测序仪与ztron lite连接线松动"
+  },
+  {
+    "question": "如何通过ganglia界面判断是否因IO wait过高导致T7写cal失败",
+    "ground_truth": "打开ganglia界面（ztronip:9999/ganglia），查看对应时间段资源使用情况，若IO wait超过7%则可能导致问题"
+  },
+  {
+    "question": "物镜脏污会导致FOV图片出现哪些异常现象",
+    "ground_truth": "黑点、亮点、不清晰、虚焦"
+  },
+  {
+    "question": "解决物镜脏污问题时应使用什么工具取下物镜",
+    "ground_truth": "专门用来夹取物镜的夹子"
+  },
+  {
+    "question": "当原图信号过高导致basecall无法分辨DNB点时，表现为哪些具体现象？",
+    "ground_truth": "单个fov basecall配准失败call N、胶点附近光晕、整张芯片泛白"
+  },
+  {
+    "question": "PA机械臂掉电后，除J1轴外其他轴的状态是什么？",
+    "ground_truth": "其他轴都可手动随意推动"
+  },
+  {
+    "question": "大族机械臂掉电后，哪些部分可以手动滑动？",
+    "ground_truth": "夹爪可以手动滑动"
+  },
+  {
+    "question": "检查注射器时需要进行哪三个动作",
+    "ground_truth": "检查活塞水痕、检查固定螺丝、轻压注射器"
+  },
+  {
+    "question": "对于高度差不足的机器，为何需要勤换oring",
+    "ground_truth": "否则容易结晶"
+  },
+  {
+    "question": "200芯片underloading问题中，导致黑影污染的主要试剂是什么？",
+    "ground_truth": "IPA（异丙醇）"
+  },
+  {
+    "question": "解决200芯片underloading问题时，纯水溢流时间从多少分钟调整到多少分钟？",
+    "ground_truth": "从2分钟调整到5分钟"
+  },
+  {
+    "question": "T7ECR4.3版本中集成了什么功能用于判断流体状态？",
+    "ground_truth": "压力采集和显示压力曲线的功能"
+  },
+  {
+    "question": "在T7ECR4.3版本中如何查看压力曲线？",
+    "ground_truth": "开始压力采集后，正常跑脚本，切换到PressureSensor界面即可看到压力曲线"
+  },
+  {
+    "question": "如何通过脚本测试loader电磁阀的开闭状态？",
+    "ground_truth": "运行SolenoidValve_off_on_test.py脚本，每个电磁阀开闭3次，靠近听电磁阀是否响。"
+  },
+  {
+    "question": "检查loader电磁阀时需要观察哪些关键点？",
+    "ground_truth": "听电磁阀声音是否正常，看针是否弯折，看压力曲线是否异常。"
+  },
+  {
+    "question": "App-D IP1污染导致测序异常时，一链前60bp的信号及Q30出现什么现象？",
+    "ground_truth": "一链前60bp的信号及Q30出现抖动"
+  },
+  {
+    "question": "在App-D IP1引物配液过程中，污染是如何发生的？",
+    "ground_truth": "QC人员在取样App-ARCA引物或App-A Splint oligo引物时发生倒吸，污染了移液器，该移液器随后被用于配制App-D IP1引物储存液"
+  },
+  {
+    "question": "CAN服务器2无法打开的原因是什么",
+    "ground_truth": "CAN设备IP地址冲突"
+  },
+  {
+    "question": "更改CAN服务器2的IP地址后是否可以打开设备",
+    "ground_truth": "将IP地址由192.168.1.179更改为192.168.1.180后可以打开设备"
+  },
+  {
+    "question": "Dolphin系统配准过程中需要先进行哪个步骤，再进行FineAlign？",
+    "ground_truth": "CroaseTheta"
+  },
+  {
+    "question": "当相机不出图时，应检查哪些方面以排查问题？",
+    "ground_truth": "litecall是否被模拟、控制软件连接状态、相机打开情况及trigger链路"
+  },
+  {
+    "question": "Y轴在匀速运动阶段相机的拍照频率是多少？",
+    "ground_truth": "每325nm拍照一次"
+  },
+  {
+    "question": "拍照过程中出现丢图现象，可能与哪些因素有关？",
+    "ground_truth": "走线问题或环境温度过高等因素"
+  },
+  {
+    "question": "trigger信号丢失可能导致什么问题？",
+    "ground_truth": "导致丢图"
+  },
+  {
+    "question": "T7-Oring结晶在哪些位置会发生？",
+    "ground_truth": "T7的ABCD四边都会发生结晶，Chuck上四个孔位都会发生结晶。"
+  },
+  {
+    "question": "ECR4.1版本后采取了哪些措施来改善Oring结晶问题？",
+    "ground_truth": "实施防止结晶的操作，包括泄压、取消Cycle间清洗、改进Oring结构等。"
+  },
+  {
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "ground_truth": "9"
+  },
+  {
+    "question": "使用CrystalDiskMark7_0测试D盘时，测试循环次数应设置为多少？",
+    "ground_truth": "9"
+  },
+  {
+    "question": "生化平台升降温超时故障中，PT100测温探头异常或硅脂干涸会导致什么现象",
+    "ground_truth": "PT100检测到的温度与温控工装实际测量温度存在差异"
+  },
+  {
+    "question": "当生化chuck散热风扇损坏或散热片积尘时，应采取什么措施",
+    "ground_truth": "清洁灰尘，检查外部环境"
+  },
+  {
+    "question": "新版生化chuck的结构件厚度相比旧版提升了多少？",
+    "ground_truth": "0.15mm"
+  },
+  {
+    "question": "T7芯片开胶现象在DNB Loading或测序过程中表现为载片中心出现什么异常？",
+    "ground_truth": "载片中心有气泡"
+  },
+  {
+    "question": "T7芯片开胶导致的故障会污染哪些部件？",
+    "ground_truth": "chuck、结晶"
   }
 ]
