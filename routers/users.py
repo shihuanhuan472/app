@@ -2,7 +2,7 @@ import hashlib
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from database import get_db
 from dependencies import get_current_user, get_current_active_user, require_roles
 from typing import Optional
@@ -12,6 +12,7 @@ from models import RoleGroup, User
 from schemas import Result, UserUpdate, UserResponse, UserChangePassword
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.external_user_sync import sync_external_user
 from utils.roles import get_user_permissions
 
 router = APIRouter(prefix="/user", tags=["用户"])
@@ -121,6 +122,7 @@ async def update_user(new_user: UserUpdate,
 
 @router.put("/change_password", summary="修改密码")
 async def change_password(password: UserChangePassword,
+                          background_tasks: BackgroundTasks,
                           current_user: User = Depends(get_current_active_user),
                           db: AsyncSession = Depends(get_db)):
     try:
@@ -143,6 +145,16 @@ async def change_password(password: UserChangePassword,
         user.password = hashed_new_password
         await db.commit()
         await db.refresh(user)
+
+        background_tasks.add_task(
+            sync_external_user,
+            username=user.username,
+            password=new_password,
+            real_name=user.full_name,
+            phone=user.phone,
+            update_password=True,
+        )
+
         return Result.success()
     except AppException:
         raise

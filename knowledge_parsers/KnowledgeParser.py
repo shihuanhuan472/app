@@ -22,6 +22,7 @@ from utils.error_codes import BizCode
 from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
 from utils.ppt_noise_filter import PPTNoiseFilter
+from utils.metafile import is_metafile, prepare_image_for_pillow
 
 try:
     import pymupdf
@@ -113,13 +114,44 @@ class KnowledgeParser:
 
     def _save_image_blob(self, blob: bytes, ext: str = ".png") -> str:
         ext = ext if ext.startswith(".") else f".{ext}"
-        if ext == ".jpeg":
-            ext = ".jpg"
+        ext = ext.lower()
+        # python-docx exposes WMF/EMF as image/x-wmf or image/x-emf.
+        ext = {
+            ".x-wmf": ".wmf",
+            ".x-emf": ".emf",
+            ".wmf": ".wmf",
+            ".emf": ".emf",
+            ".jpeg": ".jpg",
+        }.get(ext, ext)
         filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}{ext}"
         target_path = os.path.join(self.document_base_dir, self.image_dir, filename)
         with open(target_path, "wb") as f:
             f.write(blob)
-        return self._relative_image_path(filename)
+        if is_metafile(target_path):
+            try:
+                rasterized_path = prepare_image_for_pillow(
+                    target_path,
+                    runtime_root=os.path.join(
+                        self.document_base_dir,
+                        "runtime",
+                        "metafile",
+                    ),
+                )
+            except Exception as error:
+                try:
+                    os.remove(target_path)
+                except OSError:
+                    pass
+                raise RuntimeError(
+                    f"嵌入图片 {filename}（WMF/EMF）转换失败：{error}"
+                ) from error
+            if rasterized_path != target_path:
+                try:
+                    os.remove(target_path)
+                except OSError:
+                    pass
+                target_path = rasterized_path
+        return self._relative_image_path(Path(target_path).name)
 
     def _build_document(self, file_path: str, blocks: List[Dict]) -> KnowledgeParsedDocument:
         blocks = self._filter_noise_blocks(blocks)

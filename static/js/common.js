@@ -502,9 +502,11 @@ const Utils = {
                     }
                 } catch (refreshError) {
                     console.error('刷新token失败:', refreshError);
-                    sessionStorage.removeItem('token');
-                    sessionStorage.removeItem('refresh_token');
-                    sessionStorage.removeItem('user');
+                    // 刷新失败时清除两种存储中的登录态，避免旧 token 触发登录页循环跳转
+                    ['token', 'refresh_token', 'user'].forEach((key) => {
+                        localStorage.removeItem(key);
+                        sessionStorage.removeItem(key);
+                    });
                     window.location.href = 'index.html';
                     throw new Error('登录已过期，请重新登录');
                 }

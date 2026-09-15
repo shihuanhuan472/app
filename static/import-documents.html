@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>批量导入文档 - 设备维修辅助系统</title>
+    <title data-app-template="批量导入文档 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
@@ -233,7 +234,7 @@
         <div class="logo-container">
             <div class="logo">
                 <div class="logo-icon">🔧</div>
-                <span>维修辅助系统</span>
+                <span data-app-text="shortName"></span>
             </div>
         </div>
         <div class="nav-menu">
@@ -491,6 +492,48 @@
             reason: errorNames.has(name) ? '解析失败' : '-',
             elapsed_seconds: null
         }));
+    }
+
+    // 渲染已上传文件列表（用于解析）
+    function renderUploadedFilesList() {
+        const container = document.getElementById('uploadedFilesList');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (!uploadedFiles.length) {
+            container.innerHTML = '<div class="file-item">没有已上传的文件</div>';
+            analyzeBtn.disabled = true;
+            selectAllCheckbox.disabled = true;
+            return;
+        }
+        let html = '';
+        uploadedFiles.forEach((file, index) => {
+            const fileUrl = getFileUrl(file.url);
+            const isImage = isImageFile(file.name);
+            const safeName = file.name.replace(/'/g, "\\'");
+            const showPreview = isPreviewSupported(file.name);
+            const canPreviewSourceFile = Utils.canPreviewSourceFiles();
+            const previewLink = showPreview && canPreviewSourceFile ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
+            const downloadLink = canPreviewSourceFile ? `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>` : '';
+            const fileIcon = '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>';
+
+            html += `
+                <div class="file-item">
+                    <div class="checkbox-column">
+                        <input type="checkbox" class="file-checkbox" data-index="${index}" checked>
+                    </div>
+                    ${isImage && canPreviewSourceFile ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : fileIcon}
+                    <span class="file-name" style="flex:1;">${file.name}</span>
+                    <span class="file-size">${formatFileSize(file.size)}</span>
+                    <div class="file-actions">
+                        ${previewLink}
+                        ${downloadLink}
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        analyzeBtn.disabled = false;
+        selectAllCheckbox.disabled = false;
     }
 
     function renderAnalyzeResult(result, fallbackFileNames = []) {
@@ -858,46 +901,6 @@
         goToStep2Btn.addEventListener('click', () => {
             switchToAnalyzeStep();
         });
-
-        // 渲染已上传文件列表（用于解析）
-        function renderUploadedFilesList() {
-            const container = document.getElementById('uploadedFilesList');
-            if (!uploadedFiles.length) {
-                container.innerHTML = '<div class="file-item">没有已上传的文件</div>';
-                analyzeBtn.disabled = true;
-                document.getElementById('selectAllCheckbox').disabled = true;
-                return;
-            }
-            let html = '';
-            uploadedFiles.forEach((file, index) => {
-                const fileUrl = getFileUrl(file.url);
-                const isImage = isImageFile(file.name);
-                const safeName = file.name.replace(/'/g, "\\'");
-                const showPreview = isPreviewSupported(file.name);
-                const canPreviewSourceFile = Utils.canPreviewSourceFiles();
-                const previewLink = showPreview && canPreviewSourceFile ? `<a href="${fileUrl}" target="_blank" class="file-url">预览</a>` : '';
-                const downloadLink = canPreviewSourceFile ? `<a href="javascript:void(0)" onclick="downloadFile('${fileUrl}', '${safeName}')" class="file-url" style="margin-left:10px;">下载</a>` : '';
-                const fileIcon = '<i class="fas fa-file-pdf" style="margin-right:10px;"></i>';
-
-                html += `
-                    <div class="file-item">
-                        <div class="checkbox-column">
-                            <input type="checkbox" class="file-checkbox" data-index="${index}" checked>
-                        </div>
-                        ${isImage && canPreviewSourceFile ? `<img src="${fileUrl}" class="preview-image" onclick="previewImageFromUrl('${fileUrl}')">` : fileIcon}
-                        <span class="file-name" style="flex:1;">${file.name}</span>
-                        <span class="file-size">${formatFileSize(file.size)}</span>
-                        <div class="file-actions">
-                            ${previewLink}
-                            ${downloadLink}
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-            analyzeBtn.disabled = false;
-            document.getElementById('selectAllCheckbox').disabled = false;
-        }
 
         // 全选/取消全选
         selectAllCheckbox.addEventListener('change', (e) => {

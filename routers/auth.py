@@ -11,10 +11,18 @@ from sqlalchemy.orm import selectinload
 
 from database import AsyncSessionLocal, get_db
 from models import RoleGroup, User
-from schemas import Result, UserLogin, UserRegister
+from schemas import (
+    Result,
+    UserLogin,
+    UserRegister,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH,
+    USERNAME_PATTERN,
+)
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.JwtUtils import jwt_utils
+from utils.external_user_sync import sync_external_user
 from utils.roles import get_user_permissions
 
 router = APIRouter(prefix="/auth", tags=["认证"])
@@ -51,6 +59,7 @@ async def _update_last_login_best_effort(user_id: int, login_time: datetime):
 @router.post("/register", summary="用户注册")
 async def register(
     registration: UserRegister,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     username = registration.username.strip()
@@ -62,8 +71,20 @@ async def register(
 
     if not username or not phone or not full_name:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请完整填写必填信息")
-    if len(username) < 3:
-        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名至少需要 3 个字符")
+    if len(username) < USERNAME_MIN_LENGTH:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"用户名至少需要 {USERNAME_MIN_LENGTH} 个字符",
+        )
+    if len(username) > USERNAME_MAX_LENGTH:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"用户名不能超过 {USERNAME_MAX_LENGTH} 个字符",
+        )
+    if not re.fullmatch(USERNAME_PATTERN, username):
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名只能包含字母、数字和下划线")
     if not PHONE_PATTERN.fullmatch(phone):
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号格式不正确")
     if password != registration.confirm_password:
@@ -115,6 +136,15 @@ async def register(
             BizCode.BAD_REQUEST,
             "注册信息已存在，请检查用户名、手机号或邮箱",
         )
+
+    background_tasks.add_task(
+        sync_external_user,
+        username=username,
+        password=password,
+        real_name=full_name,
+        phone=phone,
+        update_password=False,
+    )
 
     return Result(
         code=1,
@@ -199,6 +229,7 @@ async def login(
                 "role_group_id": getattr(user, "role_group_id", None),
                 "role_group_name": role_group_name,
                 "permissions": permissions,
+                "api_key": user.api_key,
                 "last_login": login_time,
             },
         }

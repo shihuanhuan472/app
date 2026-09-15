@@ -17,7 +17,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from PIL import Image
-from openai import OpenAI
 try:
     from utils.token_counter import get_token_count
 except ModuleNotFoundError:
@@ -25,11 +24,13 @@ except ModuleNotFoundError:
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url_alt
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 from utils.error_codes import BizCode
 from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
 from utils.ppt_noise_filter import PPTNoiseFilter
 from utils.title_utils import normalize_document_title
+from utils.metafile import is_metafile, prepare_image_for_pillow
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 import os
@@ -571,6 +572,31 @@ class PPTParser:
             unique_filename = f"{uuid.uuid4().hex}{extension}"
             target_path = target_dir / unique_filename
             shutil.copy2(source_path, target_path)
+            if is_metafile(target_path):
+                try:
+                    rasterized_path = prepare_image_for_pillow(
+                        target_path,
+                        runtime_root=os.path.join(
+                            self.document_base_dir,
+                            "runtime",
+                            "metafile",
+                        ),
+                    )
+                except Exception as error:
+                    try:
+                        target_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    raise RuntimeError(
+                        f"MinerU 提取的图片 {unique_filename}（WMF/EMF）转换失败：{error}"
+                    ) from error
+                if rasterized_path != str(target_path):
+                    try:
+                        target_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    target_path = Path(rasterized_path)
+                    unique_filename = target_path.name
 
             image_urls.append(str(target_path))
             image_names.append(unique_filename)
@@ -792,6 +818,7 @@ class PPTParser:
                 slide_height,
             )
             for shape in self._iter_shapes(slide.shapes):
+                image_path = None
                 try:
                     left = int(getattr(shape, "left", 0) or 0)
                     top = int(getattr(shape, "top", 0) or 0)
@@ -815,12 +842,40 @@ class PPTParser:
                         ):
                             continue
                         image = shape.image
-                        ext = image.ext or "png"
+                        ext = (image.ext or "png").lower().lstrip(".")
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{ext}"
                         image_path = os.path.join(base_url, unique_filename)
                         with open(image_path, "wb") as img_file:
                             img_file.write(image.blob)
+                        # WMF/EMF is a vector format. Normalize it to PNG here
+                        # so subsequent Pillow compression and model upload do
+                        # not depend on a platform-specific Pillow handler.
+                        if is_metafile(image_path):
+                            try:
+                                rasterized_path = prepare_image_for_pillow(
+                                    image_path,
+                                    runtime_root=os.path.join(
+                                        self.document_base_dir,
+                                        "runtime",
+                                        "metafile",
+                                    ),
+                                )
+                            except Exception as error:
+                                try:
+                                    os.remove(image_path)
+                                except OSError:
+                                    pass
+                                raise RuntimeError(
+                                    f"PPT 内嵌图片 {unique_filename}（WMF/EMF）转换失败：{error}"
+                                ) from error
+                            if rasterized_path != image_path:
+                                try:
+                                    os.remove(image_path)
+                                except OSError:
+                                    pass
+                                image_path = rasterized_path
+                                unique_filename = os.path.basename(rasterized_path)
                         print(f"已保存 {unique_filename}")
                         image_urls.append(image_path)
                         image_names.append(unique_filename)
@@ -832,6 +887,11 @@ class PPTParser:
                             "image_index": len(image_urls),
                         })
                 except Exception:
+                    # Do not hide a WMF/EMF conversion failure: silently
+                    # dropping the image makes the document appear parsed
+                    # while the visual evidence is missing.
+                    if image_path and is_metafile(image_path):
+                        raise
                     continue
 
         layout_items.sort(key=lambda item: (item["slide"], item["top"], item["left"]))
@@ -1002,22 +1062,24 @@ class PPTParser:
         return result, used_indexes
     def file2document(self, text, image_urls, image_names, section_image_indexes=None) -> Document:
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url_alt(),
                 api_key=self.api_key
             )
 
             messages = self.generate_message(text, image_urls)
             # print(messages)
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self.max_token,
+                json_mode=True,
             )
             # print(response)
             ans = response.choices[0].message.content
             print(ans)
-            result = json.loads(ans)
+            result = parse_chat_completion_json(response)
             result["title"] = normalize_document_title(result.get("title"))
             result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)
 

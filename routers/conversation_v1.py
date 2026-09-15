@@ -10,7 +10,6 @@ import base64
 import json
 import mimetypes
 import os
-from openai import OpenAI, AsyncOpenAI
 from utils.token_counter import get_token_count
 # from sqlalchemy import desc, and_, asc, func
 from sqlalchemy.orm import Session
@@ -31,7 +30,8 @@ from database import get_db, AsyncSessionLocal
 from sqlalchemy import select, func, asc, desc as desc_func, delete
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
-from utils.ai_endpoint import get_ai_base_url
+from utils.ai_endpoint import get_ai_base_url, get_qwen_no_thinking_options
+from utils.openai_client import create_async_openai_client, create_openai_client
 from utils.pagination import build_pagination_payload
 
 router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
@@ -449,11 +449,12 @@ async def get_new_title_by_ai(content):
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
+        client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_token
+            max_tokens=max_token,
+            **get_qwen_no_thinking_options(),
         )
         return response.choices[0].message.content
 
@@ -785,7 +786,7 @@ def get_ai_reference_document_ids_str(ai_reference_document_ids):
 
 async def stream_ai_response(id, messages: list, session_id: int, doc_ids, search_results=None):
     api_key = os.getenv("API_KEY", "EMPTY")
-    client = AsyncOpenAI(base_url=get_ai_base_url(), api_key=api_key)
+    client = create_async_openai_client(base_url=get_ai_base_url(), api_key=api_key)
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 2000))
 
@@ -852,7 +853,8 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
             model=model,
             messages=messages,
             max_tokens=max_token,
-            stream=True
+            stream=True,
+            **get_qwen_no_thinking_options(),
         )
 
         # 打印response
@@ -921,11 +923,12 @@ async def get_ai_answer(messages, db: AsyncSession, id, search_results=None):
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
+        client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_token
+            max_tokens=max_token,
+            **get_qwen_no_thinking_options(),
         )
         return response.choices[0].message.content
 

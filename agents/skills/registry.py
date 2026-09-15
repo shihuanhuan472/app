@@ -41,7 +41,7 @@ SKILLS = {
     ),
     "topic_redirect": AgentSkill(
         name="topic_redirect",
-        description="低价值确认、无关字符、投诉和跑题内容，简短回应并引导回故障问答。",
+        description="低价值确认、无关字符、投诉和跑题内容，简短回复并引导回故障问答。",
         prompt_file="topic_redirect.md",
         use_rag_context=False,
         include_memory=True,
@@ -49,7 +49,7 @@ SKILLS = {
     ),
     "casual_chat": AgentSkill(
         name="casual_chat",
-        description="寒暄、感谢、普通交流，保持简短并说明系统主要服务故障排查。",
+        description="寒暄、感谢、普通交流，只要简短回应。",
         prompt_file="casual_chat.md",
         use_rag_context=False,
         include_memory=False,

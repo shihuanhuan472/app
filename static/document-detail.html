@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文档详情 - 维修辅助系统</title>
+    <title data-app-template="文档详情 - {{shortName}}"></title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
@@ -852,7 +853,7 @@
             <div class="logo-container">
                 <div class="logo">
                     <div class="logo-icon">🔧</div>
-                    <span>维修辅助系统</span>
+                    <span data-app-text="shortName"></span>
                 </div>
             </div>
             <div class="nav-menu">
@@ -1373,7 +1374,7 @@
                 <div class="knowledge-reading-progress" id="knowledgeReadingProgress"></div>
                 <div class="knowledge-book-page">
                     <div class="knowledge-book-topbar">
-                        <div class="knowledge-book-brand"><i class="fas fa-book-open"></i><span>维修知识库文档</span></div>
+                        <div class="knowledge-book-brand"><i class="fas fa-book-open"></i><span>${APP_CONFIG.knowledgeDocumentTitle}</span></div>
                         <div class="knowledge-book-actions-inline knowledge-top-actions">${actionButtons}</div>
                     </div>
                     <div class="knowledge-book-layout">
@@ -1677,7 +1678,7 @@
                 }
 
                 currentDocument = doc;
-                document.title = `${doc.title || '文档详情'} - 维修辅助系统`;
+                document.title = APP_CONFIG.formatDocumentTitle(doc.title, '文档详情');
                 document.getElementById('docTitleSubtitle').textContent = doc.title || '文档详情';
 
                 const currentUser = Utils.getCurrentUser();

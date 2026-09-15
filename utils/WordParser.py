@@ -10,15 +10,16 @@ from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
 from docx.text.paragraph import Paragraph
-from openai import OpenAI
 try:
     from utils.token_counter import get_token_count
 except ModuleNotFoundError:
     from token_counter import get_token_count
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 from utils.error_codes import BizCode
 from utils.logo_only_filter import LogoOnlyFilter
+from utils.metafile import is_metafile, prepare_image_for_pillow
 from utils.title_utils import normalize_document_title
 
 """
@@ -107,7 +108,13 @@ class WordParser:
         ):
             return None
 
-        img_ext = image_part.content_type.split('/')[-1]
+        content_type = (image_part.content_type or "").lower()
+        img_ext = {
+            "image/x-wmf": "wmf",
+            "image/wmf": "wmf",
+            "image/x-emf": "emf",
+            "image/emf": "emf",
+        }.get(content_type, content_type.split("/")[-1] or "png")
         if img_ext == "jpeg":
             img_ext = "jpg"
 
@@ -117,6 +124,31 @@ class WordParser:
         img_path = os.path.join(base_url, unique_filename)
         with open(img_path, 'wb') as f:
             f.write(image_part.blob)
+        if is_metafile(img_path):
+            try:
+                rasterized_path = prepare_image_for_pillow(
+                    img_path,
+                    runtime_root=os.path.join(
+                        self.document_base_dir,
+                        "runtime",
+                        "metafile",
+                    ),
+                )
+            except Exception as error:
+                try:
+                    os.remove(img_path)
+                except OSError:
+                    pass
+                raise RuntimeError(
+                    f"嵌入图片 {unique_filename}（WMF/EMF）转换失败：{error}"
+                ) from error
+            if rasterized_path != img_path:
+                try:
+                    os.remove(img_path)
+                except OSError:
+                    pass
+                img_path = rasterized_path
+                unique_filename = os.path.basename(rasterized_path)
         print(f"图片已保存: {img_path}")
         return img_path, unique_filename
 
@@ -361,22 +393,24 @@ class WordParser:
 
     def file2Document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
             messages = self.generate_message(text, image_urls)
 
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self.max_token,
+                json_mode=True,
             )
             print(response)
             ans = response.choices[0].message.content
             print(ans)
-            result = json.loads(ans)
+            result = parse_chat_completion_json(response)
             result["title"] = normalize_document_title(result.get("title"))
 
             result, used_image_indexes = self._apply_section_image_urls(result, section_image_indexes, image_names)

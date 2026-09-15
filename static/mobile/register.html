@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="format-detection" content="telephone=no">
-    <title>注册账号 - 设备维修辅助系统</title>
+    <title data-app-template="注册账号 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/login.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -15,7 +15,7 @@
             <div class="brand-mark" aria-hidden="true"><i class="fas fa-tools"></i></div>
             <div>
                 <p class="brand-kicker">Maintenance Assistant</p>
-                <h1>设备维修辅助系统</h1>
+                <h1 data-app-text="fullName"></h1>
                 <p class="brand-subtitle">创建你的系统账号</p>
             </div>
         </section>
@@ -74,6 +74,7 @@
         </section>
     </main>
 
+    <script src="../js/app-config.js"></script>
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
     <script src="script/register.js"></script>

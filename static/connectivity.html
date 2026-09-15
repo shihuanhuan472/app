@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx Connectivity Check</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --panel: #ffffff;
+            --text: #102033;
+            --muted: #5a6b7d;
+            --line: #d8e0ea;
+            --ok: #157f4f;
+            --accent: #1f6feb;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(180deg, #eef3f9 0%, #f7f9fc 100%);
+            color: var(--text);
+        }
+
+        .wrap {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .panel {
+            width: min(720px, 100%);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(16, 32, 51, 0.08);
+            padding: 28px;
+        }
+
+        .badge {
+            display: inline-flex;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(21, 127, 79, 0.1);
+            color: var(--ok);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 16px 0 10px;
+            font-size: 30px;
+            letter-spacing: 0;
+        }
+
+        p {
+            margin: 0 0 16px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .item {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px 16px;
+            background: #fbfcfe;
+        }
+
+        .label {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .value {
+            font-size: 16px;
+            font-weight: 700;
+            word-break: break-all;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .link:hover { text-decoration: underline; }
+
+        @media (max-width: 640px) {
+            .panel { padding: 20px; }
+            h1 { font-size: 24px; }
+            .grid { grid-template-columns: 1fr; }
+            .footer { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <section class="panel">
+            <div class="badge">Nginx Static Connectivity</div>
+            <h1>Static page loaded successfully</h1>
+            <p>If you can see this page, nginx is serving the static directory and the browser-to-server path is reachable.</p>
+
+            <div class="grid">
+                <div class="item">
+                    <div class="label">Status</div>
+                    <div class="value" id="statusText">Loading...</div>
+                </div>
+                <div class="item">
+                    <div class="label">Client time</div>
+                    <div class="value" id="timeText">Loading...</div>
+                </div>
+                <div class="item">
+                    <div class="label">Current URL</div>
+                    <div class="value" id="urlText"></div>
+                </div>
+                <div class="item">
+                    <div class="label">Browser network</div>
+                    <div class="value" id="netText"></div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <span>Static file: static/connectivity.html</span>
+                <a class="link" href="/index.html">Open app index</a>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const statusText = document.getElementById('statusText');
+        const timeText = document.getElementById('timeText');
+        const urlText = document.getElementById('urlText');
+        const netText = document.getElementById('netText');
+
+        const now = new Date();
+        statusText.textContent = 'OK - nginx static route is reachable';
+        timeText.textContent = now.toLocaleString();
+        urlText.textContent = window.location.href;
+        netText.textContent = navigator.onLine ? 'Online' : 'Offline';
+    </script>
+</body>
+</html>

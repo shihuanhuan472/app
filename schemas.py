@@ -4,11 +4,19 @@ from typing import Any, Dict, Optional, List, TypeVar, Generic
 from datetime import datetime
 
 PHONE_PATTERN = r"^1[3-9]\d{9}$"
+USERNAME_PATTERN = r"^[a-zA-Z0-9_]+$"
+USERNAME_MIN_LENGTH = 3
+USERNAME_MAX_LENGTH = 50
 
 
 # 用户相关的Schema
 class UserCreate(BaseModel):
-    username: str
+    username: str = Field(
+        ...,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN,
+    )
     phone: str = Field(..., min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = None
     full_name: str
@@ -20,7 +28,12 @@ class UserCreate(BaseModel):
 
 
 class UserRegister(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
+    username: str = Field(
+        ...,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN,
+    )
     password: str = Field(..., min_length=6, max_length=128)
     confirm_password: str = Field(..., min_length=6, max_length=128)
     phone: str = Field(..., min_length=11, max_length=11, pattern=PHONE_PATTERN)
@@ -69,6 +82,12 @@ class UserUpdate(BaseModel):
 
 class UserUpdateByAdmin(BaseModel):
     id: int
+    username: Optional[str] = Field(
+        default=None,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN,
+    )
     phone: Optional[str] = Field(default=None, min_length=11, max_length=11, pattern=PHONE_PATTERN)
     email: Optional[str] = None
     full_name: Optional[str] = None
@@ -469,8 +488,38 @@ class MessageResponse(BaseModel):
     content_text: Optional[str]
     user_uploaded_images: Optional[str]
     ai_reference_doc_ids: Optional[str]
+    feedback_eligible: bool = False
     token_count: Optional[int] = 0
     created_time: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class FeedbackIngestCreate(BaseModel):
+    user_id: int = Field(..., gt=0)
+    conversation_id: int = Field(..., gt=0)
+    message_id: int = Field(..., gt=0)
+    feedback_type: str = Field(..., min_length=1, max_length=32)
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=4000)
+
+
+class FeedbackRecordResponse(BaseModel):
+    id: int
+    conversation_id: int
+    message_id: int
+    user_id: int
+    feedback_type: str
+    rating: Optional[int] = None
+    comment: Optional[str] = None
+    created_at: Optional[datetime] = None
+    query_snapshot: Optional[Dict[str, Any]] = None
+    answer_snapshot: Optional[Dict[str, Any]] = None
+    retrieved_documents: List[Dict[str, Any]] = Field(default_factory=list)
+    cited_documents: List[Dict[str, Any]] = Field(default_factory=list)
+    trace_id: Optional[int] = None
+    status: str
 
     class Config:
         from_attributes = True

@@ -222,10 +222,11 @@
             }
         } catch (error) {
             console.error('刷新token失败:', error);
-            // 清除所有存储的token，跳转到登录页
-            localStorage.removeItem('token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
+            // 刷新失败时清除两种存储中的登录态，避免登录页和主页面循环跳转
+            ['token', 'refresh_token', 'user'].forEach((key) => {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            });
             window.location.href = 'index.html';
             throw error;
         } finally {
@@ -1760,9 +1761,36 @@ const messageAPI = {
                 true
             );
 
+            console.log('[FeedbackAPI] raw sessions response:', {
+                conversation_id: id,
+                code: response?.code,
+                data_keys: response?.data ? Object.keys(response.data) : [],
+                session_count: response?.data?.sessions?.length || 0,
+                first_session_message_count: response?.data?.sessions?.[0]?.messages?.length || 0,
+                first_ai_message: response?.data?.sessions?.[0]?.messages?.find((message) =>
+                    message?.role_value === 0 || message?.role === 'assistant'
+                ),
+            });
+
             if (response.code === 0) {
                 const session = response.data?.sessions?.[0];
-                return (session?.messages || []).map(normalizeChatMessage);
+                const messages = (session?.messages || []).map(normalizeChatMessage);
+                console.log('[FeedbackAPI] normalized messages:', messages.map((message) => ({
+                    id: message?.id,
+                    role: message?.role,
+                    role_value: message?.role_value,
+                    feedback_eligible: message?.feedback_eligible,
+                    has_reference_docs: Boolean(message?.ai_reference_doc_ids),
+                })));
+                console.log('[FeedbackAPI] eligible AI messages:', messages
+                    .filter((message) => Number(message?.role) === 0)
+                    .map((message) => ({
+                        id: message?.id,
+                        feedback_eligible: message?.feedback_eligible,
+                        feedback_eligible_type: typeof message?.feedback_eligible,
+                        reference_value: message?.ai_reference_doc_ids,
+                    })));
+                return messages;
             } else {
                 console.error('获取消息失败:', response.message || response.msg);
                 return [];
@@ -1873,7 +1901,10 @@ const messageAPI = {
         });
     });
 }
+
 };
+
+console.log('[FeedbackAPI] debug build loaded: 20260909-feedback-debug-2');
 
 // 导出到全局
 window.conversationAPI = conversationAPI;

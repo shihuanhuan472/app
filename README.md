@@ -278,6 +278,15 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
     }
+
+    # Nginx 状态监控，仅允许本机访问
+    location = /nginx_status {
+        stub_status;
+        access_log off;
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+    }
     
     # 上传文件服务（保持原样）
     location ^~/upload/ {
@@ -577,6 +586,18 @@ python -m http.server 80
 ### 后端运行
 
 后端运行之前，切记在**.env**文件中进行具体环境变量的修改，**AI服务器的相关配置不要改动**，其他路径请根据项目具体路径进行改动
+
+反馈功能可通过以下环境变量一键控制（修改后需重启后端并刷新前端页面）：
+
+```dotenv
+# 反馈总开关：控制反馈入口、提交接口和反馈处理接口
+FEEDBACK_ENABLED=true
+# 反馈学习开关：控制反馈是否参与后续检索和回答
+FEEDBACK_LEARNING_ENABLED=false
+```
+
+`FEEDBACK_ENABLED=false` 时，前端不显示反馈按钮，提交、处理和评估接口均会返回“反馈功能已关闭”。
+只有在总开关开启时，`FEEDBACK_LEARNING_ENABLED=true` 才会让已验证的反馈参与后续检索和回答；总开关开启但学习开关关闭时仍可收集反馈。
 
 若运行出现问题，尤其是图片，文档的存储路径并不符合预期，或者直接报错，可以尝试把系统中所有os.getenv()再根据项目具体情况修改一下
 

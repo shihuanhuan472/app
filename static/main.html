@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文档列表 - 设备维修辅助系统</title>
+    <title data-app-template="文档列表 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
@@ -18,7 +19,7 @@
             <div class="logo-container">
                 <div class="logo">
                     <div class="logo-icon">🔧</div>
-                    <span>维修辅助系统</span>
+                    <span data-app-text="shortName"></span>
                 </div>
             </div>
 
@@ -69,8 +70,8 @@
         <div class="main-content">
             <div class="header">
                 <div>
-                    <div class="page-title">维修知识库</div>
-                    <div class="page-subtitle">技术文档与故障案例</div>
+                    <div class="page-title" data-app-text="knowledgeTitle"></div>
+                    <div class="page-subtitle" data-app-text="knowledgeSubtitle"></div>
                 </div>
                 <div class="header-actions">
                     <div class="search-box">

@@ -19,12 +19,12 @@ import mimetypes
 from functools import lru_cache
 
 from pymilvus.orm import utility
-from openai import OpenAI
 import torch  # 添加导入
 from typing import List, Dict, Any, Optional
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client
 from utils.title_utils import normalize_document_title
 import json
 from visual_bge.visual_bge.modeling import Visualized_BGE
@@ -1148,7 +1148,7 @@ class VectorStoreMultimodal:
 
     def get_ai_answer(self, messages):
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
@@ -1161,7 +1161,8 @@ class VectorStoreMultimodal:
                 print("AI image description skipped: insufficient output token budget")
                 return None
 
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model_chat,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -1640,7 +1641,7 @@ class VectorStoreMultimodal:
                 return fallback_main_chunk
 
             try:
-                client = OpenAI(
+                client = create_openai_client(
                     base_url=get_ai_base_url(),
                     api_key=self.api_key
                 )
@@ -1652,10 +1653,12 @@ class VectorStoreMultimodal:
                 if max_tokens <= 0:
                     print("知识库主chunk AI生成跳过，使用文本兜底主chunk: output token budget is too small")
                     return fallback_main_chunk
-                response = client.chat.completions.create(
+                response = create_chat_completion(
+                    client,
                     model=self.model_chat,
                     messages=messages,
                     max_tokens=max_tokens,
+                    json_mode=True,
                 )
                 ans = response.choices[0].message.content
                 print("生成知识库主chunk的ai回答")
@@ -1681,7 +1684,7 @@ class VectorStoreMultimodal:
             images.extend(document.image_urls_causes.split(", "))
 
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
@@ -1694,10 +1697,12 @@ class VectorStoreMultimodal:
                 print("主chunk AI生成跳过，使用文本兜底主chunk: output token budget is too small")
                 return fallback_main_chunk
 
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model_chat,
                 messages=messages,
                 max_tokens=max_tokens,
+                json_mode=True,
             )
             ans = response.choices[0].message.content
             print("生成主chunk的ai回答")

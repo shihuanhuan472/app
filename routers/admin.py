@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy import and_, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -43,6 +43,7 @@ from schemas import (
 )
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
+from utils.external_user_sync import sync_external_user
 from utils.api_key import generate_api_key
 from utils.desensitize import read_sensitive_terms, write_sensitive_terms
 from utils.pagination import build_pagination_payload
@@ -1089,6 +1090,7 @@ async def reject_registration(
 @router.post("/add_user", summary="管理员添加用户")
 async def add_user(
     user: UserCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin")),
 ):
@@ -1120,6 +1122,8 @@ async def add_user(
 
         deleted_user_result = await db.execute(select(User).where(User.username == username, User.status == 0))
         user_delete = deleted_user_result.scalar_one_or_none()
+        sync_target = None
+        sync_update_password = False
 
         if user_delete:
             user_delete.status = user.status if user.status is not None else 1
@@ -1140,6 +1144,8 @@ async def add_user(
             user_delete.last_login = None
             await db.commit()
             await db.refresh(user_delete)
+            sync_target = user_delete
+            sync_update_password = True
         else:
             user_dict = user.model_dump(exclude={"password", "status", "role_group_id"}, exclude_none=True)
             user_dict["role"] = normalized_role
@@ -1159,6 +1165,17 @@ async def add_user(
             db.add(new_user)
             await db.commit()
             await db.refresh(new_user)
+            sync_target = new_user
+
+        if sync_target is not None:
+            background_tasks.add_task(
+                sync_external_user,
+                username=sync_target.username,
+                password="123456",
+                real_name=sync_target.full_name,
+                phone=sync_target.phone,
+                update_password=sync_update_password,
+            )
 
         return Result.success()
     except AppException:
@@ -1211,6 +1228,17 @@ async def update_user(
             exist_phone = phone_result.scalar_one_or_none()
             if exist_phone:
                 raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "手机号已被其他用户使用")
+
+        if "username" in new_user_dict and new_user_dict["username"] and new_user_dict["username"] != user.username:
+            username_result = await db.execute(
+                select(User).where(
+                    User.username == new_user_dict["username"],
+                    User.id != user.id,
+                )
+            )
+            exist_username = username_result.scalar_one_or_none()
+            if exist_username:
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "用户名已存在")
 
         if "email" in new_user_dict and new_user_dict["email"] and new_user_dict["email"] != user.email:
             email_result = await db.execute(

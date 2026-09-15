@@ -84,6 +84,7 @@ class MemoryPackBuilder:
 
         recent_traces = []
         recent_context_events = []
+
         if self._should_load_audit_state(route):
             recent_traces = await self.memory_service.load_recent_ai_traces(
                 message_now.session_id,
@@ -110,7 +111,7 @@ class MemoryPackBuilder:
         )
         actions.extend(adaptive_rag.actions)
 
-        return MemoryPack(
+        pack = MemoryPack(
             session_id=message_now.session_id,
             route=route,
             reason=decision.reason,
@@ -127,6 +128,37 @@ class MemoryPackBuilder:
             adaptive_rag=adaptive_rag,
             actions=actions,
         )
+        pack.feedback_memory = await self._build_feedback_memory(pack, message_now, decision)
+        if any(pack.feedback_memory.values()):
+            pack.actions.append("load_feedback_memory")
+        return pack
+
+    async def _build_feedback_memory(
+        self,
+        pack: MemoryPack,
+        message_now: Message,
+        decision: RouteDecision,
+    ) -> dict:
+        try:
+            from feedback_learning.memory import FeedbackMemoryBuilder
+            from feedback_learning.repository import FeedbackLearningRepository
+
+            repository = FeedbackLearningRepository(self.memory_service.db)
+            query = getattr(decision, "query_rewrite", None) or message_now.content_text or ""
+            return await FeedbackMemoryBuilder(repository).build(
+                conversation_id=message_now.session_id,
+                query=query,
+                user_id=getattr(message_now, "user_id", None),
+                memory_pack=pack,
+            )
+        except Exception as error:
+            print(f"[MemoryPackBuilder] feedback memory skipped: {type(error).__name__}: {error}")
+            return {
+                "verified_corrections": [],
+                "relevant_cases": [],
+                "unresolved_conflicts": [],
+                "applicable_patch_summary": [],
+            }
 
     def _should_load_recent_messages(self, route: str, reason: str) -> bool:
         return route in RECENT_MESSAGE_ROUTES or reason in CONTEXTUAL_REASONS

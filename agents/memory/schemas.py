@@ -156,6 +156,7 @@ class MemoryPack:
     summary: Optional[str] = None
     context_analysis: Optional[Dict[str, Any]] = None
     working_memory: Dict[str, Any] = field(default_factory=dict)
+    feedback_memory: Dict[str, Any] = field(default_factory=dict)
     slot_confidence: Dict[str, Any] = field(default_factory=dict)
     adaptive_rag: AdaptiveRagPlan = field(
         default_factory=lambda: AdaptiveRagPlan(strategy="direct", complexity="simple")
@@ -180,6 +181,7 @@ class MemoryPack:
             or self.summary
             or self.context_analysis
             or self.working_memory
+            or self.feedback_memory
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -198,6 +200,7 @@ class MemoryPack:
             "summary": self.summary,
             "context_analysis": self.context_analysis,
             "working_memory": self.working_memory,
+            "feedback_memory": self.feedback_memory,
             "slot_confidence": self.slot_confidence,
             "adaptive_rag": self.adaptive_rag.to_dict(),
             "actions": list(self.actions),
@@ -303,6 +306,29 @@ class MemoryPack:
         if working_lines:
             parts.append("【维修工作记忆】\n" + "\n".join(working_lines))
 
+        feedback_memory = self.feedback_memory or {}
+        feedback_lines = []
+        for key, label in (
+            ("verified_corrections", "Verified corrections"),
+            ("relevant_cases", "Verified fault cases"),
+            ("unresolved_conflicts", "Unresolved feedback conflicts"),
+            ("applicable_patch_summary", "Applicable retrieval patches"),
+        ):
+            values = feedback_memory.get(key) if isinstance(feedback_memory, dict) else []
+            if not isinstance(values, list) or not values:
+                continue
+            feedback_lines.append(f"{label}:")
+            for value in values[:3]:
+                if isinstance(value, dict):
+                    text = value.get("text") or value.get("summary") or value.get("reason") or value.get("title") or value.get("claim")
+                    source_id = value.get("id") or value.get("feedback_id") or value.get("case_id") or value.get("patch_id")
+                    prefix = f"[{source_id}] " if source_id is not None else ""
+                    feedback_lines.append("- " + prefix + _truncate_text(text, 120))
+                else:
+                    feedback_lines.append("- " + _truncate_text(value, 120))
+        if feedback_lines:
+            parts.append("[Feedback memory]\n" + "\n".join(feedback_lines[:12]))
+
         analysis = self.context_analysis or context.get("context_analysis") or {}
         if analysis:
             action = analysis.get("action")
@@ -365,6 +391,25 @@ class MemoryPack:
             "working_memory_counts": {
                 key: len(value or [])
                 for key, value in (self.working_memory or {}).items()
+                if isinstance(value, list)
+            },
+            "feedback_memory_used": bool(self.feedback_memory),
+            "feedback_memory_ids": {
+                key: [
+                    item.get("id")
+                    or item.get("feedback_id")
+                    or item.get("case_id")
+                    or item.get("patch_id")
+                    for item in value
+                    if isinstance(item, dict)
+                    and (
+                        item.get("id")
+                        or item.get("feedback_id")
+                        or item.get("case_id")
+                        or item.get("patch_id")
+                    )
+                ]
+                for key, value in (self.feedback_memory or {}).items()
                 if isinstance(value, list)
             },
             "adaptive_rag": self.adaptive_rag.to_dict(),

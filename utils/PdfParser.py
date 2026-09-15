@@ -36,7 +36,7 @@ from utils.ai_endpoint import get_ai_base_url
 from utils.logo_only_filter import LogoOnlyFilter
 from utils.title_utils import normalize_document_title
 import pymupdf
-from openai import OpenAI
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 
 from utils.error_codes import BizCode
 """PDF 解析器：普通 PDF 使用 PyMuPDF，扫描 PDF 自动使用 MinerU 提取文本。"""
@@ -2247,7 +2247,7 @@ class PdfParser:
 
     def file2document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
@@ -2258,14 +2258,16 @@ class PdfParser:
             has_rich_pdf_input = is_mineru_markdown or "<image_position" in text_value
             max_tokens = max(self.max_token, self.mineru_llm_max_token) if has_rich_pdf_input else self.max_token
 
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                json_mode=True,
             )
             ans = response.choices[0].message.content
             print(ans)
-            result = json.loads(ans)
+            result = parse_chat_completion_json(response)
             result["title"] = normalize_document_title(result.get("title"))
             result = self._clean_result_text_fields(result)
             if is_mineru_markdown:

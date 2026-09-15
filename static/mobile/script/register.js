@@ -27,6 +27,10 @@
             showError('用户名至少需要 3 个字符');
             return;
         }
+        if (!/^[a-zA-Z0-9_]+$/.test(payload.username)) {
+            showError('用户名只能包含字母、数字和下划线');
+            return;
+        }
         if (!/^1[3-9]\d{9}$/.test(payload.phone)) {
             showError('请输入有效的手机号码');
             return;
@@ -37,6 +41,11 @@
         }
         if (payload.password !== payload.confirm_password) {
             showError('两次输入的密码不一致');
+            return;
+        }
+
+        if (payload.username.length > 50) {
+            showError('用户名不能超过 50 个字符');
             return;
         }
 

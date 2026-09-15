@@ -1,4 +1,4 @@
-"""
+﻿"""
 对python版本应该没有过多要求，我本地是python3.10，服务器是python3.9，都可以运行.
 当然配置环境中间可能会有差异.
 
@@ -53,6 +53,7 @@ from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
 from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags
+from feedback_learning.router import router as feedback_learning_router
 # conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
 from models import Base, DocumentBreakdown, DocumentKnowledge
@@ -1044,6 +1045,7 @@ app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)
 app.include_router(tags.router, prefix=API_V1_PREFIX)
 app.include_router(conversation.router, prefix=API_V1_PREFIX)
+app.include_router(feedback_learning_router, prefix=API_V1_PREFIX)
 app.include_router(message.chat_router)
 
 @app.get("/", summary="根路径")
@@ -1105,3 +1107,4 @@ async def global_exception_handler(request: Request, exc: Exception):
         content=_error_payload(BizCode.INTERNAL_ERROR, "服务器内部错误", trace_id, str(exc)),
         headers={"X-Trace-Id": trace_id}
     )
+

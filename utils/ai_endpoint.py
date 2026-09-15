@@ -1,17 +1,16 @@
 import os
 
-
-DEFAULT_AI_BASE_URL = "http://192.168.246.200:8000/v1"
-DEFAULT_AI_BASE_URL_ALT = "http://192.168.246.200:8001/v1"
-
-
 def _normalize_base_url(url: str) -> str:
     return (url or "").rstrip("/")
 
 
 def get_ai_base_url() -> str:
-    return _normalize_base_url(os.getenv("AI_BASE_URL") or DEFAULT_AI_BASE_URL)
+    return _normalize_base_url(os.getenv("AI_BASE_URL"))
 
 
 def get_ai_base_url_alt() -> str:
-    return _normalize_base_url(os.getenv("AI_BASE_URL_ALT") or DEFAULT_AI_BASE_URL_ALT)
+    return _normalize_base_url(os.getenv("AI_BASE_URL_ALT"))
+
+def get_qwen_no_thinking_options() -> dict:
+    """Disable Qwen3 reasoning output for OpenAI-compatible servers."""
+    return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}

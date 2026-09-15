@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>设备维修辅助系统 - 登录</title>
+    <title data-app-template="{{fullName}} - 登录"></title>
     <script>
         (function () {
             var mobileLoginPath = '/static/mobile/login.html';
@@ -110,8 +110,8 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h1><i class="fas fa-tools"></i> 设备维修辅助系统</h1>
-                <p>智能维修解决方案平台</p>
+                <h1><i class="fas fa-tools"></i> <span data-app-text="fullName"></span></h1>
+                <p data-app-text="tagline"></p>
             </div>
 
             <form id="loginForm">
@@ -143,11 +143,12 @@
             </div>
 
             <div class="login-footer">
-                <p>&copy; 2026 设备维修辅助系统 v1.0</p>
+                <p data-app-template="© {{copyrightYear}} {{fullName}} {{version}}"></p>
             </div>
         </div>
     </div>
 
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script>
         const LOGIN_REQUEST_TIMEOUT_MS = 30000;
@@ -311,7 +312,9 @@
                 sessionStorage.setItem('user', user);
             }
 
-            if (token && user) {
+            // 只有完整登录态才允许自动进入主页面。缺少 refresh_token 时，
+            // 说明本地登录态不完整，不能继续恢复旧 token。
+            if (token && refreshToken && user) {
                 console.log('检测到已登录，自动跳转到角色对应首页');
                 setTimeout(() => {
                     let userInfo = null;
@@ -322,6 +325,13 @@
                     }
                     window.location.href = resolveLandingPage(userInfo);
                 }, 500);
+            } else if (token || refreshToken || user) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('user');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('refresh_token');
+                sessionStorage.removeItem('user');
             }
         }
 

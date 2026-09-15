@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI辅助 - 设备维修辅助系统</title>
+    <title data-app-template="AI辅助 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/style.css?v=20260811-ref-grid">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- 在已有的link标签后面添加 -->
@@ -11,9 +11,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.5/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
-    <script src="js/api.js?v=20260717-sse-parser"></script>
+    <script src="js/api.js?v=20260909-feedback-debug-2"></script>
     <script src="js/menu.js"></script>
     <style>
         /* 为历史对话列表添加滚动条样式 */
@@ -42,35 +43,12 @@
             background: #a8a8a8;
         }
 
-        /* 为临时消息中的图片添加预览支�?*/
+        /* 为临时消息中的图片添加预览支持 */
         .message-image-previews .image-preview-item {
             cursor: pointer;
         }
 
         /* AI 消息中的表格样式 */
-        .message-content.ai table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 1em 0;
-            font-size: 14px;
-        }
-
-        .message-content.ai th,
-        .message-content.ai td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        .message-content.ai th {
-            background-color: #f2f2f2;
-            font-weight: 600;
-        }
-
-        .message-content.ai tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
         .message-content.ai table {
             border-collapse: collapse;
             width: 100%;
@@ -84,7 +62,7 @@
             border: 1px solid #ddd;
             padding: 10px 12px;  /* 增加内边距，单元格更宽松 */
             text-align: left;
-            vertical-align: top; /* 内容顶部对齐，避免挤�?*/
+            vertical-align: top; /* 内容顶部对齐，避免挤压 */
         }
 
         .message-content.ai th {
@@ -96,7 +74,7 @@
             background-color: #f9f9f9;
         }
 
-        /* 可选：让表格在小屏幕上可横向滚�?*/
+        /* 可选：让表格在小屏幕上可横向滚动 */
         .message-content.ai {
             overflow-x: auto;
         }
@@ -160,7 +138,7 @@
             50% { opacity: 1; transform: scale(1.1); }
         }
 
-        /* 无历史记录样�?*/
+        /* 无历史记录样式 */
         .empty-history {
             text-align: center;
             padding: 40px 20px;
@@ -206,7 +184,7 @@
             gap: 8px;
         }
 
-        /* 文档项链接样�?*/
+        /* 文档项链接样式 */
         .document-item {
             display: flex;
             align-items: center;
@@ -335,17 +313,15 @@
             color: #10b981;
             background: #ecfdf5;
         }
-
     </style>
 </head>
 <body>
     <div class="system-container">
-        <!-- 侧边导航�?-->
         <div class="sidebar">
             <div class="logo-container">
                 <div class="logo">
                     <div class="logo-icon">🔧</div>
-                    <span>维修辅助系统</span>
+                    <span data-app-text="shortName"></span>
                 </div>
             </div>
 
@@ -362,12 +338,12 @@
                     <span class="nav-icon"><i class="fas fa-robot"></i></span>
                     <span>AI辅助</span>
                 </a>
-                <!-- 管理员显示这�?-->
+                
                 <a href="user-management.html" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>用户管理</span>
                 </a>
-                <!-- 技术人员显示这�?-->
+                
                 <a href="user-profile.html" class="nav-item" style="display: none;">
                     <span class="nav-icon"><i class="fas fa-user"></i></span>
                     <span>我的资料</span>
@@ -376,7 +352,7 @@
 
             <div class="user-info">
                 <div class="user-details">
-                    <div class="user-avatar" id="userAvatar">张</div>
+                    <div class="user-avatar" id="userAvatar">李</div>
                     <div>
                         <div class="user-name" id="userName">李四</div>
                         <div class="user-role" id="userRole">维修工程师</div>
@@ -388,7 +364,7 @@
             </div>
         </div>
 
-        <!-- 主内容区�?-->
+        <!-- 主内容区 -->
         <div class="main-content">
             <div class="header">
                 <div>
@@ -397,7 +373,7 @@
                 </div>
             </div>
 
-            <!-- AI对话主区�?-->
+            <!-- AI对话 -->
             <div class="ai-page-container">
                 <!-- 左侧：历史对话栏 -->
                 <div class="history-sidebar">
@@ -416,7 +392,7 @@
                     <div class="history-section">
                         <div class="section-title">历史对话</div>
                         <div class="history-list" id="historyList">
-                            <!-- 历史对话项会动态加�?-->
+                            <!-- 历史对话项会动态加载 -->
                         </div>
                         <!-- 无限滚动加载提示容器 -->
                         <div class="history-list-footer" id="historyListFooter" style="text-align: center; padding: 10px; font-size: 13px; color: #999; display: none;"></div>
@@ -437,14 +413,14 @@
                             <div class="empty-icon"><i class="fas fa-robot"></i></div>
                             <div class="empty-title">AI维修助手</div>
                             <div class="empty-text">
-                                您好！我是您的维修辅助AI助手。<br>
+                                您好，我是您的维修辅助 AI 助手。<br>
                                 我可以帮您解决设备故障、提供维修建议、查找相关文档。
                             </div>
                             <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
                                 <i class="fas fa-lightbulb"></i> 请从左侧选择一个历史对话，或点击“新建对话”开始交流
                             </div>
                         </div>
-                        <!-- 对话消息会动态加�?-->
+                        <!-- 对话消息会动态加载 -->
                     </div>
 
                     <!-- 输入区域 -->
@@ -482,9 +458,7 @@
     </div>
 
 <script>
-
     function ensureTableSpacing(text) {
-        
         console.log(text);
         const lines = text.split('\n');
         let modified = false;
@@ -509,10 +483,10 @@
     }
 
     /*
-     * 功能说明：流式展示专用清理，隐藏图片 Markdown 和本地/Web 图片路径。
-     * 参数说明：text 为后端返回的当前累计回答内容。
-     * 返回值说明：返回仅适合逐字展示的文本；最终图片由流结束后的 final 事件或重新加载消息统一渲染。
-     * 关键流程：移除完整/未闭合的图片 Markdown，再移除 img_url、Windows 绝对路径和 /upload 路径。
+     * 功能说明：流式展示专用清理，隐藏图片 Markdown 和本地 Web 图片路径
+     * 参数说明：text 为后端返回的当前累计回答内容
+     * 返回值说明：返回仅适合逐字展示的文本；最终图片由流结束后 final 事件或重新加载消息统一渲染
+     * 关键流程：移除完整/未闭合的图片 Markdown，再移除 img_url、Windows 绝对路径或 /upload 路径
      */
     function sanitizeStreamingContent(text) {
         if (!text || typeof text !== 'string') return '';
@@ -558,7 +532,8 @@
             if (!text) return '';
 
             try {
-                ensureTableSpacing(text)
+                // 修复：接收 ensureTableSpacing 的返回值
+                text = ensureTableSpacing(text);
                 // 先转换Markdown为HTML
                 let html = marked.parse(text);
                 // 使用DOMPurify进行安全清理
@@ -698,7 +673,6 @@
             this.attachHistoryItemEvents(container);
         }
 
-        
         appendConversations(conversations, container) {
             if (!container || conversations.length === 0) return;
 
@@ -710,7 +684,6 @@
                 if (item) fragment.appendChild(item);
             });
 
-        
             this.attachHistoryItemEvents(fragment);
             container.appendChild(fragment);
         }
@@ -748,17 +721,16 @@
                 const raw = referenceInput.trim();
                 if (!raw) return [];
 
-                
                 if (raw.startsWith('[') || raw.startsWith('{')) {
                     try {
                         const parsed = JSON.parse(raw);
                         return this.normalizeReferenceDocuments(parsed);
                     } catch (e) {
+                        // 修复：补全括号和参数分隔符
                         console.warn('解析参考文档 JSON 失败，回退旧格式解析', e);
                     }
                 }
 
-                
                 return raw
                     .split(',')
                     .map(value => {
@@ -778,10 +750,11 @@
             if (typeof score !== 'number' || Number.isNaN(score)) return '';
             const normalized = Math.max(0, Math.min(1, score));
             const level = this.getReferenceScoreLevel(normalized);
-            return `匹配度 ${(normalized * 100).toFixed(1)}%（${level.label}）`;
+            return `匹配度：${(normalized * 100).toFixed(1)}%（${level.label}）`;
         }
 
         getReferenceScoreLevel(score) {
+            // 修复：补全乱码的返回值
             if (score >= 0.8) {
                 return { label: '高', className: 'score-high' };
             }
@@ -848,7 +821,6 @@
         }
 
         async updateConversationTime(conversationId) {
-            
             const historyItem = document.querySelector(`.history-item[data-id="${conversationId}"]`);
             if (historyItem) {
                 // 可以尝试从缓存中获取最新时间，或者简单设置为当前时间
@@ -859,7 +831,6 @@
             }
         }
 
-        
         showAIStreamingMessage() {
             const container = document.getElementById('conversationContent');
             if (!container) return;
@@ -884,7 +855,6 @@
 
             const textDiv = msgDiv.querySelector('.message-text');
             if (textDiv) {
-                
                 textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
                 this.bindInlineMessageImages(msgDiv);
                 
@@ -893,7 +863,6 @@
             }
         }
 
-       
         updateReferenceDocuments(docs) {
             const msgDiv = document.getElementById('streamingAIMessage');
             if (!msgDiv) return;
@@ -901,16 +870,14 @@
             this.loadAndDisplayDocuments(msgDiv, docs);
         }
 
-        // 移除流式消息容器
         removeStreamingMessage() {
             const tempMsg = document.getElementById('streamingAIMessage');
             if (tempMsg) tempMsg.remove();
         }
 
-        
         generateHistoryItemHTML(conv) {
             const isActive = conv.id === this.currentConversationId;
-            const title = conv.title || '无标题对话';
+            const title = conv.title || 'Untitled conversation';
             const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title;
             const formattedDate = conv.updated_time ? Utils.formatDate(conv.updated_time, 'MM-DD HH:mm') : '';
 
@@ -942,7 +909,6 @@
             });
         }
 
-        
         async init() {
             // 检查登录状态并加载用户信息
             Utils.checkLogin();
@@ -960,8 +926,6 @@
             if (lastConversationId) {
                 await this.loadConversation(parseInt(lastConversationId));
             }
-
-            
 
             this.setupInfiniteScroll();
         }
@@ -996,10 +960,10 @@
 
                     if (response) {
                         if (typeof response === 'object' && response.code !== undefined) {
-                            if (response.code === 1) {
+                            if (response.code === 0) {
                                 conversations = response.data || [];
                             } else {
-                                throw new Error(response.msg || '搜索对话失败');
+                                throw new Error(response.msg || 'Conversation not found');
                             }
                         } else if (Array.isArray(response)) {
                             conversations = response;
@@ -1008,14 +972,13 @@
                         }
                     }
 
-                    
                     conversations = Array.isArray(conversations) ? conversations : [];
                     this.totalCount = conversations.length;
                     totalPages = 1; 
                 } else {
                     // 分页模式
                     const pageData = { page: page, size: this.pageSize };
-                    console.log('发送分页请求:', pageData);
+                    console.log('发送分页请求', pageData);
 
                     try {
                         response = await conversationAPI.getHistoryPage(pageData);
@@ -1026,7 +989,7 @@
                         const historyResponse = await conversationAPI.getHistory();
                         if (historyResponse) {
                             if (typeof historyResponse === 'object' && historyResponse.code !== undefined) {
-                                if (historyResponse.code === 1) {
+                                if (historyResponse.code === 0) {
                                     conversations = historyResponse.data || [];
                                 } else {
                                     throw new Error(historyResponse.msg || '获取历史对话失败');
@@ -1055,7 +1018,7 @@
                     // 解析分页响应
                     if (response) {
                         if (typeof response === 'object' && response.code !== undefined) {
-                            if (response.code === 1) {
+                            if (response.code === 0) {
                                 const data = response.data;
                                 if (data && typeof data === 'object') {
                                     if (Array.isArray(data.history)) {
@@ -1077,7 +1040,7 @@
                                     totalPages = 1;
                                 }
                             } else {
-                                throw new Error(response.msg || '获取分页数据失败');
+                                throw new Error(response.msg || 'Conversation not found');
                             }
                         } else if (Array.isArray(response)) {
                             conversations = response;
@@ -1127,7 +1090,7 @@
                     this.renderConversationList(conversations, container, true);
                     this.hasMore = false;
                     if (conversations.length > 0) {
-                        this.showNoMoreIndicator(); // 显示“没有更多对话了”提示，因为搜索结果就是全部了
+                        this.showNoMoreIndicator(); // 显示“没有更多对话了”提示，因为搜索结果就是全部
                     } else {
                         container.innerHTML = '<div class="empty-history"><i class="fas fa-comments"></i><p>没有找到相关对话</p></div>';
                         this.showLoadingIndicator(false);
@@ -1203,14 +1166,13 @@
                 console.log('获取对话响应:', response);
 
                 // 根据你的控制台输出，response 已经是一个完整的 Result 对象，包含 code、msg 和 data 字段
-                // 我们需要检查 code 是否为 1 来确定请求是否成功，然后从 data 字段中获取对话信息
+                // 我们需要检查 code 是否为 0 来确定请求是否成功，然后从 data 字段中获取对话信息
                 let conversation = null;
 
                 if (response && typeof response === 'object') {
                     if (response.code !== undefined) {
-                        
-                        if (response.code !== 1) {
-                            throw new Error(response.msg || '对话不存在');
+                        if (response.code !== 0) {
+                            throw new Error(response.msg || 'Conversation not found');
                         }
                         conversation = response.data;
                     } else if (response.id !== undefined) {
@@ -1220,11 +1182,10 @@
                 }
 
                 if (!conversation) {
-                    Utils.showMessage('对话不存在或无权限访问', 'error');
+                    Utils.showMessage('Conversation not found or access denied', 'error');
                     this.currentConversationId = null;
                     sessionStorage.removeItem('last_conversation_id');
 
-                    
                     this.showEmptyState();
                     return;
                 }
@@ -1233,7 +1194,7 @@
                 sessionStorage.setItem('last_conversation_id', conversationId);
 
                 // 更新对话头部
-                document.getElementById('currentConversationTitle').textContent = conversation.title || '无标题对话';
+                document.getElementById('currentConversationTitle').textContent = conversation.title || 'Untitled conversation';
                 document.getElementById('currentConversationDate').textContent =
                     Utils.formatDate(conversation.updated_time, 'YYYY-MM-DD HH:mm:ss');
 
@@ -1248,21 +1209,36 @@
                 try {
                     const messagesResponse = await messageAPI.getMessagesByConversation(conversationId);
 
+                    console.log('[FeedbackFrontend] getMessagesByConversation result:', {
+                        conversation_id: conversationId,
+                        is_array: Array.isArray(messagesResponse),
+                        count: Array.isArray(messagesResponse) ? messagesResponse.length : null,
+                        first_ai_message: Array.isArray(messagesResponse)
+                            ? messagesResponse.find((message) => Number(message?.role) === 0)
+                            : null,
+                    });
+                    console.log('[FeedbackFrontend] AI feedback flags:', (messagesResponse || [])
+                        .filter((message) => Number(message?.role) === 0)
+                        .map((message) => ({
+                            id: message?.id,
+                            feedback_eligible: message?.feedback_eligible,
+                            type: typeof message?.feedback_eligible,
+                            reference_value: message?.ai_reference_doc_ids,
+                        })));
+
                     if (messagesResponse) {
                         if (messagesResponse.code !== undefined) {
-                           
-                            if (messagesResponse.code === 1) {
+                            if (messagesResponse.code === 1) { // 注意：此处依据原代码逻辑保留，若后端统一为0表示成功请自行调整
                                 messages = messagesResponse.data || [];
                             } else {
                                 console.error('获取消息失败:', messagesResponse.msg);
                             }
                         } else if (Array.isArray(messagesResponse)) {
-                           
                             messages = messagesResponse;
                         }
                     }
                 } catch (messageError) {
-                    console.error('获取消息时出错:', messageError);
+                    console.error('获取消息时出错', messageError);
                     // 继续执行，显示空消息或错误消息
                 }
 
@@ -1306,12 +1282,19 @@
                 emptyDiv.className = 'empty-state';
                 emptyDiv.innerHTML = `
                     <div class="empty-icon"><i class="fas fa-comments"></i></div>
-                    <div class="empty-title">对话开始</div>
-                    <div class="empty-text">这是您的新对话，请输入您的问题开始交流。</div>
+                    <div class="empty-title">新对话</div>
+                    <div class="empty-text">这是一个新的对话。请输入您的问题开始。</div>
                 `;
                 container.appendChild(emptyDiv);
                 return;
             }
+
+            console.log('[FeedbackFrontend] loaded messages:', messages.map((message) => ({
+                id: message?.id,
+                role: message?.role,
+                feedback_eligible: message?.feedback_eligible,
+                has_reference_docs: Boolean(message?.ai_reference_doc_ids),
+            })));
 
             let hasError = false;
             let errorCount = 0;
@@ -1336,7 +1319,6 @@
                         console.error(`第 ${index} 条消息创建元素失败`, messageElement);
                         errorCount++;
 
-                        
                         const errorElement = this.createErrorMessage(`消息 ${index + 1} 显示异常`);
                         fragment.appendChild(errorElement);
                     }
@@ -1344,7 +1326,6 @@
                     console.error(`处理第 ${index} 条消息时出错:`, error, msg);
                     errorCount++;
 
-                
                     const errorElement = this.createErrorMessage(`消息 ${index + 1} 加载失败`);
                     fragment.appendChild(errorElement);
                 }
@@ -1356,7 +1337,7 @@
 
                 // 如果有错误，显示提示
                 if (errorCount > 0) {
-                    console.warn(`加载消息时发生 ${errorCount} 个错误`);
+                    console.warn(`加载消息时发现 ${errorCount} 个错误`);
 
                     // 可选：显示一个错误提示在消息列表顶部
                     if (errorCount === messages.length) {
@@ -1370,7 +1351,7 @@
                         errorMsg.innerHTML = `
                             <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px; padding: 10px; margin: 10px 0; font-size: 14px; color: #7f1d1d;">
                                 <i class="fas fa-exclamation-triangle"></i>
-                                部分消息显示异常（${errorCount}/${messages.length}）
+                                部分消息显示异常 (${errorCount}/${messages.length})
                             </div>
                         `;
                         container.insertBefore(errorMsg, container.firstChild);
@@ -1392,132 +1373,230 @@
 
         // 创建消息元素 - 添加异常处理
         createMessageElement(message) {
-            try {
-                // 检查消息对象是否有效的 role 和 content_text 字段
-                if (!message || typeof message !== 'object') {
-                    console.error('无效的消息对象:', message);
-                    return this.createErrorMessage('消息数据格式错误');
-                }
+            const isAI = Number(message.role) === 0;
+            console.log('[FeedbackFrontend] render message:', {
+                id: message?.id,
+                isAI,
+                feedback_eligible: message?.feedback_eligible,
+                has_reference_docs: Boolean(message?.ai_reference_doc_ids),
+                will_render_feedback: isAI && message?.feedback_eligible === true,
+            });
+            const container = document.createElement('div');
+            container.className = `message-container ${isAI ? 'ai' : 'user'}`;
 
-                const isAI = message.role === 0; // 0: AI, 1: 用户
-                const container = document.createElement('div');
+            let html = `<div class="message-sender ${isAI ? 'ai' : 'user'}">${isAI ? 'AI助手' : '用户'}</div>`;
+            html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
+            const content = message.content_text || message.content || '';
+            html += `<div class="message-text">${this.formatMessageContent(content || '暂无内容', isAI)}</div>`;
 
-                // 检查容器是否成功创建
-                if (!container) {
-                    console.error('无法创建容器元素');
-                    return this.createErrorMessage('无法创建消息容器');
-                }
-
-                container.className = `message-container ${isAI ? 'ai' : 'user'}`;
-
-                // 消息发送者标识
-                let html = `
-                    <div class="message-sender ${isAI ? 'ai' : 'user'}">
-                        ${isAI ? 'AI助手' : '用户'}
-                    </div>
-                `;
-
-                // 消息内容容器
-                html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
-
-                // 消息文本 - 使用Markdown渲染
-                if (message.content_text) {
-                    const formattedContent = this.formatMessageContent(message.content_text, isAI);
-                    html += `<div class="message-text">${formattedContent}</div>`;
-                } else {
-                    const pendingText = isAI && message.ai_reference_doc_ids
-                        ? '回答生成中，请稍后刷新...'
-                        : '暂无内容';
-                    html += `<div class="message-text">${pendingText}</div>`;
-                }
-
-                // 如果有图片，显示图片预览（仅限用户消息）
-                if (!isAI && message.user_uploaded_images && message.user_uploaded_images.trim()) {
-                    const images = message.user_uploaded_images.split(', ').filter(img => img && img.trim());
-                    if (images.length > 0) {
-                        html += '<div class="message-image-previews">';
-
-                        images.forEach(imageUrl => {
-                            // 检查图片URL是否有效
-                            if (!imageUrl) return;
-
-                            const fullImageUrl = API_CONFIG.getAssetUrl(imageUrl);
-                            const fileName = imageUrl.split('/').pop() || '图片';
-
-                            html += `
+            if (!isAI && message.user_uploaded_images && String(message.user_uploaded_images).trim()) {
+                const images = String(message.user_uploaded_images).split(', ').filter(img => img && img.trim());
+                if (images.length > 0) {
+                    html += '<div class="message-image-previews">';
+                    images.forEach(imageUrl => {
+                        const fullImageUrl = API_CONFIG.getAssetUrl(imageUrl);
+                        const fileName = imageUrl.split('/').pop() || '图片';
+                        html += `
                                 <div class="image-preview-item" data-image-url="${imageUrl}">
                                     <div class="image-preview">
-                                        <img src="${fullImageUrl}"
-                                             alt="${fileName}"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNGMEYwRjAiLz48cGF0aCBkPSJNNjUgMzVBNSA1IDAgMTA2NSAzNUg2NVpNODAgNjVIMjBDMTYuMTQ0NiA2NSAxMyA2MS44NTU0IDEzIDU4VjIyQzEzIDE4LjE0NDYgMTYuMTQ0NiAxNSAyMCAxNUg4MEM4My44NTU0IDE1IDg3IDE4LjE0NDYgODcgMjJWNThDODcgNjEuODU1NCA4My44NTU0IDY1IDgwIDY1Wk0yMCA4NUMxNi4xNDQ2IDg1IDEzIDgxLjg1NTQgMTMgNzhWMzBDMTMgMjkuNDQ3NyAxMy40NDc3IDI5IDE0IDI5QzE0LjU1MjMgMjkgMTUgMjkuNDQ3NyAxNSAzMFY3OEgxN0MxNi40NDc3IDc4IDE2IDc4LjQ0NzcgMTYgNzlDMTYgNzkuNTUyMyAxNi40NDc3IDgwIDE3IDgwSDgzQzgzLjU1MjMgODAgODQgODAuNDQ3NyA4NCA4MUM4NCA4MS41NTIzIDgzLjU1MjMgODIgODMgODJIMTdDMTYuNDQ3NyA4MiAxNiA4MS41NTIzIDE2IDgxQzE2IDgwLjQ0NzcgMTYuNDQ3NyA4MCAxNyA4MEgxNVY3OEMxNSA4MC43NjE0IDE3LjIzODYgODMgMjAgODNINDBDNDAuNTUyMyA4MyA0MSA4My40NDc3IDQxIDg0QzQxIDg0LjU1MjMgNDAuNTUyMyA4NSA0MCA4NUgyMFoiIGZpbGw9IiNDQ0NDQ0MiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPjwvc3ZnPg=='">
-                                        <div class="image-preview-overlay">
-                                            <i class="fas fa-search-plus"></i>
-                                        </div>
+                                        <img src="${fullImageUrl}" alt="${fileName}">
                                     </div>
                                 </div>
                             `;
-                        });
-
-                        html += '</div>';
-                    }
+                    });
+                    html += '</div>';
                 }
-
-                // 消息时间
-                let messageTime = '';
-                try {
-                    messageTime = message.created_time ? Utils.formatDate(message.created_time, 'YYYY-MM-DD HH:mm') : '';
-                } catch (e) {
-                    console.error('格式化时间失败', e);
-                    messageTime = '';
-                }
-
-                html += `<div class="message-time">${messageTime}</div>`;
-                html += '</div>'; // 关闭message-content
-
-                // 安全地设置innerHTML
-                try {
-                    container.innerHTML = html;
-                } catch (error) {
-                    console.error('设置innerHTML失败:', error);
-                    container.innerHTML = `<div class="message-text">消息显示异常: ${error.message}</div>`;
-                }
-
-                // 为图片预览添加点击事件
-                if (!isAI && message.user_uploaded_images && message.user_uploaded_images.trim()) {
-                    try {
-                        container.querySelectorAll('.image-preview-item').forEach(item => {
-                            const imageUrl = item.getAttribute('data-image-url');
-                            if (imageUrl) {
-                                item.addEventListener('click', (e) => {
-                                    e.stopPropagation();
-                                    this.previewImage(imageUrl);
-                                });
-                            }
-                        });
-                    } catch (e) {
-                        console.error('添加图片点击事件失败:', e);
-                    }
-                }
-
-                // 如果这是AI消息且有相关文档，立即显示文档链接
-                if (isAI) {
-                    this.bindInlineMessageImages(container);
-                }
-
-                if (isAI && message.ai_reference_doc_ids && message.ai_reference_doc_ids.trim()) {
-                    this.createDocumentLinks(container, message.ai_reference_doc_ids);
-                }
-
-                return container;
-
-            } catch (error) {
-                console.error('创建消息元素时发生错误:', error, message);
-                // 返回一个错误消息元素
-                return this.createErrorMessage(`消息显示异常: ${error.message}`);
             }
+
+            const messageTime = message.created_time ? Utils.formatDate(message.created_time, 'YYYY-MM-DD HH:mm') : '';
+            html += `<div class="message-time">${messageTime}</div>`;
+            if (isAI && message.feedback_eligible === true) {
+                html += this.renderFeedbackControls(message);
+            }
+            html += '</div>';
+            container.innerHTML = html;
+
+            if (isAI && message.feedback_eligible === true) {
+                container.addEventListener('click', async (event) => {
+                    const actionButton = event.target.closest('[data-feedback-action]');
+                    const reasonButton = event.target.closest('[data-feedback-reason]');
+                    const submitButton = event.target.closest('[data-feedback-submit]');
+                    if (!actionButton && !reasonButton && !submitButton) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const reasons = container.querySelector('.feedback-reasons');
+                    try {
+                        if (actionButton) {
+                            const action = actionButton.dataset.feedbackAction;
+                            if (action === 'negative') {
+                                if (reasons) reasons.hidden = !reasons.hidden;
+                                actionButton.classList.toggle('is-selected', reasons && !reasons.hidden);
+                                return;
+                            }
+                            if (await this.submitMessageFeedback(message, 'positive', 'AI回复有帮助')) {
+                                this.lockFeedbackControls(container, '已反馈：这条回答有帮助', 'positive');
+                            }
+                            return;
+                        }
+
+                        if (reasonButton) {
+                            container.querySelectorAll('[data-feedback-reason]').forEach((button) => button.classList.remove('is-selected'));
+                            reasonButton.classList.add('is-selected');
+                            const otherInput = container.querySelector('.feedback-other');
+                            if (reasonButton.dataset.feedbackReason === 'other') {
+                                if (otherInput) otherInput.hidden = false;
+                                return;
+                            }
+                            if (otherInput) otherInput.hidden = true;
+                            const reasonKey = reasonButton.dataset.feedbackReason;
+                            const mapped = this.mapFeedbackReason(reasonKey);
+                            const reasonLabel = reasonButton.textContent.trim();
+                            if (await this.submitMessageFeedback(message, mapped.type, `原因：${reasonLabel}；${mapped.comment}`)) {
+                                this.lockFeedbackControls(container, `已反馈：${reasonLabel}`, 'negative');
+                            }
+                            return;
+                        }
+
+                        if (submitButton) {
+                            const input = container.querySelector('.feedback-other-input');
+                            const comment = input ? input.value.trim() : '';
+                            if (!comment) {
+                                input?.focus();
+                                Utils.showMessage('请先补充问题说明', 'warning');
+                                return;
+                            }
+                            if (await this.submitMessageFeedback(message, 'negative', `原因：其他；${comment}`)) {
+                                this.lockFeedbackControls(container, '已反馈：其他问题', 'negative');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('提交反馈失败:', error);
+                        Utils.showMessage('反馈提交失败，请稍后重试', 'error');
+                    }
+                });
+            }
+
+            container.querySelectorAll('.image-preview-item').forEach((item) => {
+                item.addEventListener('click', () => this.previewImage(item.dataset.imageUrl));
+            });
+
+            if (isAI) {
+                this.bindInlineMessageImages(container);
+            }
+
+            if (isAI && message.ai_reference_doc_ids && String(message.ai_reference_doc_ids).trim()) {
+                this.createDocumentLinks(container, message.ai_reference_doc_ids);
+            }
+
+            return container;
         }
 
-        // 新增方法：创建文档链接
+        renderFeedbackControls(message) {
+            const messageId = Number(message && message.id ? message.id : 0);
+            if (!messageId) return '';
+            return `
+                <div class="message-feedback" data-message-id="${messageId}">
+                    <div class="message-feedback-controls">
+                        <span class="feedback-prompt">这条回答有帮助吗？</span>
+                        <button type="button" class="feedback-action-button" data-feedback-action="positive" title="有帮助" aria-label="有帮助"><i class="fas fa-thumbs-up"></i></button>
+                        <button type="button" class="feedback-action-button" data-feedback-action="negative" title="需要改进" aria-label="需要改进"><i class="fas fa-thumbs-down"></i></button>
+                    </div>
+                    <div class="feedback-reasons" hidden>
+                        <div class="feedback-reason-title">请选择问题类型</div>
+                        <div class="feedback-reason-list">
+                            <button type="button" class="feedback-reason-button" data-feedback-reason="incorrect">内容错误</button>
+                            <button type="button" class="feedback-reason-button" data-feedback-reason="insufficient">信息不完整</button>
+                            <button type="button" class="feedback-reason-button" data-feedback-reason="irrelevant">与问题无关</button>
+                            <button type="button" class="feedback-reason-button" data-feedback-reason="unclear">表达不清楚</button>
+                            <button type="button" class="feedback-reason-button" data-feedback-reason="other">其他问题</button>
+                        </div>
+                        <div class="feedback-other" hidden>
+                            <input class="feedback-other-input" type="text" maxlength="300" placeholder="请简单说明问题...">
+                            <button type="button" class="feedback-submit-button" data-feedback-submit>提交</button>
+                        </div>
+                    </div>
+                    <div class="feedback-status" aria-live="polite"></div>
+                </div>
+            `;
+        }
+
+        mapFeedbackReason(reasonKey) {
+            const map = {
+                incorrect: { type: 'correction', comment: 'content is incorrect' },
+                insufficient: { type: 'additional_information', comment: 'response lacks evidence' },
+                irrelevant: { type: 'irrelevant', comment: 'response is irrelevant' },
+                unclear: { type: 'negative', comment: 'response is unclear' },
+                other: { type: 'negative', comment: 'other reason' },
+            };
+            return map[reasonKey] || map.other;
+        }
+
+        async submitMessageFeedback(message, feedbackType, comment) {
+            const currentUser = Utils.getCurrentUser();
+            const userId = Number(currentUser && currentUser.id ? currentUser.id : 0);
+            const conversationId = Number(message.session_id || message.conversation_id || this.currentConversationId || 0);
+            const messageId = Number(message.id || 0);
+
+            if (!userId) {
+                Utils.showMessage('请先登录', 'warning');
+                return false;
+            }
+            if (!conversationId || !messageId) {
+                Utils.showMessage('无法定位此回复', 'warning');
+                return false;
+            }
+
+            const response = await fetch('/api/v1/feedback/ingest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...Utils.getAuthHeaders(),
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    conversation_id: conversationId,
+                    message_id: messageId,
+                    feedback_type: feedbackType,
+                    comment: comment || null,
+                }),
+            });
+
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch (_) {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(payload?.message || payload?.msg || `反馈失败 (${response.status})`);
+            }
+
+            Utils.showMessage('反馈已提交', 'success');
+            return true;
+        }
+
+        lockFeedbackControls(container, text, action) {
+            const controls = container.querySelector('.message-feedback-controls');
+            const reasons = container.querySelector('.feedback-reasons');
+            if (controls) {
+                controls.querySelectorAll('button').forEach((button) => {
+                    button.disabled = true;
+                });
+            }
+            if (action) {
+                const selected = controls?.querySelector(`[data-feedback-action="${action}"]`);
+                selected?.classList.add('is-selected');
+            }
+            if (reasons) {
+                reasons.hidden = true;
+                reasons.querySelectorAll('button, input').forEach((element) => element.disabled = true);
+            }
+            const existing = container.querySelector('.feedback-status');
+            if (existing) existing.textContent = text || '已提交反馈';
+        }
+
         createDocumentLinks(container, referenceData) {
             try {
                 this.loadAndDisplayDocuments(container, referenceData);
@@ -1526,14 +1605,13 @@
             }
         }
 
-        // 修改 loadDocumentTitlesAsync 方法
         async loadDocumentTitlesAsync(container, docs) {
             try {
                 console.log('开始加载文档标题，文档列表:', docs);
 
                 // 获取所有文档链接元素
                 const docLinks = container.querySelectorAll('.document-item');
-                console.log('找到的文档链接数量:', docLinks.length);
+                console.log('找到的文档链接数量', docLinks.length);
 
                 // 为每个文档链接独立加载标题
                 const promises = Array.from(docLinks).map(async (link) => {
@@ -1549,7 +1627,7 @@
                         console.log(`正在获取文档 ${docId} 的标题...`);
                         const libraryType = link.getAttribute('data-library-type') || 'breakdown';
                         const response = await documentAPI.getDocumentById(parseInt(docId), libraryType);
-                        console.log(`文档 ${docId} 的响应:`, response);
+                        console.log(`文档 ${docId} 的响应`, response);
 
                         let title = `文档 ${docId}`; // 默认标题
 
@@ -1564,7 +1642,7 @@
                                 // 直接是文档对象
                                 title = response.title;
                             } else if (response.data && response.data.title) {
-                                // 其他可能的结构
+                                // 其他可能的结果
                                 title = response.data.title;
                             }
                         }
@@ -1618,7 +1696,7 @@
 
             // 如果是AI消息，使用Markdown渲染
             if (isAI) {
-                content = ensureTableSpacing(content)
+                content = ensureTableSpacing(content);
                 return MarkdownParser.render(content);
             }
 
@@ -1700,7 +1778,7 @@
                         color: white;
                         text-align: center;
                         margin-top: 10px;
-                }
+                    }
                 `;
                 document.head.appendChild(style);
             }
@@ -1728,7 +1806,7 @@
                     <div class="empty-icon"><i class="fas fa-robot"></i></div>
                     <div class="empty-title">AI维修助手</div>
                     <div class="empty-text">
-                        您好！我是您的维修辅助AI助手。<br>
+                        您好，我是您的维修辅助 AI 助手。<br>
                         我可以帮您解决设备故障、提供维修建议、查找相关文档。
                     </div>
                     <div class="empty-text" style="margin-top: 15px; color: #4a9eff; font-weight: 500;">
@@ -1754,8 +1832,8 @@
 
                 if (response) {
                     if (response.code !== undefined) {
-                        if (response.code !== 1) {
-                            throw new Error(response.msg || '创建对话失败');
+                        if (response.code !== 0) {
+                            throw new Error(response.msg || 'Conversation not found');
                         }
                         newConversation = response.data;
                     } else if (response.id !== undefined) {
@@ -1809,8 +1887,8 @@
                 console.log('更新标题响应:', response);
 
                 if (response) {
-                    if (response.code !== undefined && response.code !== 1) {
-                        throw new Error(response.msg || '更新标题失败');
+                    if (response.code !== undefined && response.code !== 0) {
+                        throw new Error(response.msg || 'Conversation not found');
                     }
                 }
 
@@ -1824,7 +1902,7 @@
 
                 // 重新加载历史列表
                 await this.loadHistoryList(this.currentPage);
-                Utils.showMessage('标题已更新', 'success');
+                Utils.showMessage('Title updated', 'success');
 
             } catch (error) {
                 console.error('更新标题失败:', error);
@@ -1834,7 +1912,7 @@
 
         // 删除对话
         async deleteConversation(conversationId) {
-            if (!confirm('确定要删除这个对话吗？此操作不可恢复。')) {
+            if (!confirm('Delete this conversation?')) {
                 return;
             }
 
@@ -1844,8 +1922,8 @@
                 console.log('删除对话响应:', response);
 
                 if (response) {
-                    if (response.code !== undefined && response.code !== 1) {
-                        throw new Error(response.msg || '删除对话失败');
+                    if (response.code !== undefined && response.code !== 0) {
+                        throw new Error(response.msg || 'Conversation not found');
                     }
                 }
 
@@ -1866,7 +1944,7 @@
 
                 // 重新加载历史列表（重置到第一页，避免页码越界）
                 await this.loadHistoryList(1);
-                Utils.showMessage('对话已删除', 'success');
+                Utils.showMessage('Conversation deleted', 'success');
 
             } catch (error) {
                 console.error('删除对话失败:', error);
@@ -1888,7 +1966,7 @@
             }
 
             if (!this.currentConversationId) {
-                Utils.showMessage('请先选择或创建一个对话', 'warning');
+                Utils.showMessage('请选择或新建一个对话', 'warning');
                 return;
             }
 
@@ -1900,7 +1978,7 @@
             let tempImageUrls = [];
             const attachmentsToSend = [...this.currentAttachments];
 
-            // 发送后立即清空输入区，避免旧内容停留在输入框里。
+            // 发送后立即清空输入区，避免旧内容停留在输入框里
             this.clearInputAndAttachments();
 
             try {
@@ -1925,7 +2003,7 @@
                         // 情况1：messageAPI.uploadImages 直接返回图片数组
                         uploadedImageUrls = uploadResp.map(img => img.url);
                     } else if (uploadResp && uploadResp.code === 1 && Array.isArray(uploadResp.data)) {
-                        // 情况2：返回标准的Result对象，图片在data字段中
+                        // 情况2：返回标准的Result对象，图片在data字段
                         uploadedImageUrls = uploadResp.data.map(img => img.url);
                     } else if (uploadResp && uploadResp.url) {
                         // 情况3：单张图片直接返回URL
@@ -1958,6 +2036,7 @@
                         }
                     },
                     async () => {
+                        console.log('[FeedbackFrontend] stream complete, reload conversation:', this.currentConversationId);
                         this.removeTemporaryElements();
                         this.removeStreamingMessage();
                         await this.loadConversation(this.currentConversationId);
@@ -1980,50 +2059,6 @@
                 sendBtn.disabled = false;
             }
         }
-
-        // 显示 AI 临时消息容器（带思考动画）
-        showAIStreamingMessage() {
-            const container = document.getElementById('conversationContent');
-            if (!container) return;
-
-            const tempDiv = document.createElement('div');
-            tempDiv.className = 'message-container ai';
-            tempDiv.id = 'streamingAIMessage';
-            tempDiv.innerHTML = `
-                <div class="message-sender ai">AI助手</div>
-                <div class="message-content ai">
-                    <div class="message-text streaming-text">正在思考...</div>
-                    <div class="message-time"></div>
-                </div>
-            `;
-            container.appendChild(tempDiv);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // 更新流式消息内容
-        updateStreamingMessage(content, renderImages = false) {
-            const msgDiv = document.getElementById('streamingAIMessage');
-            if (!msgDiv) return;
-
-            const textDiv = msgDiv.querySelector('.message-text');
-            if (textDiv) {
-                // 使用 Markdown 渲染（可选，如果流式逐步渲染可能会影响性能，可先纯文本�?
-                textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
-                this.bindInlineMessageImages(msgDiv);
-                // 滚动到消息底部
-                const container = document.getElementById('conversationContent');
-                container.scrollTop = container.scrollHeight;
-            }
-        }
-
-        // 更新参考文档（可选）
-        updateReferenceDocuments(docs) {
-            const msgDiv = document.getElementById('streamingAIMessage');
-            if (!msgDiv) return;
-
-            this.loadAndDisplayDocuments(msgDiv, docs);
-        }
-
 
         // 添加临时用户消息
         addTemporaryUserMessage(text, imageUrls) {
@@ -2168,7 +2203,7 @@
                 this.speechRecognition.onend = () => {
                     this.isListening = false;
                     this.updateVoiceInputButtonState();
-                    this.updateVoiceStatus(this.speechFinalText ? '识别完成' : '语音输入已停止');
+                    this.updateVoiceStatus(this.speechFinalText ? 'Recognition complete' : 'Voice input stopped');
                 };
 
                 this.speechRecognition.onerror = () => {
@@ -2177,7 +2212,7 @@
                     this.updateVoiceStatus('语音识别失败，请重试');
                 };
             } else {
-                this.updateVoiceStatus('当前浏览器不支持语音输入（建议 Chrome/Edge）');
+                this.updateVoiceStatus('Voice input is not supported in this browser');
                 const btn = document.getElementById('voiceInputButton');
                 if (btn) btn.disabled = true;
             }
@@ -2338,12 +2373,10 @@
                 window.AIConversation = new AIConversationSystem();
             } else {
                 console.error('API未加载完成，请刷新页面');
-                Utils.showMessage('系统初始化失败，请刷新页面', 'error');
+                Utils.showMessage('System initialization failed. Please refresh the page.', 'error');
             }
         }, 500);
     });
 </script>
 </body>
 </html>
-
-

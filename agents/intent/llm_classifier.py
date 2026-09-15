@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, Optional
 
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_async_openai_client
 
 from .prompts import SYSTEM_PROMPT
 from .schemas import RouteDecision
@@ -24,10 +25,8 @@ def _parse_json_object(content: str) -> Dict[str, Any]:
 
 
 async def classify_with_llm(question: str, timeout: Optional[float] = None) -> RouteDecision:
-    from openai import AsyncOpenAI
-
     request_timeout = timeout or float(os.getenv("INTENT_ROUTER_TIMEOUT", "8"))
-    client = AsyncOpenAI(
+    client = create_async_openai_client(
         base_url=get_ai_base_url(),
         api_key=os.getenv("API_KEY", "EMPTY"),
         timeout=request_timeout,

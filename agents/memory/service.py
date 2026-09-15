@@ -753,11 +753,11 @@ class MemoryService:
         retrieval_query: str,
         heuristic: ContextAnalysis,
     ) -> Dict[str, Any]:
-        from openai import AsyncOpenAI
         from utils.ai_endpoint import get_ai_base_url
+        from utils.openai_client import create_async_openai_client
 
         timeout = get_positive_float_env("MEMORY_CONTEXT_CLASSIFIER_TIMEOUT", 4.0)
-        client = AsyncOpenAI(
+        client = create_async_openai_client(
             base_url=get_ai_base_url(),
             api_key=os.getenv("API_KEY", "EMPTY"),
             timeout=timeout,

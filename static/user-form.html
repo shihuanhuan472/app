@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户表单 - 设备维修辅助系统</title>
+    <title data-app-template="用户表单 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/api.js"></script>
@@ -235,7 +236,7 @@
             <div class="logo-container">
                 <div class="logo">
                     <div class="logo-icon">🔧</div>
-                    <span>维修辅助系统</span>
+                    <span data-app-text="shortName"></span>
                 </div>
             </div>
 
@@ -550,9 +551,17 @@
 
                 // 验证用户名格式
                 const username = this.getFormValue('username');
-                if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-                    this.highlightError('username', '用户名只能包含字母、数字和下划线');
-                    isValid = false;
+                if (username) {
+                    if (username.length < 3) {
+                        this.highlightError('username', '用户名至少需要 3 个字符');
+                        isValid = false;
+                    } else if (username.length > 50) {
+                        this.highlightError('username', '用户名不能超过 50 个字符');
+                        isValid = false;
+                    } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                        this.highlightError('username', '用户名只能包含字母、数字和下划线');
+                        isValid = false;
+                    }
                 }
 
                 // 校验角色与权限是否一一对应

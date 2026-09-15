@@ -1,4 +1,4 @@
-/* 基础重置 */
+/* 鍩虹閲嶇疆 */
 * {
     margin: 0;
     padding: 0;
@@ -12,7 +12,7 @@ body {
     min-height: 100vh;
 }
 
-/* 登录页面样式 */
+/* 鐧诲綍椤甸潰鏍峰紡 */
 .login-container {
     min-height: 100vh;
     display: flex;
@@ -200,13 +200,13 @@ body {
     font-size: 14px;
 }
 
-/* 系统容器布局 */
+/* 绯荤粺瀹瑰櫒甯冨眬 */
 .system-container {
     display: flex;
     min-height: 100vh;
 }
 
-/* 侧边导航栏 */
+/* 渚ц竟瀵艰埅鏍?*/
 .sidebar {
     width: 240px;
     height: 100vh;
@@ -314,7 +314,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* 主内容区域 */
+/* 涓诲唴瀹瑰尯鍩?*/
 .main-content {
     flex: 1;
     min-width: 0;
@@ -349,7 +349,7 @@ body {
     gap: 12px;
 }
 
-/* 按钮样式 */
+/* 鎸夐挳鏍峰紡 */
 .btn {
     padding: 6px 16px;
     border-radius: 6px;
@@ -429,7 +429,7 @@ body {
     background-color: #fff;
 }
 
-/* 卡片样式 */
+/* 鍗＄墖鏍峰紡 */
 .card {
     background: white;
     border-radius: 10px;
@@ -458,7 +458,7 @@ body {
     font-size: 14px;
 }
 
-/* 文档列表样式 */
+/* 鏂囨。鍒楄〃鏍峰紡 */
 .document-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -508,7 +508,7 @@ body {
     border-top: 1px solid #f0f0f0;
 }
 
-/* 表单样式 */
+/* 琛ㄥ崟鏍峰紡 */
 .form-container {
     max-width: 800px;
     margin: 0 auto;
@@ -539,7 +539,7 @@ body {
     resize: vertical;
 }
 
-/* 用户列表样式 */
+/* 鐢ㄦ埛鍒楄〃鏍峰紡 */
 .user-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -605,7 +605,7 @@ body {
     width: 20px;
 }
 
-/* 搜索框 */
+/* 鎼滅储妗?*/
 .search-box {
     position: relative;
     width: 100%;
@@ -628,7 +628,7 @@ body {
     color: #999;
 }
 
-/* 消息提示 */
+/* 娑堟伅鎻愮ず */
 .message {
     position: fixed;
     top: 20px;
@@ -697,7 +697,7 @@ body {
     }
 }
 
-/* 响应式设计 */
+/* 鍝嶅簲寮忚璁?*/
 @media (max-width: 768px) {
     .system-container {
         flex-direction: column;
@@ -741,7 +741,7 @@ body {
     }
 }
 
-/* 图片上传区域 */
+/* 鍥剧墖涓婁紶鍖哄煙 */
 .image-upload-area {
     border: 2px dashed #d9e3f0;
     border-radius: 8px;
@@ -800,7 +800,7 @@ body {
     cursor: pointer;
 }
 
-/* 小型图片上传区域 */
+/* 灏忓瀷鍥剧墖涓婁紶鍖哄煙 */
 .image-upload-area-small {
     border: 2px dashed #d9e3f0;
     border-radius: 6px;
@@ -839,7 +839,7 @@ body {
     display: block;
 }
 
-/* 小型预览容器 */
+/* 灏忓瀷棰勮瀹瑰櫒 */
 .image-previews-small {
     display: flex;
     gap: 8px;
@@ -885,9 +885,9 @@ body {
     background: #dc2626;
 }
 
-/* 在现有样式后面添加以下内容 */
+/* 鍦ㄧ幇鏈夋牱寮忓悗闈㈡坊鍔犱互涓嬪唴瀹?*/
 
-/* AI辅助页面样式补充 */
+/* AI杈呭姪椤甸潰鏍峰紡琛ュ厖 */
 .ai-container {
     display: flex;
     height: calc(100vh - 120px);
@@ -1342,7 +1342,7 @@ body {
 }
 
 
-/* AI辅助页面样式 - 根据原型图设计 */
+/* AI杈呭姪椤甸潰鏍峰紡 - 鏍规嵁鍘熷瀷鍥捐璁?*/
 .ai-page-container {
     display: flex;
     height: calc(100vh - 120px);
@@ -1350,7 +1350,7 @@ body {
     margin-top: 20px;
 }
 
-/* 左侧历史对话栏 - 原型图左侧样式 */
+/* 宸︿晶鍘嗗彶瀵硅瘽鏍?- 鍘熷瀷鍥惧乏渚ф牱寮?*/
 .history-sidebar {
     flex: 0 0 280px;
     background: white;
@@ -1423,7 +1423,7 @@ body {
     background: #f9f9f9;
 }
 
-/* 历史对话项样式 - 修复和增强 */
+/* 鍘嗗彶瀵硅瘽椤规牱寮?- 淇鍜屽寮?*/
 .history-item {
     padding: 12px 15px;
     background: #f8f9fa;
@@ -1455,7 +1455,7 @@ body {
     font-weight: 500;
     color: #1a1a1a;
     line-height: 1.5;
-    padding-right: 60px; /* 为操作按钮留出空间 */
+    padding-right: 60px; /* 涓烘搷浣滄寜閽暀鍑虹┖闂?*/
     word-break: break-word;
     hyphens: auto;
 }
@@ -1466,7 +1466,7 @@ body {
     margin-top: 2px;
 }
 
-/* 操作按钮容器 */
+/* 鎿嶄綔鎸夐挳瀹瑰櫒 */
 .history-item-actions {
     position: absolute;
     right: 10px;
@@ -1489,7 +1489,7 @@ body {
     background: linear-gradient(90deg, transparent 0%, rgba(231, 245, 255, 0.9) 30%, rgba(231, 245, 255, 0.9) 100%);
 }
 
-/* 操作按钮通用样式 */
+/* 鎿嶄綔鎸夐挳閫氱敤鏍峰紡 */
 .btn-edit-title,
 .btn-delete-conversation {
     width: 28px;
@@ -1538,7 +1538,7 @@ body {
     transform: scale(0.95);
 }
 
-/* 历史对话列表中的空状态样式 */
+/* 鍘嗗彶瀵硅瘽鍒楄〃涓殑绌虹姸鎬佹牱寮?*/
 .empty-history {
     text-align: center;
     padding: 40px 20px;
@@ -1570,7 +1570,7 @@ body {
     opacity: 0.7;
 }
 
-/* 搜索框样式优化 */
+/* 鎼滅储妗嗘牱寮忎紭鍖?*/
 .search-box {
     position: relative;
     margin-top: 15px;
@@ -1608,7 +1608,7 @@ body {
     font-size: 14px;
 }
 
-/* 新建对话按钮样式 */
+/* 鏂板缓瀵硅瘽鎸夐挳鏍峰紡 */
 .new-conversation-btn {
     width: 100%;
     padding: 12px;
@@ -1643,7 +1643,7 @@ body {
     font-size: 12px;
 }
 
-/* 历史对话区域样式优化 */
+/* 鍘嗗彶瀵硅瘽鍖哄煙鏍峰紡浼樺寲 */
 .history-section {
     flex: 1;
     overflow-y: auto;
@@ -1672,7 +1672,7 @@ body {
     border-radius: 2px;
 }
 
-/* 对话头部样式优化 */
+/* 瀵硅瘽澶撮儴鏍峰紡浼樺寲 */
 .conversation-header {
     padding: 20px;
     border-bottom: 1px solid #f0f0f0;
@@ -1704,7 +1704,7 @@ body {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* 输入区域样式优化 */
+/* 杈撳叆鍖哄煙鏍峰紡浼樺寲 */
 .input-section {
     padding: 20px;
     border-top: 1px solid #f0f0f0;
@@ -1723,7 +1723,7 @@ body {
     }
 }
 
-/* 按钮禁用状态样式 */
+/* 鎸夐挳绂佺敤鐘舵€佹牱寮?*/
 .btn-edit-title:disabled,
 .btn-delete-conversation:disabled {
     opacity: 0.5;
@@ -1738,7 +1738,7 @@ body {
     box-shadow: none;
 }
 
-/* 移动端响应式调整 */
+/* 绉诲姩绔搷搴斿紡璋冩暣 */
 @media (max-width: 768px) {
     .history-item {
         padding: 10px 12px;
@@ -1823,7 +1823,7 @@ body {
     color: #ef4444;
 }
 
-/* 消息内容框 */
+/* 娑堟伅鍐呭妗?*/
 .message-content {
     padding: 15px;
     border-radius: 8px;
@@ -1856,7 +1856,7 @@ body {
     margin-top: 8px;
 }
 
-/* 文档引用 - 在AI消息下方 */
+/* 鏂囨。寮曠敤 - 鍦ˋI娑堟伅涓嬫柟 */
 .message-documents {
     margin-top: 15px;
 }
@@ -1893,7 +1893,7 @@ body {
 /*    color: #333;*/
 /*}*/
 
-/* 输入区域 - 简化版，添加附件按钮 */
+/* 杈撳叆鍖哄煙 - 绠€鍖栫増锛屾坊鍔犻檮浠舵寜閽?*/
 .input-section {
     padding: 20px;
     border-top: 1px solid #f0f0f0;
@@ -1924,7 +1924,7 @@ body {
     box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.1);
 }
 
-/* 按钮容器 */
+/* 鎸夐挳瀹瑰櫒 */
 .button-container {
     display: flex;
     gap: 10px;
@@ -1978,7 +1978,7 @@ body {
     transform: none;
 }
 
-/* 附件预览区域 */
+/* 闄勪欢棰勮鍖哄煙 */
 .attachment-preview-container {
     display: flex;
     gap: 10px;
@@ -2028,7 +2028,7 @@ body {
     color: #ff6b6b;
 }
 
-/* 空状态 */
+/* 绌虹姸鎬?*/
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -2059,7 +2059,7 @@ body {
     line-height: 1.5;
 }
 
-/* AI思考中状态 */
+/* AI鎬濊€冧腑鐘舵€?*/
 .ai-thinking-container {
     align-self: flex-start;
     max-width: 85%;
@@ -2120,7 +2120,7 @@ body {
     50% { opacity: 1; transform: scale(1); }
 }
 
-/* 搜索框 */
+/* 鎼滅储妗?*/
 .search-box {
     margin-top: 15px;
     position: relative;
@@ -2147,7 +2147,7 @@ body {
     color: #999;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 1024px) {
     .ai-page-container {
         flex-direction: column;
@@ -2163,13 +2163,13 @@ body {
     }
 }
 
-/* 文件上传隐藏输入框 */
+/* 鏂囦欢涓婁紶闅愯棌杈撳叆妗?*/
 .file-input {
     display: none;
 }
 
 
-/* 分页控件样式 */
+/* 鍒嗛〉鎺т欢鏍峰紡 */
 .pagination {
     display: flex;
     align-items: center;
@@ -2273,14 +2273,14 @@ body {
     border-color: #4a9eff;
 }
 
-/* 调整用户列表布局，每行显示更少的卡片 */
+/* 璋冩暣鐢ㄦ埛鍒楄〃甯冨眬锛屾瘡琛屾樉绀烘洿灏戠殑鍗＄墖 */
 .user-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 24px;
 }
 
-/* 调整用户卡片样式，增加内边距让布局更宽松 */
+/* 璋冩暣鐢ㄦ埛鍗＄墖鏍峰紡锛屽鍔犲唴杈硅窛璁╁竷灞€鏇村鏉?*/
 .user-card {
     background: white;
     border-radius: 12px;
@@ -2314,7 +2314,7 @@ body {
 
 .user-info-details {
     flex: 1;
-    min-width: 0; /* 防止内容溢出 */
+    min-width: 0; /* 闃叉鍐呭婧㈠嚭 */
 }
 
 .user-info-name {
@@ -2349,7 +2349,7 @@ body {
     flex-shrink: 0;
 }
 
-/* 空状态样式调整 */
+/* 绌虹姸鎬佹牱寮忚皟鏁?*/
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;
@@ -2367,7 +2367,7 @@ body {
     font-size: 16px;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 1200px) {
     .user-list {
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -2391,7 +2391,7 @@ body {
     }
 }
 
-/* 卡片标题区域调整 */
+/* 鍗＄墖鏍囬鍖哄煙璋冩暣 */
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -2412,7 +2412,7 @@ body {
     font-size: 15px;
 }
 
-/* 优化用户管理页面样式 */
+/* 浼樺寲鐢ㄦ埛绠＄悊椤甸潰鏍峰紡 */
 .user-card {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 16px;
@@ -2511,7 +2511,7 @@ body {
     margin-top: auto;
 }
 
-/* 模态框样式优化 */
+/* 妯℃€佹鏍峰紡浼樺寲 */
 .modal {
     position: fixed;
     top: 0;
@@ -2590,7 +2590,7 @@ body {
     gap: 12px;
 }
 
-/* 用户卡片样式 */
+/* 鐢ㄦ埛鍗＄墖鏍峰紡 */
 .user-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -2683,7 +2683,7 @@ body {
     margin-top: 20px;
 }
 
-/* 加载状态 */
+/* 鍔犺浇鐘舵€?*/
 .loading-state .spinner {
     border: 3px solid #f3f3f3;
     border-top: 3px solid #4a9eff;
@@ -2699,7 +2699,7 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* 表单错误样式 */
+/* 琛ㄥ崟閿欒鏍峰紡 */
 .error {
     border-color: #ef4444 !important;
 }
@@ -2710,7 +2710,7 @@ body {
     margin-top: 4px;
 }
 
-/* 表单样式优化 */
+/* 琛ㄥ崟鏍峰紡浼樺寲 */
 .form-group {
     margin-bottom: 20px;
 }
@@ -2748,7 +2748,7 @@ body {
     background: #fef2f2;
 }
 
-/* 空状态样式 */
+/* 绌虹姸鎬佹牱寮?*/
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;
@@ -2778,7 +2778,7 @@ body {
     color: #6b7280;
 }
 
-/* 统计卡片 */
+/* 缁熻鍗＄墖 */
 .stats-card {
     display: flex;
     align-items: center;
@@ -2829,7 +2829,7 @@ body {
     color: #6b7280;
 }
 
-/* 搜索框优化 */
+/* 鎼滅储妗嗕紭鍖?*/
 .user-search {
     position: relative;
     margin-bottom: 24px;
@@ -2859,7 +2859,7 @@ body {
     color: #9ca3af;
 }
 
-/* 用户卡片状态指示器 */
+/* 鐢ㄦ埛鍗＄墖鐘舵€佹寚绀哄櫒 */
 .user-status {
     position: absolute;
     top: 20px;
@@ -2879,7 +2879,7 @@ body {
     background: #6b7280;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 768px) {
     .user-card {
         flex-direction: column;
@@ -2906,7 +2906,7 @@ body {
     }
 }
 
-/* 添加用户按钮动画 */
+/* 娣诲姞鐢ㄦ埛鎸夐挳鍔ㄧ敾 */
 @keyframes pulse {
     0% {
         box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.4);
@@ -2923,7 +2923,7 @@ body {
     animation: pulse 2s infinite;
 }
 
-/* 简洁文档列表样式 */
+/* 绠€娲佹枃妗ｅ垪琛ㄦ牱寮?*/
 .document-container {
     padding: 20px 0;
 }
@@ -2987,7 +2987,7 @@ body {
     margin-bottom: 12px;
 }
 
-/* 列表标题行需要同时放标题和库类型徽标，方便用户直接区分故障库/知识库。 */
+/* 鍒楄〃鏍囬琛岄渶瑕佸悓鏃舵斁鏍囬鍜屽簱绫诲瀷寰芥爣锛屾柟渚跨敤鎴风洿鎺ュ尯鍒嗘晠闅滃簱/鐭ヨ瘑搴撱€?*/
 .document-item-title-row {
     display: flex;
     align-items: flex-start;
@@ -3006,7 +3006,7 @@ body {
     overflow: hidden;
 }
 
-/* 库类型徽标使用固定尺寸样式，避免标题长短变化时徽标被压缩变形。 */
+/* 搴撶被鍨嬪窘鏍囦娇鐢ㄥ浐瀹氬昂瀵告牱寮忥紝閬垮厤鏍囬闀跨煭鍙樺寲鏃跺窘鏍囪鍘嬬缉鍙樺舰銆?*/
 .document-library-badge {
     flex-shrink: 0;
     padding: 2px 8px;
@@ -3016,13 +3016,13 @@ body {
     line-height: 1.5;
 }
 
-/* 故障库使用偏告警的颜色，和故障案例的业务含义保持一致。 */
+/* 鏁呴殰搴撲娇鐢ㄥ亸鍛婅鐨勯鑹诧紝鍜屾晠闅滄渚嬬殑涓氬姟鍚箟淇濇寔涓€鑷淬€?*/
 .document-library-badge.breakdown {
     color: #b45309;
     background: #fff7ed;
 }
 
-/* 知识库使用偏知识沉淀的绿色，和故障库徽标形成视觉区分。 */
+/* 鐭ヨ瘑搴撲娇鐢ㄥ亸鐭ヨ瘑娌夋穩鐨勭豢鑹诧紝鍜屾晠闅滃簱寰芥爣褰㈡垚瑙嗚鍖哄垎銆?*/
 .document-library-badge.knowledge {
     color: #047857;
     background: #ecfdf5;
@@ -3475,7 +3475,7 @@ body {
     background: #fef2f2;
 }
 
-/* 空状态样式 */
+/* 绌虹姸鎬佹牱寮?*/
 .document-empty {
     grid-column: 1 / -1;
     text-align: center;
@@ -3494,7 +3494,7 @@ body {
     margin-bottom: 20px;
 }
 
-/* 简洁搜索框 */
+/* 绠€娲佹悳绱㈡ */
 .header-actions {
     display: flex;
     gap: 15px;
@@ -3529,7 +3529,7 @@ body {
     color: #9ca3af;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 1200px) {
     .document-grid {
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -3563,7 +3563,7 @@ body {
     }
 }
 
-/* 简洁分页样式 */
+/* 绠€娲佸垎椤垫牱寮?*/
 .pagination {
     display: flex;
     align-items: center;
@@ -3633,9 +3633,9 @@ body {
     border-color: #4a9eff;
 }
 
-/* 在文件末尾添加以下代码 */
+/* 鍦ㄦ枃浠舵湯灏炬坊鍔犱互涓嬩唬鐮?*/
 
-/* 修复侧边栏搜索框溢出问题 */
+/* 淇渚ц竟鏍忔悳绱㈡婧㈠嚭闂 */
 .history-sidebar .search-box {
     width: 100%;
     max-width: 100%;
@@ -3648,7 +3648,7 @@ body {
     box-sizing: border-box;
 }
 
-/* 调整侧边栏布局 */
+/* 璋冩暣渚ц竟鏍忓竷灞€ */
 .sidebar-header {
     padding: 20px 20px 15px 20px;
 }
@@ -3660,30 +3660,30 @@ body {
     margin-bottom: 15px;
 }
 
-/* 确保搜索框容器正确 */
+/* 纭繚鎼滅储妗嗗鍣ㄦ纭?*/
 .search-box {
     position: relative;
     margin-bottom: 0;
 }
 
-/* 历史对话列表正确显示 */
+/* 鍘嗗彶瀵硅瘽鍒楄〃姝ｇ‘鏄剧ず */
 .history-section {
     padding: 0 20px 20px;
-    overflow: hidden; /* 防止内容溢出 */
+    overflow: hidden; /* 闃叉鍐呭婧㈠嚭 */
 }
 
-/* 确保历史对话项不溢出 */
+/* 纭繚鍘嗗彶瀵硅瘽椤逛笉婧㈠嚭 */
 .history-item-title {
     font-size: 14px;
     font-weight: 500;
     color: #333;
     margin-bottom: 5px;
     line-height: 1.4;
-    word-break: break-word; /* 允许长单词换行 */
-    overflow-wrap: break-word; /* 处理长单词 */
+    word-break: break-word; /* 鍏佽闀垮崟璇嶆崲琛?*/
+    overflow-wrap: break-word; /* 澶勭悊闀垮崟璇?*/
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 768px) {
     .history-sidebar {
         flex: 0 0 auto;
@@ -3696,7 +3696,7 @@ body {
     }
 }
 
-/* 文档详情页面样式 */
+/* 鏂囨。璇︽儏椤甸潰鏍峰紡 */
 .document-detail-container {
     padding: 20px;
     background-color: #f8f9fa;
@@ -3794,7 +3794,7 @@ body {
     font-style: italic;
 }
 
-/* 图片网格样式 */
+/* 鍥剧墖缃戞牸鏍峰紡 */
 .image-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -3848,7 +3848,7 @@ body {
     gap: 15px;
 }
 
-/* 加载和错误状态 */
+/* 鍔犺浇鍜岄敊璇姸鎬?*/
 .document-loading {
     display: flex;
     flex-direction: column;
@@ -3870,7 +3870,7 @@ body {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-/* 加载动画 */
+/* 鍔犺浇鍔ㄧ敾 */
 .loading-spinner {
     width: 60px;
     height: 60px;
@@ -3886,7 +3886,7 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* 修复：历史对话项操作按钮样式 */
+/* 淇锛氬巻鍙插璇濋」鎿嶄綔鎸夐挳鏍峰紡 */
 .history-item {
     position: relative;
     overflow: visible;
@@ -3909,7 +3909,7 @@ body {
     opacity: 1;
 }
 
-/* 修复：操作按钮样式 - 确保不被覆盖 */
+/* 淇锛氭搷浣滄寜閽牱寮?- 纭繚涓嶈瑕嗙洊 */
 .history-item .btn-edit-title,
 .history-item .btn-delete-conversation {
     width: 28px;
@@ -3950,13 +3950,13 @@ body {
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
 }
 
-/* 确保历史对话项有足够的padding给操作按钮 */
+/* 纭繚鍘嗗彶瀵硅瘽椤规湁瓒冲鐨刾adding缁欐搷浣滄寜閽?*/
 .history-item-title {
-    padding-right: 80px !important; /* 为操作按钮留出空间 */
+    padding-right: 80px !important; /* 涓烘搷浣滄寜閽暀鍑虹┖闂?*/
     transition: all 0.3s ease;
 }
 
-/* 修复背景渐变在鼠标移出时的闪烁问题 */
+/* 淇鑳屾櫙娓愬彉鍦ㄩ紶鏍囩Щ鍑烘椂鐨勯棯鐑侀棶棰?*/
 .history-item-actions {
     background: linear-gradient(90deg, transparent 0%, rgba(248, 249, 250, 0.95) 20%, rgba(248, 249, 250, 0.95) 100%);
     padding: 4px 8px 4px 20px;
@@ -3968,10 +3968,10 @@ body {
     background: linear-gradient(90deg, transparent 0%, rgba(231, 245, 255, 0.95) 20%, rgba(231, 245, 255, 0.95) 100%);
 }
 
-/* 修复操作按钮在移动端的显示 */
+/* 淇鎿嶄綔鎸夐挳鍦ㄧЩ鍔ㄧ鐨勬樉绀?*/
 @media (max-width: 768px) {
     .history-item-actions {
-        opacity: 1; /* 在移动端始终显示 */
+        opacity: 1; /* 鍦ㄧЩ鍔ㄧ濮嬬粓鏄剧ず */
         padding: 2px 4px 2px 12px;
         right: 5px;
     }
@@ -3988,7 +3988,7 @@ body {
     }
 }
 
-/* 优化：对话聊天框样式 */
+/* 浼樺寲锛氬璇濊亰澶╂鏍峰紡 */
 .conversation-content {
     flex: 1;
     padding: 20px;
@@ -4000,7 +4000,7 @@ body {
     max-height: calc(100vh - 300px);
 }
 
-/* 消息容器 */
+/* 娑堟伅瀹瑰櫒 */
 .message-container {
     display: flex;
     flex-direction: column;
@@ -4016,7 +4016,7 @@ body {
     align-self: flex-end;
 }
 
-/* 消息发送者标签 */
+/* 娑堟伅鍙戦€佽€呮爣绛?*/
 .message-sender {
     font-size: 12px;
     font-weight: 500;
@@ -4034,7 +4034,7 @@ body {
     text-align: right;
 }
 
-/* 消息内容框 */
+/* 娑堟伅鍐呭妗?*/
 .message-content {
     padding: 12px 16px;
     border-radius: 12px;
@@ -4059,7 +4059,7 @@ body {
     border-radius: 12px 12px 4px 12px;
 }
 
-/* 消息文本 */
+/* 娑堟伅鏂囨湰 */
 .message-text {
     color: #333;
     font-size: 14px;
@@ -4077,7 +4077,7 @@ body {
     margin-bottom: 0;
 }
 
-/* 消息中的图片预览 */
+/* 娑堟伅涓殑鍥剧墖棰勮 */
 .message-image-previews {
     display: flex;
     gap: 10px;
@@ -4135,7 +4135,7 @@ body {
     opacity: 1;
 }
 
-/* ===== 知识库批量删除选择模式 ===== */
+/* ===== 鐭ヨ瘑搴撴壒閲忓垹闄ら€夋嫨妯″紡 ===== */
 .header-actions {
     align-items: center;
     flex-wrap: wrap;
@@ -4335,7 +4335,7 @@ body.batch-delete-active .pagination {
     white-space: nowrap;
 }
 
-/* 相关文档样式 */
+/* 鐩稿叧鏂囨。鏍峰紡 */
 .message-documents {
     margin-top: 16px;
     padding-top: 12px;
@@ -4385,7 +4385,7 @@ body.batch-delete-active .pagination {
     gap: 8px;
 }
 
-/* 消息时间 */
+/* 娑堟伅鏃堕棿 */
 .message-time {
     font-size: 11px;
     color: #999;
@@ -4393,7 +4393,7 @@ body.batch-delete-active .pagination {
     margin-top: 6px;
 }
 
-/* AI思考中样式 */
+/* AI鎬濊€冧腑鏍峰紡 */
 .ai-thinking-container {
     align-self: flex-start;
     max-width: 80%;
@@ -4462,7 +4462,7 @@ body.batch-delete-active .pagination {
     50% { transform: scale(1.1); opacity: 1; }
 }
 
-/* 空状态样式 */
+/* 绌虹姸鎬佹牱寮?*/
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -4495,7 +4495,7 @@ body.batch-delete-active .pagination {
     max-width: 400px;
 }
 
-/* 输入区域优化 */
+/* 杈撳叆鍖哄煙浼樺寲 */
 .input-section {
     padding: 20px;
     border-top: 1px solid #f0f0f0;
@@ -4583,7 +4583,7 @@ body.batch-delete-active .pagination {
     box-shadow: none;
 }
 
-/* 附件预览容器 */
+/* 闄勪欢棰勮瀹瑰櫒 */
 .attachment-preview-container {
     display: flex;
     gap: 12px;
@@ -4662,7 +4662,7 @@ body.batch-delete-active .pagination {
     color: #ff6b6b;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 1024px) {
     .message-container {
         max-width: 85%;
@@ -4710,7 +4710,7 @@ body.batch-delete-active .pagination {
     }
 }
 
-/* 对话内容框滚动条美化 */
+/* 瀵硅瘽鍐呭妗嗘粴鍔ㄦ潯缇庡寲 */
 .conversation-content::-webkit-scrollbar {
     width: 8px;
 }
@@ -4729,7 +4729,7 @@ body.batch-delete-active .pagination {
     background: #a8a8a8;
 }
 
-/* 消息动画效果 */
+/* 娑堟伅鍔ㄧ敾鏁堟灉 */
 @keyframes messageSlideIn {
     from {
         opacity: 0;
@@ -4745,14 +4745,14 @@ body.batch-delete-active .pagination {
     animation: messageSlideIn 0.3s ease-out;
 }
 
-/* Markdown渲染样式 */
+/* Markdown娓叉煋鏍峰紡 */
 .message-text {
     line-height: 0.8;
     color: #333;
     font-size: 14px;
 }
 
-/* Markdown标题样式 */
+/* Markdown鏍囬鏍峰紡 */
 .message-text h1,
 .message-text h2,
 .message-text h3,
@@ -4772,7 +4772,7 @@ body.batch-delete-active .pagination {
 .message-text h5 { font-size: 1em; }
 .message-text h6 { font-size: 0.9em; color: #666; }
 
-/* Markdown段落和列表 */
+/* Markdown娈佃惤鍜屽垪琛?*/
 .message-text p {
     margin-bottom: 0.6em;
     line-height: 1.4;
@@ -4797,7 +4797,7 @@ body.batch-delete-active .pagination {
     list-style-type: decimal;
 }
 
-/* 引用块 */
+/* 寮曠敤鍧?*/
 .message-text blockquote {
     margin: 1em 0;
     padding: 0.6em 1em;
@@ -4811,7 +4811,7 @@ body.batch-delete-active .pagination {
     margin: 0;
 }
 
-/* 代码块 */
+/* 浠ｇ爜鍧?*/
 .message-text code {
     padding: 0.2em 0.4em;
     background: #f6f8fa;
@@ -4839,7 +4839,7 @@ body.batch-delete-active .pagination {
     display: block;
 }
 
-/* 行内代码 */
+/* 琛屽唴浠ｇ爜 */
 .message-text p code,
 .message-text li code {
     background: rgba(175, 184, 193, 0.2);
@@ -4850,7 +4850,7 @@ body.batch-delete-active .pagination {
     font-size: 0.9em;
 }
 
-/* 链接 */
+/* 閾炬帴 */
 .message-text a {
     color: #4a9eff;
     text-decoration: none;
@@ -4863,7 +4863,7 @@ body.batch-delete-active .pagination {
     border-bottom-color: #4a9eff;
 }
 
-/* 表格 */
+/* 琛ㄦ牸 */
 .message-text table {
     width: 100%;
     border-collapse: collapse;
@@ -4887,7 +4887,7 @@ body.batch-delete-active .pagination {
     background: #fafbfc;
 }
 
-/* 水平线 */
+/* 姘村钩绾?*/
 .message-text hr {
     height: 1px;
     border: none;
@@ -4895,7 +4895,7 @@ body.batch-delete-active .pagination {
     margin: 1.2em 0;
 }
 
-/* 图片 */
+/* 鍥剧墖 */
 .message-text img {
     max-width: 100%;
     height: auto;
@@ -4904,7 +4904,7 @@ body.batch-delete-active .pagination {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 强调文本 */
+/* 寮鸿皟鏂囨湰 */
 .message-text strong {
     font-weight: 700;
     color: #222;
@@ -4915,7 +4915,7 @@ body.batch-delete-active .pagination {
     color: #555;
 }
 
-/* 代码高亮主题 */
+/* 浠ｇ爜楂樹寒涓婚 */
 .hljs {
     background: transparent !important;
     padding: 0 !important;
@@ -4950,7 +4950,7 @@ body.batch-delete-active .pagination {
     color: #005cc5;
 }
 
-/* 针对不同消息类型的Markdown样式调整 */
+/* 閽堝涓嶅悓娑堟伅绫诲瀷鐨凪arkdown鏍峰紡璋冩暣 */
 .message-content.ai .message-text {
     color: #333;
 }
@@ -4979,7 +4979,7 @@ body.batch-delete-active .pagination {
     border-color: rgba(16, 185, 129, 0.2);
 }
 
-/* 移动端适配 */
+/* 绉诲姩绔€傞厤 */
 @media (max-width: 768px) {
     .message-text {
         font-size: 13px;
@@ -5005,9 +5005,9 @@ body.batch-delete-active .pagination {
 }
 
 
-/* ===== 消息渲染优化（可追加至 style.css 末尾） ===== */
+/* ===== 娑堟伅娓叉煋浼樺寲锛堝彲杩藉姞鑷?style.css 鏈熬锛?===== */
 
-/* 消息容器 - 左右分明 */
+/* 娑堟伅瀹瑰櫒 - 宸﹀彸鍒嗘槑 */
 .message-container {
     display: flex;
     flex-direction: column;
@@ -5029,7 +5029,7 @@ body.batch-delete-active .pagination {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 发送者标签 */
+/* 鍙戦€佽€呮爣绛?*/
 .message-sender {
     font-size: 13px;
     font-weight: 500;
@@ -5041,7 +5041,7 @@ body.batch-delete-active .pagination {
 .message-sender.ai { color: #3b82f6; }
 .message-sender.user { color: #10b981; text-align: right; padding-right: 8px; }
 
-/* 消息气泡 */
+/* 娑堟伅姘旀场 */
 .message-content {
     position: relative;
     padding: 14px 18px;
@@ -5060,34 +5060,34 @@ body.batch-delete-active .pagination {
 }
 
 .message-content.user {
-    background: #e5efff;  /* 保持原有色调，仅调整明度 */
+    background: #e5efff;  /* 淇濇寔鍘熸湁鑹茶皟锛屼粎璋冩暣鏄庡害 */
     border: 1px solid #cce0ff;
     border-top-right-radius: 6px;
     color: #1e293b;
 }
 
-/* 消息文本通用 */
+/* 娑堟伅鏂囨湰閫氱敤 */
 .message-text {
     white-space: pre-wrap;
 }
 
-/* ===== Markdown 增强（主要针对 AI 消息） ===== */
+/* ===== Markdown 澧炲己锛堜富瑕侀拡瀵?AI 娑堟伅锛?===== */
 .message-content.ai .message-text {
     color: #1f2937;
 }
 
-/* 标题 */
+/* 鏍囬 */
 .message-content.ai .message-text h1,
 .message-content.ai .message-text h2,
 .message-content.ai .message-text h3,
 .message-content.ai .message-text h4,
 .message-content.ai .message-text h5,
 .message-content.ai .message-text h6 {
-    font-size: 1em !important;      /* 与正文相同 */
-    font-weight: 600 !important;    /* 稍微加粗以示区别，但不太夸张 */
+    font-size: 1em !important;      /* 涓庢鏂囩浉鍚?*/
+    font-weight: 600 !important;    /* 绋嶅井鍔犵矖浠ョず鍖哄埆锛屼絾涓嶅お澶稿紶 */
     margin: 0.8em 0 0.3em !important;
     border-bottom: none !important;
-    color: #1f2937 !important;      /* 保持原有文字颜色 */
+    color: #1f2937 !important;      /* 淇濇寔鍘熸湁鏂囧瓧棰滆壊 */
     line-height: 1.5 !important;
 }
 
@@ -5098,13 +5098,13 @@ body.batch-delete-active .pagination {
 .message-content.ai .message-text h5 { font-size: 1.1em; }
 .message-content.ai .message-text h6 { font-size: 1em; color: #4b5563; }
 
-/* 段落 */
+/* 娈佃惤 */
 .message-content.ai .message-text p {
     margin: 0 0 1em;
     line-height: 1.7;
 }
 
-/* 列表 */
+/* 鍒楄〃 */
 .message-content.ai .message-text ul,
 .message-content.ai .message-text ol {
     margin: 0.5em 0 1.2em;
@@ -5116,7 +5116,7 @@ body.batch-delete-active .pagination {
     line-height: 1.6;
 }
 
-/* 引用块 */
+/* 寮曠敤鍧?*/
 .message-content.ai .message-text blockquote {
     margin: 1.2em 0;
     padding: 0.8em 1.2em;
@@ -5127,7 +5127,7 @@ body.batch-delete-active .pagination {
     font-style: italic;
 }
 
-/* 行内代码 */
+/* 琛屽唴浠ｇ爜 */
 .message-content.ai .message-text code:not(pre code) {
     padding: 0.2em 0.5em;
     background: #f1f5f9;
@@ -5137,7 +5137,7 @@ body.batch-delete-active .pagination {
     color: #c026d3;
 }
 
-/* 代码块 */
+/* 浠ｇ爜鍧?*/
 .message-content.ai .message-text pre {
     margin: 1.2em 0;
     padding: 1.2em;
@@ -5156,7 +5156,7 @@ body.batch-delete-active .pagination {
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-/* 表格 */
+/* 琛ㄦ牸 */
 .message-content.ai .message-text table {
     width: 100%;
     border-collapse: collapse;
@@ -5182,7 +5182,7 @@ body.batch-delete-active .pagination {
     background: #f8fafc;
 }
 
-/* 链接 */
+/* 閾炬帴 */
 .message-content.ai .message-text a {
     color: #2563eb;
     text-decoration: none;
@@ -5194,7 +5194,7 @@ body.batch-delete-active .pagination {
     border-bottom-color: #2563eb;
 }
 
-/* 水平线 */
+/* 姘村钩绾?*/
 .message-content.ai .message-text hr {
     margin: 2em 0;
     border: none;
@@ -5202,7 +5202,7 @@ body.batch-delete-active .pagination {
     background: linear-gradient(90deg, transparent, #d1d5db, transparent);
 }
 
-/* 图片（Markdown中的图片） */
+/* 鍥剧墖锛圡arkdown涓殑鍥剧墖锛?*/
 .message-content.ai .message-text img {
     max-width: 100%;
     border-radius: 10px;
@@ -5210,7 +5210,7 @@ body.batch-delete-active .pagination {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* ===== 用户消息内的文本（保持简洁） ===== */
+/* ===== 鐢ㄦ埛娑堟伅鍐呯殑鏂囨湰锛堜繚鎸佺畝娲侊級 ===== */
 .message-content.user .message-text {
     line-height: 1.6;
 }
@@ -5225,7 +5225,7 @@ body.batch-delete-active .pagination {
     color: #0f172a;
 }
 
-/* 知识库首页文档卡片的最终覆盖：避免 AI 相关文档列表的通用 .document-item 样式串到首页卡片。 */
+/* 鐭ヨ瘑搴撻椤垫枃妗ｅ崱鐗囩殑鏈€缁堣鐩栵細閬垮厤 AI 鐩稿叧鏂囨。鍒楄〃鐨勯€氱敤 .document-item 鏍峰紡涓插埌棣栭〉鍗＄墖銆?*/
 .document-grid > .document-item {
     background: #ffffff;
     border-radius: 12px;
@@ -5429,7 +5429,7 @@ body.batch-delete-active .pagination {
     }
 }
 
-/* ===== 图片预览（用户上传） ===== */
+/* ===== 鍥剧墖棰勮锛堢敤鎴蜂笂浼狅級 ===== */
 .message-image-previews {
     display: flex;
     gap: 15px;
@@ -5484,7 +5484,7 @@ body.batch-delete-active .pagination {
     opacity: 1;
 }
 
-/* 时间戳 */
+/* 鏃堕棿鎴?*/
 .message-time {
     font-size: 11px;
     color: #94a3b8;
@@ -5498,7 +5498,143 @@ body.batch-delete-active .pagination {
     color: #64748b;
 }
 
-/*!* ===== 相关文档卡片 ===== *!*/
+/* AI answer feedback */
+.message-feedback {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid #eef2f7;
+}
+
+.message-feedback-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-height: 30px;
+}
+
+.feedback-prompt,
+.feedback-reason-title {
+    color: #8492a6;
+    font-size: 12px;
+}
+
+.feedback-prompt { margin-right: 2px; }
+
+.feedback-action-button,
+.feedback-reason-button,
+.feedback-submit-button {
+    border: 1px solid #d8e2ee;
+    background: #fff;
+    color: #58708d;
+    cursor: pointer;
+    transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+
+.feedback-action-button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.feedback-action-button:hover,
+.feedback-action-button.is-selected {
+    border-color: #4a9eff;
+    background: #edf6ff;
+    color: #287bd8;
+}
+
+.feedback-action-button[data-feedback-action="negative"].is-selected {
+    border-color: #e5a23c;
+    background: #fff8e8;
+    color: #b7791f;
+}
+
+.feedback-action-button:disabled,
+.feedback-reason-button:disabled,
+.feedback-submit-button:disabled { cursor: default; }
+
+.feedback-reasons {
+    margin-top: 9px;
+    padding: 10px;
+    border: 1px solid #e7edf5;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.feedback-reason-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.feedback-reason-button {
+    min-height: 29px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.feedback-reason-button:hover,
+.feedback-reason-button.is-selected {
+    border-color: #4a9eff;
+    background: #4a9eff;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(74, 158, 255, .18);
+}
+
+.feedback-other {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.feedback-other-input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid #d8e2ee;
+    border-radius: 6px;
+    color: #334155;
+    font-size: 12px;
+}
+
+.feedback-other-input:focus {
+    outline: none;
+    border-color: #4a9eff;
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, .12);
+}
+
+.feedback-submit-button {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 6px;
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: #fff;
+    font-size: 12px;
+}
+
+.feedback-submit-button:hover { background: #347fd6; border-color: #347fd6; }
+
+.feedback-status {
+    min-height: 17px;
+    margin-top: 6px;
+    color: #2f8a62;
+    font-size: 12px;
+    text-align: right;
+}
+
+@media (max-width: 520px) {
+    .message-feedback-controls { justify-content: flex-start; }
+    .feedback-reason-list { justify-content: flex-start; }
+}
+
+/*!* ===== 鐩稿叧鏂囨。鍗＄墖 ===== *!*/
 /*.message-documents {*/
 /*    margin-top: 18px;*/
 /*    padding-top: 15px;*/
@@ -5557,7 +5693,7 @@ body.batch-delete-active .pagination {
 /*    font-size: 14px;*/
 /*}*/
 
-/*!* ===== “思考中”动画 ===== *!*/
+/*!* ===== 鈥滄€濊€冧腑鈥濆姩鐢?===== *!*/
 /*.ai-thinking-container {*/
 /*    align-self: flex-start;*/
 /*    max-width: 70%;*/
@@ -5615,7 +5751,7 @@ body.batch-delete-active .pagination {
 /*    40% { transform: scale(1); opacity: 1; }*/
 /*}*/
 
-/*!* ===== 空状态 ===== *!*/
+/*!* ===== 绌虹姸鎬?===== *!*/
 /*.empty-state {*/
 /*    display: flex;*/
 /*    flex-direction: column;*/

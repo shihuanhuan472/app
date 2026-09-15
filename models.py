@@ -1,12 +1,35 @@
 ﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
-from sqlalchemy import BigInteger
+from sqlalchemy import Float, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from database import Base
 
 
 LargeText = Text().with_variant(MEDIUMTEXT(), "mysql")
+
+FEEDBACK_RECORD_TYPES = {
+    "positive",
+    "negative",
+    "correction",
+    "confirmation",
+    "additional_information",
+    "irrelevant",
+    "suspicious",
+}
+FEEDBACK_RECORD_STATUSES = {"pending", "verified", "rejected", "quarantined", "promoted"}
+FEEDBACK_CLAIM_SOURCES = {"user", "assistant", "document", "sensor", "maintenance_record", "system"}
+FEEDBACK_CLAIM_VERIFICATION_STATUSES = {
+    "unverified",
+    "partially_verified",
+    "verified",
+    "contradicted",
+}
+FEEDBACK_VERIFIER_TYPES = {"rule", "retrieval", "llm", "cross_case", "maintenance_outcome", "human"}
+FEEDBACK_VERIFICATION_RESULTS = {"support", "contradict", "insufficient", "uncertain"}
+FAULT_CASE_VERIFICATION_STATUSES = {"candidate", "verified", "expert_verified", "rejected"}
+RETRIEVAL_PATCH_TYPES = {"boost", "penalty", "exclusion", "preferred_document"}
+RETRIEVAL_PATCH_SCOPES = {"feedback", "user", "conversation", "device", "fault_type", "global"}
 
 
 class User(Base):
@@ -330,8 +353,8 @@ class ConversationContext(Base):
     active_reference_images_json = Column(LargeText)
     slots_json = Column(LargeText)
     summary_text = Column(LargeText)
-    last_user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
-    last_ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    last_user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    last_ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
     last_trace_id = Column(Integer, nullable=True, index=True)
     turn_count = Column(Integer, default=0, nullable=False)
     created_time = Column(DateTime)
@@ -345,8 +368,8 @@ class ConversationContextEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
-    user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
-    ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
+    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
     event_type = Column(String(64), nullable=False, index=True)
     route = Column(String(64), index=True)
     reason = Column(String(255))
@@ -379,7 +402,7 @@ class ConversationSummary(Base):
 class Message(Base):
     __tablename__ = "message"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False)
     message_order = Column(Integer, nullable=False)
     role = Column(Integer, nullable=False)  # 0-AI, 1-user
@@ -397,8 +420,8 @@ class AiMessageTrace(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
-    user_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=False, index=True)
-    ai_message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    user_message_id = Column(Integer, ForeignKey("message.id"), nullable=False, index=True)
+    ai_message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
     route = Column(String(64), nullable=False, index=True)
     reason = Column(String(255))
     original_question = Column(Text)
@@ -424,13 +447,181 @@ class AiMessageTrace(Base):
     ai_message = relationship("Message", foreign_keys=[ai_message_id])
 
 
+class FeedbackRecord(Base):
+    __tablename__ = "feedback_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "message_id",
+            "user_id",
+            "feedback_type",
+            name="uq_feedback_records_conversation_message_user_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    conversation_id = Column(Integer, ForeignKey("conversation.id"), nullable=False, index=True)
+    message_id = Column(Integer, ForeignKey("message.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    feedback_type = Column(String(32), nullable=False, index=True)
+    rating = Column(Integer, nullable=True)
+    comment = Column(Text)
+    created_at = Column(DateTime, index=True)
+    query_snapshot = Column(LargeText)
+    answer_snapshot = Column(LargeText)
+    retrieved_documents = Column(LargeText)
+    cited_documents = Column(LargeText)
+    trace_id = Column(Integer, ForeignKey("ai_message_traces.id"), nullable=True, index=True)
+    status = Column(String(32), nullable=False, default="pending", index=True)
+
+    conversation = relationship("Conversation")
+    message = relationship("Message")
+    user = relationship("User")
+    trace = relationship("AiMessageTrace")
+    claims = relationship("FeedbackClaim", back_populates="feedback")
+    verifications = relationship("FeedbackVerification", back_populates="feedback")
+    retrieval_patches = relationship("RetrievalPatch", back_populates="feedback")
+    audit_logs = relationship("FeedbackAuditLog", back_populates="feedback")
+
+
+class FeedbackClaim(Base):
+    __tablename__ = "feedback_claims"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    feedback_id = Column(Integer, ForeignKey("feedback_records.id"), nullable=False, index=True)
+    claim_type = Column(String(64), nullable=False, index=True)
+    subject = Column(String(255), nullable=True, index=True)
+    predicate = Column(String(128), nullable=True, index=True)
+    object = Column(Text)
+    scope = Column(String(255), nullable=True, index=True)
+    source = Column(String(32), nullable=False, default="user", index=True)
+    confidence = Column(Float, default=0.0, nullable=False)
+    verification_status = Column(String(32), nullable=False, default="unverified", index=True)
+    evidence_ids = Column(LargeText)
+    created_at = Column(DateTime, index=True)
+
+    feedback = relationship("FeedbackRecord", back_populates="claims")
+    evidence = relationship("FeedbackEvidence", back_populates="claim")
+
+
+class FeedbackEvidence(Base):
+    __tablename__ = "feedback_evidence"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    feedback_claim_id = Column(Integer, ForeignKey("feedback_claims.id"), nullable=False, index=True)
+    evidence_type = Column(String(64), nullable=False, index=True)
+    source_id = Column(String(255), nullable=True, index=True)
+    content = Column(LargeText)
+    relevance_score = Column(Float, default=0.0, nullable=False)
+    support_score = Column(Float, default=0.0, nullable=False)
+    contradiction_score = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime, index=True)
+
+    claim = relationship("FeedbackClaim", back_populates="evidence")
+
+
+class FeedbackVerification(Base):
+    __tablename__ = "feedback_verifications"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    feedback_id = Column(Integer, ForeignKey("feedback_records.id"), nullable=False, index=True)
+    verifier_type = Column(String(32), nullable=False, index=True)
+    verification_result = Column(String(32), nullable=False, index=True)
+    confidence = Column(Float, default=0.0, nullable=False)
+    reason = Column(Text)
+    evidence_summary = Column(LargeText)
+    created_at = Column(DateTime, index=True)
+
+    feedback = relationship("FeedbackRecord", back_populates="verifications")
+
+
+class UserReliability(Base):
+    __tablename__ = "user_reliability"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    total_feedback = Column(Integer, default=0, nullable=False)
+    verified_feedback = Column(Integer, default=0, nullable=False)
+    rejected_feedback = Column(Integer, default=0, nullable=False)
+    correction_feedback = Column(Integer, default=0, nullable=False)
+    correct_correction_count = Column(Integer, default=0, nullable=False)
+    reliability_score = Column(Float, default=0.5, nullable=False, index=True)
+    decay_factor = Column(Float, default=0.98, nullable=False)
+    recent_verified_weight = Column(Float, default=0.0, nullable=False)
+    recent_rejected_weight = Column(Float, default=0.0, nullable=False)
+    recent_correction_weight = Column(Float, default=0.0, nullable=False)
+    last_updated_at = Column(DateTime, index=True)
+
+    user = relationship("User")
+
+
+class FaultCaseMemory(Base):
+    __tablename__ = "fault_case_memory"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    case_key = Column(String(255), nullable=False, unique=True, index=True)
+    scope = Column(String(255), nullable=True, index=True)
+    device = Column(String(255), nullable=True, index=True)
+    device_type = Column(String(255), nullable=True, index=True)
+    component = Column(String(255), nullable=True, index=True)
+    firmware_version = Column(String(128), nullable=True, index=True)
+    symptoms = Column(LargeText)
+    metrics = Column(LargeText)
+    alarm_codes = Column(LargeText)
+    confirmed_fault = Column(Text)
+    root_cause = Column(Text)
+    actions = Column(LargeText)
+    outcome = Column(Text)
+    evidence_ids = Column(LargeText)
+    confidence = Column(Float, default=0.0, nullable=False)
+    verification_status = Column(String(32), nullable=False, default="candidate", index=True)
+    source_feedback_ids = Column(LargeText)
+    created_at = Column(DateTime, index=True)
+    updated_at = Column(DateTime, index=True)
+
+
+class RetrievalPatch(Base):
+    __tablename__ = "retrieval_patches"
+    __table_args__ = (
+        Index("idx_retrieval_patches_scope_query_doc", "scope", "query_signature", "document_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    feedback_id = Column(Integer, ForeignKey("feedback_records.id"), nullable=False, index=True)
+    scope = Column(String(32), nullable=False, default="feedback", index=True)
+    query_signature = Column(String(255), nullable=False, index=True)
+    document_id = Column(Integer, nullable=False, index=True)
+    patch_type = Column(String(32), nullable=False, index=True)
+    weight = Column(Float, default=0.0, nullable=False)
+    confidence = Column(Float, default=0.0, nullable=False)
+    expires_at = Column(DateTime, nullable=True, index=True)
+    status = Column(String(32), nullable=False, default="pending", index=True)
+    created_at = Column(DateTime, index=True)
+
+    feedback = relationship("FeedbackRecord", back_populates="retrieval_patches")
+
+
+class FeedbackAuditLog(Base):
+    __tablename__ = "feedback_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    feedback_id = Column(Integer, ForeignKey("feedback_records.id"), nullable=False, index=True)
+    action = Column(String(64), nullable=False, index=True)
+    before_state = Column(LargeText)
+    after_state = Column(LargeText)
+    reason = Column(Text)
+    actor = Column(String(64), nullable=False, default="system", index=True)
+    created_at = Column(DateTime, index=True)
+
+    feedback = relationship("FeedbackRecord", back_populates="audit_logs")
+
+
 class AiUsageLog(Base):
     __tablename__ = "ai_usage_logs"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     session_id = Column(Integer, ForeignKey("conversation.id"), nullable=True, index=True)
-    message_id = Column(BigInteger, ForeignKey("message.id"), nullable=True, index=True)
+    message_id = Column(Integer, ForeignKey("message.id"), nullable=True, index=True)
     provider = Column(String(32), default="openai", nullable=False, index=True)
     model = Column(String(255), default="", nullable=False, index=True)
     request_type = Column(String(64), default="", nullable=False, index=True)

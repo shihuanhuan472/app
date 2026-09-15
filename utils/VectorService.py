@@ -10,7 +10,6 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +17,7 @@ from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocu
 from utils.SearchIndexService import SearchIndexService
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 
 load_dotenv()
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -249,17 +249,19 @@ class VectorService:
             if chunk_image:
                 messages[0]["content"].append(self.add_picture_to_message(chunk_image))
 
-            client = OpenAI(base_url=get_ai_base_url(), api_key=self.api_key)
-            response = client.chat.completions.create(
+            client = create_openai_client(base_url=get_ai_base_url(), api_key=self.api_key)
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
                 max_tokens=self.max_token,
+                json_mode=True,
             )
-            return response.choices[0].message.content or ""
+            return response
 
         try:
-            ans = await asyncio.to_thread(_call_openai)
-            payload = json.loads(ans)
+            response = await asyncio.to_thread(_call_openai)
+            payload = parse_chat_completion_json(response)
             score = float(payload.get("score", 0.0))
             return max(0.0, min(1.0, score))
         except Exception as e:
@@ -282,8 +284,9 @@ class VectorService:
                     ],
                 }
             ]
-            client = OpenAI(base_url=get_ai_base_url(), api_key=self.api_key)
-            response = client.chat.completions.create(
+            client = create_openai_client(base_url=get_ai_base_url(), api_key=self.api_key)
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=msg,
                 max_tokens=self.max_token,
@@ -514,6 +517,8 @@ class VectorService:
         query_images: str = None,
         top_k: int = -1,
         top_k_documents: int = -1,
+        user_id: Optional[int] = None,
+        session_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
         # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）

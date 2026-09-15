@@ -4,7 +4,6 @@ import os
 import uuid
 from datetime import datetime
 
-from openai import OpenAI
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -24,6 +23,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 from utils.error_codes import BizCode
 from utils.title_utils import normalize_document_title
 
@@ -431,22 +431,24 @@ class HTMLParser:
         让ai根据文本和图像，总结成document对应的字段，进而生成Document对象
         """
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
             messages = self.generate_message(text, image_urls)
             print(messages)
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self.max_token,
+                json_mode=True,
             )
             # print(response)
             ans = response.choices[0].message.content
             print(ans)
-            result = json.loads(ans)
+            result = parse_chat_completion_json(response)
             result["title"] = normalize_document_title(result.get("title"))
             flag = [0] * len(image_urls)
 

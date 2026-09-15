@@ -12,7 +12,6 @@ from urllib.parse import unquote, urlparse
 
 import requests
 from PIL import Image
-from openai import OpenAI
 try:
     from utils.token_counter import get_token_count
 except ModuleNotFoundError:
@@ -25,6 +24,7 @@ if PROJECT_ROOT not in sys.path:
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 from utils.error_codes import BizCode
 from utils.title_utils import normalize_document_title
 
@@ -513,7 +513,7 @@ class TxtParser:
 
     def file2document(self, text, image_urls, image_names):
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
@@ -527,22 +527,19 @@ class TxtParser:
                 )
                 raise ValueError("token budget too small for output")
 
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=max_output_tokens
+                max_tokens=max_output_tokens,
+                json_mode=True,
             )
 
             ans = response.choices[0].message.content
 
             print(ans)
 
-            ans_clean = ans.strip()
-            ans_clean = re.sub(r"^```json\s*", "", ans_clean)
-            ans_clean = re.sub(r"^```\s*", "", ans_clean)
-            ans_clean = re.sub(r"\s*```$", "", ans_clean)
-
-            result = json.loads(ans_clean)
+            result = parse_chat_completion_json(response)
             result["title"] = normalize_document_title(result.get("title"))
             flag = [0] * len(image_names)
 

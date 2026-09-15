@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>注册账号 - 设备维修辅助系统</title>
+    <title data-app-template="注册账号 - {{fullName}}"></title>
     <script>
         (function () {
             var ua = navigator.userAgent || navigator.vendor || window.opera || '';
@@ -205,6 +205,7 @@
         </section>
     </main>
 
+    <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script>
@@ -231,6 +232,16 @@
             }
             if (payload.username.length < 3) {
                 error.textContent = '用户名至少需要 3 个字符';
+                error.classList.add('show');
+                return;
+            }
+            if (payload.username.length > 50) {
+                error.textContent = '用户名不能超过 50 个字符';
+                error.classList.add('show');
+                return;
+            }
+            if (!/^[a-zA-Z0-9_]+$/.test(payload.username)) {
+                error.textContent = '用户名只能包含字母、数字和下划线';
                 error.classList.add('show');
                 return;
             }

@@ -12,7 +12,6 @@ from html import escape as html_escape
 
 import aiofiles
 from PIL import Image
-from openai import OpenAI, AsyncOpenAI
 from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, Depends, status, UploadFile, Query, File
@@ -44,22 +43,28 @@ from models import (
 )
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
-from dependencies import get_current_active_user
+from dependencies import get_current_active_user, require_roles
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
-from utils.ai_endpoint import get_ai_base_url, get_ai_base_url_alt
+from utils.ai_endpoint import (
+    get_ai_base_url,
+    get_ai_base_url_alt,
+    get_qwen_no_thinking_options,
+)
 from utils.desensitize import (
     desensitize_json_payload_string,
     desensitize_text,
     desensitize_value,
     max_sensitive_term_length,
 )
+from utils.openai_client import create_async_openai_client, create_openai_client
 from utils.token_counter import get_token_count
 from utils.ai_usage import record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
 from agents.intent.taxonomy import IntentRoute
 from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
 from agents.skills import AgentSkill, SkillPromptBuilder, SkillRegistry
+from feedback_learning.repository import FeedbackLearningRepository
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
@@ -186,7 +191,17 @@ def _estimate_image_tokens(uploaded_images: str, per_image_tokens: int) -> int:
 
 def _is_ai_service_unavailable_error(error: Exception) -> bool:
     error_type = type(error).__name__
-    if error_type in {"APIConnectionError", "APITimeoutError"}:
+    if error_type in {
+        "APIConnectionError",
+        "APITimeoutError",
+        "InternalServerError",
+        "BadGatewayError",
+        "ServiceUnavailableError",
+    }:
+        return True
+
+    status_code = getattr(error, "status_code", None)
+    if status_code in {500, 502, 503, 504}:
         return True
 
     message = str(error).lower()
@@ -201,6 +216,11 @@ def _is_ai_service_unavailable_error(error: Exception) -> bool:
         "temporarily unavailable",
         "name resolution",
         "max retries exceeded",
+        "internal server error",
+        "server error",
+        "status code: 500",
+        "http 500",
+        "500",
         "502",
         "503",
         "504",
@@ -477,7 +497,7 @@ def _reference_docs_for_trace(reference_docs: List[Dict[str, Any]]) -> List[Dict
     for doc in reference_docs or []:
         if doc.get("doc_id") is None:
             continue
-        docs.append({
+        item = {
             "doc_id": int(doc["doc_id"]),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
@@ -489,7 +509,15 @@ def _reference_docs_for_trace(reference_docs: List[Dict[str, Any]]) -> List[Dict
                 for chunk in (doc.get("chunks") or [])[:3]
                 if isinstance(chunk, dict)
             ],
-        })
+        }
+        if doc.get("applied_patch_ids") or doc.get("patch_score"):
+            item.update({
+                "base_score": float(doc.get("base_score", doc.get("score", 0.0)) or 0.0),
+                "patch_score": float(doc.get("patch_score", 0.0) or 0.0),
+                "final_score": float(doc.get("final_score", doc.get("score", 0.0)) or 0.0),
+                "applied_patch_ids": list(doc.get("applied_patch_ids") or []),
+            })
+        docs.append(item)
     return docs
 
 
@@ -916,7 +944,7 @@ async def _rewrite_query_with_llm(
         return fallback_query
 
     request_timeout = _get_positive_float_env("CONTEXT_QUERY_REWRITE_TIMEOUT", 6.0)
-    client = AsyncOpenAI(
+    client = create_async_openai_client(
         base_url=get_ai_base_url(),
         api_key=os.getenv("API_KEY", "EMPTY"),
         timeout=request_timeout,
@@ -1106,7 +1134,7 @@ async def _generate_skill_text_answer(
     timeout: Optional[float] = None,
 ) -> str:
     request_timeout = timeout or _get_positive_float_env("SKILL_GENERATION_TIMEOUT", 45.0)
-    client = AsyncOpenAI(
+    client = create_async_openai_client(
         base_url=get_ai_base_url(),
         api_key=os.getenv("API_KEY", "EMPTY"),
         timeout=request_timeout,
@@ -1194,11 +1222,14 @@ async def _adaptive_retrieve_reference_documents(
     user_uploaded_images: Optional[str],
     route_decision: RouteDecision,
     memory_pack: Optional[MemoryPack],
+    current_user: Optional[User] = None,
+    session_id: Optional[int] = None,
 ) -> tuple[List[Dict[str, Any]], List[str]]:
     plan = memory_pack.adaptive_rag if memory_pack else None
     top_k = plan.top_k if plan else -1
     top_k_documents = plan.top_k_documents if plan else -1
     actions = [f"rag_search:{plan.strategy if plan else 'default'}"]
+    user_id = current_user.id if current_user else None
 
     reference_docs = await get_reference_documents(
         db,
@@ -1206,7 +1237,19 @@ async def _adaptive_retrieve_reference_documents(
         user_uploaded_images,
         top_k=top_k,
         top_k_documents=top_k_documents,
+        user_id=user_id,
+        session_id=session_id,
     )
+    reference_docs, feedback_metadata = await _apply_feedback_retrieval_layer(
+        db,
+        reference_docs,
+        retrieval_query,
+        user_id=user_id,
+        session_id=session_id,
+        memory_pack=memory_pack,
+    )
+    if feedback_metadata.get("applied_patch_ids"):
+        actions.append("feedback_patch_apply")
 
     if not plan or not plan.iterative_retrieval or not memory_pack or not memory_pack.active_context:
         return reference_docs, actions
@@ -1227,9 +1270,40 @@ async def _adaptive_retrieve_reference_documents(
         user_uploaded_images,
         top_k=top_k,
         top_k_documents=top_k_documents,
+        user_id=user_id,
+        session_id=session_id,
     )
+    secondary_docs, secondary_feedback_metadata = await _apply_feedback_retrieval_layer(
+        db,
+        secondary_docs,
+        second_query,
+        user_id=user_id,
+        session_id=session_id,
+        memory_pack=memory_pack,
+    )
+    if secondary_feedback_metadata.get("applied_patch_ids"):
+        actions.append("feedback_patch_apply_secondary")
     max_docs = top_k_documents if top_k_documents and top_k_documents > 0 else -1
     return _merge_reference_documents(reference_docs, secondary_docs, max_docs=max_docs), actions
+
+
+async def _apply_feedback_retrieval_layer(
+    db: AsyncSession,
+    reference_docs: List[Dict[str, Any]],
+    retrieval_query: str,
+    user_id: Optional[int] = None,
+    session_id: Optional[int] = None,
+    memory_pack: Optional[MemoryPack] = None,
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    from feedback_learning.aware_retriever import FeedbackAwareRetriever
+
+    return await FeedbackAwareRetriever(db).apply_feedback_layer(
+        reference_docs,
+        retrieval_query,
+        user_id=user_id,
+        session_id=session_id,
+        memory_pack=memory_pack,
+    )
 
 
 def _api_timestamp(value: Optional[datetime]) -> Optional[float]:
@@ -1289,7 +1363,7 @@ def _sanitize_answer_images_for_display(text: Optional[str]) -> Optional[str]:
     return sanitized
 
 
-def _message_to_chat_message_dict(message: Message) -> Dict[str, Any]:
+def _message_to_chat_message_dict(message: Message, feedback_eligible: bool = False) -> Dict[str, Any]:
     """
     功能说明：
         将 Message ORM 对象转换为 api.md 中会话消息列表使用的结构。
@@ -1312,7 +1386,7 @@ def _message_to_chat_message_dict(message: Message) -> Dict[str, Any]:
         if message.role == 0
         else message.ai_reference_doc_ids
     )
-    return {
+    payload = {
         "id": message.id,
         "session_id": message.session_id,
         "message_order": message.message_order,
@@ -1322,14 +1396,24 @@ def _message_to_chat_message_dict(message: Message) -> Dict[str, Any]:
         "content_text": content_text,
         "user_uploaded_images": message.user_uploaded_images,
         "ai_reference_doc_ids": ai_reference_doc_ids,
+        "feedback_eligible": bool(feedback_eligible) if message.role == 0 else False,
         "created_time": created_time,
     }
+    if message.role == 0:
+        print(
+            f"[FeedbackPayload] message_id={message.id} session_id={message.session_id} "
+            f"feedback_eligible={payload['feedback_eligible']} "
+            f"reference_docs={bool(ai_reference_doc_ids)}",
+            flush=True,
+        )
+    return payload
 
 
 def _conversation_to_chat_session(
     chat_id: str,
     conversation: Conversation,
     messages: Optional[List[Message]] = None,
+    feedback_eligible_by_message: Optional[Dict[int, bool]] = None,
 ) -> Dict[str, Any]:
     """
     功能说明：
@@ -1343,7 +1427,13 @@ def _conversation_to_chat_session(
     关键处理流程：
         统一把内部 title 映射为接口规范中的 name，同时保留 title 供旧页面兼容。
     """
-    message_payload = [_message_to_chat_message_dict(item) for item in (messages or [])]
+    message_payload = [
+        _message_to_chat_message_dict(
+            item,
+            bool((feedback_eligible_by_message or {}).get(int(item.id), False)),
+        )
+        for item in (messages or [])
+    ]
     return {
         "chat": chat_id,
         "chat_id": chat_id,
@@ -1957,10 +2047,17 @@ async def stream_ai_response(
     request_timeout = _get_positive_int_env("AI_REQUEST_TIMEOUT", 60)
     first_chunk_timeout = _get_positive_int_env("AI_STREAM_FIRST_CHUNK_TIMEOUT", 120)
     idle_timeout = _get_positive_int_env("AI_STREAM_IDLE_TIMEOUT", 120)
-    client = AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=request_timeout)
+    # The model gateway may need longer than the request timeout to return its first token.
+    stream_open_timeout = max(request_timeout, first_chunk_timeout)
+    client = create_async_openai_client(
+        base_url=base_url,
+        api_key=api_key,
+        timeout=stream_open_timeout,
+    )
 
     data = {}
     data["id"] = id
+    data["ai_message_id"] = id
     data["session_id"] = session_id
     safe_reference_docs = desensitize_value(reference_docs or [])
     data["reference"] = (
@@ -2032,12 +2129,14 @@ async def stream_ai_response(
                     max_tokens=max_token,
                     stream=True,
                     stream_options={"include_usage": True},
+                    **get_qwen_no_thinking_options(),
                 ),
-                timeout=request_timeout,
+                timeout=stream_open_timeout,
             )
         except asyncio.TimeoutError as e:
             raise TimeoutError(
-                f"AI模型请求超时：{request_timeout}秒内未创建流式响应，base_url={base_url}, model={model}"
+                f"AI模型请求超时：{stream_open_timeout}秒内未创建流式响应，"
+                f"base_url={base_url}, model={model}"
             ) from e
         print(f"[AI流式] 模型流响应已创建，耗时: {time.perf_counter() - stream_start:.3f}s")
 
@@ -2180,6 +2279,7 @@ async def stream_static_ai_response(
 ):
     data = {
         "id": id,
+        "ai_message_id": id,
         "session_id": session_id,
         "answer": answer,
         "reference": {"total": 0, "doc_aggs": []} if api_v1 else None,
@@ -2352,6 +2452,7 @@ async def _create_completion(
                 "reference": {"total": 0, "doc_aggs": []} if api_v1 else "",
                 "reference_docs": "",
                 "id": ai_msg.id,
+                "ai_message_id": ai_msg.id,
                 "session_id": message.session_id,
             }
             if message.stream:
@@ -2419,6 +2520,8 @@ async def _create_completion(
                         db_message.user_uploaded_images,
                         route_decision,
                         memory_pack,
+                        current_user=current_user,
+                        session_id=message.session_id,
                     )
                     ai_reference_documents = _filter_reference_documents_by_confidence(
                         ai_reference_documents,
@@ -2545,6 +2648,7 @@ async def _create_completion(
             "reference": _reference_doc_ids_to_api_reference(ai_reference_documents) if api_v1 else ai_reference_document_ids_str,
             "reference_docs": ai_reference_document_payload,
             "id": ai_msg.id if ai_msg else None,
+            "ai_message_id": ai_msg.id if ai_msg else None,
             "session_id": message.session_id,
         }
         return ResultNew.result(0, None, data) if api_v1 else Result.success_with_data(data)
@@ -2554,7 +2658,7 @@ async def _create_completion(
         raise
     except Exception as e:
         await db.rollback()
-        print(e)
+        logger.exception("Completion failed: session_id=%s trace_id=%s", message.session_id, trace_id)
         if trace_id:
             try:
                 async with AsyncSessionLocal() as trace_db:
@@ -2731,12 +2835,29 @@ async def get_chat_sessions(
         conversations = result.scalars().all()
 
         sessions = []
+        feedback_repository = FeedbackLearningRepository(db)
         for conversation in conversations:
             msg_result = await db.execute(
                 select(Message).where(Message.session_id == conversation.id).order_by(Message.created_time.asc(), Message.id.asc())
             )
             messages = list(msg_result.scalars().all()) if id is not None else []
-            sessions.append(_conversation_to_chat_session(chat_id, conversation, messages))
+            feedback_eligible_by_message = {
+                item.id: await feedback_repository.is_feedback_eligible(item.id, conversation.id)
+                for item in messages
+                if int(getattr(item, "role", 1)) == 0
+            }
+            print(
+                f"[FeedbackSession] conversation_id={conversation.id} requested_id={id} "
+                f"ai_messages={[item.id for item in messages if int(getattr(item, 'role', 1)) == 0]} "
+                f"eligibility={feedback_eligible_by_message}",
+                flush=True,
+            )
+            sessions.append(_conversation_to_chat_session(
+                chat_id,
+                conversation,
+                messages,
+                feedback_eligible_by_message,
+            ))
 
         return ResultNew.result(0, None, {
             "total": total_count,
@@ -3023,11 +3144,12 @@ async def get_new_title_by_ai(content):
     max_token = int(os.getenv("MAX_TOKEN", 3000))
 
     def _call_openai():
-        client = OpenAI(base_url=get_ai_base_url_alt(), api_key=api_key)
+        client = create_openai_client(base_url=get_ai_base_url_alt(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_token
+            max_tokens=max_token,
+            **get_qwen_no_thinking_options(),
         )
         return response.choices[0].message.content
 
@@ -3045,6 +3167,8 @@ async def get_reference_documents(
     image: str = None,
     top_k: int = -1,
     top_k_documents: int = -1,
+    user_id: Optional[int] = None,
+    session_id: Optional[int] = None,
 ):
     """向量检索相关文档，并返回可展示的文档匹配信息。"""
     from utils.VectorService import VectorService
@@ -3055,6 +3179,8 @@ async def get_reference_documents(
         image,
         top_k=top_k,
         top_k_documents=top_k_documents,
+        user_id=user_id,
+        session_id=session_id,
     )
     print(f"[图片排查][search_raw] docs={len(documents or [])}")
     _debug_reference_doc_image_summary(documents, "search_raw")
@@ -3531,11 +3657,12 @@ async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
     max_token = int(os.getenv("MAX_TOKEN", 3000))
     def _call_openai():
-        client = OpenAI(base_url=get_ai_base_url(), api_key=api_key)
+        client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_token
+            max_tokens=max_token,
+            **get_qwen_no_thinking_options(),
         )
         return response.choices[0].message.content
 
@@ -3575,6 +3702,7 @@ async def get_by_conversation(id: int,
         messages = msg_result.scalars().all()
 
         message_response = []
+        feedback_repository = FeedbackLearningRepository(db)
         for message in messages:
             item = MessageResponse.from_orm(message).dict()
             if message.role == 0:
@@ -3582,6 +3710,15 @@ async def get_by_conversation(id: int,
                     _sanitize_answer_images_for_display(message.content_text)
                 )
                 item["ai_reference_doc_ids"] = desensitize_json_payload_string(message.ai_reference_doc_ids)
+                item["feedback_eligible"] = await feedback_repository.is_feedback_eligible(message.id, id)
+            else:
+                item["feedback_eligible"] = False
+            print(
+                f"[FeedbackMessageAPI] message_id={message.id} session_id={id} role={message.role} "
+                f"feedback_eligible={item.get('feedback_eligible')} "
+                f"reference_docs={bool(item.get('ai_reference_doc_ids'))}",
+                flush=True,
+            )
             message_response.append(item)
         return Result.success_with_data(message_response)
     except Exception as e:

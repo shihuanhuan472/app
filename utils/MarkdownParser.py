@@ -11,7 +11,6 @@ from urllib.parse import unquote, urlparse
 
 import requests
 from PIL import Image
-from openai import OpenAI
 try:
     from utils.token_counter import get_token_count
 except ModuleNotFoundError:
@@ -19,6 +18,7 @@ except ModuleNotFoundError:
 
 from models import Document
 from utils.ai_endpoint import get_ai_base_url
+from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
 from utils.error_codes import BizCode
 from utils.title_utils import normalize_document_title
 
@@ -512,39 +512,34 @@ class MarkdownParser:
 
     def file2document(self, text, image_urls, image_names, section_image_indexes=None):
         try:
-            client = OpenAI(
+            client = create_openai_client(
                 base_url=get_ai_base_url(),
                 api_key=self.api_key
             )
 
             messages = self.generate_message(text, image_urls)
-            response = client.chat.completions.create(
+            response = create_chat_completion(
+                client,
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_token
+                max_tokens=self.max_token,
+                json_mode=True,
             )
             ans = response.choices[0].message.content
-            ans_clean = ans.strip()
-            ans_clean = re.sub(r"^```json\s*", "", ans_clean)
-            ans_clean = re.sub(r"^```\s*", "", ans_clean)
-            ans_clean = re.sub(r"\s*```$", "", ans_clean)
-
-            result = json.loads(ans_clean)
+            result = parse_chat_completion_json(response)
             result = self._normalize_result_fields(result)
 
             # 第一次结果近似全空，进行一次“仅文本强制抽取”重试
             if self._is_effectively_empty(result):
                 retry_messages = self._build_retry_only_text_message(text)
-                retry_resp = client.chat.completions.create(
+                retry_resp = create_chat_completion(
+                    client,
                     model=self.model,
                     messages=retry_messages,
-                    max_tokens=self.max_token
+                    max_tokens=self.max_token,
+                    json_mode=True,
                 )
-                retry_ans = retry_resp.choices[0].message.content.strip()
-                retry_ans = re.sub(r"^```json\s*", "", retry_ans)
-                retry_ans = re.sub(r"^```\s*", "", retry_ans)
-                retry_ans = re.sub(r"\s*```$", "", retry_ans)
-                retry_result = json.loads(retry_ans)
+                retry_result = parse_chat_completion_json(retry_resp)
                 retry_result = self._normalize_result_fields(retry_result)
                 if not self._is_effectively_empty(retry_result):
                     result = retry_result

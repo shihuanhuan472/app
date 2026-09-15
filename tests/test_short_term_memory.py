@@ -37,6 +37,7 @@ def make_decision(route: IntentRoute, use_rag: bool, reason: str) -> RouteDecisi
     )
 
 
+
 def test_memory_pack_prompt_includes_active_context_and_references():
     pack = MemoryPack(
         session_id=100,
@@ -72,6 +73,7 @@ def test_memory_pack_prompt_includes_active_context_and_references():
     assert "How do I fix it?" in prompt
     assert payload["recent_messages"][0]["role"] == 1
     assert payload["adaptive_rag"]["strategy"] == "rag_once"
+
 
 
 def test_recent_message_loading_policy_is_context_aware():
@@ -311,6 +313,7 @@ class FakeMemoryService:
 
     async def load_recent_ai_traces(self, *_args, **_kwargs):
         return []
+
 
     async def load_recent_context_events(self, *_args, **_kwargs):
         return []
