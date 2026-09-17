@@ -669,6 +669,76 @@
             return file.name || '';
         }
 
+        function getFileIdentity(file) {
+            return file.webkitRelativePath
+                || `${file.name || ''}:${file.size || 0}:${file.lastModified || 0}`;
+        }
+
+        function getFileExtension(filename) {
+            return filename && filename.includes('.')
+                ? filename.split('.').pop().toLowerCase()
+                : '';
+        }
+
+        function isTemporaryOfficeFile(filename) {
+            const baseName = String(filename || '').replace(/\\/g, '/').split('/').pop();
+            return baseName.startsWith('~$') || baseName.startsWith('.~lock.');
+        }
+
+        function bytesStartWith(bytes, signature) {
+            return signature.every((value, index) => bytes[index] === value);
+        }
+
+        function uploadHeaderMatchesExtension(ext, bytes) {
+            if (!bytes || bytes.length === 0) return false;
+            if (['txt', 'md', 'markdown', 'csv', 'html', 'mhtml'].includes(ext)) return true;
+            if (ext === 'pdf') return bytesStartWith(bytes, [0x25, 0x50, 0x44, 0x46]);
+            if (['docx', 'pptx', 'xlsx', 'xlsm'].includes(ext)) {
+                return bytesStartWith(bytes, [0x50, 0x4b, 0x03, 0x04])
+                    || bytesStartWith(bytes, [0x50, 0x4b, 0x05, 0x06])
+                    || bytesStartWith(bytes, [0x50, 0x4b, 0x07, 0x08]);
+            }
+            if (['ppt', 'xls'].includes(ext)) {
+                return bytesStartWith(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+            }
+            if (['jpg', 'jpeg'].includes(ext)) return bytesStartWith(bytes, [0xff, 0xd8, 0xff]);
+            if (ext === 'png') return bytesStartWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+            if (ext === 'webp') {
+                return bytes.length >= 12
+                    && bytesStartWith(bytes, [0x52, 0x49, 0x46, 0x46])
+                    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+            }
+            if (ext === 'bmp') return bytesStartWith(bytes, [0x42, 0x4d]);
+            return true;
+        }
+
+        async function inferClientUploadFailureReason(file, serverReason = '') {
+            const displayName = getDisplayName(file);
+            const ext = getFileExtension(displayName);
+            if (isTemporaryOfficeFile(displayName)) {
+                return 'Office 临时文件，不支持上传，请关闭文档或删除 ~$ 临时文件';
+            }
+            if (!ALLOWED_FILE_EXTENSIONS.has(ext)) {
+                return `不支持的文件格式：${ext ? `.${ext}` : '无扩展名'}`;
+            }
+            if (file.size === 0) {
+                return '文件为空';
+            }
+            if (serverReason && serverReason !== '上传失败') {
+                return serverReason;
+            }
+
+            try {
+                const header = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
+                if (!uploadHeaderMatchesExtension(ext, header)) {
+                    return '文件内容与扩展名不匹配或文件可能已损坏';
+                }
+            } catch (error) {
+                return '浏览器无法读取该文件，请确认文件未被占用';
+            }
+            return serverReason || '后端未返回具体原因，请检查服务端日志';
+        }
+
         async function getDroppedFiles(dataTransfer) {
             const items = Array.from(dataTransfer.items || []);
             const entries = items
@@ -728,17 +798,27 @@
             const newFiles = [];
             for (let file of Array.from(files)) {
                 const displayName = getDisplayName(file);
+                if (isTemporaryOfficeFile(displayName)) {
+                    Utils.showMessage(`文件 "${displayName}" 是 Office 临时文件，已忽略`, 'warning');
+                    continue;
+                }
+                if (file.size === 0) {
+                    Utils.showMessage(`文件 "${displayName}" 为空，已忽略`, 'warning');
+                    continue;
+                }
                 if (file.size > MAX_SIZE) {
                     Utils.showMessage(`文件 "${displayName}" 超过20MB，已忽略`, 'warning');
                     continue;
                 }
-                const ext = displayName.includes('.') ? displayName.split('.').pop().toLowerCase() : '';
+                const ext = getFileExtension(displayName);
                 if (!ALLOWED_FILE_EXTENSIONS.has(ext)) {
                     Utils.showMessage(`文件 "${displayName}" 格式不支持，已忽略`, 'warning');
                     continue;
                 }
-                // 避免重复添加（按名称和大小粗略判断）
-                const exists = selectedFiles.some(f => getDisplayName(f) === displayName && f.size === file.size);
+                // 避免重复添加；文件夹选择时优先使用相对路径区分同名文件。
+                const exists = selectedFiles.some(
+                    f => getFileIdentity(f) === getFileIdentity(file)
+                );
                 if (!exists) {
                     newFiles.push(file);
                 }
@@ -811,19 +891,50 @@
         // 上传文件
         uploadBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
+            const filesToUpload = [...selectedFiles];
             uploadBtn.disabled = true;
+            clearSelectionBtn.disabled = true;
+            uploadArea.style.pointerEvents = 'none';
             uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
 
             try {
-                const result = await documentAPI.uploadFiles(selectedFiles);
+                const result = await documentAPI.uploadFiles(filesToUpload, {
+                    onProgress: ({ completedFiles, totalFiles: progressTotal }) => {
+                        uploadBtn.innerHTML =
+                            `<i class="fas fa-spinner fa-spin"></i> 上传中 ${completedFiles}/${progressTotal}`;
+                    }
+                });
                 // result 应为 UploadDocumentResponse 结构
                 const successNames = result.success_origin_filename || [];
                 const successUrls = result.success_file_url || [];
                 const errorNames = result.error_origin_filename || [];
+                const uploadResultItems = Array.isArray(result.upload_results)
+                    ? result.upload_results
+                    : [];
+                const uploadReasonMap = new Map(
+                    uploadResultItems
+                        .filter(item => item && item.status === 'failed')
+                        .map(item => [item.file_name, item.reason || '上传失败'])
+                );
+                const clientReasonEntries = await Promise.all(errorNames.map(async name => {
+                    const originalFile = filesToUpload.find(
+                        file => getDisplayName(file) === name || file.name === name
+                    );
+                    const serverReason = uploadReasonMap.get(name) || '';
+                    if (!originalFile) {
+                        return [name, serverReason && serverReason !== '上传失败'
+                            ? serverReason
+                            : '后端未返回具体原因，请检查服务端日志'];
+                    }
+                    return [name, await inferClientUploadFailureReason(originalFile, serverReason)];
+                }));
+                const clientReasonMap = new Map(clientReasonEntries);
 
                 // 更新 uploadedFiles
                 uploadedFiles = successNames.map((name, idx) => {
-                    const originalFile = selectedFiles.find(f => getDisplayName(f) === name || f.name === name) || {};
+                    const originalFile = filesToUpload.find(
+                        f => getDisplayName(f) === name || f.name === name
+                    ) || {};
                     return {
                         name: name,
                         url: successUrls[idx],
@@ -869,7 +980,15 @@
                 if (errorNames.length) {
                     let errorHtml = '<div style="font-weight:500; margin-bottom:8px; color:#ef4444;">失败：</div>';
                     errorNames.forEach(name => {
-                        errorHtml += `<div class="error-item">${name}</div>`;
+                        const reason = clientReasonMap.get(name)
+                            || uploadReasonMap.get(name)
+                            || '后端未返回具体原因，请检查服务端日志';
+                        errorHtml += `
+                            <div class="error-item">
+                                <span style="flex:1;">${escapeHtml(name)}</span>
+                                <span class="parse-reason">${escapeHtml(reason)}</span>
+                            </div>
+                        `;
                     });
                     errorList.innerHTML = errorHtml;
                 } else {
@@ -890,6 +1009,8 @@
                 uploadBtn.innerHTML = '上传文件';
                 uploadBtn.disabled = false;
                 uploadBtn.style.display = 'none';
+                clearSelectionBtn.disabled = false;
+                uploadArea.style.pointerEvents = '';
                 // 清空选择列表
                 selectedFiles = [];
                 renderSelectedFiles();

@@ -345,6 +345,7 @@ class UploadDocumentResponse(BaseModel):
     success_origin_filename: List[str]
     success_file_url: List[str]
     error_origin_filename: List[str]
+    upload_results: Optional[List[ParseResultItem]] = None
     parse_results: Optional[List[ParseResultItem]] = None
 
 

@@ -910,18 +910,110 @@ const documentAPI = {
         }
     },
 
-    // 上传文件（批量）
-    async uploadFiles(files) {
+    // 上传文件（批量）。大批量文件会拆成多个请求，避免单个 multipart 请求过大或超时。
+    async uploadFiles(files, options = {}) {
         try {
-            const response = await this.client.uploadFiles(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/upload_files`,
-                files
-            );
-            if (response.code === 1) {
-                return response.data; // UploadDocumentResponse
-            } else {
-                throw new Error(response.msg || '上传文件失败');
+            const fileList = Array.from(files || []).filter(Boolean);
+            if (fileList.length === 0) {
+                throw new Error('没有可上传的文件');
             }
+
+            const maxFilesPerRequest = Math.max(
+                1,
+                Number(options.maxFilesPerRequest) || 20
+            );
+            const maxBytesPerRequest = Math.max(
+                1,
+                Number(options.maxBytesPerRequest) || 64 * 1024 * 1024
+            );
+            const batches = [];
+            let currentBatch = [];
+            let currentBytes = 0;
+
+            for (const file of fileList) {
+                const fileSize = Math.max(0, Number(file.size) || 0);
+                const exceedsBatchLimit = currentBatch.length > 0 && (
+                    currentBatch.length >= maxFilesPerRequest
+                    || currentBytes + fileSize > maxBytesPerRequest
+                );
+
+                if (exceedsBatchLimit) {
+                    batches.push(currentBatch);
+                    currentBatch = [];
+                    currentBytes = 0;
+                }
+
+                currentBatch.push(file);
+                currentBytes += fileSize;
+            }
+            if (currentBatch.length > 0) {
+                batches.push(currentBatch);
+            }
+
+            const result = {
+                success_origin_filename: [],
+                success_file_url: [],
+                error_origin_filename: [],
+                upload_results: []
+            };
+            let completedFiles = 0;
+
+            for (let index = 0; index < batches.length; index += 1) {
+                const batch = batches[index];
+                try {
+                    const response = await this.client.uploadFiles(
+                        `${API_CONFIG.ENDPOINTS.DOCUMENTS}/upload_files`,
+                        batch
+                    );
+                    if (response.code !== 1) {
+                        throw new Error(response.msg || '上传文件失败');
+                    }
+
+                    const batchData = response.data || {};
+                    result.success_origin_filename.push(
+                        ...(batchData.success_origin_filename || [])
+                    );
+                    result.success_file_url.push(
+                        ...(batchData.success_file_url || [])
+                    );
+                    result.error_origin_filename.push(
+                        ...(batchData.error_origin_filename || [])
+                    );
+                    result.upload_results.push(
+                        ...(batchData.upload_results || [])
+                    );
+                } catch (error) {
+                    // 已完成的批次不能因为后续批次失败而丢失，继续上传剩余批次。
+                    const rawReason = error && error.message ? error.message : '';
+                    const reason = rawReason && rawReason !== '上传失败'
+                        ? rawReason
+                        : '该批次上传请求失败，后端未返回详细原因';
+                    result.error_origin_filename.push(
+                        ...batch.map(file => file.name || '未命名文件')
+                    );
+                    result.upload_results.push(
+                        ...batch.map(file => ({
+                            file_name: file.name || '未命名文件',
+                            status: 'failed',
+                            reason
+                        }))
+                    );
+                }
+                completedFiles += batch.length;
+
+                if (typeof options.onProgress === 'function') {
+                    options.onProgress({
+                        completedFiles,
+                        totalFiles: fileList.length,
+                        batchIndex: index + 1,
+                        totalBatches: batches.length,
+                        successCount: result.success_origin_filename.length,
+                        failedCount: result.error_origin_filename.length
+                    });
+                }
+            }
+
+            return result;
         } catch (error) {
             console.error('上传文件失败:', error);
             throw error;

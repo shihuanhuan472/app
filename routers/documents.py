@@ -3,6 +3,7 @@ import asyncio
 import json
 import time
 import uuid
+from collections import Counter
 from datetime import datetime, timedelta
 import os
 import re
@@ -2241,60 +2242,97 @@ async def upload_files(
     success_origin_filename = []
     success_file_url = []
     error_origin_filename = []
-    has_server_error = False
-    has_duplicate_file_error = False
-    duplicate_origin_filename = []
+    upload_results = []
     document_base_dir = os.getenv(
         "DOCUMENT_BASE_DIR", "D:/Pycharm/code/Maintenance_Assistance_System"
     )
     source_relative_dir = os.getenv("SOURCE_DOCUMENT_DIR", "upload/source_documents")
-    upload_file_names = [file.filename for file in files]
+    upload_file_names = [
+        normalize_uploaded_relative_filename(file.filename) for file in files
+    ]
     duplicate_file_names = sorted(
-        {name for name in upload_file_names if upload_file_names.count(name) > 1}
+        name
+        for name, count in Counter(upload_file_names).items()
+        if count > 1
     )
-    if duplicate_file_names:
-        raise AppException(
-            http_status=status.HTTP_400_BAD_REQUEST,
-            biz_code=BizCode.DOC_REQUEST_INVALID,
-            message=f"源文件名称重复：{', '.join(duplicate_file_names)}",
+    duplicate_file_name_set = set(duplicate_file_names)
+
+    def append_upload_failed(filename: str, reason: str, error_code: int = None):
+        error_origin_filename.append(filename)
+        upload_results.append(
+            _parse_result_item(
+                file_name=filename,
+                file_path=None,
+                item_status="failed",
+                reason=reason,
+                error_code=error_code,
+            )
         )
 
     for file in files:
         normalized_filename = normalize_uploaded_relative_filename(file.filename)
         file_ext = get_file_extension(normalized_filename)
         if file_ext not in ALLOWED_EXTENSIONS:
-            error_origin_filename.append(normalized_filename)
+            append_upload_failed(
+                normalized_filename,
+                f"不支持的文件格式：{file_ext or '无扩展名'}",
+                int(BizCode.DOC_REQUEST_INVALID),
+            )
             continue
 
+        if normalized_filename in duplicate_file_name_set:
+            append_upload_failed(
+                normalized_filename,
+                "本次上传中存在同名文件，请重命名后再上传",
+                int(BizCode.DOC_REQUEST_INVALID),
+            )
+            continue
+
+        stored_path = None
+        temporary_path = None
         try:
             if await _source_filename_exists(db, normalized_filename):
-                error_origin_filename.append(normalized_filename)
-                duplicate_origin_filename.append(normalized_filename)
-                has_duplicate_file_error = True
+                append_upload_failed(
+                    normalized_filename,
+                    "源文件已存在，请勿重复上传",
+                    int(BizCode.DOC_REQUEST_INVALID),
+                )
                 continue
 
-            contents = await file.read()
-            if not is_upload_content_valid(file_ext, contents):
-                error_origin_filename.append(normalized_filename)
-                has_server_error = False
+            # 只读取文件头做格式校验，然后分块写盘，避免把整个文件留在内存中。
+            header = await file.read(64 * 1024)
+            if not is_upload_content_valid(file_ext, header):
+                append_upload_failed(
+                    normalized_filename,
+                    "文件内容与扩展名不匹配或文件为空",
+                    int(BizCode.DOC_REQUEST_INVALID),
+                )
                 continue
+            await file.seek(0)
 
-            url, relative_path, category = build_document_storage_path(
+            stored_path, relative_path, category = build_document_storage_path(
                 document_base_dir,
                 source_relative_dir,
                 normalized_filename,
             )
-            async with aiofiles.open(url, "wb") as f:
-                await f.write(contents)
+            temporary_path = f"{stored_path}.{uuid.uuid4().hex}.part"
+            file_size = 0
+            async with aiofiles.open(temporary_path, "wb") as output:
+                while True:
+                    chunk = await file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    await output.write(chunk)
+                    file_size += len(chunk)
+            await asyncio.to_thread(os.replace, temporary_path, stored_path)
+            temporary_path = None
 
-            success_origin_filename.append(normalized_filename)
-            success_file_url.append(relative_path)
             source_document = SourceDocument(
                 origin_file_name=normalized_filename,
                 stored_file_path=relative_path,
                 file_ext=file_ext,
                 file_category=get_document_category(file_ext),
-                file_size=len(contents),
+                file_size=file_size,
                 uploader_id=current_user.id,
                 upload_time=datetime.now(),
                 status="uploaded",
@@ -2302,41 +2340,38 @@ async def upload_files(
             )
             db.add(source_document)
             await db.commit()
+            success_origin_filename.append(normalized_filename)
+            success_file_url.append(relative_path)
+            upload_results.append(
+                _parse_result_item(
+                    file_name=normalized_filename,
+                    file_path=relative_path,
+                    item_status="success",
+                )
+            )
             logger.info(
                 "uploaded document file classified, filename=%s, category=%s",
                 file.filename,
                 category,
             )
         except Exception as e:
-            print(e)
+            logger.exception("failed to upload document file, filename=%s", file.filename)
             await db.rollback()
-            error_origin_filename.append(normalized_filename)
-            has_server_error = True
-            # return Result.error(f"文件{file.filename}上传失败，请稍后重试")
-
-    if len(success_file_url) == 0:
-        if has_duplicate_file_error:
-            raise AppException(
-                http_status=status.HTTP_400_BAD_REQUEST,
-                biz_code=BizCode.DOC_REQUEST_INVALID,
-                message=f"源文件已存在，请勿重复上传：{', '.join(duplicate_origin_filename)}",
+            append_upload_failed(
+                normalized_filename,
+                f"服务器保存失败：{str(e) or '未知错误'}",
+                int(BizCode.INTERNAL_ERROR),
             )
-        if has_server_error:
-            raise AppException(
-                http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                biz_code=BizCode.INTERNAL_ERROR,
-                message="服务器内部错误",
-            )
-        raise AppException(
-            http_status=status.HTTP_400_BAD_REQUEST,
-            biz_code=BizCode.DOC_REQUEST_INVALID,
-            message="请求核心参数无效",
-        )
+            if temporary_path:
+                await asyncio.to_thread(delete_file_if_exists, temporary_path)
+            if stored_path:
+                await asyncio.to_thread(delete_file_if_exists, stored_path)
 
     upload_document_request = UploadDocumentResponse(
         success_file_url=success_file_url,
         success_origin_filename=success_origin_filename,
         error_origin_filename=error_origin_filename,
+        upload_results=upload_results,
     )
     return Result.success_with_data(upload_document_request)
 
