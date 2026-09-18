@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -12,7 +12,12 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
-from utils.tag_service import get_tag_document_count, get_tag_document_counts, normalize_tag_names
+from utils.tag_service import (
+    get_tag_document_count,
+    get_tag_document_counts,
+    normalize_match_aliases,
+    normalize_tag_names,
+)
 
 router = APIRouter(prefix="/tag", tags=["标签"])
 
@@ -27,6 +32,7 @@ def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
         id=tag.id,
         name=tag.name,
         description=tag.description,
+        match_aliases=normalize_match_aliases(tag.match_aliases),
         document_count=document_count,
         created_by=tag.created_by,
         created_time=tag.created_time,
@@ -71,7 +77,13 @@ async def page_tags(
     keyword = str(query.data or "").strip()
     conditions = [Tag.is_deleted == 0]
     if keyword:
-        conditions.append(or_(Tag.name.like(f"%{keyword}%"), Tag.description.like(f"%{keyword}%")))
+        conditions.append(
+            or_(
+                Tag.name.like(f"%{keyword}%"),
+                Tag.description.like(f"%{keyword}%"),
+                cast(Tag.match_aliases, String).like(f"%{keyword}%"),
+            )
+        )
 
     total_count_result = await db.execute(select(func.count()).select_from(Tag).where(*conditions))
     total_count = int(total_count_result.scalar_one() or 0)
@@ -112,6 +124,7 @@ async def add_tag(
         if existing.is_deleted:
             existing.is_deleted = 0
             existing.description = payload.description
+            existing.match_aliases = normalize_match_aliases(payload.match_aliases)
             existing.updated_time = now
             await db.commit()
             await db.refresh(existing)
@@ -121,6 +134,7 @@ async def add_tag(
     tag = Tag(
         name=name,
         description=payload.description,
+        match_aliases=normalize_match_aliases(payload.match_aliases),
         is_deleted=0,
         created_by=current_user.id,
         created_time=now,
@@ -154,6 +168,9 @@ async def update_tag(
 
     if payload.description is not None:
         tag.description = payload.description
+
+    if payload.match_aliases is not None:
+        tag.match_aliases = normalize_match_aliases(payload.match_aliases)
 
     tag.updated_time = datetime.now()
     await db.commit()

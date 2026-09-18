@@ -77,7 +77,9 @@ from utils.error_codes import BizCode
 from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
 from utils.upload_paths import normalize_upload_path
+from utils.automatic_tagging import format_ncmr_title, resolve_automatic_tag_ids
 from utils.tag_service import (
+    get_active_tag_snapshot,
     get_document_tag_names,
     normalize_tag_values,
     normalize_tag_names,
@@ -2420,6 +2422,7 @@ async def analyze_files(file_list: AnalyzeRequest,
     )
     current_user_id = current_user.id
     request_started = time.perf_counter()
+    tag_snapshot = await get_active_tag_snapshot(db)
     # AsyncSession.rollback() 会使当前 Session 中已加载的 ORM 对象属性过期。
     # 后面解析流程为了释放连接会先 rollback，如果继续访问 current_user.id，
     # SQLAlchemy 可能尝试在同步属性访问中重新 SELECT users，从而触发 MissingGreenlet。
@@ -2581,6 +2584,22 @@ async def analyze_files(file_list: AnalyzeRequest,
                     origin_file_dir=knowledge_file_path,
                     tags=file_list.tag,
                 )
+                resolved_tags, tag_source = await resolve_automatic_tag_ids(
+                    manual_tags=file_list.tag,
+                    file_name=file_name,
+                    document=parsed,
+                    tag_snapshot=tag_snapshot,
+                )
+                document.tag = _normalize_tags(resolved_tags)
+                document.title = format_ncmr_title(
+                    file_name, document.title, resolved_tags, tag_snapshot
+                )
+                logger.info(
+                    "knowledge document tags resolved, file=%s, source=%s, tags=%s",
+                    file_name,
+                    tag_source,
+                    resolved_tags,
+                )
                 if submit_for_review:
                     review = _build_create_review_from_document(
                         document,
@@ -2616,7 +2635,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 created_document_id = document.id
                 created_library_type = "knowledge"
                 await replace_knowledge_document_sections(db, document, parsed.sections)
-                await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
+                await set_document_tag_names(db, document, resolved_tags, created_by=current_user_id)
 
                 # 先提交文档和章节，释放 MySQL 锁。
                 # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
@@ -2785,7 +2804,22 @@ async def analyze_files(file_list: AnalyzeRequest,
             )
             document.origin_file_dir = knowledge_file_path
             document.first_edit_date = datetime.now()
-            document.tag = _normalize_tags(file_list.tag)
+            resolved_tags, tag_source = await resolve_automatic_tag_ids(
+                manual_tags=file_list.tag,
+                file_name=file_name,
+                document=document,
+                tag_snapshot=tag_snapshot,
+            )
+            document.tag = _normalize_tags(resolved_tags)
+            document.title = format_ncmr_title(
+                file_name, document.title, resolved_tags, tag_snapshot
+            )
+            logger.info(
+                "document tags resolved, file=%s, source=%s, tags=%s",
+                file_name,
+                tag_source,
+                resolved_tags,
+            )
             document.library_type = _normalize_library_type(file_list.library_type)
             _normalize_document_for_db(document)
             print(document.title)
@@ -2809,14 +2843,14 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.commit()
             else:
                 document = _copy_document_to_library(
-                    document, file_list.library_type, file_list.tag
+                    document, file_list.library_type, resolved_tags
                 )
                 db.add(document)
                 await db.flush()
                 await db.refresh(document)
                 created_document_id = document.id
                 created_library_type = getattr(document, "library_type", "breakdown")
-                await set_document_tag_names(db, document, file_list.tag, created_by=current_user_id)
+                await set_document_tag_names(db, document, resolved_tags, created_by=current_user_id)
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(

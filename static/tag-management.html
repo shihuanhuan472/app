@@ -77,6 +77,30 @@
             color: #667085;
         }
 
+        .alias-list { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+        .alias-chip {
+            display: inline-flex; min-width: 0; max-width: 100%; padding: 3px 7px;
+            border: 1px solid #d9e3f0; border-radius: 4px; background: #f8fafc;
+            color: #40546d; font-size: 12px; line-height: 18px;
+        }
+        .alias-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .alias-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) 38px; gap: 8px; }
+        .alias-editor-row .icon-btn { width: 38px; height: 38px; }
+        .alias-editor-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .alias-editor-item {
+            display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center;
+            gap: 8px; min-height: 34px; padding: 2px 3px 2px 10px;
+            border: 1px solid #e3eaf3; border-radius: 6px; background: #f8fafc;
+            color: #40546d; font-size: 13px;
+        }
+        .alias-editor-item span { overflow-wrap: anywhere; }
+        .alias-remove-btn {
+            width: 28px; height: 28px; border: 0; background: transparent;
+            color: #8492a6; cursor: pointer;
+        }
+        .alias-remove-btn:hover { color: #ef4444; }
+        .alias-editor-empty { padding: 8px 0 2px; color: #98a2b3; font-size: 12px; }
+
         .tag-actions {
             display: flex;
             justify-content: flex-end;
@@ -261,6 +285,16 @@
                             <input type="text" id="tagName" class="form-control" maxlength="50" required>
                         </div>
                         <div class="form-group">
+                            <label class="form-label" for="tagAliasInput">识别别名</label>
+                            <div class="alias-editor-row">
+                                <input type="text" id="tagAliasInput" class="form-control" maxlength="100" placeholder="输入一个别名">
+                                <button class="icon-btn" type="button" title="添加别名" aria-label="添加别名" onclick="addTagAlias()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div id="tagAliasList" class="alias-editor-list"></div>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label" for="tagDescription">备注</label>
                             <textarea id="tagDescription" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
                         </div>
@@ -280,6 +314,7 @@
         let tagKeyword = '';
         let tagSubmitting = false;
         let tagRows = [];
+        let tagAliases = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             const user = Utils.checkLogin();
@@ -297,6 +332,14 @@
                 loadTags();
             }, 300));
 
+            document.getElementById('tagAliasInput').addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addTagAlias();
+                }
+            });
+
+            renderTagAliasEditor();
             loadTags();
         });
 
@@ -341,6 +384,10 @@
                 const deleteTitle = documentCount > 0
                     ? `已有 ${documentCount} 篇文档使用该标签，不能删除`
                     : '删除';
+                const aliases = Array.isArray(tag.match_aliases) ? tag.match_aliases : [];
+                const aliasesHtml = aliases.length
+                    ? aliases.map(alias => `<span class="alias-chip" title="${escapeHtml(alias)}"><span class="alias-chip-text">${escapeHtml(alias)}</span></span>`).join('')
+                    : '<span class="tag-description-text">-</span>';
                 return `
                 <tr>
                     <td>
@@ -348,6 +395,7 @@
                             <span class="tag-name-text" title="${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</span>
                         </div>
                     </td>
+                    <td><div class="alias-list">${aliasesHtml}</div></td>
                     <td><span class="tag-description-text" title="${escapeHtml(tag.description || '')}">${escapeHtml(tag.description || '-')}</span></td>
                     <td>${documentCount}</td>
                     <td>${formatDate(tag.updated_time || tag.created_time)}</td>
@@ -369,7 +417,8 @@
                 <table class="tag-table">
                     <thead>
                         <tr>
-                            <th style="width: 26%;">名称</th>
+                            <th style="width: 18%;">名称</th>
+                            <th style="width: 24%;">识别别名</th>
                             <th>备注</th>
                             <th style="width: 90px;">文档</th>
                             <th style="width: 130px;">更新时间</th>
@@ -411,6 +460,9 @@
             document.getElementById('tagFormTitle').textContent = '编辑标签';
             document.getElementById('tagId').value = tag.id || '';
             document.getElementById('tagName').value = tag.name || '';
+            tagAliases = Array.isArray(tag.match_aliases) ? [...tag.match_aliases] : [];
+            document.getElementById('tagAliasInput').value = '';
+            renderTagAliasEditor();
             document.getElementById('tagDescription').value = tag.description || '';
         }
 
@@ -427,7 +479,49 @@
             document.getElementById('tagFormTitle').textContent = '新增标签';
             document.getElementById('tagId').value = '';
             document.getElementById('tagName').value = '';
+            tagAliases = [];
+            document.getElementById('tagAliasInput').value = '';
+            renderTagAliasEditor();
             document.getElementById('tagDescription').value = '';
+        }
+
+        function renderTagAliasEditor() {
+            const list = document.getElementById('tagAliasList');
+            if (!tagAliases.length) {
+                list.innerHTML = '<div class="alias-editor-empty">暂未添加识别别名</div>';
+                return;
+            }
+            list.innerHTML = tagAliases.map((alias, index) => `
+                <div class="alias-editor-item">
+                    <span>${escapeHtml(alias)}</span>
+                    <button class="alias-remove-btn" type="button" title="删除别名" aria-label="删除别名" onclick="removeTagAlias(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addTagAlias() {
+            const input = document.getElementById('tagAliasInput');
+            const alias = input.value.trim();
+            if (!alias) return;
+            if (/[，,\r\n]/.test(alias)) {
+                Utils.showMessage('每次只能添加一个别名，请勿输入逗号或换行', 'warning');
+                return;
+            }
+            if (tagAliases.some(item => item.toLocaleLowerCase() === alias.toLocaleLowerCase())) {
+                Utils.showMessage('该识别别名已存在', 'warning');
+                return;
+            }
+            tagAliases.push(alias);
+            input.value = '';
+            renderTagAliasEditor();
+            input.focus();
+        }
+
+        function removeTagAlias(index) {
+            tagAliases.splice(index, 1);
+            renderTagAliasEditor();
         }
 
         async function submitTagForm(event) {
@@ -436,6 +530,12 @@
 
             const id = document.getElementById('tagId').value;
             const name = document.getElementById('tagName').value.trim();
+            const pendingAlias = document.getElementById('tagAliasInput').value.trim();
+            if (pendingAlias) {
+                Utils.showMessage('还有未添加的识别别名，请先点击加号添加', 'warning');
+                return;
+            }
+            const match_aliases = [...tagAliases];
             const description = document.getElementById('tagDescription').value.trim();
             if (!name) {
                 Utils.showMessage('标签名称不能为空', 'error');
@@ -449,10 +549,10 @@
 
             try {
                 if (id) {
-                    await tagAPI.updateTag({ id: Number(id), name, description });
+                    await tagAPI.updateTag({ id: Number(id), name, description, match_aliases });
                     Utils.showMessage('标签已更新', 'success');
                 } else {
-                    await tagAPI.addTag({ name, description });
+                    await tagAPI.addTag({ name, description, match_aliases });
                     Utils.showMessage('标签已新增', 'success');
                 }
                 resetTagForm();

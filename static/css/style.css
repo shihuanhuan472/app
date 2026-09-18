@@ -5248,6 +5248,16 @@ body.batch-delete-active .pagination {
     border-color: #4a9eff;
 }
 
+body.batch-delete-active .source-list-head,
+body.batch-delete-active .source-list-row {
+    grid-template-columns: 32px minmax(300px, 2fr) 86px 96px 96px 96px 112px minmax(130px, 0.9fr) 190px;
+}
+
+.source-list-row.selected {
+    background: #eef6ff;
+    box-shadow: inset 3px 0 0 #4a9eff;
+}
+
 /* AI answer density and inline image sizing overrides. */
 .message-container.ai {
     margin-bottom: 12px !important;

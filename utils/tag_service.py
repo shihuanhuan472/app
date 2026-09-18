@@ -14,6 +14,33 @@ DOCUMENT_MODELS = {
 }
 
 
+def normalize_match_aliases(values) -> list[str]:
+    """Normalize aliases without treating numeric-looking values as tag ids."""
+    aliases = []
+    seen = set()
+    for item in _parse_tag_values(values):
+        value = str(item or "").strip()
+        key = value.casefold()
+        if not value or key in seen:
+            continue
+        seen.add(key)
+        aliases.append(value)
+    return aliases
+
+
+async def get_active_tag_snapshot(db: AsyncSession) -> list[dict]:
+    result = await db.execute(select(Tag).where(Tag.is_deleted == 0).order_by(Tag.id.asc()))
+    return [
+        {
+            "id": int(tag.id),
+            "name": tag.name,
+            "description": tag.description or "",
+            "aliases": normalize_match_aliases(tag.match_aliases),
+        }
+        for tag in result.scalars().all()
+    ]
+
+
 def normalize_library_type(library_type: str) -> str:
     return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
 

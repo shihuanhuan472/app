@@ -96,6 +96,27 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
+async def ensure_tag_match_aliases_column():
+    async with engine.begin() as conn:
+        column_added = False
+        if await _table_exists(conn, "tags") and not await _column_exists(conn, "tags", "match_aliases"):
+            await conn.execute(text("ALTER TABLE tags ADD COLUMN match_aliases JSON NULL AFTER description"))
+            column_added = True
+        if column_added:
+            await conn.execute(
+                text(
+                    "UPDATE tags SET match_aliases = JSON_ARRAY('MGISEQ-200', 'DNBSEQ-G50') "
+                    "WHERE name = 'G50' AND (match_aliases IS NULL OR JSON_LENGTH(match_aliases) = 0)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "UPDATE tags SET match_aliases = JSON_ARRAY('MGISEQ-2000', 'DNBSEQ-G400') "
+                    "WHERE name = 'G400' AND (match_aliases IS NULL OR JSON_LENGTH(match_aliases) = 0)"
+                )
+            )
+
+
 async def _table_exists(conn, table_name: str) -> bool:
     result = await conn.execute(
         text(
@@ -990,6 +1011,7 @@ async def on_startup():
     await init_db()
     await ensure_user_registration_schema()
     await ensure_role_group_schema()
+    await ensure_tag_match_aliases_column()
     await ensure_user_api_key_column()
     await ensure_document_tables_for_library_split()
     await ensure_review_library_columns()

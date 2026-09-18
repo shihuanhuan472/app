@@ -164,6 +164,7 @@ class Tag(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text)
+    match_aliases = Column(JSON, default=list)
     is_deleted = Column(Integer, default=0, nullable=False, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_time = Column(DateTime)

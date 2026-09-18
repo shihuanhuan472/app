@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from dependencies import get_current_active_user
 from models import DocumentBreakdown, DocumentKnowledge, Document_review, KnowledgeDocumentReview, SourceDocument, User
-from schemas import Result, SourceDocumentResponse
+from schemas import Result, SourceBatchDeleteRequest, SourceDocumentResponse
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists
@@ -316,3 +316,68 @@ async def delete_source_document(
     await db.commit()
 
     return Result.success_with_data({"id": source_id})
+
+
+@router.post("/batch-delete", summary="批量删除源文档")
+async def batch_delete_source_documents(
+    request: SourceBatchDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not request.ids:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "请选择要删除的源文档")
+    if len(request.ids) > 100:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "单次最多删除 100 个源文档")
+
+    deleted_ids = []
+    failed_items = []
+    for source_id in dict.fromkeys(request.ids):
+        try:
+            result = await db.execute(
+                select(SourceDocument).where(SourceDocument.id == source_id, SourceDocument.is_deleted == 0)
+            )
+            source = result.scalar_one_or_none()
+            if not source:
+                raise AppException(status.HTTP_404_NOT_FOUND, BizCode.DOC_RESOURCE_NOT_FOUND, "源文档不存在")
+            if source.uploader_id != current_user.id and not has_role(current_user, UserRole.ADMIN):
+                raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "无权删除该源文档")
+
+            await _repair_stale_source_link(db, source)
+            await _repair_stale_review_link(db, source)
+            if source.document_id:
+                document_model = _get_document_model(source.document_library_type)
+                document_result = await db.execute(
+                    select(document_model.id).where(
+                        document_model.id == source.document_id,
+                        document_model.is_deleted == 0,
+                    )
+                )
+                if document_result.scalar_one_or_none() is not None:
+                    raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "该源文档已生成知识文档")
+            if source.review_id:
+                review_model = KnowledgeDocumentReview if source.review_library_type == "knowledge" else Document_review
+                review_result = await db.execute(
+                    select(review_model.id).where(review_model.id == source.review_id, review_model.status == 0)
+                )
+                if review_result.scalar_one_or_none() is not None:
+                    raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "该源文档有关联的待审核记录")
+
+            base_dir = os.getenv("DOCUMENT_BASE_DIR", ".")
+            absolute_path = os.path.join(
+                base_dir, normalize_upload_path(source.stored_file_path) or source.stored_file_path
+            )
+            await asyncio.to_thread(delete_file_if_exists, absolute_path)
+            source.is_deleted = 1
+            source.status = "deleted"
+            source.deleted_time = datetime.now()
+            source.parse_started_time = None
+            deleted_ids.append(source_id)
+        except AppException as exc:
+            failed_items.append({"id": source_id, "message": exc.message})
+        except Exception as exc:
+            failed_items.append({"id": source_id, "message": str(exc) or "删除失败"})
+
+    await db.commit()
+    return Result.success_with_data(
+        {"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "failed_items": failed_items}
+    )

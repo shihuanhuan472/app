@@ -1,5 +1,5 @@
 # schemas.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Any, Dict, Optional, List, TypeVar, Generic
 from datetime import datetime
 
@@ -147,15 +147,46 @@ class Page(BaseModel):
     tag: Optional[List[Any]] = None
 
 
+def _validate_match_aliases(aliases):
+    if aliases is None:
+        return None
+    normalized = []
+    seen = set()
+    for alias in aliases:
+        value = str(alias or "").strip()
+        if not value:
+            continue
+        if any(separator in value for separator in (",", "，", "\r", "\n")):
+            raise ValueError("每个识别别名必须单独添加，不能包含逗号或换行")
+        key = value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(value)
+    return normalized
+
+
 class TagCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    match_aliases: Optional[List[str]] = None
+
+    @field_validator("match_aliases")
+    @classmethod
+    def validate_match_aliases(cls, aliases):
+        return _validate_match_aliases(aliases)
 
 
 class TagUpdate(BaseModel):
     id: int
     name: Optional[str] = None
     description: Optional[str] = None
+    match_aliases: Optional[List[str]] = None
+
+    @field_validator("match_aliases")
+    @classmethod
+    def validate_match_aliases(cls, aliases):
+        return _validate_match_aliases(aliases)
 
 
 class TagQuery(BaseModel):
@@ -168,6 +199,7 @@ class TagResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+    match_aliases: Optional[List[str]] = None
     document_count: Optional[int] = 0
     created_by: Optional[int] = None
     created_time: Optional[datetime] = None
@@ -299,6 +331,10 @@ class BatchDeleteRequest(BaseModel):
         library_type: str = "breakdown"
 
     documents: List[DocumentItem]
+
+
+class SourceBatchDeleteRequest(BaseModel):
+    ids: List[int]
 
 
 class DocumentReviewResponse(DocumentResponse):

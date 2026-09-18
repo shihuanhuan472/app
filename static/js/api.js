@@ -1084,6 +1084,14 @@ const sourceDocumentAPI = {
             console.error('删除源文档失败:', error);
             throw error;
         }
+    },
+
+    async batchDeleteSourceDocuments(ids) {
+        const response = await this.client.post('/source-documents/batch-delete', { ids }, true);
+        if (response.code === 1) {
+            return response.data;
+        }
+        throw new Error(response.msg || '批量删除源文档失败');
     }
 };
 
