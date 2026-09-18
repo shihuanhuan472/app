@@ -16,7 +16,7 @@ from utils.tag_service import (
     get_tag_document_count,
     get_tag_document_counts,
     normalize_match_aliases,
-    normalize_tag_names,
+    normalize_tag_name,
 )
 
 router = APIRouter(prefix="/tag", tags=["标签"])
@@ -113,10 +113,9 @@ async def add_tag(
     current_user: User = Depends(get_current_active_user),
 ):
     _require_tag_operator(current_user)
-    names = normalize_tag_names([payload.name])
-    if not names:
+    name = normalize_tag_name(payload.name)
+    if not name:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
-    name = names[0]
 
     existing = await _get_existing_tag_by_name(db, name)
     now = datetime.now()
@@ -156,10 +155,9 @@ async def update_tag(
     tag = await _get_active_tag_or_404(db, payload.id)
 
     if payload.name is not None:
-        names = normalize_tag_names([payload.name])
-        if not names:
+        new_name = normalize_tag_name(payload.name)
+        if not new_name:
             raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
-        new_name = names[0]
         if new_name != tag.name:
             existing = await _get_existing_tag_by_name(db, new_name)
             if existing and existing.id != tag.id:

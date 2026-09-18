@@ -145,7 +145,12 @@ def parse_ai_json_response(text: str) -> Any:
 
 
 def parse_chat_completion_json(response: Any) -> Any:
-    """Validate a chat completion and parse its assistant content as JSON."""
+    """Validate a chat completion and parse an object-shaped JSON response.
+
+    Models occasionally wrap the requested object in a one-item array. Keep
+    that harmless deviation compatible, but reject ambiguous/malformed
+    structures before callers start treating the value as a mapping.
+    """
     choices = getattr(response, "choices", None) or []
     if not choices:
         raise ValueError("AI未返回候选结果")
@@ -157,7 +162,15 @@ def parse_chat_completion_json(response: Any) -> Any:
     content = getattr(message, "content", None) if message is not None else None
     if not str(content or "").strip():
         raise ValueError("AI返回内容为空")
-    return parse_ai_json_response(content)
+    payload = parse_ai_json_response(content)
+    if isinstance(payload, list):
+        if len(payload) == 1 and isinstance(payload[0], dict):
+            payload = payload[0]
+        else:
+            raise ValueError("AI返回JSON顶层必须是对象，不能是多元素数组")
+    if not isinstance(payload, dict):
+        raise ValueError("AI返回JSON顶层必须是对象")
+    return payload
 
 
 def maybe_wrap_openai_client(client: Any) -> Any:

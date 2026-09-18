@@ -478,6 +478,7 @@
         let rawReviews = [];
         let reviewSubmitting = false;
         let batchReviewSubmitting = false;
+        const tagNameMap = new Map();
         const selectedReviewIds = new Set();
 
         function escapeHtml(text) {
@@ -748,6 +749,37 @@
             updateBatchReviewToolbar();
         }
 
+        async function loadTagNames() {
+            try {
+                const tags = await tagAPI.getAllTags();
+                tagNameMap.clear();
+                (Array.isArray(tags) ? tags : []).forEach(tag => {
+                    if (tag && tag.id != null) {
+                        tagNameMap.set(String(tag.id), String(tag.name || tag.id));
+                    }
+                });
+            } catch (error) {
+                console.warn('加载审核标签名称失败:', error);
+            }
+        }
+
+        function getReviewTagLabel(tags) {
+            let normalizedTags = tags;
+            if (typeof normalizedTags === 'string') {
+                try {
+                    normalizedTags = JSON.parse(normalizedTags);
+                } catch (error) {
+                    normalizedTags = normalizedTags.split(/[,，]/);
+                }
+            }
+            if (!Array.isArray(normalizedTags) || !normalizedTags.length) return '无';
+            return normalizedTags
+                .map(tag => String(tag).trim())
+                .filter(Boolean)
+                .map(tag => tagNameMap.get(tag) || tag)
+                .join('、') || '无';
+        }
+
         function getBatchReviewSnapshot(reviewIds) {
             const itemMap = new Map();
             rawReviews.forEach(item => itemMap.set(getReviewKey(item), item));
@@ -979,6 +1011,7 @@
             const actionText = actionMap[item.action_type] || `类型${item.action_type}`;
             const createdAt = item.first_edit_date ? Utils.formatDate(item.first_edit_date, 'YYYY-MM-DD HH:mm') : '未知';
             const reviewedAt = item.reviewed_time ? Utils.formatDate(item.reviewed_time, 'YYYY-MM-DD HH:mm') : '未审核';
+            const tagLabel = getReviewTagLabel(item.tag);
             const canOperate = Number(item.status) === 0;
 
             const libraryType = getReviewLibraryType(item);
@@ -1015,6 +1048,7 @@
                         <span class="status-pill status-3">提交人：${escapeHtml(item.contributor_name || '未知')}</span>
                         <span class="status-pill status-3">提交时间：${createdAt}</span>
                         <span class="status-pill status-3">审核时间：${reviewedAt}</span>
+                        <span class="status-pill status-3">标签：${escapeHtml(tagLabel)}</span>
                     </div>
                 </div>
                 ${renderSection('审核意见（当前）', item.review_comment || '无')}
@@ -1104,6 +1138,7 @@
                 setTimeout(() => window.location.replace('main.html'), 400);
                 return;
             }
+            await loadTagNames();
             await loadReviewList();
         });
 

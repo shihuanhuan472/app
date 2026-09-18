@@ -14,6 +14,11 @@ DOCUMENT_MODELS = {
 }
 
 
+def normalize_tag_name(value) -> str:
+    """Normalize a tag's display name without interpreting digits as an id."""
+    return str(value or "").strip()
+
+
 def normalize_match_aliases(values) -> list[str]:
     """Normalize aliases without treating numeric-looking values as tag ids."""
     aliases = []
@@ -112,102 +117,46 @@ def normalize_tag_names(tag) -> list[str]:
     return names
 
 
-def normalize_tag_values(tag) -> list:
-    values = []
-    seen = set()
-    for item in _parse_tag_values(tag):
-        tag_id = _to_int(item)
-        value = tag_id if tag_id is not None else str(item or "").strip()
-        if value == "" or value in seen:
-            continue
-        seen.add(value)
-        values.append(value)
-    return values
-
-
 def get_document_library_type(document) -> str:
     return normalize_library_type(getattr(document, "library_type", "breakdown"))
 
 
-async def ensure_tags(
-    db: AsyncSession,
-    names,
-    created_by: Optional[int] = None,
-) -> list[Tag]:
-    normalized_names = normalize_tag_names(names)
-    if not normalized_names:
-        return []
-
-    result = await db.execute(select(Tag).where(Tag.name.in_(normalized_names)))
-    existing_tags = {tag.name: tag for tag in result.scalars().all()}
-    now = datetime.now()
-
-    for name in normalized_names:
-        tag = existing_tags.get(name)
-        if tag:
-            if tag.is_deleted:
-                tag.is_deleted = 0
-                tag.updated_time = now
-            continue
-
-        tag = Tag(
-            name=name,
-            description=None,
-            is_deleted=0,
-            created_by=created_by,
-            created_time=now,
-            updated_time=now,
-        )
-        db.add(tag)
-        existing_tags[name] = tag
-
-    await db.flush()
-    return [existing_tags[name] for name in normalized_names]
-
-
-async def resolve_tags(
-    db: AsyncSession,
-    values,
-    created_by: Optional[int] = None,
-) -> list[Tag]:
+async def set_document_tag_ids(db: AsyncSession, document, values) -> list[int]:
+    """Store active tag ids on a document; tag creation belongs to tag management."""
     tag_ids = normalize_tag_ids(values)
-    tag_names = normalize_tag_names(values)
-    tags_by_id = {}
-
-    if tag_ids:
-        result = await db.execute(select(Tag).where(Tag.id.in_(tag_ids), Tag.is_deleted == 0))
-        tags_by_id = {tag.id: tag for tag in result.scalars().all()}
-
-    tags_by_name = {tag.name: tag for tag in await ensure_tags(db, tag_names, created_by=created_by)}
-
-    resolved = []
-    seen = set()
-    for item in _parse_tag_values(values):
-        tag_id = _to_int(item)
-        tag = tags_by_id.get(tag_id) if tag_id is not None else tags_by_name.get(str(item).strip())
-        if tag and tag.id not in seen:
-            seen.add(tag.id)
-            resolved.append(tag)
-    return resolved
-
-
-async def set_document_tag_names(
-    db: AsyncSession,
-    document,
-    names,
-    created_by: Optional[int] = None,
-) -> list[str]:
-    """
-    保留旧函数名，实际行为改为：
-    - 接收 tag id 数组或 tag name 数组；
-    - name 会自动创建/复用 Tag；
-    - document.tag 存储 tag id 数组。
-    """
-    tags = await resolve_tags(db, names, created_by=created_by)
+    if not tag_ids:
+        document.tag = []
+        return []
+    result = await db.execute(select(Tag.id).where(Tag.id.in_(tag_ids), Tag.is_deleted == 0))
+    active_ids = set(result.scalars().all())
+    resolved_ids = [tag_id for tag_id in tag_ids if tag_id in active_ids]
     if hasattr(document, "tag"):
-        document.tag = [tag.id for tag in tags]
+        document.tag = resolved_ids
     await db.flush()
-    return [tag.name for tag in tags]
+    return resolved_ids
+
+
+async def migrate_legacy_document_tag_names(
+    db: AsyncSession, document, values, created_by: Optional[int] = None
+) -> None:
+    """One-time compatibility path for documents that stored tag names."""
+    names = normalize_tag_names(values)
+    if not names:
+        return
+    result = await db.execute(select(Tag).where(Tag.name.in_(names)))
+    tags_by_name = {tag.name: tag for tag in result.scalars().all()}
+    now = datetime.now()
+    for name in names:
+        tag = tags_by_name.get(name)
+        if tag is None:
+            tag = Tag(name=name, is_deleted=0, created_by=created_by, created_time=now, updated_time=now)
+            db.add(tag)
+            tags_by_name[name] = tag
+        elif tag.is_deleted:
+            tag.is_deleted = 0
+            tag.updated_time = now
+    await db.flush()
+    document.tag = [tags_by_name[name].id for name in names]
 
 
 async def get_document_tag_names(db: AsyncSession, document) -> list[str]:
@@ -232,21 +181,10 @@ def tag_filter_for_model(document_model, tags):
         return None
 
     tag_ids = normalize_tag_ids(values)
-    tag_names = normalize_tag_names(values)
     conditions = []
     for tag_id in tag_ids:
         conditions.append(_json_contains_tag_id(document_model.tag, tag_id))
 
-    if tag_names:
-        conditions.append(
-            exists(
-                select(Tag.id).where(
-                    Tag.is_deleted == 0,
-                    Tag.name.in_(tag_names),
-                    _json_contains_tag_id(document_model.tag, Tag.id),
-                )
-            )
-        )
     return or_(*conditions) if conditions else None
 
 

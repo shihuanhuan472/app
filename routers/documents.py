@@ -81,9 +81,8 @@ from utils.automatic_tagging import format_ncmr_title, resolve_automatic_tag_ids
 from utils.tag_service import (
     get_active_tag_snapshot,
     get_document_tag_names,
-    normalize_tag_values,
-    normalize_tag_names,
-    set_document_tag_names,
+    normalize_tag_ids,
+    set_document_tag_ids,
     tag_filter_for_model,
     tag_keyword_filter_for_model,
 )
@@ -136,8 +135,8 @@ def _sort_documents_by_edit_time(documents):
 
 
 def _normalize_tags(tag):
-    """把标签统一为去空白的字符串数组。实际关系保存在标签关联表中。"""
-    return normalize_tag_values(tag)
+    """把标签统一为文档表使用的标签 ID 数组。"""
+    return normalize_tag_ids(tag)
 
 
 def _require_admin_document_write(
@@ -1263,9 +1262,7 @@ async def create_document(
                 document_data,
                 _knowledge_sections_from_request(document.sections),
             )
-        await set_document_tag_names(
-            db, document_data, document.tag, created_by=current_user.id
-        )
+        await set_document_tag_ids(db, document_data, document.tag)
         print("数据库插入成功")
         vector_service = VectorService(db)
         await vector_service.add_document_to_vector_store(document_data, commit=False)
@@ -1529,9 +1526,7 @@ async def update_document(
             if key == "id" or key in attrs:
                 continue
             if key == "tag":
-                await set_document_tag_names(
-                    db, document_now, value, created_by=current_user.id
-                )
+                await set_document_tag_ids(db, document_now, value)
                 continue
             setattr(document_now, key, value)
 
@@ -2635,7 +2630,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 created_document_id = document.id
                 created_library_type = "knowledge"
                 await replace_knowledge_document_sections(db, document, parsed.sections)
-                await set_document_tag_names(db, document, resolved_tags, created_by=current_user_id)
+                await set_document_tag_ids(db, document, resolved_tags)
 
                 # 先提交文档和章节，释放 MySQL 锁。
                 # 后续向量化/AI 摘要/Milvus 写入较慢，不能放在同一个数据库事务中。
@@ -2850,7 +2845,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 await db.refresh(document)
                 created_document_id = document.id
                 created_library_type = getattr(document, "library_type", "breakdown")
-                await set_document_tag_names(db, document, resolved_tags, created_by=current_user_id)
+                await set_document_tag_ids(db, document, resolved_tags)
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(

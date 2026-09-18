@@ -2268,6 +2268,8 @@ class PdfParser:
             ans = response.choices[0].message.content
             print(ans)
             result = parse_chat_completion_json(response)
+            if not isinstance(result, dict):
+                raise ValueError("PDF结构化结果必须是JSON对象")
             result["title"] = normalize_document_title(result.get("title"))
             result = self._clean_result_text_fields(result)
             if is_mineru_markdown:

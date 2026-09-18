@@ -131,7 +131,12 @@ def validate_tag_ids(values, tag_snapshot: list[dict]) -> list[int]:
     return result
 
 
-async def classify_document_tag_ids(document: Any, tag_snapshot: list[dict]) -> list[int]:
+async def classify_document_tag_ids(
+    document: Any,
+    tag_snapshot: list[dict],
+    file_name: str = "",
+    filename_candidate_ids: list[int] | None = None,
+) -> list[int]:
     content = document_text_for_tagging(document)
     if not content.strip() or not tag_snapshot:
         return []
@@ -147,9 +152,18 @@ async def classify_document_tag_ids(document: Any, tag_snapshot: list[dict]) -> 
     ]
     prompt = f"""你正在为设备维修文档识别机器类型标签。
 只能选择候选列表中已有的标签，不得创建新标签。别名与标签名称含义相同。
-只选择文档主要描述或明确适用的机器类型；对比、排除、偶然提及的机器不要选择。
+文件名和其中的匹配词只作为候选线索，不能单独决定标签。
+只选择文档主要描述或明确适用的机器类型；如果文件名中的词是日期、编号、数量，或正文明确描述其他设备，不要选择该标签。
+即使正文没有出现标签词，只要上下文明确表明文档主要描述该设备，也可以选择。
+对比、排除、偶然提及的机器不要选择。
 明确适用于多种机器时可以选择多个；无法可靠判断时返回空数组。
 仅返回 JSON：{{"tag_ids": [标签ID]}}。
+
+文件名：
+{file_name}
+
+文件名匹配到的候选标签 ID（仅供参考）：
+{json.dumps(filename_candidate_ids or [], ensure_ascii=False)}
 
 候选标签：
 {json.dumps(candidates, ensure_ascii=False)}
@@ -187,7 +201,10 @@ async def resolve_automatic_tag_ids(
     if manual_tags:
         return list(manual_tags), "manual"
     filename_ids = match_filename_tag_ids(file_name, tag_snapshot)
-    if len(filename_ids) == 1:
-        return filename_ids, "filename"
-    ai_ids = await classify_document_tag_ids(document, tag_snapshot)
+    ai_ids = await classify_document_tag_ids(
+        document,
+        tag_snapshot,
+        file_name=file_name,
+        filename_candidate_ids=filename_ids,
+    )
     return ai_ids, "content" if ai_ids else "unresolved"

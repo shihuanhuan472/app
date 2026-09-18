@@ -144,7 +144,7 @@ class Page(BaseModel):
     page: Optional[int] = 1
     size: Optional[int] = 6
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
 
 
 def _validate_match_aliases(aliases):
@@ -241,7 +241,7 @@ class KnowledgeSectionResponse(KnowledgeSectionCreate):
 
 class DocumentCreate(BaseModel):
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
     title: str
     summary: Optional[str] = None
     content: Optional[str] = None
@@ -298,7 +298,7 @@ class DocumentReviewRequest(BaseModel):
     action_type: int
     document_id: Optional[int] = None
     document_library_type: Optional[str] = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
     sections: Optional[List[KnowledgeSectionCreate]] = None
     review_comment: Optional[str] = None
 
@@ -338,6 +338,9 @@ class SourceBatchDeleteRequest(BaseModel):
 
 
 class DocumentReviewResponse(DocumentResponse):
+    # Review records store the selected tag ids; document responses resolve
+    # those ids to names separately for display.
+    tag: Optional[List[int]] = None
     review_library_type: Optional[str] = "breakdown"
     sections: Optional[List[KnowledgeSectionCreate]] = None
     document_id: Optional[int] = None
@@ -357,7 +360,7 @@ class DocumentReviewResponse(DocumentResponse):
 class DocumentQuery(BaseModel):
     data: str
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
     page: Optional[int] = 1
     size: Optional[int] = 6
 
@@ -424,7 +427,7 @@ class AnalyzeRequest(BaseModel):
     file_name: List[str]
     submit_for_review: Optional[bool] = False
     library_type: Optional[str] = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
 
 
 class ParseTaskCreate(AnalyzeRequest):
@@ -459,7 +462,7 @@ class ParseTaskResponse(BaseModel):
     current_file_name: Optional[str] = None
     submit_for_review: bool = False
     library_type: str = "breakdown"
-    tag: Optional[List[Any]] = None
+    tag: Optional[List[int]] = None
     error_message: Optional[str] = None
     created_time: Optional[datetime] = None
     started_time: Optional[datetime] = None

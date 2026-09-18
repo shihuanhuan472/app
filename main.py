@@ -60,7 +60,7 @@ from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
 from starlette.types import Scope
 from sqlalchemy import func, select, text
-from utils.tag_service import normalize_tag_names, set_document_tag_names
+from utils.tag_service import migrate_legacy_document_tag_names, normalize_tag_names
 from utils.app_exceptions import AppException
 from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
@@ -939,7 +939,9 @@ async def migrate_legacy_tags_to_tag_tables():
                 raw_tag = getattr(document, "tag", [])
                 legacy_tag_names = normalize_tag_names(raw_tag)
                 if legacy_tag_names:
-                    await set_document_tag_names(db, document, raw_tag, created_by=document.contributor_id)
+                    await migrate_legacy_document_tag_names(
+                        db, document, raw_tag, created_by=document.contributor_id
+                    )
         await db.commit()
 
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域

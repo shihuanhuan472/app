@@ -26,7 +26,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
-from utils.tag_service import normalize_tag_values, set_document_tag_names
+from utils.tag_service import normalize_tag_ids, set_document_tag_ids
 from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
@@ -65,8 +65,8 @@ def _review_storage_type(review) -> str:
 
 
 def _normalize_tags(tag):
-    """审核表保留 tag id/name 混合输入，最终写文档表时会转成 tag id 数组。"""
-    return normalize_tag_values(tag)
+    """审核表和文档表统一存储 tag id 数组。"""
+    return normalize_tag_ids(tag)
 
 
 def _section_to_review_payload(section, index: int) -> dict:
@@ -931,7 +931,7 @@ async def approve_review(
             }))
             db.add(new_document)
             await db.flush()
-            await set_document_tag_names(db, new_document, review.tag, created_by=review.contributor_id)
+            await set_document_tag_ids(db, new_document, review.tag)
             if _review_library_type(review) == "knowledge":
                 await replace_knowledge_document_sections(db, new_document, _review_sections_for_create(review))
             review.document_id = new_document.id
@@ -957,7 +957,7 @@ async def approve_review(
                 if field == "title" and not review.title:
                     continue
                 if field == "tag":
-                    await set_document_tag_names(db, document, getattr(review, field), created_by=review.contributor_id)
+                    await set_document_tag_ids(db, document, getattr(review, field))
                     continue
                 if hasattr(document, field):
                     setattr(document, field, getattr(review, field))
