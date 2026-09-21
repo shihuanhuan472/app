@@ -60,7 +60,6 @@ from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
 from starlette.types import Scope
 from sqlalchemy import func, select, text
-from utils.tag_service import migrate_legacy_document_tag_names, normalize_tag_names
 from utils.app_exceptions import AppException
 from utils.api_key import generate_api_key
 from utils.error_codes import BizCode, HTTP_TO_BIZ_CODE
@@ -930,20 +929,6 @@ async def migrate_legacy_documents_to_breakdown():
         )
 
 
-async def migrate_legacy_tags_to_tag_tables():
-    async with AsyncSessionLocal() as db:
-        for document_model in (DocumentBreakdown, DocumentKnowledge):
-            result = await db.execute(select(document_model).where(document_model.is_deleted == 0))
-            documents = result.scalars().all()
-            for document in documents:
-                raw_tag = getattr(document, "tag", [])
-                legacy_tag_names = normalize_tag_names(raw_tag)
-                if legacy_tag_names:
-                    await migrate_legacy_document_tag_names(
-                        db, document, raw_tag, created_by=document.contributor_id
-                    )
-        await db.commit()
-
 # 自定义 StaticFiles 类，添加 CORS 头，用于跨域
 async def migrate_legacy_upload_document_paths_to_source_documents():
     base_dir = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -1022,7 +1007,6 @@ async def on_startup():
     await ensure_ai_usage_logs_table()
     await ensure_memory_tables_schema()
     await migrate_legacy_documents_to_breakdown()
-    await migrate_legacy_tags_to_tag_tables()
     await migrate_legacy_upload_document_paths_to_source_documents()
 
 # 配置 CORS（跨域资源共享）

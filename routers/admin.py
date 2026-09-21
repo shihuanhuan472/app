@@ -57,7 +57,6 @@ from utils.roles import (
     normalize_perm_value,
     normalize_role_value,
 )
-from utils.VectorService import VectorService
 
 """
 管理员相关操作，即对用户的增删改查。
@@ -803,16 +802,6 @@ async def get_dashboard(
         ],
     }
     return Result.success_with_data(data)
-
-
-@router.post("/search_index/rebuild", summary="管理员批量重建OpenSearch/Elasticsearch搜索索引")
-async def rebuild_search_index(
-    batch_size: int = 500,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
-):
-    indexed_count = await VectorService(db).batch_reindex_search_documents(batch_size=batch_size)
-    return Result.success_with_data({"indexed_count": indexed_count})
 
 
 @router.get("/sensitive_terms", summary="管理员查询敏感词替换规则")

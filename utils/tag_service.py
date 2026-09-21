@@ -1,11 +1,12 @@
 import json
-from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from models import DocumentBreakdown, DocumentKnowledge, Tag
+from utils.app_exceptions import AppException
+from utils.error_codes import BizCode
 
 
 DOCUMENT_MODELS = {
@@ -99,64 +100,42 @@ def normalize_tag_ids(tag) -> list[int]:
     return ids
 
 
-def normalize_tag_names(tag) -> list[str]:
-    """
-    兼容旧接口名称：用于标签创建/按名称输入时的规范化。
-    文档表 tag 字段实际存储 tag id 数组，不再存名称数组。
-    """
-    names = []
-    seen = set()
-    for item in _parse_tag_values(tag):
-        if _to_int(item) is not None:
-            continue
-        name = str(item or "").strip()
-        if not name or name in seen:
-            continue
-        seen.add(name)
-        names.append(name)
-    return names
-
-
 def get_document_library_type(document) -> str:
     return normalize_library_type(getattr(document, "library_type", "breakdown"))
 
 
-async def set_document_tag_ids(db: AsyncSession, document, values) -> list[int]:
-    """Store active tag ids on a document; tag creation belongs to tag management."""
+async def validate_active_tag_ids(db: AsyncSession, values) -> list[int]:
+    """Return canonical tag ids after checking them against active managed tags."""
+    raw_values = _parse_tag_values(values)
+    invalid_values = [value for value in raw_values if _to_int(value) is None]
+    if invalid_values:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            "标签必须使用标签管理中的数字 ID",
+        )
     tag_ids = normalize_tag_ids(values)
     if not tag_ids:
-        document.tag = []
         return []
     result = await db.execute(select(Tag.id).where(Tag.id.in_(tag_ids), Tag.is_deleted == 0))
     active_ids = set(result.scalars().all())
-    resolved_ids = [tag_id for tag_id in tag_ids if tag_id in active_ids]
+    invalid_ids = [tag_id for tag_id in tag_ids if tag_id not in active_ids]
+    if invalid_ids:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"标签不存在或已停用: {', '.join(map(str, invalid_ids))}",
+        )
+    return [tag_id for tag_id in tag_ids if tag_id in active_ids]
+
+
+async def set_document_tag_ids(db: AsyncSession, document, values) -> list[int]:
+    """Store tag ids after checking them against current tag management."""
+    resolved_ids = await validate_active_tag_ids(db, values)
     if hasattr(document, "tag"):
         document.tag = resolved_ids
     await db.flush()
     return resolved_ids
-
-
-async def migrate_legacy_document_tag_names(
-    db: AsyncSession, document, values, created_by: Optional[int] = None
-) -> None:
-    """One-time compatibility path for documents that stored tag names."""
-    names = normalize_tag_names(values)
-    if not names:
-        return
-    result = await db.execute(select(Tag).where(Tag.name.in_(names)))
-    tags_by_name = {tag.name: tag for tag in result.scalars().all()}
-    now = datetime.now()
-    for name in names:
-        tag = tags_by_name.get(name)
-        if tag is None:
-            tag = Tag(name=name, is_deleted=0, created_by=created_by, created_time=now, updated_time=now)
-            db.add(tag)
-            tags_by_name[name] = tag
-        elif tag.is_deleted:
-            tag.is_deleted = 0
-            tag.updated_time = now
-    await db.flush()
-    document.tag = [tags_by_name[name].id for name in names]
 
 
 async def get_document_tag_names(db: AsyncSession, document) -> list[str]:
@@ -167,8 +146,7 @@ async def get_document_tag_names(db: AsyncSession, document) -> list[str]:
         name_by_id = {tag.id: tag.name for tag in tags}
         return [name_by_id[tag_id] for tag_id in tag_ids if tag_id in name_by_id]
 
-    # 兼容旧数据：如果 tag JSON 里还是名称，则直接返回名称。
-    return normalize_tag_names(getattr(document, "tag", []))
+    return []
 
 
 def _json_contains_tag_id(column, tag_id: int):

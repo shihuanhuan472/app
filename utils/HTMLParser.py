@@ -40,8 +40,9 @@ class HTMLParser:
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = int(os.getenv("MAX_TOKEN", 2000))
-        self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        from utils.token_config import DOCUMENT_MAX_INPUT_TOKENS, DOCUMENT_MAX_OUTPUT_TOKENS
+        self.max_token = DOCUMENT_MAX_OUTPUT_TOKENS
+        self.input_token = DOCUMENT_MAX_INPUT_TOKENS
         self.last_error_code = None
         self.last_error_detail = None
         self.decorative_keywords = ['icon', 'logo', 'btn', 'background']

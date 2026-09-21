@@ -842,8 +842,11 @@
                 确定要删除这篇文档吗？此操作不可撤销。
             </div>
             <div class="delete-modal-actions">
-                <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
-                <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+                <button class="btn btn-secondary" id="deleteCancelButton" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-danger" id="deleteConfirmButton" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i>
+                    <span>确认删除</span>
+                </button>
             </div>
         </div>
     </div>
@@ -918,20 +921,9 @@
         }
 
         function normalizeDocumentTags(tags) {
-            if (Array.isArray(tags)) {
-                return tags.map(tag => String(tag).trim()).filter(Boolean);
-            }
-            if (typeof tags === 'string' && tags.trim()) {
-                try {
-                    const parsed = JSON.parse(tags);
-                    if (Array.isArray(parsed)) {
-                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
-                    }
-                } catch (_) {
-                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
-                }
-            }
-            return [];
+            return Array.isArray(tags)
+                ? tags.map(tag => String(tag).trim()).filter(Boolean)
+                : [];
         }
 
         function getTagsLabel(tags) {
@@ -1472,6 +1464,20 @@
             }).join('');
         }
 
+        let isDeletingDocument = false;
+
+        function setDeletePending(isPending) {
+            isDeletingDocument = isPending;
+            const cancelButton = document.getElementById('deleteCancelButton');
+            const confirmButton = document.getElementById('deleteConfirmButton');
+            cancelButton.disabled = isPending;
+            confirmButton.disabled = isPending;
+            confirmButton.setAttribute('aria-busy', String(isPending));
+            confirmButton.innerHTML = isPending
+                ? '<i class="fas fa-spinner fa-spin"></i><span>删除中...</span>'
+                : '<i class="fas fa-trash"></i><span>确认删除</span>';
+        }
+
         function openDeleteModal(docId, docTitle) {
             const currentUser = Utils.getCurrentUser();
             if (!isAdminUser(currentUser)) {
@@ -1479,17 +1485,20 @@
                 return;
             }
             currentDocumentId = docId;
+            setDeletePending(false);
             document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
             document.getElementById('deleteModal').style.display = 'flex';
         }
 
         function closeDeleteModal() {
+            if (isDeletingDocument) return;
             document.getElementById('deleteModal').style.display = 'none';
             currentDocumentId = null;
         }
 
         async function confirmDelete() {
-            if (!currentDocumentId) return;
+            if (!currentDocumentId || isDeletingDocument) return;
+            setDeletePending(true);
             try {
                 // 删除时传递当前库类型，避免两张表存在相同 id 时删错库。
                 const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
@@ -1500,9 +1509,11 @@
                     setTimeout(() => window.location.href = 'main.html', 1000);
                 } else {
                     Utils.showMessage('文档删除失败', 'error');
+                    setDeletePending(false);
                 }
             } catch (error) {
                 Utils.showMessage('删除失败: ' + (error.message || '未知错误'), 'error');
+                setDeletePending(false);
             }
         }
 
@@ -1693,7 +1704,7 @@
                 if (isAuthor) authorName = '我';
                 const libraryType = normalizeLibraryType(doc.library_type || source);
                 const libraryLabel = getLibraryLabel(libraryType);
-                const tagsLabel = getTagsLabel(doc.tag);
+                const tagsLabel = getTagsLabel(doc.tag_names);
 
                 const isKnowledge = isKnowledgeDocument(doc, source);
                 document.body.classList.toggle('knowledge-reader-active', isKnowledge);

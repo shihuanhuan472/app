@@ -18,6 +18,7 @@ from docx.text.paragraph import Paragraph
 from PIL import Image
 
 from knowledge_parsers.enterprise_word_chunker import EnterpriseWordChunker
+from knowledge_parsers.hierarchical_image_parser import HierarchicalImageParser
 from utils.error_codes import BizCode
 from utils.logo_only_filter import LogoOnlyFilter
 from utils.ppt_template_cleaner import clean_pptx_template
@@ -1544,6 +1545,16 @@ class KnowledgeParser:
         return self._build_document(file_path, blocks)
 
     def _parse_image(self, file_path: str) -> KnowledgeParsedDocument:
+        if HierarchicalImageParser.should_parse(file_path):
+            try:
+                return self._parse_hierarchical_image(file_path)
+            except Exception as error:
+                allow_fallback = os.getenv(
+                    "HIERARCHICAL_IMAGE_ALLOW_PLACEHOLDER_FALLBACK", "0"
+                ).strip().lower() in {"1", "true", "yes", "on"}
+                if not allow_fallback:
+                    raise RuntimeError(f"层级图片解析失败：{error}") from error
+                print(f"[KnowledgeParser] 层级图片解析失败，回退为普通图片: {error}")
         image_url = self._copy_image_to_upload(file_path)
         title = Path(file_path).stem
         section = KnowledgeSectionData(
@@ -1567,6 +1578,96 @@ class KnowledgeParser:
             },
         )
         return KnowledgeParsedDocument(title=title, summary=title, content=section.plain_text, image_urls=[image_url], sections=[section])
+
+    def _save_hierarchical_tile(self, image: Image.Image, name_prefix: str) -> str:
+        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}_{name_prefix}.png"
+        target_path = os.path.join(self.document_base_dir, self.image_dir, filename)
+        image.save(target_path, format="PNG", optimize=True)
+        return self._relative_image_path(filename)
+
+    def _parse_hierarchical_image(self, file_path: str) -> KnowledgeParsedDocument:
+        parser = HierarchicalImageParser(
+            document_base_dir=self.document_base_dir,
+            image_dir=self.image_dir,
+            save_image=self._save_hierarchical_tile,
+        )
+        result = parser.parse(file_path)
+        image_url = self._copy_image_to_upload(file_path)
+        title = Path(file_path).stem
+        roots = [node for node in result.nodes if not node.parent_id]
+        if roots:
+            title = roots[0].text or title
+        by_id = {node.node_id: node for node in result.nodes}
+        sections = []
+        char_offset = 0
+        for index, node in enumerate(result.nodes):
+            parent = by_id.get(node.parent_id)
+            children = [by_id[item].text for item in node.children if item in by_id]
+            path_text = " > ".join(node.path or [node.text])
+            plain_text = "\n".join(part for part in [
+                f"知识路径：{path_text}",
+                f"当前节点：{node.text}",
+                f"父节点：{parent.text}" if parent else "",
+                f"子节点：{'；'.join(children)}" if children else "",
+                f"节点原文：{node.text}",
+            ] if part)
+            end_offset = char_offset + len(plain_text)
+            node_edges = [
+                edge for edge in result.edges
+                if edge["source"] == node.node_id or edge["target"] == node.node_id
+            ]
+            metadata = {
+                "parser_type": HierarchicalImageParser.PARSER_TYPE,
+                "parser_version": HierarchicalImageParser.PARSER_VERSION,
+                "chunk_strategy": "hierarchical_image_path_v1",
+                "unit_type": "image_graph_node",
+                "node_id": node.node_id,
+                "parent_node_id": node.parent_id,
+                "child_node_ids": node.children,
+                "path": node.path,
+                "path_text": path_text,
+                "level": node.level,
+                "bbox": node.bbox,
+                "confidence": node.confidence,
+                "relation_confidence": node.relation_confidence,
+                "relation_evidence": node.relation_evidence,
+                "source_tiles": node.source_tiles,
+                "original_image_url": image_url,
+                "tile_image_url": node.tile_url,
+                "crop_image_url": node.crop_url or node.tile_url,
+                "edges": node_edges,
+                "parse_confidence": result.parse_confidence,
+                "needs_review": result.needs_review,
+                "image_positions": [{
+                    "image_url": node.crop_url or node.tile_url,
+                    "paragraph_index": 0,
+                    "char_offset": 0,
+                    "nearby_text_before": path_text,
+                    "nearby_text_after": node.text,
+                    "bbox": node.bbox,
+                }],
+            }
+            sections.append(KnowledgeSectionData(
+                section_index=index,
+                section_title=node.text[:255],
+                section_type=f"L{node.level or 0}.{index + 1}",
+                plain_text=plain_text,
+                image_urls=[node.crop_url or node.tile_url, image_url],
+                char_start=char_offset,
+                char_end=end_offset,
+                metadata=metadata,
+            ))
+            char_offset = end_offset + 2
+        content = "\n\n".join(section.plain_text for section in sections)
+        summary = f"层级图片，共识别 {len(result.nodes)} 个节点；解析置信度 {result.parse_confidence:.2f}。"
+        image_urls = [image_url] + [url for url in result.tile_urls if url != image_url]
+        return KnowledgeParsedDocument(
+            title=title,
+            summary=summary,
+            content=content,
+            image_urls=image_urls,
+            sections=sections,
+        )
 
     def _parse_csv(self, file_path: str) -> KnowledgeParsedDocument:
         rows = []

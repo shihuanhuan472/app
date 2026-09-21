@@ -424,6 +424,10 @@ def _normalize_stored_reference_doc(doc: Any) -> Optional[Dict[str, Any]]:
         "image_urls": image_urls,
         "evidence_section_ids": doc.get("evidence_section_ids") or [],
         "evidence_section_titles": doc.get("evidence_section_titles") or [],
+        "matched_node_ids": doc.get("matched_node_ids") or [],
+        "matched_graph_regions": doc.get("matched_graph_regions") or [],
+        "evidence_graph_regions": doc.get("evidence_graph_regions") or [],
+        "graph_query_intent": doc.get("graph_query_intent"),
         "reused_from_history": True,
     }
     return normalized
@@ -1192,6 +1196,19 @@ def _merge_reference_documents(
                     images.append(image)
             if images:
                 existing[image_field] = images
+        for region_field in ("matched_graph_regions", "evidence_graph_regions"):
+            regions = list(existing.get(region_field) or [])
+            seen_region_ids = {region.get("node_id") for region in regions if isinstance(region, dict)}
+            for region in doc.get(region_field) or []:
+                if isinstance(region, dict) and region.get("node_id") not in seen_region_ids:
+                    regions.append(region)
+                    seen_region_ids.add(region.get("node_id"))
+            if regions:
+                existing[region_field] = regions
+        existing["matched_node_ids"] = list(dict.fromkeys(
+            list(existing.get("matched_node_ids") or []) + list(doc.get("matched_node_ids") or [])
+        ))
+        existing["graph_query_intent"] = existing.get("graph_query_intent") or doc.get("graph_query_intent")
 
     docs = [merged[key] for key in order]
     docs.sort(key=lambda item: float(item.get("score", 0.0) or 0.0), reverse=True)
@@ -1784,6 +1801,19 @@ def _reference_doc_ids_to_api_reference(reference_docs: List[Dict[str, Any]]) ->
                 for web_url in [_image_to_web_url_if_exists(image)]
                 if web_url
             ]
+        graph_regions = []
+        for region in doc.get("evidence_graph_regions") or doc.get("matched_graph_regions") or []:
+            if not isinstance(region, dict):
+                continue
+            normalized_region = dict(region)
+            for image_key in ("crop_image_url", "original_image_url"):
+                image_url = normalized_region.get(image_key)
+                if image_url:
+                    normalized_region[image_key] = _image_to_web_url_if_exists(image_url) or image_url
+            graph_regions.append(normalized_region)
+        if graph_regions:
+            item["graph_regions"] = graph_regions
+            item["graph_query_intent"] = doc.get("graph_query_intent")
         doc_aggs.append(item)
     return {"total": len(doc_aggs), "doc_aggs": doc_aggs}
 
@@ -2043,7 +2073,7 @@ async def stream_ai_response(
     api_key = os.getenv("API_KEY", "EMPTY")
     base_url = get_ai_base_url()
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 2000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
     request_timeout = _get_positive_int_env("AI_REQUEST_TIMEOUT", 60)
     first_chunk_timeout = _get_positive_int_env("AI_STREAM_FIRST_CHUNK_TIMEOUT", 120)
     idle_timeout = _get_positive_int_env("AI_STREAM_IDLE_TIMEOUT", 120)
@@ -2978,7 +3008,8 @@ async def generate_messages(
 
     messages = []
     config = get_image_config()
-    tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
+    from utils.token_config import CHAT_MAX_INPUT_TOKENS
+    tokens_max = CHAT_MAX_INPUT_TOKENS
     print("get_config")
     tokens = 0
 
@@ -3141,7 +3172,7 @@ async def get_new_title_by_ai(content):
 
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
 
     def _call_openai():
         client = create_openai_client(base_url=get_ai_base_url_alt(), api_key=api_key)
@@ -3198,6 +3229,9 @@ async def get_reference_documents(
             "score": round(score, 6),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
+            "matched_node_ids": doc.get("matched_node_ids") or [],
+            "matched_graph_regions": doc.get("matched_graph_regions") or [],
+            "graph_query_intent": doc.get("graph_query_intent"),
         })
 
     if not normalized_docs:
@@ -3232,6 +3266,9 @@ async def get_reference_documents(
             "score": doc.get("score", 0.0),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
+            "matched_node_ids": doc.get("matched_node_ids") or [],
+            "matched_graph_regions": doc.get("matched_graph_regions") or [],
+            "graph_query_intent": doc.get("graph_query_intent"),
         })
     _debug_reference_doc_image_summary(filtered_docs, "search_filtered")
     return filtered_docs
@@ -3252,6 +3289,9 @@ def get_ai_reference_prompt_refs(reference_docs: List[Dict[str, Any]]) -> List[D
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
+            "matched_node_ids": doc.get("matched_node_ids") or [],
+            "matched_graph_regions": doc.get("matched_graph_regions") or [],
+            "graph_query_intent": doc.get("graph_query_intent"),
         })
     return refs
 
@@ -3277,6 +3317,106 @@ def _is_child_or_self_section(candidate: KnowledgeDocumentSection, parent: Knowl
         return False
     return candidate_marker == parent_marker or candidate_marker.startswith(parent_marker + ".")
 
+
+def _section_graph_metadata(section: KnowledgeDocumentSection) -> Dict[str, Any]:
+    metadata = section.section_metadata or {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _select_image_graph_sections(
+    sections: List[KnowledgeDocumentSection],
+    matched_chunks: List[Dict[str, Any]],
+    max_sections: int,
+) -> List[KnowledgeDocumentSection]:
+    graph_sections = [
+        section for section in sections
+        if _section_graph_metadata(section).get("parser_type") == "long_hierarchical_image"
+    ]
+    if not graph_sections:
+        return []
+    by_node_id = {
+        _section_graph_metadata(section).get("node_id"): section
+        for section in graph_sections
+        if _section_graph_metadata(section).get("node_id")
+    }
+    matched_node_ids = []
+    intent = "node_lookup"
+    for chunk in matched_chunks or []:
+        metadata = _chunk_metadata(chunk)
+        node_id = metadata.get("node_id")
+        if node_id in by_node_id and node_id not in matched_node_ids:
+            matched_node_ids.append(node_id)
+        intent = chunk.get("graph_query_intent") or intent
+
+    selected = []
+    selected_ids = set()
+
+    def add_node(node_id):
+        section = by_node_id.get(node_id)
+        if not section or node_id in selected_ids or not _section_has_body(section):
+            return
+        selected.append(section)
+        selected_ids.add(node_id)
+
+    def add_ancestors(node_id):
+        ancestors = []
+        seen = set()
+        current = node_id
+        while current in by_node_id and current not in seen:
+            seen.add(current)
+            parent_id = _section_graph_metadata(by_node_id[current]).get("parent_node_id")
+            if not parent_id:
+                break
+            ancestors.append(parent_id)
+            current = parent_id
+        for ancestor_id in reversed(ancestors):
+            add_node(ancestor_id)
+
+    def add_descendants(node_id, unlimited=False):
+        queue = list(_section_graph_metadata(by_node_id[node_id]).get("child_node_ids") or [])
+        seen = set()
+        while queue and len(selected) < max_sections:
+            child_id = queue.pop(0)
+            if child_id in seen or child_id not in by_node_id:
+                continue
+            seen.add(child_id)
+            add_node(child_id)
+            if unlimited:
+                queue.extend(_section_graph_metadata(by_node_id[child_id]).get("child_node_ids") or [])
+
+    if not matched_node_ids:
+        matched_node_ids = [
+            node_id for node_id, section in by_node_id.items()
+            if not _section_graph_metadata(section).get("parent_node_id")
+        ][:1]
+
+    if intent == "overview":
+        roots = [
+            node_id for node_id, section in by_node_id.items()
+            if not _section_graph_metadata(section).get("parent_node_id")
+        ]
+        for root_id in roots:
+            add_node(root_id)
+            add_descendants(root_id, unlimited=True)
+            if len(selected) >= max_sections:
+                break
+        return selected[:max_sections]
+
+    for node_id in matched_node_ids:
+        add_ancestors(node_id)
+        add_node(node_id)
+        metadata = _section_graph_metadata(by_node_id[node_id])
+        parent_id = metadata.get("parent_node_id")
+        if intent == "relation" and parent_id in by_node_id:
+            add_node(parent_id)
+            for sibling_id in _section_graph_metadata(by_node_id[parent_id]).get("child_node_ids") or []:
+                add_node(sibling_id)
+        add_descendants(node_id, unlimited=intent == "procedure")
+        if len(selected) >= max_sections:
+            break
+    return selected[:max_sections]
+
+
 def _select_prompt_sections(
     sections: List[KnowledgeDocumentSection],
     matched_chunks: List[Dict[str, Any]],
@@ -3284,6 +3424,10 @@ def _select_prompt_sections(
 ) -> List[KnowledgeDocumentSection]:
     if not sections:
         return []
+
+    graph_selected = _select_image_graph_sections(sections, matched_chunks, max_sections)
+    if graph_selected:
+        return graph_selected
 
     by_id = {section.id: section for section in sections if section.id is not None}
     by_index = {section.section_index: section for section in sections}
@@ -3387,6 +3531,23 @@ def _matched_chunk_image_urls(matched_chunks: List[Dict[str, Any]], limit: int =
         if included >= limit:
             break
     return images
+
+
+def _section_prompt_piece(section: KnowledgeDocumentSection) -> str:
+    metadata = _section_graph_metadata(section)
+    if metadata.get("parser_type") != "long_hierarchical_image":
+        return f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
+    bbox = metadata.get("bbox") or []
+    confidence = metadata.get("confidence")
+    relation_confidence = metadata.get("relation_confidence")
+    review_note = "；该关系尚待人工确认" if metadata.get("needs_review") else ""
+    evidence = (
+        f"节点ID={metadata.get('node_id')}；"
+        f"路径={metadata.get('path_text') or section.section_title or ''}；"
+        f"原图区域={bbox}；"
+        f"文字置信度={confidence}；关系置信度={relation_confidence}{review_note}"
+    )
+    return f"{section.plain_text or section.section_title or ''}\n[图结构证据] {evidence}"
 
 
 def _append_prompt_piece(parts: List[str], text: str, remaining_tokens: int) -> int:
@@ -3503,7 +3664,7 @@ async def get_prompt(db, document_ids, max_tokens):
             if selected_sections and remaining > 0:
                 section_parts = []
                 for section in selected_sections:
-                    section_piece = f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
+                    section_piece = _section_prompt_piece(section)
                     used = _append_prompt_piece(section_parts, section_piece, remaining)
                     remaining -= used
                     if used > 0:
@@ -3529,6 +3690,23 @@ async def get_prompt(db, document_ids, max_tokens):
                         section.section_title or "未命名章节" for section in prompt_sections
                     ]
                     reference_doc["evidence_image_urls"] = evidence_images
+                    graph_regions = []
+                    for section in prompt_sections:
+                        metadata = _section_graph_metadata(section)
+                        if metadata.get("parser_type") != "long_hierarchical_image":
+                            continue
+                        graph_regions.append({
+                            "node_id": metadata.get("node_id"),
+                            "path": metadata.get("path") or [],
+                            "path_text": metadata.get("path_text") or "",
+                            "bbox": metadata.get("bbox"),
+                            "crop_image_url": metadata.get("crop_image_url") or "",
+                            "original_image_url": metadata.get("original_image_url") or "",
+                            "confidence": metadata.get("confidence"),
+                            "relation_confidence": metadata.get("relation_confidence"),
+                            "needs_review": bool(metadata.get("needs_review")),
+                        })
+                    reference_doc["evidence_graph_regions"] = graph_regions
                 print(
                     f"[图片排查][evidence] doc=knowledge:{document.id} "
                     f"sections={reference_doc['evidence_section_titles']} "
@@ -3614,6 +3792,9 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
                 "table_index": metadata.get("table_index"),
                 "row_start": metadata.get("row_start"),
                 "row_end": metadata.get("row_end"),
+                "node_id": metadata.get("node_id"),
+                "path_text": metadata.get("path_text"),
+                "bbox": metadata.get("bbox"),
                 "preview": str(chunk.get("content") or "")[:300],
             })
         images = _collect_reference_image_paths([doc], max_images=3)
@@ -3631,6 +3812,10 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             ],
             "evidence_section_ids": doc.get("evidence_section_ids") or [],
             "evidence_section_titles": doc.get("evidence_section_titles") or [],
+            "matched_node_ids": doc.get("matched_node_ids") or [],
+            "matched_graph_regions": doc.get("matched_graph_regions") or [],
+            "evidence_graph_regions": doc.get("evidence_graph_regions") or [],
+            "graph_query_intent": doc.get("graph_query_intent"),
         })
     if not payload:
         return ""
@@ -3655,7 +3840,7 @@ async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str
     """
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
     def _call_openai():
         client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)
         response = client.chat.completions.create(

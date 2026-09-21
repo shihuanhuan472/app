@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, status, UploadFile, Body, File, Backgrou
 from sqlalchemy import or_
 
 # from sqlalchemy.orm import Session
-from typing import List
+from typing import Dict, List
 from utils.VectorService import VectorService
 from utils.title_utils import normalize_document_title
 from dependencies import get_current_active_user
@@ -46,6 +46,7 @@ from schemas import (
     UploadDocumentResponse,
     AnalyzeRequest,
     BatchDeleteRequest,
+    ImageGraphReviewUpdate,
 )
 from database import AsyncSessionLocal, get_db
 import aiofiles
@@ -85,6 +86,7 @@ from utils.tag_service import (
     set_document_tag_ids,
     tag_filter_for_model,
     tag_keyword_filter_for_model,
+    validate_active_tag_ids,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select, func, delete, desc
@@ -752,6 +754,91 @@ def _parse_task_last_activity_time(task: ParseTask, items: List[ParseTaskItem]) 
         for item in items
         if item.status in PARSE_TASK_ITEM_ACTIVE_STATUSES and item.started_time
     ]
+
+
+def _image_graph_sections(sections):
+    return [
+        section for section in sections
+        if (section.section_metadata or {}).get("parser_type") == "long_hierarchical_image"
+    ]
+
+
+def _image_graph_payload(document: DocumentKnowledge, sections) -> Dict:
+    graph_sections = _image_graph_sections(sections)
+    nodes = []
+    edges = []
+    seen_edges = set()
+    original_image_url = None
+    for section in graph_sections:
+        metadata = dict(section.section_metadata or {})
+        original_image_url = original_image_url or metadata.get("original_image_url")
+        node_id = metadata.get("node_id")
+        nodes.append({
+            "section_id": section.id,
+            "node_id": node_id,
+            "text": section.section_title or "",
+            "parent_node_id": metadata.get("parent_node_id"),
+            "child_node_ids": metadata.get("child_node_ids") or [],
+            "path": metadata.get("path") or [],
+            "path_text": metadata.get("path_text") or "",
+            "level": metadata.get("level"),
+            "bbox": metadata.get("bbox"),
+            "confidence": metadata.get("confidence"),
+            "relation_confidence": metadata.get("relation_confidence"),
+            "relation_evidence": metadata.get("relation_evidence") or {},
+            "crop_image_url": metadata.get("crop_image_url"),
+            "tile_image_url": metadata.get("tile_image_url"),
+            "needs_review": bool(metadata.get("needs_review")),
+        })
+        for edge in metadata.get("edges") or []:
+            key = (edge.get("source"), edge.get("target"), edge.get("relation"))
+            if key not in seen_edges:
+                seen_edges.add(key)
+                edges.append(edge)
+    return {
+        "document_id": document.id,
+        "title": document.title,
+        "parser_type": "long_hierarchical_image" if graph_sections else None,
+        "original_image_url": original_image_url,
+        "parse_confidence": min(
+            [float((section.section_metadata or {}).get("parse_confidence", 0.0)) for section in graph_sections]
+            or [0.0]
+        ),
+        "needs_review": any(
+            bool((section.section_metadata or {}).get("needs_review")) for section in graph_sections
+        ),
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
+def _validate_image_graph_parent_map(parent_by_id: Dict[str, str | None]) -> None:
+    node_ids = set(parent_by_id)
+    for node_id, parent_id in parent_by_id.items():
+        if parent_id is not None and parent_id not in node_ids:
+            raise ValueError(f"节点 {node_id} 的父节点 {parent_id} 不存在")
+        if parent_id == node_id:
+            raise ValueError(f"节点 {node_id} 不能以自身为父节点")
+    for node_id in node_ids:
+        seen = set()
+        current = node_id
+        while current is not None:
+            if current in seen:
+                raise ValueError(f"节点关系存在环路：{node_id}")
+            seen.add(current)
+            current = parent_by_id.get(current)
+
+
+def _image_graph_paths(parent_by_id: Dict[str, str | None], text_by_id: Dict[str, str]):
+    paths = {}
+    for node_id in parent_by_id:
+        ids = []
+        current = node_id
+        while current is not None:
+            ids.append(current)
+            current = parent_by_id.get(current)
+        paths[node_id] = [text_by_id[item] for item in reversed(ids)]
+    return paths
     if active_item_times:
         return max(active_item_times)
     return task.started_time or task.created_time
@@ -971,6 +1058,7 @@ async def create_parse_task(
             current_user, "技术人员需提交解析审核，审核通过后才会写入文档库"
         )
 
+    tag_ids = await validate_active_tag_ids(db, file_list.tag)
     task = ParseTask(
         user_id=current_user.id,
         status="pending",
@@ -979,7 +1067,7 @@ async def create_parse_task(
         failed_count=0,
         submit_for_review=1 if submit_for_review else 0,
         library_type=_normalize_library_type(file_list.library_type),
-        tag=file_list.tag or [],
+        tag=tag_ids,
         created_time=datetime.now(),
     )
     db.add(task)
@@ -1063,7 +1151,8 @@ async def document_convert_documentResponse(
     return DocumentResponse(
         id=document.id,
         library_type=getattr(document, "library_type", "breakdown"),
-        tag=await get_document_tag_names(db, document),
+        tag=_normalize_tags(getattr(document, "tag", [])),
+        tag_names=await get_document_tag_names(db, document),
         title=document.title,
         section_ids=(
             getattr(document, "section_ids", None)
@@ -1960,6 +2049,201 @@ async def get_documents(
     responses = await documents_to_responses(db, documents)
     # documents_data = [document_convert_documentResponse(document, current_user.full_name) for document in documents]
     return Result.success_with_data(responses)
+
+
+@router.get("/{id}/image_graph", summary="获取层级图片知识图审核数据")
+async def get_image_graph(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(DocumentKnowledge).where(
+            DocumentKnowledge.id == id,
+            DocumentKnowledge.is_deleted == 0,
+        )
+    )
+    document = result.scalar_one_or_none()
+    if document is None:
+        raise AppException(
+            status.HTTP_404_NOT_FOUND,
+            BizCode.DOC_RESOURCE_NOT_FOUND,
+            "知识库文档不存在",
+        )
+    sections = await get_knowledge_document_sections(db, id)
+    graph_sections = _image_graph_sections(sections)
+    if not graph_sections:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.DOC_REQUEST_INVALID,
+            "该文档不是层级图片解析结果",
+        )
+    return Result.success_with_data(_image_graph_payload(document, graph_sections))
+
+
+@router.put("/{id}/image_graph", summary="审核并修正层级图片知识图")
+async def update_image_graph(
+    id: int,
+    payload: ImageGraphReviewUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_admin_document_write(current_user, "只有管理员可以审核层级图片知识图")
+    try:
+        result = await db.execute(
+            select(DocumentKnowledge).where(
+                DocumentKnowledge.id == id,
+                DocumentKnowledge.is_deleted == 0,
+            )
+        )
+        document = result.scalar_one_or_none()
+        if document is None:
+            raise AppException(
+                status.HTTP_404_NOT_FOUND,
+                BizCode.DOC_RESOURCE_NOT_FOUND,
+                "知识库文档不存在",
+            )
+        sections = _image_graph_sections(await get_knowledge_document_sections(db, id))
+        if not sections:
+            raise AppException(
+                status.HTTP_400_BAD_REQUEST,
+                BizCode.DOC_REQUEST_INVALID,
+                "该文档不是层级图片解析结果",
+            )
+
+        section_by_node_id = {
+            (section.section_metadata or {}).get("node_id"): section
+            for section in sections
+            if (section.section_metadata or {}).get("node_id")
+        }
+        updates = {}
+        for item in payload.nodes:
+            if item.node_id in updates:
+                raise ValueError(f"节点 {item.node_id} 重复提交")
+            if item.node_id not in section_by_node_id:
+                raise ValueError(f"节点 {item.node_id} 不存在")
+            updates[item.node_id] = item
+        if payload.approved and set(updates) != set(section_by_node_id):
+            raise ValueError("批准知识图时必须提交全部节点，避免未审核节点被一并批准")
+
+        text_by_id = {
+            node_id: section.section_title or ""
+            for node_id, section in section_by_node_id.items()
+        }
+        parent_by_id = {
+            node_id: (section.section_metadata or {}).get("parent_node_id")
+            for node_id, section in section_by_node_id.items()
+        }
+        for node_id, item in updates.items():
+            if item.text is not None:
+                normalized_text = item.text.strip()
+                if not normalized_text:
+                    raise ValueError(f"节点 {node_id} 的文字不能为空")
+                text_by_id[node_id] = normalized_text
+            fields_set = getattr(item, "model_fields_set", set())
+            if "parent_node_id" in fields_set:
+                parent_by_id[node_id] = item.parent_node_id
+
+        _validate_image_graph_parent_map(parent_by_id)
+        paths = _image_graph_paths(parent_by_id, text_by_id)
+        children_by_id = {node_id: [] for node_id in section_by_node_id}
+        for node_id, parent_id in parent_by_id.items():
+            if parent_id:
+                children_by_id[parent_id].append(node_id)
+        edges = []
+        for node_id, parent_id in parent_by_id.items():
+            if parent_id:
+                edges.append({
+                    "source": parent_id,
+                    "target": node_id,
+                    "relation": "parent_child",
+                    "confidence": 1.0 if payload.approved else 0.8,
+                    "evidence": {"method": "human_review"},
+                })
+
+        reviewed_time = datetime.now()
+        char_offset = 0
+        for index, section in enumerate(sections):
+            metadata = dict(section.section_metadata or {})
+            node_id = metadata["node_id"]
+            item = updates.get(node_id)
+            if item and item.bbox is not None:
+                metadata["bbox"] = item.bbox
+            if item and item.confidence is not None:
+                metadata["confidence"] = item.confidence
+            metadata.update({
+                "parent_node_id": parent_by_id[node_id],
+                "child_node_ids": children_by_id[node_id],
+                "path": paths[node_id],
+                "path_text": " > ".join(paths[node_id]),
+                "level": len(paths[node_id]) - 1,
+                "edges": [
+                    edge for edge in edges
+                    if edge["source"] == node_id or edge["target"] == node_id
+                ],
+                "needs_review": not payload.approved,
+                "reviewed_by": current_user.id,
+                "reviewed_time": reviewed_time.isoformat(),
+                "review_comment": payload.review_comment or "",
+            })
+            if parent_by_id[node_id]:
+                metadata["relation_confidence"] = 1.0 if payload.approved else 0.8
+                metadata["relation_evidence"] = {"method": "human_review"}
+            else:
+                metadata["relation_confidence"] = 0.0
+                metadata["relation_evidence"] = {}
+            image_positions = list(metadata.get("image_positions") or [])
+            if image_positions and metadata.get("bbox"):
+                image_positions[0] = {**image_positions[0], "bbox": metadata["bbox"]}
+                metadata["image_positions"] = image_positions
+
+            text = text_by_id[node_id]
+            parent_text = text_by_id.get(parent_by_id[node_id])
+            child_texts = [text_by_id[child_id] for child_id in children_by_id[node_id]]
+            plain_text = "\n".join(part for part in [
+                f"知识路径：{metadata['path_text']}",
+                f"当前节点：{text}",
+                f"父节点：{parent_text}" if parent_text else "",
+                f"子节点：{'；'.join(child_texts)}" if child_texts else "",
+                f"节点原文：{text}",
+            ] if part)
+            section.section_index = index
+            section.section_title = text[:255]
+            section.section_type = f"L{metadata['level']}.{index + 1}"
+            section.plain_text = plain_text
+            section.char_start = char_offset
+            section.char_end = char_offset + len(plain_text)
+            section.section_metadata = metadata
+            section.updated_time = reviewed_time
+            char_offset = section.char_end + 2
+
+        vector_service = VectorService(db)
+        await vector_service.delete_document_from_vector_store(id, "knowledge")
+        document.is_vectorized = 0
+        document.first_edit_date = reviewed_time
+        await db.flush()
+        await vector_service.add_document_to_vector_store(document, commit=False)
+        await db.commit()
+        return Result.success_with_data(
+            _image_graph_payload(document, sections)
+        )
+    except AppException:
+        await db.rollback()
+        raise
+    except ValueError as error:
+        await db.rollback()
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.DOC_REQUEST_INVALID,
+            str(error),
+        ) from error
+    except Exception as error:
+        await db.rollback()
+        raise AppException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            BizCode.INTERNAL_ERROR,
+            f"层级图片知识图更新失败：{error}",
+        ) from error
 
 
 @router.get("/get_by_id/{id}", summary="根据id获得文档内容")

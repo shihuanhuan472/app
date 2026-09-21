@@ -279,7 +279,8 @@ async def generate_messages(db, id, message_now, documents_id, search_results=No
 
     messages = []
     config = get_image_config()
-    tokens_max = int(os.getenv("MESSAGE_MAX_TOKEN", 8000)) - int(os.getenv("MAX_TOKEN", 2000))
+    from utils.token_config import CHAT_MAX_INPUT_TOKENS
+    tokens_max = CHAT_MAX_INPUT_TOKENS
     print("get_config")
     tokens = 0
 
@@ -446,7 +447,7 @@ async def get_new_title_by_ai(content):
 
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
 
     def _call_openai():
         client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)
@@ -788,7 +789,7 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
     api_key = os.getenv("API_KEY", "EMPTY")
     client = create_async_openai_client(base_url=get_ai_base_url(), api_key=api_key)
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 2000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
 
     response_data = {}
     data = {}
@@ -920,7 +921,7 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
 async def get_ai_answer(messages, db: AsyncSession, id, search_results=None):
     api_key = os.getenv("API_KEY", "EMPTY")
     model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-    max_token = int(os.getenv("MAX_TOKEN", 3000))
+    from utils.token_config import CHAT_MAX_OUTPUT_TOKENS as max_token
 
     def _call_openai():
         client = create_openai_client(base_url=get_ai_base_url(), api_key=api_key)

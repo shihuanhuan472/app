@@ -105,7 +105,8 @@
             files: '文件',
             file: '文件',
             images: '图片',
-            image: '图片'
+            image: '图片',
+            tag: '标签'
         };
         const ignored = new Set(['body', 'query', 'path', 'header']);
 
@@ -116,7 +117,8 @@
         const parts = loc
             .map((part) => String(part))
             .filter((part) => !ignored.has(part));
-        const key = parts.length > 0 ? parts[parts.length - 1] : '';
+        const fieldParts = parts.filter(part => !/^\d+$/.test(part));
+        const key = fieldParts.length > 0 ? fieldParts[fieldParts.length - 1] : '';
         return labels[key] || key || '输入内容';
     }
 

@@ -14,7 +14,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
-from utils.SearchIndexService import SearchIndexService
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
@@ -99,20 +98,6 @@ class VectorService:
         self.top_k = int(os.getenv("TOP_K", 10))
         self.batch_size = int(os.getenv("BATCH_SIZE", 10))
         self.similarity_low_limit = float(os.getenv("SIMILARITY_LOWER_LIMIT", 0.5))
-        self.enable_lexical_retrieval = str(
-            os.getenv("LEXICAL_RETRIEVAL_ENABLED", "true")
-        ).strip().lower() not in {
-            "0",
-            "false",
-            "no",
-            "off",
-        }
-        self.lexical_retrieval_limit = int(os.getenv("LEXICAL_RETRIEVAL_LIMIT", 40))
-        self.lexical_recall_seed_score = float(
-            os.getenv("LEXICAL_RECALL_SEED_SCORE", max(0.0, self.similarity_low_limit - 0.05))
-        )
-        self.lexical_score_span = float(os.getenv("LEXICAL_SCORE_SPAN", 0.28))
-        self.lexical_vector_bonus_max = float(os.getenv("LEXICAL_VECTOR_BONUS_MAX", 0.2))
         self.top_k_documents = int(os.getenv("TOP_K_DOCUMENTS", 2))
         # self.enable_llm_rerank = True
         # self.rerank_top_k = 8
@@ -122,8 +107,8 @@ class VectorService:
         )
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = int(os.getenv("MAX_TOKEN", 2000))
-        self.search_index_service = SearchIndexService()
+        from utils.token_config import IMAGE_MAX_OUTPUT_TOKENS
+        self.max_token = IMAGE_MAX_OUTPUT_TOKENS
 
     async def add_document_to_vector_store(self, document: Document, commit: bool = True):
         """将文档添加到向量库。"""
@@ -157,7 +142,6 @@ class VectorService:
             if knowledge_sections:
                 vector_document.knowledge_sections = knowledge_sections
             await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
-            await self.search_index_service.index_document(vector_document, knowledge_sections)
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
             if commit:
@@ -174,7 +158,6 @@ class VectorService:
         """从向量库删除文档。"""
         try:
             await asyncio.to_thread(self.vector_store_multimodal.delete_document, doc_id, _normalize_library_type(library_type))
-            await self.search_index_service.delete_document(doc_id, library_type)
             print(f"文档 {doc_id} 已从向量库删除")
         except Exception as e:
             print(f"从向量库删除文档失败: {e}")
@@ -316,25 +299,30 @@ class VectorService:
 
     @staticmethod
     def _extract_domain_terms(query: str) -> List[str]:
-        """Extract technical terms that embedding search may treat too loosely."""
+        """Extract technical terms that vector similarity may treat too loosely."""
         if not query:
             return []
 
         terms: List[str] = []
-        query_text = query.lower()
+        query_text = VectorService._normalize_term_text(query)
         for canonical, aliases in DOMAIN_TERM_ALIASES.items():
             for alias in aliases:
-                pattern = re.escape(alias.lower()).replace(r"\ ", r"[\s_-]*")
-                if re.search(pattern, query_text):
+                if VectorService._contains_term_alias(query_text, [alias]):
                     terms.append(canonical)
                     break
         return terms
 
     @staticmethod
+    def _normalize_term_text(text: str) -> str:
+        """Normalize case and separators while preserving Chinese/technical terms."""
+        return re.sub(r"[\s_\-]+", " ", str(text or "").casefold()).strip()
+
+    @staticmethod
     def _contains_term_alias(text: str, aliases: List[str]) -> bool:
-        text = (text or "").lower()
+        text = VectorService._normalize_term_text(text)
         for alias in aliases:
-            pattern = re.escape(alias.lower()).replace(r"\ ", r"[\s_-]*")
+            normalized_alias = VectorService._normalize_term_text(alias)
+            pattern = re.escape(normalized_alias).replace(r"\ ", r"[\s_-]*")
             if re.search(pattern, text):
                 return True
         return False
@@ -349,8 +337,6 @@ class VectorService:
         adjusted_results = []
         for item in results:
             vector_score = float(item.get("score", 0.0))
-            metadata = VectorService._metadata_dict(item.get("metadata"))
-            retrieval_source = str(metadata.get("retrieval_source") or "")
             title = str(item.get("title") or "").lower()
             content = str(item.get("content") or "").lower()
 
@@ -371,18 +357,16 @@ class VectorService:
                 coverage = len(set(matched_terms)) / max(len(set(terms)), 1)
                 title_coverage = title_hit_count / max(len(set(terms)), 1)
                 # Short term queries need a stronger exact-hit signal; cap the bonus to avoid score inflation.
-                if VectorService._is_lexical_source(retrieval_source):
-                    bonus = float(item.get("term_bonus", 0.0))
-                else:
-                    bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
-                    bonus = min(bonus, 0.15)
+                bonus = 0.08 + (0.06 * coverage) + (0.03 * title_coverage)
+                bonus = min(bonus, 0.15)
             else:
                 bonus = 0.0
 
-            missing_penalty = float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.18))
-            if VectorService._is_lexical_source(retrieval_source):
-                adjusted_score = vector_score
-            elif matched_terms:
+            missing_penalty = max(
+                0.0,
+                min(0.20, float(os.getenv("DOMAIN_TERM_MISSING_PENALTY", 0.10))),
+            )
+            if matched_terms:
                 adjusted_score = min(1.0, vector_score + bonus)
             else:
                 adjusted_score = max(0.0, vector_score - missing_penalty)
@@ -394,6 +378,60 @@ class VectorService:
             adjusted_results.append(item)
 
         return adjusted_results
+
+    @staticmethod
+    def _classify_graph_query_intent(query: str) -> str:
+        text = str(query or "").strip().lower()
+        if re.search(r"(完整|全部|整体|总览|有哪些|包括什么|结构|思维导图)", text):
+            return "overview"
+        if re.search(r"(怎么|如何|步骤|流程|处理|检查|排查|操作|解决)", text):
+            return "procedure"
+        if re.search(r"(上级|下级|父节点|子节点|属于|关系|关联|分支|下面)", text):
+            return "relation"
+        return "node_lookup"
+
+    @staticmethod
+    def _query_terms(query: str) -> List[str]:
+        text = str(query or "").lower()
+        text = re.sub(
+            r"(请问|请帮我|帮我|一下|应该|需要|怎么|如何|是什么|有哪些|什么|相关|进行|处理|说明|介绍)",
+            " ",
+            text,
+        )
+        terms = re.findall(r"[a-zA-Z0-9_.+-]{2,}|[\u4e00-\u9fff]{2,}", text)
+        stop = {"什么", "如何", "怎么", "哪些", "一下", "请问", "相关", "进行", "这个"}
+        expanded = []
+        for term in terms:
+            if term in stop:
+                continue
+            expanded.append(term)
+            if re.fullmatch(r"[\u4e00-\u9fff]{5,}", term):
+                expanded.extend(term[index:index + 4] for index in range(0, len(term) - 3, 2))
+        return list(dict.fromkeys(expanded))[:12]
+
+    @staticmethod
+    def _apply_image_graph_score(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
+        intent = VectorService._classify_graph_query_intent(query)
+        terms = VectorService._query_terms(query)
+        for item in results:
+            metadata = VectorService._metadata_dict(item.get("metadata"))
+            if metadata.get("parser_type") != "long_hierarchical_image":
+                continue
+            path_text = str(metadata.get("path_text") or "").lower()
+            content = str(item.get("content") or "").lower()
+            matched = [term for term in terms if term in path_text or term in content]
+            coverage = len(set(matched)) / max(1, len(set(terms))) if terms else 0.0
+            path_bonus = min(0.16, 0.04 + coverage * 0.12)
+            relation_confidence = float(metadata.get("relation_confidence") or 0.0)
+            quality_adjustment = min(0.04, relation_confidence * 0.04)
+            if metadata.get("needs_review"):
+                quality_adjustment -= 0.08
+            original_score = float(item.get("score", 0.0))
+            item["score"] = max(0.0, min(1.0, original_score + path_bonus + quality_adjustment))
+            item["graph_score_bonus"] = round(path_bonus + quality_adjustment, 6)
+            item["graph_query_intent"] = intent
+            item["matched_graph_terms"] = matched
+        return results
 
     @staticmethod
     def _first_image_url(value: Any) -> str:
@@ -422,28 +460,6 @@ class VectorService:
         return {}
 
     @staticmethod
-    def _retrieval_source(metadata: Any) -> str:
-        return str(VectorService._metadata_dict(metadata).get("retrieval_source") or "")
-
-    @staticmethod
-    def _is_lexical_source(source: str) -> bool:
-        return source == "lexical"
-
-    async def _search_by_lexical_recall(self, query: str, limit: int = 40) -> List[Dict[str, Any]]:
-        """Recall lexical matches from OpenSearch/Elasticsearch only."""
-        if not self.enable_lexical_retrieval or not str(query or "").strip():
-            return []
-
-        search_index_results = await self.search_index_service.search(
-            query=query,
-            limit=limit,
-            seed_score=self.lexical_recall_seed_score,
-            score_span=self.lexical_score_span,
-            vector_bonus_max=self.lexical_vector_bonus_max,
-        )
-        return search_index_results or []
-
-    @staticmethod
     def _merge_retrieval_candidates(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         merged: Dict[str, Dict[str, Any]] = {}
         for item in results:
@@ -460,26 +476,6 @@ class VectorService:
 
             existing_score = float(existing.get("score", 0.0))
             item_score = float(item.get("score", 0.0))
-            existing_source = VectorService._retrieval_source(existing.get("metadata"))
-            item_source = VectorService._retrieval_source(item.get("metadata"))
-            existing_bonus = float(existing.get("term_bonus", 0.0))
-            item_bonus = float(item.get("term_bonus", 0.0))
-
-            if VectorService._is_lexical_source(existing_source) and not VectorService._is_lexical_source(item_source):
-                item["score"] = min(1.0, item_score + existing_bonus)
-                item["term_bonus"] = max(float(item.get("term_bonus", 0.0)), existing_bonus)
-                item["matched_terms"] = existing.get("matched_terms") or item.get("matched_terms") or []
-                item["bm25_score"] = max(float(item.get("bm25_score", 0.0)), float(existing.get("bm25_score", 0.0)))
-                merged[key] = item
-                continue
-
-            if VectorService._is_lexical_source(item_source) and not VectorService._is_lexical_source(existing_source):
-                existing["score"] = min(1.0, existing_score + item_bonus)
-                existing["term_bonus"] = max(existing_bonus, item_bonus)
-                existing["matched_terms"] = item.get("matched_terms") or existing.get("matched_terms") or []
-                existing["bm25_score"] = max(float(existing.get("bm25_score", 0.0)), float(item.get("bm25_score", 0.0)))
-                continue
-
             if item_score > existing_score:
                 merged[key] = item
             else:
@@ -502,9 +498,7 @@ class VectorService:
                 f"score={float(item.get('score', 0.0)):.6f} "
                 f"vector_score={float(item.get('vector_score', item.get('score', 0.0))):.6f} "
                 f"term_bonus={float(item.get('term_bonus', 0.0)):.6f} "
-                f"bm25_score={float(item.get('bm25_score', 0.0)):.6f} "
                 f"matched_terms={item.get('matched_terms', [])} "
-                f"signals={metadata.get('lexical_signals', [])} "
                 f"content_type={metadata.get('content_type')} "
                 f"section={metadata.get('section_title')} "
                 f"preview={preview}"
@@ -586,11 +580,6 @@ class VectorService:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
                 all_results.extend(results)
 
-            lexical_results = await self._search_by_lexical_recall(query, limit=self.lexical_retrieval_limit)
-            if lexical_results:
-                self._debug_print_search_results("lexical recall results", lexical_results)
-                all_results.extend(lexical_results)
-
             if not all_results:
                 return []
 
@@ -599,6 +588,7 @@ class VectorService:
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("raw vector results", all_results)
             all_results = self._apply_domain_term_score(all_results, query)
+            all_results = self._apply_image_graph_score(all_results, query)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("after domain term score", all_results)
             # if self.enable_llm_rerank:
@@ -659,6 +649,9 @@ class VectorService:
                 if doc.get("library_type") == "knowledge":
                     matched_section_ids = []
                     matched_image_urls = []
+                    matched_node_ids = []
+                    matched_graph_regions = []
+                    graph_query_intent = None
                     for chunk in chunks_sorted:
                         metadata = self._metadata_dict(chunk.get("metadata"))
                         section_id = metadata.get("section_id")
@@ -667,8 +660,27 @@ class VectorService:
                         img = chunk.get("image_url")
                         if img and img not in matched_image_urls:
                             matched_image_urls.append(img)
+                        node_id = metadata.get("node_id")
+                        if node_id and node_id not in matched_node_ids:
+                            matched_node_ids.append(node_id)
+                            matched_graph_regions.append({
+                                "node_id": node_id,
+                                "path": metadata.get("path") or [],
+                                "path_text": metadata.get("path_text") or "",
+                                "bbox": metadata.get("bbox"),
+                                "crop_image_url": metadata.get("crop_image_url") or img or "",
+                                "original_image_url": metadata.get("original_image_url") or "",
+                                "confidence": metadata.get("confidence"),
+                                "relation_confidence": metadata.get("relation_confidence"),
+                                "needs_review": bool(metadata.get("needs_review")),
+                            })
+                        graph_query_intent = graph_query_intent or chunk.get("graph_query_intent")
                     doc["matched_section_ids"] = matched_section_ids
                     doc["matched_image_urls"] = matched_image_urls
+                    if matched_node_ids:
+                        doc["matched_node_ids"] = matched_node_ids
+                        doc["matched_graph_regions"] = matched_graph_regions
+                        doc["graph_query_intent"] = graph_query_intent or self._classify_graph_query_intent(query)
                 docs.append(doc)
 
             # 过滤低于阈值的低分文档
@@ -696,50 +708,4 @@ class VectorService:
             return total
         except Exception as e:
             print(f"批量向量化失败: {e}")
-            return 0
-
-    async def batch_reindex_search_documents(self, batch_size: int = -1) -> int:
-        """Rebuild the OpenSearch/Elasticsearch lexical index from approved MySQL documents."""
-        if not self.search_index_service.enabled:
-            print("搜索索引未启用，跳过重建")
-            return 0
-
-        try:
-            batch_size = self.batch_size if batch_size < 1 else batch_size
-            total = 0
-
-            breakdown_result = await self.db.execute(
-                select(DocumentBreakdown)
-                .where(DocumentBreakdown.is_deleted == 0)
-                .order_by(DocumentBreakdown.id.asc())
-                .limit(batch_size)
-            )
-            for document in breakdown_result.scalars().all():
-                await self.search_index_service.index_document(_snapshot_document_for_vector_store(document))
-                total += 1
-
-            knowledge_result = await self.db.execute(
-                select(DocumentKnowledge)
-                .where(DocumentKnowledge.is_deleted == 0)
-                .order_by(DocumentKnowledge.id.asc())
-                .limit(batch_size)
-            )
-            for document in knowledge_result.scalars().all():
-                section_result = await self.db.execute(
-                    select(KnowledgeDocumentSection)
-                    .where(KnowledgeDocumentSection.document_id == document.id)
-                    .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
-                )
-                section_snapshots = [
-                    _snapshot_section_for_vector_store(section)
-                    for section in section_result.scalars().all()
-                ]
-                vector_document = _snapshot_document_for_vector_store(document)
-                vector_document.knowledge_sections = section_snapshots
-                await self.search_index_service.index_document(vector_document, section_snapshots)
-                total += 1
-
-            return total
-        except Exception as e:
-            print(f"批量重建搜索索引失败: {e}")
             return 0

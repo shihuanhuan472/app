@@ -851,28 +851,18 @@ const TagSelector = {
             .replace(/'/g, '&#39;');
     },
 
-    normalizeTags(tags) {
-        if (Array.isArray(tags)) {
-            return tags.map(tag => String(tag).trim()).filter(Boolean);
-        }
-        if (typeof tags === 'string' && tags.trim()) {
-            try {
-                const parsed = JSON.parse(tags);
-                if (Array.isArray(parsed)) {
-                    return parsed.map(tag => String(tag).trim()).filter(Boolean);
-                }
-            } catch (_) {
-                return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
-            }
-        }
-        return [];
+    normalizeTagIds(tagIds) {
+        if (!Array.isArray(tagIds)) return [];
+        return [...new Set(tagIds
+            .map(tagId => Number(tagId))
+            .filter(tagId => Number.isInteger(tagId) && tagId > 0))];
     },
 
     async init(containerId, options = {}) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        const selected = new Set(this.normalizeTags(options.selected || []));
+        const selected = new Set(this.normalizeTagIds(options.selected || []));
         this.instances[containerId] = {
             tags: [],
             selected,
@@ -928,11 +918,14 @@ const TagSelector = {
 
         const value = container.querySelector('.tag-select-value');
         const menu = container.querySelector('.tag-select-menu');
-        const selectedNames = Array.from(instance.selected);
+        const tagsById = new Map(instance.tags.map(tag => [Number(tag.id), tag]));
+        const selectedTags = Array.from(instance.selected)
+            .map(tagId => tagsById.get(tagId))
+            .filter(Boolean);
 
-        if (selectedNames.length) {
-            value.innerHTML = selectedNames
-                .map(name => `<span class="tag-select-chip">${this.escapeHtml(name)}</span>`)
+        if (selectedTags.length) {
+            value.innerHTML = selectedTags
+                .map(tag => `<span class="tag-select-chip">${this.escapeHtml(tag.name)}</span>`)
                 .join('');
         } else {
             value.textContent = instance.placeholder;
@@ -944,12 +937,13 @@ const TagSelector = {
         }
 
         menu.innerHTML = instance.tags.map(tag => {
+            const id = Number(tag.id);
             const name = String(tag.name || '').trim();
-            if (!name) return '';
-            const checked = instance.selected.has(name) ? 'checked' : '';
+            if (!Number.isInteger(id) || id <= 0 || !name) return '';
+            const checked = instance.selected.has(id) ? 'checked' : '';
             return `
                 <label class="tag-select-option">
-                    <input type="checkbox" value="${this.escapeHtml(name)}" ${checked}>
+                    <input type="checkbox" value="${id}" ${checked}>
                     <span class="tag-select-name">${this.escapeHtml(name)}</span>
                 </label>
             `;
@@ -957,11 +951,11 @@ const TagSelector = {
 
         menu.querySelectorAll('input[type="checkbox"]').forEach(input => {
             input.addEventListener('change', () => {
-                const name = input.value;
+                const tagId = Number(input.value);
                 if (input.checked) {
-                    instance.selected.add(name);
+                    instance.selected.add(tagId);
                 } else {
-                    instance.selected.delete(name);
+                    instance.selected.delete(tagId);
                 }
                 this.render(containerId);
             });

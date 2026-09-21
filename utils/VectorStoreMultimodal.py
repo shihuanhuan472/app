@@ -164,15 +164,16 @@ class VectorStoreMultimodal:
 
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model_chat = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = _env_int("MAX_TOKEN", default=2000)
-        self.chat_context_window = _env_int(
-            "LLM_CONTEXT_WINDOW",
-            "INPUT_TOKEN",
-            "MESSAGE_MAX_TOKEN",
-            default=4096,
+        from utils.token_config import (
+            IMAGE_CONTEXT_MARGIN_TOKENS,
+            IMAGE_INPUT_TOKENS,
+            IMAGE_MAX_OUTPUT_TOKENS,
+            MODEL_CONTEXT_WINDOW,
         )
-        self.context_margin_token = _env_int("CONTEXT_MARGIN_TOKEN", default=128)
-        self.image_input_token = _env_int("IMAGE_INPUT_TOKEN", default=1500)
+        self.max_token = IMAGE_MAX_OUTPUT_TOKENS
+        self.chat_context_window = MODEL_CONTEXT_WINDOW
+        self.context_margin_token = IMAGE_CONTEXT_MARGIN_TOKENS
+        self.image_input_token = IMAGE_INPUT_TOKENS
         self.enable_vector_image_description = os.getenv("ENABLE_VECTOR_IMAGE_DESCRIPTION", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.enable_knowledge_main_chunk_ai = os.getenv("ENABLE_KNOWLEDGE_MAIN_CHUNK_AI", "0").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -994,6 +995,32 @@ class VectorStoreMultimodal:
                 "image_urls": image_urls,
                 "image_positions": image_positions,
             }
+            if metadata.get("parser_type") == "long_hierarchical_image":
+                base_metadata.update({
+                    key: metadata.get(key)
+                    for key in (
+                        "parser_type",
+                        "parser_version",
+                        "unit_type",
+                        "node_id",
+                        "parent_node_id",
+                        "child_node_ids",
+                        "path",
+                        "path_text",
+                        "level",
+                        "bbox",
+                        "confidence",
+                        "relation_confidence",
+                        "relation_evidence",
+                        "source_tiles",
+                        "original_image_url",
+                        "crop_image_url",
+                        "edges",
+                        "parse_confidence",
+                        "needs_review",
+                    )
+                    if metadata.get(key) is not None
+                })
 
             text_without_tables = self._strip_markdown_tables(section_text)
             text_chunks = self._split_text_for_vector(text_without_tables)
@@ -1015,11 +1042,19 @@ class VectorStoreMultimodal:
                 chunk_metadata = {
                     **base_metadata,
                     "subchunk_index": text_index,
-                    "unit_type": "section_text",
-                    "content_type": "section_text",
+                    "unit_type": metadata.get("unit_type") or "section_text",
+                    "content_type": (
+                        "image_graph_node"
+                        if metadata.get("parser_type") == "long_hierarchical_image"
+                        else "section_text"
+                    ),
                     "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-text-{text_index}",
                     "chunk_size": len(content),
-                    "semantic_method": "knowledge_section_text_v3",
+                    "semantic_method": (
+                        "hierarchical_image_path_v1"
+                        if metadata.get("parser_type") == "long_hierarchical_image"
+                        else "knowledge_section_text_v3"
+                    ),
                     "chunk_strategy": metadata.get("chunk_strategy") or "enterprise_docx_adaptive_text_v1",
                 }
                 chunks.append({
@@ -1114,7 +1149,7 @@ class VectorStoreMultimodal:
         return total
 
     def _safe_max_tokens(self, messages, preferred: int = None) -> int:
-        preferred = preferred or _env_int("VECTOR_AI_MAX_OUTPUT_TOKEN", "MAX_TOKEN", default=512)
+        preferred = preferred or self.max_token
         available = self.chat_context_window - self._message_input_tokens(messages) - self.context_margin_token
         max_tokens = min(preferred, self.max_token, available)
         if max_tokens < MIN_AI_OUTPUT_TOKEN:

@@ -101,8 +101,9 @@ class PdfParser:
         self.image_dir = os.getenv("IMAGE_DIR", "upload/images")
         self.api_key = os.getenv("API_KEY", "EMPTY")
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
-        self.max_token = int(os.getenv("MAX_TOKEN", 2000))
-        self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        from utils.token_config import DOCUMENT_MAX_INPUT_TOKENS, DOCUMENT_MAX_OUTPUT_TOKENS
+        self.max_token = DOCUMENT_MAX_OUTPUT_TOKENS
+        self.input_token = DOCUMENT_MAX_INPUT_TOKENS
         self.model_image_max_size = int(os.getenv("MODEL_IMAGE_MAX_SIZE", 1024))
 
         # =========================
@@ -132,7 +133,8 @@ class PdfParser:
             "MINERU_OUTPUT_DIR",
             os.path.join(self.document_base_dir, "runtime", "mineru_output"),
         ).strip()
-        self.mineru_llm_max_token = int(os.getenv("MINERU_LLM_MAX_TOKEN", 8000))
+        from utils.token_config import DOCUMENT_MAX_OUTPUT_TOKENS
+        self.mineru_llm_max_token = DOCUMENT_MAX_OUTPUT_TOKENS
 
         # 扫描件判断参数：
         # 单页有效文字少于该值，认为这一页没有有效文本层。

@@ -334,12 +334,14 @@ curl --request POST \
 POST /api/v1/document/add
 ```
 
+文档响应中 `tag` 始终为标签 ID 数组，`tag_names` 为对应的显示名称数组。
+
 请求体：
 
 ```json
 {
   "library_type": "breakdown",
-  "tag": ["洗衣机"],
+  "tag": [3],
   "title": "洗衣机脱水震动大",
   "problem_intro": "脱水阶段机身震动明显",
   "image_urls": null,
@@ -367,7 +369,7 @@ curl --request POST \
   --header 'Authorization: Bearer <用户的api_key>' \
   --data '{
     "library_type": "breakdown",
-    "tag": ["洗衣机"],
+    "tag": [3],
     "title": "洗衣机脱水震动大",
     "problem_intro": "脱水阶段机身震动明显",
     "image_urls": null,
@@ -419,7 +421,7 @@ POST /api/v1/document/page
   "page": 1,
   "size": 10,
   "library_type": "breakdown",
-  "tag": ["洗衣机"]
+  "tag": [3]
 }
 ```
 
@@ -530,7 +532,7 @@ POST /api/v1/datasets/analyze
   "file_name": ["example.pdf"],
   "submit_for_review": true,
   "library_type": "knowledge",
-  "tag": ["售后手册"]
+  "tag": [7]
 }
 ```
 
@@ -607,7 +609,7 @@ POST /api/v1/review/create
 {
   "action_type": 1,
   "document_library_type": "breakdown",
-  "tag": ["洗衣机"],
+  "tag": [3],
   "title": "洗衣机脱水震动大",
   "problem_intro": "脱水阶段机身震动明显"
 }

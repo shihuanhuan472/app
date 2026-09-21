@@ -485,7 +485,7 @@ curl --request GET \
 ```json
 {
   "library_type": "breakdown",
-  "tag": ["洗衣机"],
+  "tag": [3],
   "title": "洗衣机脱水震动大",
   "problem_intro": "脱水阶段机身震动明显",
   "image_urls": null,
@@ -500,7 +500,7 @@ curl --request GET \
 #### 请求参数
 
 - `library_type`：`Body`，`string`，可选，默认 `breakdown`。
-- `tag`：`Body`，`string[]`，可选，文档标签。
+- `tag`：`Body`，`integer[]`，可选，标签管理中的标签 ID。
 - `title`：`Body`，`string`，必填，文档标题。
 - `problem_intro`：`Body`，`string`，可选，问题描述。
 - `causes`：`Body`，`string`，可选，原因分析。
@@ -518,7 +518,7 @@ curl --request POST \
   --header 'Authorization: Bearer <用户的api_key>' \
   --data '{
     "library_type": "breakdown",
-    "tag": ["洗衣机"],
+    "tag": [3],
     "title": "洗衣机脱水震动大",
     "problem_intro": "脱水阶段机身震动明显",
     "causes": "地面不平、负载不均、减震件损坏",
@@ -538,7 +538,9 @@ curl --request POST \
   "data": {
     "id": 1,
     "title": "洗衣机脱水震动大",
-    "library_type": "breakdown"
+    "library_type": "breakdown",
+    "tag": [3],
+    "tag_names": ["洗衣机"]
   }
 }
 ```
@@ -598,7 +600,7 @@ curl --request POST \
   "page": 1,
   "size": 10,
   "library_type": "all",
-  "tag": ["洗衣机"]
+  "tag": [3]
 }
 ```
 
@@ -607,7 +609,7 @@ curl --request POST \
 - `page`：`Body`，`integer`，可选，默认 `1`。
 - `size`：`Body`，`integer`，可选，默认 `10`。
 - `library_type`：`Body`，`string`，可选，支持 `breakdown`、`knowledge`、`all`。
-- `tag`：`Body`，`string[]`，可选，标签过滤。
+- `tag`：`Body`，`integer[]`，可选，按标签 ID 过滤。
 
 #### cURL
 
@@ -620,7 +622,7 @@ curl --request POST \
     "page": 1,
     "size": 10,
     "library_type": "all",
-    "tag": ["洗衣机"]
+    "tag": [3]
   }'
 ```
 
@@ -638,7 +640,9 @@ curl --request POST \
       {
         "id": 1,
         "library_type": "breakdown",
-        "title": "洗衣机脱水震动大"
+        "title": "洗衣机脱水震动大",
+        "tag": [3],
+        "tag_names": ["洗衣机"]
       }
     ]
   }
@@ -759,7 +763,7 @@ curl --request GET \
 ```json
 {
   "library_type": "knowledge",
-  "tag": ["售后手册"],
+  "tag": [7],
   "title": "洗衣机保养知识",
   "problem_intro": "洗衣机日常保养说明",
   "causes": "",
@@ -774,7 +778,7 @@ curl --request GET \
 
 - `id`：`Query`，`integer`，必填，文档 ID。
 - `library_type`：`Query`，`string`，可选，默认 `breakdown`；传 `knowledge` 时修改知识库文档。
-- `tag`：`Body`，`string[]`，可选，文档标签。
+- `tag`：`Body`，`integer[]`，可选，标签管理中的标签 ID。
 - `title`：`Body`，`string`，必填，文档标题。
 - `problem_intro`：`Body`，`string`，可选，问题描述或知识说明。
 - `causes`：`Body`，`string`，可选，原因分析。
@@ -792,7 +796,7 @@ curl --request PUT \
   --header 'Authorization: Bearer <用户的api_key>' \
   --data '{
     "library_type": "knowledge",
-    "tag": ["售后手册"],
+    "tag": [7],
     "title": "洗衣机保养知识",
     "problem_intro": "洗衣机日常保养说明",
     "inspection": "定期检查进水管、排水管和过滤网",
@@ -904,7 +908,7 @@ curl --request POST \
   "file_name": ["example.pdf"],
   "submit_for_review": true,
   "library_type": "knowledge",
-  "tag": ["售后手册"]
+  "tag": [7]
 }
 ```
 
@@ -914,7 +918,7 @@ curl --request POST \
 - `file_name`：`Body`，`string[]`，必填，原始文件名。
 - `submit_for_review`：`Body`，`boolean`，可选，是否提交审核。
 - `library_type`：`Body`，`string`，必填，文档库。
-- `tag`：`Body`，`string[]`，可选，文档标签。
+- `tag`：`Body`，`integer[]`，可选，标签管理中的标签 ID。
 
 #### cURL
 
@@ -928,7 +932,7 @@ curl --request POST \
     "file_name": ["example.pdf"],
     "submit_for_review": true,
     "library_type": "knowledge",
-    "tag": ["售后手册"]
+    "tag": [7]
   }'
 ```
 
@@ -1062,7 +1066,7 @@ curl --request GET \
 {
   "action_type": 1,
   "document_library_type": "breakdown",
-  "tag": ["洗衣机"],
+  "tag": [3],
   "title": "洗衣机脱水震动大",
   "problem_intro": "脱水阶段机身震动明显"
 }
@@ -1073,7 +1077,7 @@ curl --request GET \
 - `action_type`：`Body`，`integer`，必填，操作类型。
 - `document_library_type`：`Body`，`string`，必填，文档库。
 - `document_id`：`Body`，`integer`，可选，修改或删除时传入。
-- `tag`：`Body`，`string[]`，可选，文档标签。
+- `tag`：`Body`，`integer[]`，可选，标签管理中的标签 ID。
 - `title`：`Body`，`string`，可选，文档标题。
 - `problem_intro`：`Body`，`string`，可选，问题描述。
 
@@ -1087,7 +1091,7 @@ curl --request POST \
   --data '{
     "action_type": 1,
     "document_library_type": "breakdown",
-    "tag": ["洗衣机"],
+    "tag": [3],
     "title": "洗衣机脱水震动大",
     "problem_intro": "脱水阶段机身震动明显"
   }'

@@ -26,7 +26,7 @@ from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
 from utils.file_cleanup import delete_file_if_exists, delete_image_with_variants
 from utils.roles import UserRole, has_role
-from utils.tag_service import normalize_tag_ids, set_document_tag_ids
+from utils.tag_service import normalize_tag_ids, set_document_tag_ids, validate_active_tag_ids
 from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
@@ -730,6 +730,8 @@ async def create_review(
         request.title = normalize_document_title(request.title)
 
     await _validate_review_images(request)
+    if request.tag is not None:
+        request.tag = await validate_active_tag_ids(db, request.tag)
 
     review_kwargs = {
         "contributor_id": current_user.id,

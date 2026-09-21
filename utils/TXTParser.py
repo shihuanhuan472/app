@@ -61,8 +61,9 @@ class TxtParser:
         self.model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
 
         # 建议先不要给太大，避免 JSON 输出被截断
-        self.max_token = int(os.getenv("MAX_TOKEN", 3000))
-        self.input_token = int(os.getenv("INPUT_TOKEN", 8000))
+        from utils.token_config import DOCUMENT_MAX_INPUT_TOKENS, DOCUMENT_MAX_OUTPUT_TOKENS
+        self.max_token = DOCUMENT_MAX_OUTPUT_TOKENS
+        self.input_token = DOCUMENT_MAX_INPUT_TOKENS
         self.min_output_token = int(os.getenv("MIN_OUTPUT_TOKEN", 128))
 
         # 可识别的图片格式

@@ -165,7 +165,7 @@
         let listViewLoadingMore = false;
         let listViewDocuments = [];
         let listViewLibraryType = 'all';
-        let listViewTag = '';
+        let listViewTag = null;
         let availableTags = [];
         let batchDeleteMode = false;
         let batchDeleteBusy = false;
@@ -308,7 +308,8 @@
         }
 
         function changeListTag(value) {
-            listViewTag = value || '';
+            const tagId = Number(value);
+            listViewTag = Number.isInteger(tagId) && tagId > 0 ? tagId : null;
             resetListViewState();
             loadListViewDocuments(false);
         }
@@ -448,7 +449,7 @@
                 author: authorName,
                 date: formatDate(doc.first_edit_date),
                 libraryType: doc.library_type || 'breakdown',
-                tags: doc.tag || [],
+                tags: doc.tag_names || [],
                 fullData: doc
             };
         }
@@ -548,20 +549,9 @@
         }
 
         function normalizeDocumentTags(tags) {
-            if (Array.isArray(tags)) {
-                return tags.map(tag => String(tag).trim()).filter(Boolean);
-            }
-            if (typeof tags === 'string' && tags.trim()) {
-                try {
-                    const parsed = JSON.parse(tags);
-                    if (Array.isArray(parsed)) {
-                        return parsed.map(tag => String(tag).trim()).filter(Boolean);
-                    }
-                } catch (_) {
-                    return tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean);
-                }
-            }
-            return [];
+            return Array.isArray(tags)
+                ? tags.map(tag => String(tag).trim()).filter(Boolean)
+                : [];
         }
 
         function renderDocumentTags(tags) {
@@ -703,7 +693,7 @@
             const libraryType = doc.libraryType || (doc.fullData && doc.fullData.library_type) || 'breakdown';
             const libraryLabel = getLibraryLabel(libraryType);
             const libraryBadgeClass = getLibraryBadgeClass(libraryType);
-            const tagHtml = renderDocumentTags(doc.tags || (doc.fullData && doc.fullData.tag));
+            const tagHtml = renderDocumentTags(doc.tags);
             const selected = selectedDocuments.has(getSelectionKey(doc.id, libraryType));
 
             return `
@@ -778,7 +768,7 @@
                         </div>
                     </div>
                     <div><span class="document-library-badge ${libraryBadgeClass}">${libraryLabel}</span></div>
-                    <div>${renderInlineTags(doc.tags || (doc.fullData && doc.fullData.tag))}</div>
+                    <div>${renderInlineTags(doc.tags)}</div>
                     <div class="document-list-author">${escapeHtml(doc.author)}</div>
                     <div class="document-list-date">${escapeHtml(doc.date)}</div>
                 </div>
@@ -810,10 +800,11 @@
                             <label class="document-list-filter">
                                 <span>标签</span>
                                 <select onclick="event.stopPropagation()" onchange="changeListTag(this.value)">
-                                    <option value="" ${listViewTag === '' ? 'selected' : ''}>全部</option>
+                                    <option value="" ${listViewTag === null ? 'selected' : ''}>全部</option>
                                     ${availableTags.map(tag => {
-                                        const name = typeof tag === 'string' ? tag : tag.name;
-                                        return `<option value="${escapeHtml(name)}" ${listViewTag === name ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                                        const id = Number(tag.id);
+                                        const name = String(tag.name || '');
+                                        return `<option value="${id}" ${listViewTag === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
                                     }).join('')}
                                 </select>
                             </label>
