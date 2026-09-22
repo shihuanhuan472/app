@@ -5509,6 +5509,23 @@ body.batch-delete-active .source-list-row {
 }
 
 /* AI answer feedback */
+.ai-process { margin: 0 0 10px; color: #64748b; font-size: 13px; }
+.ai-process summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 7px; min-height: 24px; }
+.ai-process summary::-webkit-details-marker { display: none; }
+.ai-process-icon { color: #64748b; }
+.ai-process-spinner { width: 14px; height: 14px; flex: 0 0 14px; border: 2px solid #dbe4ee; border-top-color: #2563eb; border-radius: 50%; animation: ai-process-spin .8s linear infinite; }
+.ai-process-current { color: #64748b; margin-left: 2px; }
+.ai-process-chevron { margin-left: auto; font-size: 11px; transition: transform .18s ease; }
+.ai-process[open] .ai-process-chevron { transform: rotate(90deg); }
+.ai-process-steps { margin: 7px 0 2px 11px; padding: 3px 0 2px 17px; border-left: 1px solid #e2e8f0; display: grid; gap: 9px; }
+.ai-process-step { color: #64748b; display: flex; gap: 8px; line-height: 1.4; }
+.ai-process-step-mark { color: #94a3b8; width: 13px; margin-left: -24px; text-align: center; background: #fff; }
+.ai-process-step.is-complete .ai-process-step-mark { color: #22c55e; }
+.ai-process-step.is-active .ai-process-step-mark { color: #2563eb; animation: ai-process-pulse 1.1s ease-in-out infinite; }
+.ai-process-step b { display: block; font-weight: 500; color: #475569; }
+.ai-process-step small { display: block; margin-top: 2px; color: #94a3b8; font-size: 12px; }
+@keyframes ai-process-pulse { 50% { opacity: .35; } }
+@keyframes ai-process-spin { to { transform: rotate(360deg); } }
 .message-feedback {
     margin-top: 10px;
     padding-top: 9px;

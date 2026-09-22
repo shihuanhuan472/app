@@ -1903,7 +1903,7 @@ const messageAPI = {
         }
     },
 
-    async askStream(messageData, onChunk, onComplete, onError) {
+    async askStream(messageData, onChunk, onComplete, onError, onStatus) {
     const url = `${this.client.baseUrl}${AI_CHAT_BASE}/completions`;
     const token = localStorage.getItem('token');
 
@@ -1971,6 +1971,10 @@ const messageAPI = {
                                 // /chats/{chat_id}/completions 返回 {code:0,data:{...}}；
                                 // code=1,data="true" 为流结束标记。
                                 const payload = parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+                                if (payload && (payload.type === 'status' || payload.type === 'progress')) {
+                                    onStatus && onStatus(payload);
+                                    continue;
+                                }
                                 if (payload && typeof payload.answer === 'string') {
                                     onChunk && onChunk({
                                         ...payload,

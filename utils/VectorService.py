@@ -513,6 +513,7 @@ class VectorService:
         top_k_documents: int = -1,
         user_id: Optional[int] = None,
         session_id: Optional[int] = None,
+        apply_domain_term_score: bool = True,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
         # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）
@@ -587,10 +588,12 @@ class VectorService:
             all_results = self._merge_retrieval_candidates(all_results)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             self._debug_print_search_results("raw vector results", all_results)
-            all_results = self._apply_domain_term_score(all_results, query)
+            if apply_domain_term_score:
+                all_results = self._apply_domain_term_score(all_results, query)
             all_results = self._apply_image_graph_score(all_results, query)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
-            self._debug_print_search_results("after domain term score", all_results)
+            debug_stage = "after domain term score" if apply_domain_term_score else "domain term score disabled"
+            self._debug_print_search_results(debug_stage, all_results)
             # if self.enable_llm_rerank:
             #     rerank_candidates = all_results[: max(self.rerank_top_k, 1)]
             #     reranked_results = []

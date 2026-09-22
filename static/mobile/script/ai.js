@@ -576,6 +576,12 @@
             let html = `<div class="message-sender ${isAI ? 'ai' : 'user'}">${isAI ? 'AI鍔╂墜' : '鐢ㄦ埛'}</div>`;
             html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
             const content = message.content_text || message.content || '';
+            const isCompletedAI = isAI && content && !content.includes('回答生成中，请稍后刷新') && !content.includes('回答生成失败');
+            if (isCompletedAI) {
+                const process = Array.isArray(message.thinking_process) ? message.thinking_process : [];
+                const steps = process.map((step) => `<div class="ai-process-step is-complete"><span class="ai-process-step-mark">✓</span><span><b>${step.title || '处理完成'}</b><small>${step.detail || ''}</small></span></div>`).join('');
+                html += `<details class="ai-process is-complete"><summary><span class="ai-process-icon">◇</span><span>已经完成思考</span><span class="ai-process-chevron">›</span></summary>${steps ? `<div class="ai-process-steps">${steps}</div>` : ''}</details>`;
+            }
             html += `<div class="message-text">${this.formatMessageContent(content || '鏆傛棤鍐呭', isAI)}</div>`;
 
             if (!isAI && message.user_uploaded_images && String(message.user_uploaded_images).trim()) {
@@ -939,7 +945,8 @@
                         this.removeStreamingMessage();
                         this.removeTemporaryElements();
                         MobileUtils.showMessage(`鍙戦€佹秷鎭け璐ワ細${error.message}`, 'error');
-                    }
+                    },
+                    (status) => this.updateAIStatus(status)
                 );
             } catch (error) {
                 MobileUtils.showMessage(`鍙戦€佹秷鎭け璐ワ細${error.message}`, 'error');
@@ -969,7 +976,7 @@
             const tempDiv = document.createElement('div');
             tempDiv.className = 'message-container ai';
             tempDiv.id = 'streamingAIMessage';
-            tempDiv.innerHTML = '<div class="message-sender ai">AI鍔╂墜</div><div class="message-content ai"><div class="message-text streaming-text">姝ｅ湪鎬濊€?..</div><div class="message-time"></div></div>';
+            tempDiv.innerHTML = '<div class="message-sender ai">AI助手</div><div class="message-content ai"><div class="message-text streaming-text"></div><div class="message-time"></div></div>';
             container.appendChild(tempDiv);
             this.scrollToBottom();
         }
@@ -981,6 +988,29 @@
             textDiv.innerHTML = MarkdownParser.render(renderImages ? content : sanitizeStreamingContent(content));
             this.bindInlineMessageImages(msgDiv);
             this.scrollToBottom();
+        }
+        updateAIStatus(status) {
+            const msg = document.getElementById('streamingAIMessage');
+            const text = msg?.querySelector('.message-text');
+            if (!msg || !text || !status) return;
+            let panel = msg.querySelector('.ai-process');
+            if (!panel) {
+                panel = document.createElement('details'); panel.className = 'ai-process';
+                panel.innerHTML = '<summary><span class="ai-process-spinner" aria-hidden="true"></span><span>正在思考</span><span class="ai-process-current">分析问题</span><span class="ai-process-chevron">›</span></summary><div class="ai-process-steps"></div>';
+                text.parentNode.insertBefore(panel, text);
+            }
+            const current = panel.querySelector('.ai-process-current');
+            const steps = panel.querySelector('.ai-process-steps');
+            if (status.stage === 'done') { panel.open = false; panel.classList.add('is-complete'); const spinner = panel.querySelector('.ai-process-spinner'); if (spinner) spinner.outerHTML = '<span class="ai-process-icon">◇</span>'; return; }
+            if (current) current.textContent = status.message || '正在处理';
+            const labels = { analyzing: '分析问题', retrieving: '检索维修资料', reranking: '筛选相关案例', generating: '生成回答' };
+            if (steps && status.stage) {
+                let step = steps.querySelector(`[data-stage="${status.stage}"]`);
+                if (!step) { step = document.createElement('div'); step.className = 'ai-process-step'; step.dataset.stage = status.stage; steps.appendChild(step); }
+                step.className = `ai-process-step ${status.status === 'running' ? 'is-active' : 'is-complete'}`;
+                step.innerHTML = `<span class="ai-process-step-mark">${status.status === 'complete' ? '✓' : '•'}</span><span><b>${labels[status.stage] || status.message || '处理中'}</b>${status.detail ? `<small>${status.detail}</small>` : ''}</span>`;
+            }
+            text.textContent = '';
         }
 
         updateReferenceDocuments(docs) {

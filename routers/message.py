@@ -7,6 +7,7 @@ import re
 import time
 import uuid
 import base64
+import contextvars
 from functools import lru_cache
 from html import escape as html_escape
 
@@ -58,17 +59,27 @@ from utils.desensitize import (
     max_sensitive_term_length,
 )
 from utils.openai_client import create_async_openai_client, create_openai_client
+from utils.VectorService import VectorService
 from utils.token_counter import get_token_count
 from utils.ai_usage import record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
 from agents.intent.taxonomy import IntentRoute
 from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
 from agents.skills import AgentSkill, SkillPromptBuilder, SkillRegistry
+from agents.query_analysis import QueryAnalysisAgent
+from agents.retrieval import QueryRefiner, ResultObserver, RetrievalExecutor
 from feedback_learning.repository import FeedbackLearningRepository
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/message", tags=["消息"])
 chat_router = APIRouter(prefix="/api/v1/chats", tags=["对话与AI问答"])
+
+_progress_sink = contextvars.ContextVar("rag_progress_sink", default=None)
+
+async def _publish_progress(stage: str, status_value: str, message: str, detail: str = ""):
+    sink = _progress_sink.get()
+    if sink is not None:
+        await sink.put({"type": "status", "stage": stage, "status": status_value, "message": message, "detail": detail})
 
 DOCUMENT_LIBRARY_MODELS = {"breakdown": DocumentBreakdown, "knowledge": DocumentKnowledge}
 CONTEXTUAL_FOLLOWUP_REASON = "contextual_followup"
@@ -411,6 +422,7 @@ def _normalize_stored_reference_doc(doc: Any) -> Optional[Dict[str, Any]]:
         "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
         "title": doc.get("title", ""),
         "score": float(doc.get("score", 0.0) or 0.0),
+        "relevance": doc.get("relevance") or "",
         "chunks": [
             chunk
             for chunk in (
@@ -1248,6 +1260,17 @@ async def _adaptive_retrieve_reference_documents(
     actions = [f"rag_search:{plan.strategy if plan else 'default'}"]
     user_id = current_user.id if current_user else None
 
+    if _get_bool_env("AGENTIC_RETRIEVAL_ENABLED", False):
+        return await _agentic_retrieve_reference_documents(
+            db,
+            retrieval_query,
+            user_uploaded_images,
+            top_k_documents=top_k_documents,
+            user_id=user_id,
+            session_id=session_id,
+            actions=actions,
+        )
+
     reference_docs = await get_reference_documents(
         db,
         retrieval_query,
@@ -1302,6 +1325,69 @@ async def _adaptive_retrieve_reference_documents(
         actions.append("feedback_patch_apply_secondary")
     max_docs = top_k_documents if top_k_documents and top_k_documents > 0 else -1
     return _merge_reference_documents(reference_docs, secondary_docs, max_docs=max_docs), actions
+
+
+async def _agentic_retrieve_reference_documents(
+    db: AsyncSession,
+    question: str,
+    user_uploaded_images: Optional[str],
+    *,
+    top_k_documents: int,
+    user_id: Optional[int],
+    session_id: Optional[int],
+    actions: List[str],
+) -> tuple[List[Dict[str, Any]], List[str]]:
+    """Run the new analysis/retrieval loop, then adapt results to the old RAG contract."""
+    analysis = await QueryAnalysisAgent(verbose=True).analyze(question)
+    vector_service = VectorService(db)
+    executor = RetrievalExecutor(
+        db=db,
+        vector_service=vector_service,
+        top_k=top_k_documents if top_k_documents and top_k_documents > 0 else 8,
+        verbose=True,
+    )
+    results = await executor.execute(analysis.retrieval_strategy)
+    observer = ResultObserver(verbose=True)
+    observation = await observer.observe_with_llm(analysis, results)
+    evidence_ids = set(observation.supporting_documents)
+    actions.append(f"agentic_observe:{observation.next_action}")
+
+    if observation.next_action in {"refine", "replan"}:
+        refined_strategy = QueryRefiner(verbose=True).refine(analysis, observation, results)
+        analysis = analysis.model_copy(update={"retrieval_strategy": refined_strategy})
+        second_results = await executor.execute(refined_strategy)
+        merged = {item.document_id: item for item in results}
+        merged.update({item.document_id: item for item in second_results})
+        results = list(merged.values())
+        observation = await observer.observe_with_llm(analysis, results)
+        evidence_ids.update(observation.supporting_documents)
+        actions.append(f"agentic_second_retrieve:{observation.next_action}")
+
+    reference_docs = []
+    results = sorted(results, key=lambda item: (item.document_id not in evidence_ids, -float(item.score or 0.0)))
+    for item in results:
+        try:
+            doc_id = int(item.document_id)
+        except (TypeError, ValueError):
+            continue
+        reference_docs.append({
+            "doc_id": doc_id,
+            "library_type": _normalize_library_type(item.library_type),
+            "title": item.title,
+            "score": item.score,
+            "relevance": (
+                "partial" if item.document_id in evidence_ids and observation.relevance == "partial"
+                else "strong" if item.document_id in evidence_ids and observation.relevance == "strong"
+                else "weak"
+            ),
+            "chunks": [],
+            "matched_image_urls": [],
+            "matched_node_ids": [],
+            "matched_graph_regions": [],
+            "graph_query_intent": None,
+        })
+    actions.append("agentic_retrieval")
+    return reference_docs, actions
 
 
 async def _apply_feedback_retrieval_layer(
@@ -1380,7 +1466,7 @@ def _sanitize_answer_images_for_display(text: Optional[str]) -> Optional[str]:
     return sanitized
 
 
-def _message_to_chat_message_dict(message: Message, feedback_eligible: bool = False) -> Dict[str, Any]:
+def _message_to_chat_message_dict(message: Message, feedback_eligible: bool = False, thinking_process=None) -> Dict[str, Any]:
     """
     功能说明：
         将 Message ORM 对象转换为 api.md 中会话消息列表使用的结构。
@@ -1416,6 +1502,8 @@ def _message_to_chat_message_dict(message: Message, feedback_eligible: bool = Fa
         "feedback_eligible": bool(feedback_eligible) if message.role == 0 else False,
         "created_time": created_time,
     }
+    if message.role == 0 and thinking_process:
+        payload["thinking_process"] = thinking_process
     if message.role == 0:
         print(
             f"[FeedbackPayload] message_id={message.id} session_id={message.session_id} "
@@ -1431,6 +1519,7 @@ def _conversation_to_chat_session(
     conversation: Conversation,
     messages: Optional[List[Message]] = None,
     feedback_eligible_by_message: Optional[Dict[int, bool]] = None,
+    thinking_process_by_message: Optional[Dict[int, List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """
     功能说明：
@@ -1448,6 +1537,7 @@ def _conversation_to_chat_session(
         _message_to_chat_message_dict(
             item,
             bool((feedback_eligible_by_message or {}).get(int(item.id), False)),
+            (thinking_process_by_message or {}).get(int(item.id)),
         )
         for item in (messages or [])
     ]
@@ -2268,6 +2358,7 @@ async def stream_ai_response(
             await usage_db.commit()
 
         final_data = {"code": 1, "data": "true"}
+        yield _format_stream_event({"type": "status", "stage": "done", "status": "complete", "message": "回答生成完成"})
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
         print(f"[AI流式] 请求失败: {type(e).__name__}: {e}")
@@ -2354,6 +2445,7 @@ async def _create_completion(
     """
     trace_id: Optional[int] = None
     try:
+        await _publish_progress("analyzing", "running", "正在分析问题", "正在识别问题意图和对话上下文。")
         # 校验会话归属（Conversation 表）
         config = get_image_config()
 
@@ -2429,6 +2521,7 @@ async def _create_completion(
             f"actions={memory_pack.actions}"
         )
         selected_skill = SkillRegistry().select(route_decision, memory_pack)
+        await _publish_progress("analyzing", "complete", "已完成问题分析", f"识别为 {route_decision.route.value} 类型问题。")
         print(
             "[SkillRegistry] "
             f"skill={selected_skill.name} "
@@ -2498,6 +2591,7 @@ async def _create_completion(
             return ResultNew.result(0, None, data) if api_v1 else Result.success_with_data(data)
 
         # 向量检索
+        await _publish_progress("retrieving", "running", "正在检索维修资料", "正在执行知识库检索。")
         retrieval_query = route_decision.query_rewrite or db_message.content_text
         used_previous_refs = False
         retrieval_actions: List[str] = []
@@ -2553,10 +2647,14 @@ async def _create_completion(
                         current_user=current_user,
                         session_id=message.session_id,
                     )
-                    ai_reference_documents = _filter_reference_documents_by_confidence(
-                        ai_reference_documents,
-                        route_decision,
-                    )
+                    # Agentic results use RRF scores (typically < 0.1), which are
+                    # not comparable with the legacy vector-score threshold.
+                    # The LLM Observer has already judged their evidence quality.
+                    if not _get_bool_env("AGENTIC_RETRIEVAL_ENABLED", False):
+                        ai_reference_documents = _filter_reference_documents_by_confidence(
+                            ai_reference_documents,
+                            route_decision,
+                        )
                     ai_reference_documents = _filter_reference_documents_by_query_terms(
                         ai_reference_documents,
                         retrieval_query,
@@ -2565,6 +2663,8 @@ async def _create_completion(
         else:
             ai_reference_documents = []
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
+        await _publish_progress("retrieving", "complete", "已完成资料检索", f"找到 {len(ai_reference_documents or [])} 条候选资料。")
+        await _publish_progress("reranking", "running", "正在筛选相关案例", "正在按问题相关性筛选候选资料。")
         ai_reference_document_ids_str = get_ai_reference_document_ids_str(ai_reference_document_ids)
 
         # 传给 generate_messages() 用于构建 prompt
@@ -2578,6 +2678,7 @@ async def _create_completion(
             skill=selected_skill,
         )
         ai_reference_document_payload = get_ai_reference_documents_payload(ai_reference_documents)
+        await _publish_progress("reranking", "complete", "已完成相关性筛选", f"保留 {len(ai_reference_documents or [])} 条相关资料。")
 
         conversation.updated_time = datetime.now()
 
@@ -2638,6 +2739,7 @@ async def _create_completion(
 
         # 传给 stream_ai_response() 用于构建 reference.doc_aggs 和图片
         if message.stream:
+            await _publish_progress("generating", "running", "正在生成回答", "正在依据问题和筛选后的资料组织回答。")
             return StreamingResponse(
                 stream_ai_response(
                     ai_msg.id,
@@ -2876,6 +2978,25 @@ async def get_chat_sessions(
                 for item in messages
                 if int(getattr(item, "role", 1)) == 0
             }
+            ai_message_ids = [item.id for item in messages if int(getattr(item, "role", 1)) == 0]
+            thinking_process_by_message = {}
+            if ai_message_ids:
+                trace_result = await db.execute(
+                    select(AiMessageTrace).where(AiMessageTrace.ai_message_id.in_(ai_message_ids))
+                )
+                for trace in trace_result.scalars().all():
+                    try:
+                        refs = json.loads(trace.reference_docs_json or "[]")
+                        reference_count = len(refs) if isinstance(refs, list) else 0
+                    except (TypeError, ValueError):
+                        reference_count = 0
+                    used_rag = reference_count > 0 or bool(trace.retrieval_query)
+                    thinking_process_by_message[int(trace.ai_message_id)] = [
+                        {"stage": "analyzing", "title": "分析问题", "detail": "已识别问题意图，并结合当前对话整理回答目标。"},
+                        {"stage": "retrieving", "title": "检索维修资料" if used_rag else "无需检索维修资料", "detail": f"已获取 {reference_count} 条相关资料。" if used_rag else "本轮根据问题直接生成回答。"},
+                        {"stage": "reranking", "title": "筛选相关内容", "detail": "已对候选资料进行相关性筛选并整理回答依据。"},
+                        {"stage": "generating", "title": "生成回答", "detail": "已依据问题和相关资料完成回答。"},
+                    ]
             print(
                 f"[FeedbackSession] conversation_id={conversation.id} requested_id={id} "
                 f"ai_messages={[item.id for item in messages if int(getattr(item, 'role', 1)) == 0]} "
@@ -2887,6 +3008,7 @@ async def get_chat_sessions(
                 conversation,
                 messages,
                 feedback_eligible_by_message,
+                thinking_process_by_message,
             ))
 
         return ResultNew.result(0, None, {
@@ -2946,6 +3068,39 @@ async def delete_chat_sessions(
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "删除对话失败")
 
 
+async def _stream_completion_with_workflow(message, db, current_user):
+    """Open SSE immediately, then proxy workflow progress and the existing answer stream."""
+    queue = asyncio.Queue()
+    token = _progress_sink.set(queue)
+    task = asyncio.create_task(_create_completion(message, db, current_user, api_v1=True))
+    try:
+        yield ": stream-start\n\n"
+        result = None
+        while not task.done():
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=15)
+                yield f"data: {json.dumps({'code': 0, 'data': event}, ensure_ascii=False)}\n\n"
+            except asyncio.TimeoutError:
+                yield ": heartbeat\n\n"
+        result = await task
+        while not queue.empty():
+            event = await queue.get()
+            yield f"data: {json.dumps({'code': 0, 'data': event}, ensure_ascii=False)}\n\n"
+        if isinstance(result, StreamingResponse):
+            async for chunk in result.body_iterator:
+                yield chunk
+        else:
+            payload = getattr(result, "body", None)
+            if payload:
+                yield payload
+    except asyncio.CancelledError:
+        if not task.done():
+            task.cancel()
+        raise
+    finally:
+        _progress_sink.reset(token)
+
+
 @chat_router.post("/{chat_id}/completions", summary="AI 问答")
 async def create_chat_completion(
     chat_id: str,
@@ -2966,6 +3121,12 @@ async def create_chat_completion(
     关键处理流程：
         复用 _create_completion 的正式 AI 对话逻辑，并启用 api_v1 响应包装。
     """
+    if message.stream:
+        return StreamingResponse(
+            _stream_completion_with_workflow(message, db, current_user),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
     return await _create_completion(message, db, current_user, api_v1=True)
 
 async def generate_messages(
@@ -3803,6 +3964,7 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
             "score": float(doc.get("score", 0.0)),
+            "relevance": doc.get("relevance") or "",
             "chunks": chunks,
             "image_urls": [
                 web_url
