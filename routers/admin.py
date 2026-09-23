@@ -453,11 +453,7 @@ async def _build_tag_usage(db: AsyncSession, tags: Sequence[Tag]) -> Dict[str, i
     if not tags:
         return {"high_frequency": 0}
 
-    tag_lookup: Dict[str, int] = {}
-    for tag in tags:
-        tag_lookup[str(tag.id)] = int(tag.id)
-        if tag.name:
-            tag_lookup[str(tag.name).strip()] = int(tag.id)
+    tag_lookup: Dict[str, int] = {str(tag.id): int(tag.id) for tag in tags}
 
     tag_counts = Counter()
     for model in (DocumentBreakdown, DocumentKnowledge):

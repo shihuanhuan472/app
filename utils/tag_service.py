@@ -1,6 +1,6 @@
 import json
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import String, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
@@ -58,6 +58,8 @@ def _parse_tag_values(tag) -> list:
         text = tag.strip()
         if not text:
             return []
+        if "，" in text:
+            return _parse_tag_values(text.replace("，", ","))
         try:
             parsed = json.loads(text)
             tag = parsed if isinstance(parsed, list) else [parsed]
@@ -173,7 +175,10 @@ def tag_keyword_filter_for_model(document_model, keyword: str):
     return exists(
         select(Tag.id).where(
             Tag.is_deleted == 0,
-            Tag.name.like(f"%{keyword}%"),
+            or_(
+                Tag.name.like(f"%{keyword}%"),
+                cast(Tag.match_aliases, String).like(f"%{keyword}%"),
+            ),
             _json_contains_tag_id(document_model.tag, Tag.id),
         )
     )

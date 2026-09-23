@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_active_user
-from models import Tag, User
+from models import Document_review, KnowledgeDocumentReview, Tag, User
 from schemas import Result, TagCreate, TagQuery, TagResponse, TagUpdate
 from utils.app_exceptions import AppException
 from utils.error_codes import BizCode
@@ -27,13 +27,14 @@ def _require_tag_operator(user: User):
         raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "仅技术人员或管理员可操作标签")
 
 
-def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
+def _tag_to_response(tag: Tag, document_count: int = 0, pending_review_count: int = 0) -> TagResponse:
     return TagResponse(
         id=tag.id,
         name=tag.name,
         description=tag.description,
         match_aliases=normalize_match_aliases(tag.match_aliases),
         document_count=document_count,
+        pending_review_count=pending_review_count,
         created_by=tag.created_by,
         created_time=tag.created_time,
         updated_time=tag.updated_time,
@@ -41,8 +42,26 @@ def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
 
 
 async def _get_existing_tag_by_name(db: AsyncSession, name: str) -> Optional[Tag]:
-    result = await db.execute(select(Tag).where(Tag.name == name))
-    return result.scalar_one_or_none()
+    result = await db.execute(select(Tag))
+    key = name.strip().casefold()
+    return next((tag for tag in result.scalars().all() if str(tag.name or '').strip().casefold() == key), None)
+
+
+async def _validate_tag_terms(db: AsyncSession, name: str, aliases, current_id: Optional[int] = None):
+    terms = [name, *(aliases or [])]
+    normalized = [str(value or '').strip().casefold() for value in terms if str(value or '').strip()]
+    if len(normalized) != len(set(normalized)):
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称和别名不能重复")
+    result = await db.execute(select(Tag).where(Tag.is_deleted == 0))
+    for tag in result.scalars().all():
+        if current_id is not None and int(tag.id) == int(current_id):
+            continue
+        existing = {
+            str(tag.name or '').strip().casefold(),
+            *(str(alias).strip().casefold() for alias in normalize_match_aliases(tag.match_aliases)),
+        }
+        if any(term in existing for term in normalized):
+            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称或别名已被其他标签使用")
 
 
 async def _get_active_tag_or_404(db: AsyncSession, tag_id: int) -> Tag:
@@ -51,6 +70,23 @@ async def _get_active_tag_or_404(db: AsyncSession, tag_id: int) -> Tag:
     if not tag:
         raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "标签不存在")
     return tag
+
+
+async def _get_pending_review_tag_count(db: AsyncSession, tag_id: int) -> int:
+    total = 0
+    for review_model in (Document_review, KnowledgeDocumentReview):
+        result = await db.execute(
+            select(func.count()).select_from(review_model).where(
+                review_model.status == 0,
+                func.JSON_CONTAINS(review_model.tag, func.JSON_ARRAY(tag_id)) == 1,
+            )
+        )
+        total += int(result.scalar_one() or 0)
+    return total
+
+
+async def _get_pending_review_tag_counts(db: AsyncSession, tag_ids: list[int]) -> dict[int, int]:
+    return {tag_id: await _get_pending_review_tag_count(db, tag_id) for tag_id in tag_ids}
 
 
 @router.get("/list", summary="获取所有标签")
@@ -62,7 +98,8 @@ async def list_tags(
     result = await db.execute(select(Tag).where(Tag.is_deleted == 0).order_by(Tag.name.asc()))
     tags = result.scalars().all()
     counts = await get_tag_document_counts(db, [tag.id for tag in tags])
-    return Result.success_with_data([_tag_to_response(tag, counts.get(tag.id, 0)) for tag in tags])
+    pending = await _get_pending_review_tag_counts(db, [tag.id for tag in tags])
+    return Result.success_with_data([_tag_to_response(tag, counts.get(tag.id, 0), pending.get(tag.id, 0)) for tag in tags])
 
 
 @router.post("/page", summary="分页查询标签")
@@ -96,11 +133,12 @@ async def page_tags(
     )
     tags = result.scalars().all()
     counts = await get_tag_document_counts(db, [tag.id for tag in tags])
+    pending = await _get_pending_review_tag_counts(db, [tag.id for tag in tags])
     data = build_pagination_payload(
         total_count,
         page,
         size,
-        [_tag_to_response(tag, counts.get(tag.id, 0)) for tag in tags],
+        [_tag_to_response(tag, counts.get(tag.id, 0), pending.get(tag.id, 0)) for tag in tags],
         "tags",
     )
     return Result.success_with_data(data)
@@ -116,6 +154,8 @@ async def add_tag(
     name = normalize_tag_name(payload.name)
     if not name:
         raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
+    aliases = normalize_match_aliases(payload.match_aliases)
+    await _validate_tag_terms(db, name, aliases)
 
     existing = await _get_existing_tag_by_name(db, name)
     now = datetime.now()
@@ -123,7 +163,7 @@ async def add_tag(
         if existing.is_deleted:
             existing.is_deleted = 0
             existing.description = payload.description
-            existing.match_aliases = normalize_match_aliases(payload.match_aliases)
+            existing.match_aliases = aliases
             existing.updated_time = now
             await db.commit()
             await db.refresh(existing)
@@ -133,7 +173,7 @@ async def add_tag(
     tag = Tag(
         name=name,
         description=payload.description,
-        match_aliases=normalize_match_aliases(payload.match_aliases),
+        match_aliases=aliases,
         is_deleted=0,
         created_by=current_user.id,
         created_time=now,
@@ -170,11 +210,16 @@ async def update_tag(
     if payload.match_aliases is not None:
         tag.match_aliases = normalize_match_aliases(payload.match_aliases)
 
+    await _validate_tag_terms(db, tag.name, tag.match_aliases, tag.id)
+
     tag.updated_time = datetime.now()
     await db.commit()
     await db.refresh(tag)
     counts = await get_tag_document_counts(db, [tag.id])
-    return Result.success_with_data(_tag_to_response(tag, counts.get(tag.id, 0)))
+    pending_review_count = await _get_pending_review_tag_count(db, tag.id)
+    return Result.success_with_data(
+        _tag_to_response(tag, counts.get(tag.id, 0), pending_review_count)
+    )
 
 
 @router.delete("/delete/{tag_id}", summary="删除标签")
@@ -191,6 +236,13 @@ async def delete_tag(
             status.HTTP_400_BAD_REQUEST,
             BizCode.BAD_REQUEST,
             f"该标签已被 {document_count} 篇文档使用，不能删除",
+        )
+    pending_review_count = await _get_pending_review_tag_count(db, tag.id)
+    if pending_review_count > 0:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            BizCode.BAD_REQUEST,
+            f"该标签已被 {pending_review_count} 条待审核记录使用，不能删除",
         )
     tag.is_deleted = 1
     tag.updated_time = datetime.now()

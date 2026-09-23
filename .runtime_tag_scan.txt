@@ -1,0 +1,810 @@
+﻿routers\users.py:18:router = APIRouter(prefix="/user", tags=["用户"])
+routers\tags.py:9:from models import Tag, User
+routers\tags.py:10:from schemas import Result, TagCreate, TagQuery, TagResponse, TagUpdate
+routers\tags.py:15:from utils.tag_service import (
+routers\tags.py:16:    get_tag_document_count,
+routers\tags.py:17:    get_tag_document_counts,
+routers\tags.py:19:    normalize_tag_name,
+routers\tags.py:22:router = APIRouter(prefix="/tag", tags=["标签"])
+routers\tags.py:25:def _require_tag_operator(user: User):
+routers\tags.py:27:        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.FORBIDDEN, "仅技术人员或管理员可操作标签")
+routers\tags.py:30:def _tag_to_response(tag: Tag, document_count: int = 0) -> TagResponse:
+routers\tags.py:31:    return TagResponse(
+routers\tags.py:32:        id=tag.id,
+routers\tags.py:33:        name=tag.name,
+routers\tags.py:34:        description=tag.description,
+routers\tags.py:35:        match_aliases=normalize_match_aliases(tag.match_aliases),
+routers\tags.py:37:        created_by=tag.created_by,
+routers\tags.py:38:        created_time=tag.created_time,
+routers\tags.py:39:        updated_time=tag.updated_time,
+routers\tags.py:43:async def _get_existing_tag_by_name(db: AsyncSession, name: str) -> Optional[Tag]:
+routers\tags.py:44:    result = await db.execute(select(Tag).where(Tag.name == name))
+routers\tags.py:48:async def _get_active_tag_or_404(db: AsyncSession, tag_id: int) -> Tag:
+routers\tags.py:49:    result = await db.execute(select(Tag).where(Tag.id == tag_id, Tag.is_deleted == 0))
+routers\tags.py:50:    tag = result.scalar_one_or_none()
+routers\tags.py:51:    if not tag:
+routers\tags.py:52:        raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "标签不存在")
+routers\tags.py:53:    return tag
+routers\tags.py:56:@router.get("/list", summary="获取所有标签")
+routers\tags.py:57:async def list_tags(
+routers\tags.py:61:    _require_tag_operator(current_user)
+routers\tags.py:62:    result = await db.execute(select(Tag).where(Tag.is_deleted == 0).order_by(Tag.name.asc()))
+routers\tags.py:63:    tags = result.scalars().all()
+routers\tags.py:64:    counts = await get_tag_document_counts(db, [tag.id for tag in tags])
+routers\tags.py:65:    return Result.success_with_data([_tag_to_response(tag, counts.get(tag.id, 0)) for tag in tags])
+routers\tags.py:68:@router.post("/page", summary="分页查询标签")
+routers\tags.py:69:async def page_tags(
+routers\tags.py:70:    query: TagQuery,
+routers\tags.py:74:    _require_tag_operator(current_user)
+routers\tags.py:78:    conditions = [Tag.is_deleted == 0]
+routers\tags.py:82:                Tag.name.like(f"%{keyword}%"),
+routers\tags.py:83:                Tag.description.like(f"%{keyword}%"),
+routers\tags.py:84:                cast(Tag.match_aliases, String).like(f"%{keyword}%"),
+routers\tags.py:88:    total_count_result = await db.execute(select(func.count()).select_from(Tag).where(*conditions))
+routers\tags.py:91:        select(Tag)
+routers\tags.py:93:        .order_by(Tag.updated_time.desc(), Tag.id.desc())
+routers\tags.py:97:    tags = result.scalars().all()
+routers\tags.py:98:    counts = await get_tag_document_counts(db, [tag.id for tag in tags])
+routers\tags.py:103:        [_tag_to_response(tag, counts.get(tag.id, 0)) for tag in tags],
+routers\tags.py:104:        "tags",
+routers\tags.py:109:@router.post("/add", summary="新增标签")
+routers\tags.py:110:async def add_tag(
+routers\tags.py:111:    payload: TagCreate,
+routers\tags.py:115:    _require_tag_operator(current_user)
+routers\tags.py:116:    name = normalize_tag_name(payload.name)
+routers\tags.py:118:        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
+routers\tags.py:120:    existing = await _get_existing_tag_by_name(db, name)
+routers\tags.py:130:            return Result.success_with_data(_tag_to_response(existing, 0))
+routers\tags.py:131:        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称已存在")
+routers\tags.py:133:    tag = Tag(
+routers\tags.py:142:    db.add(tag)
+routers\tags.py:144:    await db.refresh(tag)
+routers\tags.py:145:    return Result.success_with_data(_tag_to_response(tag, 0))
+routers\tags.py:148:@router.patch("/update", summary="更新标签")
+routers\tags.py:149:async def update_tag(
+routers\tags.py:150:    payload: TagUpdate,
+routers\tags.py:154:    _require_tag_operator(current_user)
+routers\tags.py:155:    tag = await _get_active_tag_or_404(db, payload.id)
+routers\tags.py:158:        new_name = normalize_tag_name(payload.name)
+routers\tags.py:160:            raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称不能为空")
+routers\tags.py:161:        if new_name != tag.name:
+routers\tags.py:162:            existing = await _get_existing_tag_by_name(db, new_name)
+routers\tags.py:163:            if existing and existing.id != tag.id:
+routers\tags.py:164:                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.BAD_REQUEST, "标签名称已存在")
+routers\tags.py:165:            tag.name = new_name
+routers\tags.py:168:        tag.description = payload.description
+routers\tags.py:171:        tag.match_aliases = normalize_match_aliases(payload.match_aliases)
+routers\tags.py:173:    tag.updated_time = datetime.now()
+routers\tags.py:175:    await db.refresh(tag)
+routers\tags.py:176:    counts = await get_tag_document_counts(db, [tag.id])
+routers\tags.py:177:    return Result.success_with_data(_tag_to_response(tag, counts.get(tag.id, 0)))
+routers\tags.py:180:@router.delete("/delete/{tag_id}", summary="删除标签")
+routers\tags.py:181:async def delete_tag(
+routers\tags.py:182:    tag_id: int,
+routers\tags.py:186:    _require_tag_operator(current_user)
+routers\tags.py:187:    tag = await _get_active_tag_or_404(db, tag_id)
+routers\tags.py:188:    document_count = await get_tag_document_count(db, tag.id)
+routers\tags.py:193:            f"该标签已被 {document_count} 篇文档使用，不能删除",
+routers\tags.py:195:    tag.is_deleted = 1
+routers\tags.py:196:    tag.updated_time = datetime.now()
+routers\documents.py:81:from utils.automatic_tagging import format_ncmr_title, resolve_automatic_tag_ids
+routers\documents.py:82:from utils.tag_service import (
+routers\documents.py:83:    get_active_tag_snapshot,
+routers\documents.py:84:    get_document_tag_names,
+routers\documents.py:85:    normalize_tag_ids,
+routers\documents.py:86:    set_document_tag_ids,
+routers\documents.py:87:    tag_filter_for_model,
+routers\documents.py:88:    tag_keyword_filter_for_model,
+routers\documents.py:89:    validate_active_tag_ids,
+routers\documents.py:94:router = APIRouter(prefix="/document", tags=["文档"])
+routers\documents.py:139:def _normalize_tags(tag):
+routers\documents.py:140:    """把标签统一为文档表使用的标签 ID 数组。"""
+routers\documents.py:141:    return normalize_tag_ids(tag)
+routers\documents.py:152:def _tag_filter(model, tags):
+routers\documents.py:153:    """按标签做包含任一标签的过滤，用于设备语义标签的交叉检索。"""
+routers\documents.py:154:    return tag_filter_for_model(model, tags)
+routers\documents.py:157:def _tag_keyword_filter(model, keyword: str):
+routers\documents.py:158:    """让搜索框关键词也能命中文档标签。"""
+routers\documents.py:159:    return tag_keyword_filter_for_model(model, keyword)
+routers\documents.py:266:def _copy_document_to_library(document: Document, library_type: str, tag=None):
+routers\documents.py:272:    copied_data["tag"] = _normalize_tags(
+routers\documents.py:273:        tag if tag is not None else getattr(document, "tag", [])
+routers\documents.py:347:    parsed, contributor_id: int, file_name: str, origin_file_dir: str, tags
+routers\documents.py:357:        tag=_normalize_tags(tags),
+routers\documents.py:503:        tag=_normalize_tags(getattr(document, "tag", [])),
+routers\documents.py:731:        tag=task.tag or [],
+routers\documents.py:947:                    tag=task.tag or [],
+routers\documents.py:1061:    tag_ids = await validate_active_tag_ids(db, file_list.tag)
+routers\documents.py:1070:        tag=tag_ids,
+routers\documents.py:1154:        tag=_normalize_tags(getattr(document, "tag", [])),
+routers\documents.py:1155:        tag_names=await get_document_tag_names(db, document),
+routers\documents.py:1330:        exclude_fields = {"library_type", "tag", "sections"}
+routers\documents.py:1336:            tag=_normalize_tags(document.tag),
+routers\documents.py:1354:        await set_document_tag_ids(db, document_data, document.tag)
+routers\documents.py:1617:            if key == "tag":
+routers\documents.py:1618:                await set_document_tag_ids(db, document_now, value)
+routers\documents.py:2305:                # 每张表都要使用自己的 JSON tag 字段构造过滤条件。
+routers\documents.py:2306:                tag_condition = _tag_filter(document_model, page.tag)
+routers\documents.py:2309:                if tag_condition is not None:
+routers\documents.py:2310:                    # 如果前端选择了标签，就在两个库里都按标签过滤。
+routers\documents.py:2311:                    where_conditions.append(tag_condition)
+routers\documents.py:2342:        tag_condition = _tag_filter(document_model, page.tag)
+routers\documents.py:2346:        if tag_condition is not None:
+routers\documents.py:2347:            where_conditions.append(tag_condition)
+routers\documents.py:2394:                # 每张表都要用对应 ORM 模型生成标签过滤条件。
+routers\documents.py:2395:                tag_condition = _tag_filter(document_model, query.tag)
+routers\documents.py:2396:                # 关键词搜索条件：标题、作者姓名、用户名、问题简介、标签都可以匹配。
+routers\documents.py:2397:                tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
+routers\documents.py:2402:                    tag_keyword_condition,
+routers\documents.py:2406:                if tag_condition is not None:
+routers\documents.py:2407:                    # 如果前端传入标签，搜索时也要限制对应标签。
+routers\documents.py:2408:                    where_conditions.append(tag_condition)
+routers\documents.py:2441:        tag_condition = _tag_filter(document_model, query.tag)
+routers\documents.py:2442:        tag_keyword_condition = _tag_keyword_filter(document_model, query.data)
+routers\documents.py:2448:            tag_keyword_condition,
+routers\documents.py:2451:        if tag_condition is not None:
+routers\documents.py:2452:            where_conditions.append(tag_condition)
+routers\documents.py:2704:    tag_snapshot = await get_active_tag_snapshot(db)
+routers\documents.py:2864:                    tags=file_list.tag,
+routers\documents.py:2866:                resolved_tags, tag_source = await resolve_automatic_tag_ids(
+routers\documents.py:2867:                    manual_tags=file_list.tag,
+routers\documents.py:2870:                    tag_snapshot=tag_snapshot,
+routers\documents.py:2872:                document.tag = _normalize_tags(resolved_tags)
+routers\documents.py:2874:                    file_name, document.title, resolved_tags, tag_snapshot
+routers\documents.py:2877:                    "knowledge document tags resolved, file=%s, source=%s, tags=%s",
+routers\documents.py:2879:                    tag_source,
+routers\documents.py:2880:                    resolved_tags,
+routers\documents.py:2917:                await set_document_tag_ids(db, document, resolved_tags)
+routers\documents.py:3086:            resolved_tags, tag_source = await resolve_automatic_tag_ids(
+routers\documents.py:3087:                manual_tags=file_list.tag,
+routers\documents.py:3090:                tag_snapshot=tag_snapshot,
+routers\documents.py:3092:            document.tag = _normalize_tags(resolved_tags)
+routers\documents.py:3094:                file_name, document.title, resolved_tags, tag_snapshot
+routers\documents.py:3097:                "document tags resolved, file=%s, source=%s, tags=%s",
+routers\documents.py:3099:                tag_source,
+routers\documents.py:3100:                resolved_tags,
+routers\documents.py:3125:                    document, file_list.library_type, resolved_tags
+routers\documents.py:3132:                await set_document_tag_ids(db, document, resolved_tags)
+routers\source_documents.py:22:router = APIRouter(prefix="/source-documents", tags=["源文档"])
+static\ai-assist.html:9:    <!-- 在已有的link标签后面添加 -->
+static\ai-assist.html:541:                    ALLOWED_TAGS: [
+static\ai-assist.html:868:            if (status.stage === 'done') { const panel = msg.querySelector('.ai-process'); if (panel) { panel.open = false; panel.classList.add('is-complete'); } const spinner = msg.querySelector('.ai-process-spinner'); if (spinner) spinner.outerHTML = '<span class="ai-process-icon"><i class="far fa-lightbulb"></i></span>'; const title = msg.querySelector('.ai-process > summary > span:nth-child(2)'); if (title) title.textContent = '已经完成思考'; return; }
+static\ai-assist.html:871:            if (steps && status.stage) {
+static\ai-assist.html:872:                let step = steps.querySelector(`[data-stage="${status.stage}"]`);
+static\ai-assist.html:873:                if (!step) { step = document.createElement('div'); step.className = 'ai-process-step'; step.dataset.stage = status.stage; steps.appendChild(step); }
+static\ai-assist.html:876:                step.innerHTML = `<span class="ai-process-step-mark">${status.status === 'complete' ? '✓' : '•'}</span><span><b>${labels[status.stage] || status.message || '处理中'}</b>${status.detail ? `<small>${status.detail}</small>` : ''}</span>`;
+routers\conversation_v1.py:37:router = APIRouter(prefix="/api/v1/chats", tags=["对话"])
+utils\ImageParser.py:125:仅返回一个有效的 JSON 对象。不要包含任何推理过程、Markdown 代码块标记（如 ```json）、解释说明或 <think> 标签内容。
+routers\review.py:29:from utils.tag_service import normalize_tag_ids, set_document_tag_ids, validate_active_tag_ids
+routers\review.py:36:router = APIRouter(prefix="/review", tags=["document-review"])
+routers\review.py:67:def _normalize_tags(tag):
+routers\review.py:68:    """审核表和文档表统一存储 tag id 数组。"""
+routers\review.py:69:    return normalize_tag_ids(tag)
+routers\review.py:254:    "tag",
+routers\review.py:335:        tag=_normalize_tags(review.tag),
+routers\review.py:664:            tag=_normalize_tags(getattr(review, "tag", [])),
+routers\review.py:733:    if request.tag is not None:
+routers\review.py:734:        request.tag = await validate_active_tag_ids(db, request.tag)
+routers\review.py:747:        if field == "tag":
+routers\review.py:748:            value = _normalize_tags(value)
+routers\review.py:897:    vector_stage = ""
+routers\review.py:931:                "tag": _normalize_tags(review.tag),
+routers\review.py:936:            await set_document_tag_ids(db, new_document, review.tag)
+routers\review.py:941:            vector_stage = "新增文档"
+routers\review.py:961:                if field == "tag":
+routers\review.py:962:                    await set_document_tag_ids(db, document, getattr(review, field))
+routers\review.py:975:            vector_stage = "更新文档"
+routers\review.py:1053:                f"审核通过失败: {vector_stage or '文档'}向量化失败: {failure_reason}",
+routers\review.py:1075:                f"审核通过失败: {vector_stage or '文档'}向量化失败: {failure_reason}",
+static\dashboard.html:78:        .metric-icon.tags,
+static\dashboard.html:663:                    <div class="page-subtitle">文档、知识库、标签、问答与用户活跃分析</div>
+static\dashboard.html:697:                            <div class="metric-icon tags"><i class="fas fa-tags"></i></div>
+static\dashboard.html:700:                        <div class="metric-label">标签数量</div>
+static\dashboard.html:702:                        <div class="metric-note">今日新增 3 / 高频标签 12</div>
+static\dashboard.html:1111:            const tags = metrics.tags || {};
+static\dashboard.html:1112:            updateMetricCard(2, tags.total, `今日新增 ${formatNumber(tags.today)} / 高频标签 ${formatNumber(tags.high_frequency)}`, tags.change_percent);
+routers\conversation.py:18:router = APIRouter(prefix="/conversation", tags=["对话"])
+routers\auth.py:28:router = APIRouter(prefix="/auth", tags=["认证"])
+static\document-detail.html:923:        function normalizeDocumentTags(tags) {
+static\document-detail.html:924:            return Array.isArray(tags)
+static\document-detail.html:925:                ? tags.map(tag => String(tag).trim()).filter(Boolean)
+static\document-detail.html:929:        function getTagsLabel(tags) {
+static\document-detail.html:930:            const normalizedTags = normalizeDocumentTags(tags);
+static\document-detail.html:931:            return normalizedTags.length ? normalizedTags.join('、') : '无';
+static\document-detail.html:1360:            const tagsLabel = context.tagsLabel || '无';
+static\document-detail.html:1395:                                            <span><i class="fas fa-hashtag"></i>ID ${doc.id}</span>
+static\document-detail.html:1396:                                            <span><i class="fas fa-tags"></i>${escapeHtml(tagsLabel)}</span>
+static\document-detail.html:1707:                const tagsLabel = getTagsLabel(doc.tag_names);
+static\document-detail.html:1780:                        tagsLabel,
+static\document-detail.html:1792:                                    <div class="meta-item"><i class="fas fa-hashtag"></i><span>文档ID：${doc.id}</span></div>
+static\document-detail.html:1794:                                    <div class="meta-item"><i class="fas fa-tags"></i><span>标签：${escapeHtml(tagsLabel)}</span></div>
+utils\HTMLParser.py:90:    def should_download_image(self, img_tag):
+utils\HTMLParser.py:92:        判断一个 img 标签是否应该被下载（内容图片）。
+utils\HTMLParser.py:95:        src = img_tag.get('src', '')
+utils\HTMLParser.py:96:        alt = img_tag.get('alt', '').strip()
+utils\HTMLParser.py:252:        从 MHTML 文件中提取图片，并使用 soup 中的 img 标签进行过滤。
+utils\HTMLParser.py:279:        # 遍历页面中的 img 标签，匹配并保存
+utils\HTMLParser.py:280:        for img_tag in soup.find_all('img'):
+utils\HTMLParser.py:281:            src = img_tag.get('src')
+utils\HTMLParser.py:284:            if not self.should_download_image(img_tag):
+routers\message.py:74:router = APIRouter(prefix="/message", tags=["消息"])
+routers\message.py:75:chat_router = APIRouter(prefix="/api/v1/chats", tags=["对话与AI问答"])
+routers\message.py:79:async def _publish_progress(stage: str, status_value: str, message: str, detail: str = ""):
+routers\message.py:82:        await sink.put({"type": "status", "stage": stage, "status": status_value, "message": message, "detail": detail})
+routers\message.py:2361:        yield _format_stream_event({"type": "status", "stage": "done", "status": "complete", "message": "回答生成完成"})
+routers\message.py:2995:                        {"stage": "analyzing", "title": "分析问题", "detail": "已识别问题意图，并结合当前对话整理回答目标。"},
+routers\message.py:2996:                        {"stage": "retrieving", "title": "检索维修资料" if used_rag else "无需检索维修资料", "detail": f"已获取 {reference_count} 条相关资料。" if used_rag else "本轮根据问题直接生成回答。"},
+routers\message.py:2997:                        {"stage": "reranking", "title": "筛选相关内容", "detail": "已对候选资料进行相关性筛选并整理回答依据。"},
+routers\message.py:2998:                        {"stage": "generating", "title": "生成回答", "detail": "已依据问题和相关资料完成回答。"},
+static\document-review.html:481:        const tagNameMap = new Map();
+static\document-review.html:752:        async function loadTagNames() {
+static\document-review.html:754:                const tags = await tagAPI.getAllTags();
+static\document-review.html:755:                tagNameMap.clear();
+static\document-review.html:756:                (Array.isArray(tags) ? tags : []).forEach(tag => {
+static\document-review.html:757:                    if (tag && tag.id != null) {
+static\document-review.html:758:                        tagNameMap.set(String(tag.id), String(tag.name || tag.id));
+static\document-review.html:762:                console.warn('加载审核标签名称失败:', error);
+static\document-review.html:766:        function getReviewTagLabel(tags) {
+static\document-review.html:767:            let normalizedTags = tags;
+static\document-review.html:768:            if (typeof normalizedTags === 'string') {
+static\document-review.html:770:                    normalizedTags = JSON.parse(normalizedTags);
+static\document-review.html:772:                    normalizedTags = normalizedTags.split(/[,，]/);
+static\document-review.html:775:            if (!Array.isArray(normalizedTags) || !normalizedTags.length) return '无';
+static\document-review.html:776:            return normalizedTags
+static\document-review.html:777:                .map(tag => String(tag).trim())
+static\document-review.html:779:                .map(tag => tagNameMap.get(tag) || tag)
+static\document-review.html:992:                headingTag: 'h4',
+static\document-review.html:1014:            const tagLabel = getReviewTagLabel(item.tag);
+static\document-review.html:1051:                        <span class="status-pill status-3">标签：${escapeHtml(tagLabel)}</span>
+static\document-review.html:1141:            await loadTagNames();
+static\edit-document.html:747:                        <label for="documentTags">标签</label>
+static\edit-document.html:748:                        <div id="documentTags" class="tag-select"></div>
+static\edit-document.html:784:            TagSelector.init('documentTags', {
+static\edit-document.html:785:                selected: doc.tag || [],
+static\edit-document.html:786:                placeholder: '请选择标签'
+static\edit-document.html:851:                        <label for="documentTags">标签</label>
+static\edit-document.html:852:                        <div id="documentTags" class="tag-select"></div>
+static\edit-document.html:866:            TagSelector.init('documentTags', {
+static\edit-document.html:867:                selected: doc.tag || [],
+static\edit-document.html:868:                placeholder: '请选择标签'
+static\edit-document.html:1270:                tag: parseDocumentTags(),
+static\edit-document.html:1315:                tag: parseDocumentTags(),
+static\edit-document.html:1393:        function parseDocumentTags() {
+static\edit-document.html:1394:            return TagSelector.getSelected('documentTags');
+static\add-document.html:493:                                <label class="form-label" for="documentTags">标签</label>
+static\add-document.html:494:                                <div id="documentTags" class="tag-select"></div>
+static\add-document.html:743:            TagSelector.init('documentTags', {
+static\add-document.html:744:                placeholder: '请选择标签'
+static\add-document.html:1306:        function parseDocumentTags() {
+static\add-document.html:1307:            return TagSelector.getSelected('documentTags');
+static\add-document.html:1338:                    tag: parseDocumentTags(),
+static\import-documents.html:345:                    <label>标签
+static\import-documents.html:346:                        <div id="documentTags" class="tag-select"></div>
+static\import-documents.html:425:    function parseDocumentTags() {
+static\import-documents.html:426:        return TagSelector.getSelected('documentTags');
+static\import-documents.html:622:        TagSelector.init('documentTags', {
+static\import-documents.html:623:            placeholder: '请选择标签'
+static\import-documents.html:1057:                    parseDocumentTags()
+utils\VectorStoreMultimodal.py:196:    def _normalize_tags(self, raw_tags) -> List[Any]:
+utils\VectorStoreMultimodal.py:197:        if isinstance(raw_tags, str):
+utils\VectorStoreMultimodal.py:199:                raw_tags = json.loads(raw_tags)
+utils\VectorStoreMultimodal.py:201:                raw_tags = [raw_tags]
+utils\VectorStoreMultimodal.py:202:        if raw_tags is None:
+utils\VectorStoreMultimodal.py:203:            raw_tags = []
+utils\VectorStoreMultimodal.py:206:        for tag in raw_tags:
+utils\VectorStoreMultimodal.py:207:            text = str(tag).strip()
+utils\VectorStoreMultimodal.py:217:    def _tags_to_text(self, raw_tags) -> str:
+utils\VectorStoreMultimodal.py:218:        return "，".join(str(tag) for tag in self._normalize_tags(raw_tags))
+utils\VectorStoreMultimodal.py:553:        tags = self._normalize_tags(getattr(document, "tag", []) or [])
+utils\VectorStoreMultimodal.py:554:        tag_text = self._tags_to_text(tags)
+utils\VectorStoreMultimodal.py:555:        tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
+utils\VectorStoreMultimodal.py:571:                content_origin = f"{tag_prefix}标题：{document.title}，\n问题简介：{document.problem_intro}"
+utils\VectorStoreMultimodal.py:594:                                "tag": tags,
+utils\VectorStoreMultimodal.py:632:                            "tag": tags,
+utils\VectorStoreMultimodal.py:645:                content_origin = f"{tag_prefix}{section[1]}："
+utils\VectorStoreMultimodal.py:647:                content_origin = f"{tag_prefix}{section[1]}：{getattr(document, section[0], None)}"
+utils\VectorStoreMultimodal.py:669:                            "tag": tags,
+utils\VectorStoreMultimodal.py:705:                            "tag": tags,
+utils\VectorStoreMultimodal.py:771:    def _knowledge_section_content(self, document: Document, section: Dict, tag_prefix: str) -> str:
+utils\VectorStoreMultimodal.py:775:        parts = [tag_prefix.rstrip()] if tag_prefix else []
+utils\VectorStoreMultimodal.py:970:        tags = self._normalize_tags(getattr(document, "tag", []) or [])
+utils\VectorStoreMultimodal.py:971:        tag_text = self._tags_to_text(tags)
+utils\VectorStoreMultimodal.py:972:        tag_prefix = f"标签：{tag_text}\n" if tag_text else ""
+utils\VectorStoreMultimodal.py:989:                "tag": tags,
+utils\VectorStoreMultimodal.py:1034:                        tag_prefix.rstrip() if tag_prefix else "",
+utils\VectorStoreMultimodal.py:1074:                        tag_prefix.rstrip() if tag_prefix else "",
+utils\VectorStoreMultimodal.py:1109:                            tag_prefix.rstrip() if tag_prefix else "",
+utils\VectorStoreMultimodal.py:1259:                    f"标签：{main_chunk.get('tags', '')}"
+utils\VectorStoreMultimodal.py:1261:                tags = self._normalize_tags(getattr(document, "tag", []) or [])
+utils\VectorStoreMultimodal.py:1266:                    "tag": tags,
+utils\VectorStoreMultimodal.py:1284:                    "tag": self._normalize_tags(getattr(document, "tag", []) or []),
+utils\VectorStoreMultimodal.py:1349:        #     "tag": [],
+utils\VectorStoreMultimodal.py:1591:    "tags": "相关标签"
+utils\VectorStoreMultimodal.py:1651:            tag_text = self._tags_to_text(getattr(document, "tag", []) or [])
+utils\VectorStoreMultimodal.py:1655:                f"【标签】：{tag_text}\n"
+utils\VectorStoreMultimodal.py:1672:                "tags": tag_text,
+utils\VectorStoreMultimodal.py:1705:                    ["title", "summary", "core_topic", "key_points", "scope", "tags"],
+static\tag-management.html:6:    <title data-app-template="标签管理 - {{fullName}}"></title>
+static\tag-management.html:15:        .tag-layout {
+static\tag-management.html:22:        .tag-panel {
+static\tag-management.html:30:        .tag-toolbar {
+static\tag-management.html:37:        .tag-toolbar .search-box {
+static\tag-management.html:41:        .tag-table {
+static\tag-management.html:47:        .tag-table th,
+static\tag-management.html:48:        .tag-table td {
+static\tag-management.html:56:        .tag-table th {
+static\tag-management.html:62:        .tag-name-cell {
+static\tag-management.html:69:        .tag-name-text,
+static\tag-management.html:70:        .tag-description-text {
+static\tag-management.html:76:        .tag-description-text {
+static\tag-management.html:104:        .tag-actions {
+static\tag-management.html:148:        .tag-form-title {
+static\tag-management.html:158:        .tag-empty {
+static\tag-management.html:164:        .tag-pagination {
+static\tag-management.html:175:            .tag-layout {
+static\tag-management.html:216:                <a href="tag-management.html" class="nav-item active">
+static\tag-management.html:217:                    <span class="nav-icon"><i class="fas fa-tags"></i></span>
+static\tag-management.html:218:                    <span>标签管理</span>
+static\tag-management.html:243:                    <div class="page-title">标签管理</div>
+static\tag-management.html:244:                    <div class="page-subtitle">文档标签与检索分类</div>
+static\tag-management.html:248:            <div class="tag-layout">
+static\tag-management.html:249:                <section class="tag-panel">
+static\tag-management.html:250:                    <div class="tag-toolbar">
+static\tag-management.html:253:                            <input type="text" class="search-input" id="tagSearchInput" placeholder="搜索标签名称或备注">
+static\tag-management.html:255:                        <button class="btn btn-secondary" type="button" onclick="resetTagSearch()">
+static\tag-management.html:260:                    <div id="tagTableWrap"></div>
+static\tag-management.html:262:                    <div class="tag-pagination" id="tagPagination">
+static\tag-management.html:263:                        <button class="btn btn-secondary btn-sm" id="prevPageBtn" onclick="changeTagPage(tagCurrentPage - 1)">
+static\tag-management.html:266:                        <span id="tagPageInfo">第 1 页，共 1 页</span>
+static\tag-management.html:267:                        <button class="btn btn-secondary btn-sm" id="nextPageBtn" onclick="changeTagPage(tagCurrentPage + 1)">
+static\tag-management.html:273:                <aside class="tag-panel">
+static\tag-management.html:274:                    <div class="tag-form-title">
+static\tag-management.html:275:                        <span id="tagFormTitle">新增标签</span>
+static\tag-management.html:276:                        <button class="icon-btn" type="button" title="清空" onclick="resetTagForm()">
+static\tag-management.html:281:                    <form id="tagForm" onsubmit="submitTagForm(event)">
+static\tag-management.html:282:                        <input type="hidden" id="tagId">
+static\tag-management.html:284:                            <label class="form-label required" for="tagName">标签名称</label>
+static\tag-management.html:285:                            <input type="text" id="tagName" class="form-control" maxlength="50" required>
+static\tag-management.html:288:                            <label class="form-label" for="tagAliasInput">识别别名</label>
+static\tag-management.html:290:                                <input type="text" id="tagAliasInput" class="form-control" maxlength="100" placeholder="输入一个别名">
+static\tag-management.html:291:                                <button class="icon-btn" type="button" title="添加别名" aria-label="添加别名" onclick="addTagAlias()">
+static\tag-management.html:295:                            <div id="tagAliasList" class="alias-editor-list"></div>
+static\tag-management.html:298:                            <label class="form-label" for="tagDescription">备注</label>
+static\tag-management.html:299:                            <textarea id="tagDescription" class="form-control form-textarea" rows="4" maxlength="200"></textarea>
+static\tag-management.html:301:                        <button class="btn btn-primary" type="submit" id="tagSubmitBtn" style="width: 100%;">
+static\tag-management.html:311:        let tagCurrentPage = 1;
+static\tag-management.html:312:        let tagPageSize = 10;
+static\tag-management.html:313:        let tagTotalPages = 1;
+static\tag-management.html:314:        let tagKeyword = '';
+static\tag-management.html:315:        let tagSubmitting = false;
+static\tag-management.html:316:        let tagRows = [];
+static\tag-management.html:317:        let tagAliases = [];
+static\tag-management.html:322:            if (!canManageTags(user)) {
+static\tag-management.html:323:                Utils.showMessage('当前身份没有权限访问标签管理', 'error');
+static\tag-management.html:328:            const searchInput = document.getElementById('tagSearchInput');
+static\tag-management.html:330:                tagKeyword = searchInput.value.trim();
+static\tag-management.html:331:                tagCurrentPage = 1;
+static\tag-management.html:332:                loadTags();
+static\tag-management.html:335:            document.getElementById('tagAliasInput').addEventListener('keydown', event => {
+static\tag-management.html:338:                    addTagAlias();
+static\tag-management.html:342:            renderTagAliasEditor();
+static\tag-management.html:343:            loadTags();
+static\tag-management.html:346:        function canManageTags(user) {
+static\tag-management.html:359:        async function loadTags() {
+static\tag-management.html:360:            const wrap = document.getElementById('tagTableWrap');
+static\tag-management.html:361:            wrap.innerHTML = '<div class="tag-empty"><i class="fas fa-spinner fa-spin"></i> 正在加载</div>';
+static\tag-management.html:363:                const data = await tagAPI.getTagsPage(tagCurrentPage, tagPageSize, tagKeyword);
+static\tag-management.html:364:                const tags = data.tags || [];
+static\tag-management.html:365:                tagTotalPages = Math.max(Number(data.total_pages || 1), 1);
+static\tag-management.html:366:                renderTags(tags);
+static\tag-management.html:367:                renderTagPagination(Number(data.total_count || 0));
+static\tag-management.html:369:                wrap.innerHTML = `<div class="tag-empty">${escapeHtml(error.message || '加载失败')}</div>`;
+static\tag-management.html:373:        function renderTags(tags) {
+static\tag-management.html:374:            const wrap = document.getElementById('tagTableWrap');
+static\tag-management.html:375:            tagRows = Array.isArray(tags) ? tags : [];
+static\tag-management.html:376:            if (!tags.length) {
+static\tag-management.html:377:                wrap.innerHTML = '<div class="tag-empty">暂无标签</div>';
+static\tag-management.html:381:            const rows = tags.map(tag => {
+static\tag-management.html:382:                const documentCount = Number(tag.document_count || 0);
+static\tag-management.html:385:                    ? `已有 ${documentCount} 篇文档使用该标签，不能删除`
+static\tag-management.html:387:                const aliases = Array.isArray(tag.match_aliases) ? tag.match_aliases : [];
+static\tag-management.html:390:                    : '<span class="tag-description-text">-</span>';
+static\tag-management.html:394:                        <div class="tag-name-cell">
+static\tag-management.html:395:                            <span class="tag-name-text" title="${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</span>
+static\tag-management.html:399:                    <td><span class="tag-description-text" title="${escapeHtml(tag.description || '')}">${escapeHtml(tag.description || '-')}</span></td>
+static\tag-management.html:401:                    <td>${formatDate(tag.updated_time || tag.created_time)}</td>
+static\tag-management.html:403:                        <div class="tag-actions">
+static\tag-management.html:404:                            <button class="icon-btn" title="编辑" onclick="editTagById(${Number(tag.id)})">
+static\tag-management.html:407:                            <button class="icon-btn danger" title="${escapeHtml(deleteTitle)}" onclick="deleteTag(${Number(tag.id)})" ${deleteDisabled}>
+static\tag-management.html:417:                <table class="tag-table">
+static\tag-management.html:433:        function renderTagPagination(totalCount) {
+static\tag-management.html:434:            document.getElementById('tagPageInfo').textContent = `第 ${tagCurrentPage} 页，共 ${tagTotalPages} 页，共 ${totalCount} 条`;
+static\tag-management.html:435:            document.getElementById('prevPageBtn').disabled = tagCurrentPage <= 1;
+static\tag-management.html:436:            document.getElementById('nextPageBtn').disabled = tagCurrentPage >= tagTotalPages;
+static\tag-management.html:446:        function resetTagSearch() {
+static\tag-management.html:447:            document.getElementById('tagSearchInput').value = '';
+static\tag-management.html:448:            tagKeyword = '';
+static\tag-management.html:449:            tagCurrentPage = 1;
+static\tag-management.html:450:            loadTags();
+static\tag-management.html:453:        function changeTagPage(page) {
+static\tag-management.html:454:            if (page < 1 || page > tagTotalPages) return;
+static\tag-management.html:455:            tagCurrentPage = page;
+static\tag-management.html:456:            loadTags();
+static\tag-management.html:459:        function editTag(tag) {
+static\tag-management.html:460:            document.getElementById('tagFormTitle').textContent = '编辑标签';
+static\tag-management.html:461:            document.getElementById('tagId').value = tag.id || '';
+static\tag-management.html:462:            document.getElementById('tagName').value = tag.name || '';
+static\tag-management.html:463:            tagAliases = Array.isArray(tag.match_aliases) ? [...tag.match_aliases] : [];
+static\tag-management.html:464:            document.getElementById('tagAliasInput').value = '';
+static\tag-management.html:465:            renderTagAliasEditor();
+static\tag-management.html:466:            document.getElementById('tagDescription').value = tag.description || '';
+static\tag-management.html:469:        function editTagById(tagId) {
+static\tag-management.html:470:            const tag = tagRows.find(item => Number(item.id) === Number(tagId));
+static\tag-management.html:471:            if (!tag) {
+static\tag-management.html:472:                Utils.showMessage('标签不存在', 'error');
+static\tag-management.html:475:            editTag(tag);
+static\tag-management.html:478:        function resetTagForm() {
+static\tag-management.html:479:            document.getElementById('tagFormTitle').textContent = '新增标签';
+static\tag-management.html:480:            document.getElementById('tagId').value = '';
+static\tag-management.html:481:            document.getElementById('tagName').value = '';
+static\tag-management.html:482:            tagAliases = [];
+static\tag-management.html:483:            document.getElementById('tagAliasInput').value = '';
+static\tag-management.html:484:            renderTagAliasEditor();
+static\tag-management.html:485:            document.getElementById('tagDescription').value = '';
+static\tag-management.html:488:        function renderTagAliasEditor() {
+static\tag-management.html:489:            const list = document.getElementById('tagAliasList');
+static\tag-management.html:490:            if (!tagAliases.length) {
+static\tag-management.html:494:            list.innerHTML = tagAliases.map((alias, index) => `
+static\tag-management.html:497:                    <button class="alias-remove-btn" type="button" title="删除别名" aria-label="删除别名" onclick="removeTagAlias(${index})">
+static\tag-management.html:504:        function addTagAlias() {
+static\tag-management.html:505:            const input = document.getElementById('tagAliasInput');
+static\tag-management.html:512:            if (tagAliases.some(item => item.toLocaleLowerCase() === alias.toLocaleLowerCase())) {
+static\tag-management.html:516:            tagAliases.push(alias);
+static\tag-management.html:518:            renderTagAliasEditor();
+static\tag-management.html:522:        function removeTagAlias(index) {
+static\tag-management.html:523:            tagAliases.splice(index, 1);
+static\tag-management.html:524:            renderTagAliasEditor();
+static\tag-management.html:527:        async function submitTagForm(event) {
+static\tag-management.html:529:            if (tagSubmitting) return;
+static\tag-management.html:531:            const id = document.getElementById('tagId').value;
+static\tag-management.html:532:            const name = document.getElementById('tagName').value.trim();
+static\tag-management.html:533:            const pendingAlias = document.getElementById('tagAliasInput').value.trim();
+static\tag-management.html:538:            const match_aliases = [...tagAliases];
+static\tag-management.html:539:            const description = document.getElementById('tagDescription').value.trim();
+static\tag-management.html:541:                Utils.showMessage('标签名称不能为空', 'error');
+static\tag-management.html:545:            tagSubmitting = true;
+static\tag-management.html:546:            const btn = document.getElementById('tagSubmitBtn');
+static\tag-management.html:552:                    await tagAPI.updateTag({ id: Number(id), name, description, match_aliases });
+static\tag-management.html:553:                    Utils.showMessage('标签已更新', 'success');
+static\tag-management.html:555:                    await tagAPI.addTag({ name, description, match_aliases });
+static\tag-management.html:556:                    Utils.showMessage('标签已新增', 'success');
+static\tag-management.html:558:                resetTagForm();
+static\tag-management.html:559:                await loadTags();
+static\tag-management.html:563:                tagSubmitting = false;
+static\tag-management.html:569:        async function deleteTag(tagId) {
+static\tag-management.html:570:            const tag = tagRows.find(item => Number(item.id) === Number(tagId));
+static\tag-management.html:571:            const documentCount = Number(tag && tag.document_count || 0);
+static\tag-management.html:573:                Utils.showMessage(`该标签已被 ${documentCount} 篇文档使用，不能删除`, 'warning');
+static\tag-management.html:576:            if (!confirm('确认删除该标签？')) return;
+static\tag-management.html:578:                await tagAPI.deleteTag(tagId);
+static\tag-management.html:579:                Utils.showMessage('标签已删除', 'success');
+static\tag-management.html:580:                await loadTags();
+routers\admin.py:26:    Tag,
+routers\admin.py:65:router = APIRouter(prefix="/admin", tags=["管理员"])
+routers\admin.py:452:async def _build_tag_usage(db: AsyncSession, tags: Sequence[Tag]) -> Dict[str, int]:
+routers\admin.py:453:    if not tags:
+routers\admin.py:456:    tag_lookup: Dict[str, int] = {}
+routers\admin.py:457:    for tag in tags:
+routers\admin.py:458:        tag_lookup[str(tag.id)] = int(tag.id)
+routers\admin.py:459:        if tag.name:
+routers\admin.py:460:            tag_lookup[str(tag.name).strip()] = int(tag.id)
+routers\admin.py:462:    tag_counts = Counter()
+routers\admin.py:464:        result = await db.execute(select(model.tag).where(model.is_deleted == 0))
+routers\admin.py:466:            for raw_tag in _parse_json_or_csv_list(row[0]):
+routers\admin.py:467:                key = str(raw_tag or "").strip()
+routers\admin.py:468:                tag_id = tag_lookup.get(key)
+routers\admin.py:469:                if tag_id is not None:
+routers\admin.py:470:                    tag_counts[tag_id] += 1
+routers\admin.py:472:    high_frequency = sum(1 for count in tag_counts.values() if count >= 2)
+routers\admin.py:474:        high_frequency = sum(1 for count in tag_counts.values() if count > 0)
+routers\admin.py:699:    tags_result = await db.execute(select(Tag).where(Tag.is_deleted == 0))
+routers\admin.py:700:    tags = tags_result.scalars().all()
+routers\admin.py:701:    total_tags = len(tags)
+routers\admin.py:702:    today_tags = await _count_rows(db, Tag, [Tag.is_deleted == 0, *_range_filters(Tag.created_time, today_start, tomorrow_start)])
+routers\admin.py:703:    yesterday_tags = await _count_rows(db, Tag, [Tag.is_deleted == 0, *_range_filters(Tag.created_time, yesterday_start, today_start)])
+routers\admin.py:704:    tag_usage = await _build_tag_usage(db, tags)
+routers\admin.py:745:            "tags": {
+routers\admin.py:746:                "total": total_tags,
+routers\admin.py:747:                "today": today_tags,
+routers\admin.py:748:                "high_frequency": tag_usage["high_frequency"],
+routers\admin.py:749:                "change_percent": _percent_change(today_tags, yesterday_tags),
+routers\file_manage.py:47:router = APIRouter(prefix="/api/v1/datasets", tags=["对话"])
+routers\file_manage.py:78:def _normalize_tags(tag):
+routers\file_manage.py:79:    """把标签统一成字符串数组，方便存入 JSON 字段。"""
+routers\file_manage.py:80:    if not tag:
+routers\file_manage.py:82:    return [str(item).strip() for item in tag if str(item).strip()]
+routers\file_manage.py:92:def _copy_document_to_library(document: Document, library_type: str, tag=None):
+routers\file_manage.py:96:    copied_data["tag"] = _normalize_tags(tag if tag is not None else getattr(document, "tag", []))
+routers\file_manage.py:205:        "tag": _normalize_tags(getattr(document, "tag", [])),
+routers\file_manage.py:471:            document.tag = _normalize_tags(file_list.tag)
+routers\file_manage.py:490:                document = _copy_document_to_library(document, file_list.library_type, file_list.tag)
+utils\automatic_tagging.py:29:def match_filename_tag_ids(file_name: str, tag_snapshot: list[dict]) -> list[int]:
+utils\automatic_tagging.py:32:    for tag in tag_snapshot:
+utils\automatic_tagging.py:33:        aliases = [tag.get("name", ""), *(tag.get("aliases") or [])]
+utils\automatic_tagging.py:36:            matches.append(int(tag["id"]))
+utils\automatic_tagging.py:46:    for tag in tag_snapshot:
+utils\automatic_tagging.py:47:        aliases = [tag.get("name", ""), *(tag.get("aliases") or [])]
+utils\automatic_tagging.py:54:            matches.append(int(tag["id"]))
+utils\automatic_tagging.py:59:    file_name: str, current_title: str, tag_values, tag_snapshot: list[dict]
+utils\automatic_tagging.py:66:    tag_by_id = {int(tag["id"]): tag["name"] for tag in tag_snapshot}
+utils\automatic_tagging.py:68:    for value in tag_values or []:
+utils\automatic_tagging.py:70:            name = tag_by_id.get(int(value))
+utils\automatic_tagging.py:83:        int(value) for value in tag_values or [] if str(value).strip().isdigit()
+utils\automatic_tagging.py:85:    for tag in tag_snapshot:
+utils\automatic_tagging.py:86:        if int(tag["id"]) not in selected_ids:
+utils\automatic_tagging.py:90:            for alias in tag.get("aliases") or []
+utils\automatic_tagging.py:104:def document_text_for_tagging(document: Any, max_chars: int = 24000) -> str:
+utils\automatic_tagging.py:121:def validate_tag_ids(values, tag_snapshot: list[dict]) -> list[int]:
+utils\automatic_tagging.py:122:    allowed = {int(tag["id"]) for tag in tag_snapshot}
+utils\automatic_tagging.py:126:            tag_id = int(value.get("id") if isinstance(value, dict) else value)
+utils\automatic_tagging.py:129:        if tag_id in allowed and tag_id not in result:
+utils\automatic_tagging.py:130:            result.append(tag_id)
+utils\automatic_tagging.py:134:async def classify_document_tag_ids(
+utils\automatic_tagging.py:136:    tag_snapshot: list[dict],
+utils\automatic_tagging.py:140:    content = document_text_for_tagging(document)
+utils\automatic_tagging.py:141:    if not content.strip() or not tag_snapshot:
+utils\automatic_tagging.py:146:            "id": tag["id"],
+utils\automatic_tagging.py:147:            "name": tag["name"],
+utils\automatic_tagging.py:148:            "aliases": tag.get("aliases") or [],
+utils\automatic_tagging.py:149:            "description": tag.get("description") or "",
+utils\automatic_tagging.py:151:        for tag in tag_snapshot
+utils\automatic_tagging.py:153:    prompt = f"""你正在为设备维修文档识别机器类型标签。
+utils\automatic_tagging.py:154:只能选择候选列表中已有的标签，不得创建新标签。别名与标签名称含义相同。
+utils\automatic_tagging.py:155:文件名和其中的匹配词只作为候选线索，不能单独决定标签。
+utils\automatic_tagging.py:156:只选择文档主要描述或明确适用的机器类型；如果文件名中的词是日期、编号、数量，或正文明确描述其他设备，不要选择该标签。
+utils\automatic_tagging.py:157:即使正文没有出现标签词，只要上下文明确表明文档主要描述该设备，也可以选择。
+utils\automatic_tagging.py:160:仅返回 JSON：{{"tag_ids": [标签ID]}}。
+utils\automatic_tagging.py:165:文件名匹配到的候选标签 ID（仅供参考）：
+utils\automatic_tagging.py:168:候选标签：
+utils\automatic_tagging.py:189:        return validate_tag_ids(payload.get("tag_ids", []), tag_snapshot)
+utils\automatic_tagging.py:191:        logger.exception("automatic tag classification failed")
+utils\automatic_tagging.py:198:async def resolve_automatic_tag_ids(
+utils\automatic_tagging.py:199:    *, manual_tags, file_name: str, document: Any, tag_snapshot: list[dict]
+utils\automatic_tagging.py:201:    if manual_tags:
+utils\automatic_tagging.py:202:        return validate_tag_ids(manual_tags, tag_snapshot), "manual"
+utils\automatic_tagging.py:203:    filename_ids = match_filename_tag_ids(file_name, tag_snapshot)
+utils\automatic_tagging.py:204:    ai_ids = await classify_document_tag_ids(
+utils\automatic_tagging.py:206:        tag_snapshot,
+static\my-submission-detail.html:349:            headingTag: 'h3',
+static\index.html:114:                <p data-app-text="tagline"></p>
+static\js\common.js:842:const TagSelector = {
+static\js\common.js:854:    normalizeTagIds(tagIds) {
+static\js\common.js:855:        if (!Array.isArray(tagIds)) return [];
+static\js\common.js:856:        return [...new Set(tagIds
+static\js\common.js:857:            .map(tagId => Number(tagId))
+static\js\common.js:858:            .filter(tagId => Number.isInteger(tagId) && tagId > 0))];
+static\js\common.js:865:        const selected = new Set(this.normalizeTagIds(options.selected || []));
+static\js\common.js:867:            tags: [],
+static\js\common.js:869:            placeholder: options.placeholder || '请选择标签'
+static\js\common.js:872:        container.classList.add('tag-select');
+static\js\common.js:874:            <button type="button" class="tag-select-trigger" aria-expanded="false">
+static\js\common.js:875:                <span class="tag-select-value">正在加载标签...</span>
+static\js\common.js:878:            <div class="tag-select-menu" hidden>
+static\js\common.js:879:                <div class="tag-select-loading">正在加载标签...</div>
+static\js\common.js:883:        container.querySelector('.tag-select-trigger').addEventListener('click', (event) => {
+static\js\common.js:889:            if (typeof tagAPI === 'undefined') {
+static\js\common.js:890:                throw new Error('标签接口未加载');
+static\js\common.js:892:            const tags = await tagAPI.getAllTags();
+static\js\common.js:893:            this.instances[containerId].tags = Array.isArray(tags) ? tags : [];
+static\js\common.js:896:            const menu = container.querySelector('.tag-select-menu');
+static\js\common.js:897:            menu.innerHTML = `<div class="tag-select-empty">${this.escapeHtml(error.message || '标签加载失败')}</div>`;
+static\js\common.js:898:            container.querySelector('.tag-select-value').textContent = '标签加载失败';
+static\js\common.js:919:        const value = container.querySelector('.tag-select-value');
+static\js\common.js:920:        const menu = container.querySelector('.tag-select-menu');
+static\js\common.js:921:        const tagsById = new Map(instance.tags.map(tag => [Number(tag.id), tag]));
+static\js\common.js:922:        const selectedTags = Array.from(instance.selected)
+static\js\common.js:923:            .map(tagId => tagsById.get(tagId))
+static\js\common.js:926:        if (selectedTags.length) {
+static\js\common.js:927:            value.innerHTML = selectedTags
+static\js\common.js:928:                .map(tag => `<span class="tag-select-chip">${this.escapeHtml(tag.name)}</span>`)
+static\js\common.js:934:        if (!instance.tags.length) {
+static\js\common.js:935:            menu.innerHTML = '<div class="tag-select-empty">暂无可选标签，请先到标签管理新增</div>';
+static\js\common.js:939:        menu.innerHTML = instance.tags.map(tag => {
+static\js\common.js:940:            const id = Number(tag.id);
+static\js\common.js:941:            const name = String(tag.name || '').trim();
+static\js\common.js:945:                <label class="tag-select-option">
+static\js\common.js:947:                    <span class="tag-select-name">${this.escapeHtml(name)}</span>
+static\js\common.js:954:                const tagId = Number(input.value);
+static\js\common.js:956:                    instance.selected.add(tagId);
+static\js\common.js:958:                    instance.selected.delete(tagId);
+static\js\common.js:968:        const trigger = container.querySelector('.tag-select-trigger');
+static\js\common.js:969:        const menu = container.querySelector('.tag-select-menu');
+static\js\common.js:982:        const trigger = container.querySelector('.tag-select-trigger');
+static\js\common.js:983:        const menu = container.querySelector('.tag-select-menu');
+static\js\common.js:995:window.TagSelector = TagSelector;
+static\js\menu.js:34:        const canManageTags = isAdmin || isTechnician;
+static\js\menu.js:40:        this.ensureTagManagementMenuLink();
+static\js\menu.js:51:        const tagManagementLink = document.querySelector('a[href="tag-management.html"]');
+static\js\menu.js:84:        if (tagManagementLink) {
+static\js\menu.js:85:            tagManagementLink.style.display = canManageTags ? 'flex' : 'none';
+static\js\menu.js:216:    ensureTagManagementMenuLink() {
+static\js\menu.js:220:        const exists = navMenu.querySelector('a[href="tag-management.html"]');
+static\js\menu.js:223:        const tagLink = document.createElement('a');
+static\js\menu.js:224:        tagLink.href = 'tag-management.html';
+static\js\menu.js:225:        tagLink.className = 'nav-item';
+static\js\menu.js:226:        tagLink.style.display = 'none';
+static\js\menu.js:227:        tagLink.innerHTML = `
+static\js\menu.js:228:            <span class="nav-icon"><i class="fas fa-tags"></i></span>
+static\js\menu.js:229:            <span>标签管理</span>
+static\js\menu.js:234:            navMenu.insertBefore(tagLink, userManagementLink.nextElementSibling);
+static\js\menu.js:236:            navMenu.appendChild(tagLink);
+static\js\menu.js:238:            navMenu.appendChild(tagLink);
+static\js\menu.js:258:        const tagManagementLink = navMenu.querySelector('a[href="tag-management.html"]');
+static\js\menu.js:259:        if (tagManagementLink) {
+static\js\menu.js:260:            navMenu.insertBefore(sensitiveLink, tagManagementLink);
+static\js\menu.js:284:            'tag-management.html',
+static\js\review-detail-renderer.js:162:        const headingTag = options.headingTag || 'h3';
+static\js\review-detail-renderer.js:165:                <${headingTag}>${escapeHtml(title)}</${headingTag}>
+static\main.html:168:        let listViewTag = null;
+static\main.html:169:        let availableTags = [];
+static\main.html:183:            await loadAvailableTags();
+static\main.html:310:        function changeListTag(value) {
+static\main.html:311:            const tagId = Number(value);
+static\main.html:312:            listViewTag = Number.isInteger(tagId) && tagId > 0 ? tagId : null;
+static\main.html:317:        async function loadAvailableTags() {
+static\main.html:319:                if (typeof tagAPI === 'undefined') return;
+static\main.html:320:                const tags = await tagAPI.getAllTags();
+static\main.html:321:                availableTags = Array.isArray(tags) ? tags : [];
+static\main.html:323:                console.warn('加载标签筛选失败:', error);
+static\main.html:324:                availableTags = [];
+static\main.html:399:                const selectedTags = listViewTag ? [listViewTag] : [];
+static\main.html:401:                    ? await documentAPI.searchDocumentsPage(currentSearchQuery, nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags)
+static\main.html:402:                    : await documentAPI.getDocumentsPage(nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags);
+static\main.html:452:                tags: doc.tag_names || [],
+static\main.html:551:        function normalizeDocumentTags(tags) {
+static\main.html:552:            return Array.isArray(tags)
+static\main.html:553:                ? tags.map(tag => String(tag).trim()).filter(Boolean)
+static\main.html:557:        function renderDocumentTags(tags) {
+static\main.html:558:            const normalizedTags = normalizeDocumentTags(tags);
+static\main.html:559:            if (!normalizedTags.length) return '';
+static\main.html:561:                <div class="document-item-tags">
+static\main.html:562:                    ${normalizedTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+static\main.html:567:        function renderInlineTags(tags) {
+static\main.html:568:            const normalizedTags = normalizeDocumentTags(tags);
+static\main.html:569:            if (!normalizedTags.length) return '<span class="document-list-muted">-</span>';
+static\main.html:570:            const visibleTags = normalizedTags.slice(0, 3);
+static\main.html:571:            const extraCount = normalizedTags.length - visibleTags.length;
+static\main.html:573:                <div class="document-list-tags">
+static\main.html:574:                    ${visibleTags.map(tag => `<span class="document-tag">${escapeHtml(tag)}</span>`).join('')}
+static\main.html:696:            const tagHtml = renderDocumentTags(doc.tags);
+static\main.html:729:                            ${tagHtml}
+static\main.html:771:                    <div>${renderInlineTags(doc.tags)}</div>
+static\main.html:801:                                <span>标签</span>
+static\main.html:802:                                <select onclick="event.stopPropagation()" onchange="changeListTag(this.value)">
+static\main.html:803:                                    <option value="" ${listViewTag === null ? 'selected' : ''}>全部</option>
+static\main.html:804:                                    ${availableTags.map(tag => {
+static\main.html:805:                                        const id = Number(tag.id);
+static\main.html:806:                                        const name = String(tag.name || '');
+static\main.html:807:                                        return `<option value="${id}" ${listViewTag === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+static\main.html:817:                        <div>标签</div>
+static\main.html:1186:        window.changeListTag = changeListTag;
+utils\VectorService.py:60:    "tag",
+utils\VectorService.py:487:    def _debug_print_search_results(stage: str, results: List[Dict[str, Any]], limit: int = 20):
+utils\VectorService.py:488:        print(f"\n========== RAG DEBUG: {stage} count={len(results or [])} ==========")
+utils\VectorService.py:506:        print(f"========== RAG DEBUG END: {stage} ==========\n")
+utils\VectorService.py:595:            debug_stage = "after domain term score" if apply_domain_term_score else "domain term score disabled"
+utils\VectorService.py:596:            self._debug_print_search_results(debug_stage, all_results)
+static\sensitive-terms.html:208:                <a href="tag-management.html" class="nav-item">
+static\sensitive-terms.html:209:                    <span class="nav-icon"><i class="fas fa-tags"></i></span>
+static\sensitive-terms.html:210:                    <span>标签管理</span>
+utils\PdfParser.py:52:    def handle_starttag(self, tag, attrs):
+utils\PdfParser.py:53:        tag = tag.lower()
+utils\PdfParser.py:54:        if tag == "tr":
+utils\PdfParser.py:56:        elif tag in {"td", "th"} and self._current_row is not None:
+utils\PdfParser.py:63:    def handle_endtag(self, tag):
+utils\PdfParser.py:64:        tag = tag.lower()
+utils\PdfParser.py:65:        if tag in {"td", "th"} and self._current_cell is not None and self._current_row is not None:
+utils\PdfParser.py:69:        elif tag == "tr" and self._current_row is not None:
+static\js\api.js:109:            tag: '标签'
+static\js\api.js:624:    async getDocumentsPage(page = 1, size = 9, libraryType = 'all', tags = []) {
+static\js\api.js:633:                tag: Array.isArray(tags) ? tags : []
+static\js\api.js:842:    async searchDocumentsPage(query, page = 1, size = 9, libraryType = 'all', tags = []) {
+static\js\api.js:852:                tag: Array.isArray(tags) ? tags : []
+static\js\api.js:1026:    async analyzeFiles(fileList, fileNames, submitForReview = false, libraryType = 'breakdown', tag = []) {
+static\js\api.js:1035:                    tag: tag
+static\js\api.js:1100:const tagAPI = {
+static\js\api.js:1103:    async getTagsPage(page = 1, size = 10, keyword = '') {
+static\js\api.js:1105:            '/tag/page',
+static\js\api.js:1114:            return response.data || { tags: [], total_count: 0, total_pages: 1 };
+static\js\api.js:1116:        throw new Error(response.msg || response.message || '获取标签失败');
+static\js\api.js:1119:    async getAllTags() {
+static\js\api.js:1120:        const response = await this.client.get('/tag/list', true);
+static\js\api.js:1124:        throw new Error(response.msg || response.message || '获取标签失败');
+static\js\api.js:1127:    async addTag(tagData) {
+static\js\api.js:1128:        const response = await this.client.post('/tag/add', tagData, true);
+static\js\api.js:1132:        throw new Error(response.msg || response.message || '新增标签失败');
+static\js\api.js:1135:    async updateTag(tagData) {
+static\js\api.js:1136:        const response = await this.client.patch('/tag/update', tagData, true);
+static\js\api.js:1140:        throw new Error(response.msg || response.message || '更新标签失败');
+static\js\api.js:1143:    async deleteTag(tagId) {
+static\js\api.js:1144:        const response = await this.client.delete(`/tag/delete/${encodeURIComponent(tagId)}`, null, true);
+static\js\api.js:1148:        throw new Error(response.msg || response.message || '删除标签失败');
+static\js\api.js:2023:window.tagAPI = tagAPI;
+static\js\app-config.js:6:        tagline: '智能维修解决方案平台',
+static\mobile\script\ai.js:217:                    ALLOWED_TAGS: [
+static\mobile\script\ai.js:1004:            if (status.stage === 'done') { panel.open = false; panel.classList.add('is-complete'); const spinner = panel.querySelector('.ai-process-spinner'); if (spinner) spinner.outerHTML = '<span class="ai-process-icon">◇</span>'; return; }
+static\mobile\script\ai.js:1007:            if (steps && status.stage) {
+static\mobile\script\ai.js:1008:                let step = steps.querySelector(`[data-stage="${status.stage}"]`);
+static\mobile\script\ai.js:1009:                if (!step) { step = document.createElement('div'); step.className = 'ai-process-step'; step.dataset.stage = status.stage; steps.appendChild(step); }
+static\mobile\script\ai.js:1011:                step.innerHTML = `<span class="ai-process-step-mark">${status.status === 'complete' ? '✓' : '•'}</span><span><b>${labels[status.stage] || status.message || '处理中'}</b>${status.detail ? `<small>${status.detail}</small>` : ''}</span>`;
+utils\tag_service.py:7:from models import DocumentBreakdown, DocumentKnowledge, Tag
+utils\tag_service.py:18:def normalize_tag_name(value) -> str:
+utils\tag_service.py:19:    """Normalize a tag's display name without interpreting digits as an id."""
+utils\tag_service.py:24:    """Normalize aliases without treating numeric-looking values as tag ids."""
+utils\tag_service.py:27:    for item in _parse_tag_values(values):
+utils\tag_service.py:37:async def get_active_tag_snapshot(db: AsyncSession) -> list[dict]:
+utils\tag_service.py:38:    result = await db.execute(select(Tag).where(Tag.is_deleted == 0).order_by(Tag.id.asc()))
+utils\tag_service.py:41:            "id": int(tag.id),
+utils\tag_service.py:42:            "name": tag.name,
+utils\tag_service.py:43:            "description": tag.description or "",
+utils\tag_service.py:44:            "aliases": normalize_match_aliases(tag.match_aliases),
+utils\tag_service.py:46:        for tag in result.scalars().all()
+utils\tag_service.py:54:def _parse_tag_values(tag) -> list:
+utils\tag_service.py:55:    if not tag:
+utils\tag_service.py:57:    if isinstance(tag, str):
+utils\tag_service.py:58:        text = tag.strip()
+utils\tag_service.py:63:            tag = parsed if isinstance(parsed, list) else [parsed]
+utils\tag_service.py:65:            tag = text.replace("，", ",").split(",")
+utils\tag_service.py:66:    if not isinstance(tag, (list, tuple, set)):
+utils\tag_service.py:67:        tag = [tag]
+utils\tag_service.py:70:    for item in tag:
+utils\tag_service.py:91:def normalize_tag_ids(tag) -> list[int]:
+utils\tag_service.py:94:    for item in _parse_tag_values(tag):
+utils\tag_service.py:95:        tag_id = _to_int(item)
+utils\tag_service.py:96:        if tag_id is None or tag_id in seen:
+utils\tag_service.py:98:        seen.add(tag_id)
+utils\tag_service.py:99:        ids.append(tag_id)
+utils\tag_service.py:107:async def validate_active_tag_ids(db: AsyncSession, values) -> list[int]:
+utils\tag_service.py:108:    """Return canonical tag ids after checking them against active managed tags."""
+utils\tag_service.py:109:    raw_values = _parse_tag_values(values)
+utils\tag_service.py:115:            "标签必须使用标签管理中的数字 ID",
+utils\tag_service.py:117:    tag_ids = normalize_tag_ids(values)
+utils\tag_service.py:118:    if not tag_ids:
+utils\tag_service.py:120:    result = await db.execute(select(Tag.id).where(Tag.id.in_(tag_ids), Tag.is_deleted == 0))
+utils\tag_service.py:122:    invalid_ids = [tag_id for tag_id in tag_ids if tag_id not in active_ids]
+utils\tag_service.py:127:            f"标签不存在或已停用: {', '.join(map(str, invalid_ids))}",
+utils\tag_service.py:129:    return [tag_id for tag_id in tag_ids if tag_id in active_ids]
+utils\tag_service.py:132:async def set_document_tag_ids(db: AsyncSession, document, values) -> list[int]:
+utils\tag_service.py:133:    """Store tag ids after checking them against current tag management."""
+utils\tag_service.py:134:    resolved_ids = await validate_active_tag_ids(db, values)
+utils\tag_service.py:135:    if hasattr(document, "tag"):
+utils\tag_service.py:136:        document.tag = resolved_ids
+utils\tag_service.py:141:async def get_document_tag_names(db: AsyncSession, document) -> list[str]:
+utils\tag_service.py:142:    tag_ids = normalize_tag_ids(getattr(document, "tag", []))
+utils\tag_service.py:143:    if tag_ids:
+utils\tag_service.py:144:        result = await db.execute(select(Tag).where(Tag.id.in_(tag_ids), Tag.is_deleted == 0))
+utils\tag_service.py:145:        tags = result.scalars().all()
+utils\tag_service.py:146:        name_by_id = {tag.id: tag.name for tag in tags}
+utils\tag_service.py:147:        return [name_by_id[tag_id] for tag_id in tag_ids if tag_id in name_by_id]
+utils\tag_service.py:152:def _json_contains_tag_id(column, tag_id: int):
+utils\tag_service.py:153:    return func.JSON_CONTAINS(column, func.JSON_ARRAY(tag_id)) == 1
+utils\tag_service.py:156:def tag_filter_for_model(document_model, tags):
+utils\tag_service.py:157:    values = _parse_tag_values(tags)
+utils\tag_service.py:161:    tag_ids = normalize_tag_ids(values)
+utils\tag_service.py:163:    for tag_id in tag_ids:
+utils\tag_service.py:164:        conditions.append(_json_contains_tag_id(document_model.tag, tag_id))
+utils\tag_service.py:169:def tag_keyword_filter_for_model(document_model, keyword: str):
+utils\tag_service.py:174:        select(Tag.id).where(
+utils\tag_service.py:175:            Tag.is_deleted == 0,
+utils\tag_service.py:176:            Tag.name.like(f"%{keyword}%"),
+utils\tag_service.py:177:            _json_contains_tag_id(document_model.tag, Tag.id),
+utils\tag_service.py:182:async def get_tag_document_count(db: AsyncSession, tag_id: int) -> int:
+utils\tag_service.py:188:                _json_contains_tag_id(document_model.tag, tag_id),
+utils\tag_service.py:195:async def get_tag_document_counts(db: AsyncSession, tag_ids: list[int]) -> dict[int, int]:
+utils\tag_service.py:196:    counts = {tag_id: 0 for tag_id in tag_ids}
+utils\tag_service.py:197:    for tag_id in tag_ids:
+utils\tag_service.py:198:        counts[tag_id] = await get_tag_document_count(db, tag_id)
+utils\tag_service.py:202:async def remove_tag_from_documents(db: AsyncSession, tag_id: int) -> None:
+utils\tag_service.py:205:            select(document_model).where(_json_contains_tag_id(document_model.tag, tag_id))
+utils\tag_service.py:208:            document.tag = [item for item in normalize_tag_ids(getattr(document, "tag", [])) if item != tag_id]
+static\mobile\login.html:21:                <p class="brand-subtitle" data-app-text="tagline"></p>

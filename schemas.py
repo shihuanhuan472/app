@@ -201,6 +201,7 @@ class TagResponse(BaseModel):
     description: Optional[str] = None
     match_aliases: Optional[List[str]] = None
     document_count: Optional[int] = 0
+    pending_review_count: Optional[int] = 0
     created_by: Optional[int] = None
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None

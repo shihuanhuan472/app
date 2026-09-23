@@ -199,7 +199,7 @@ async def resolve_automatic_tag_ids(
     *, manual_tags, file_name: str, document: Any, tag_snapshot: list[dict]
 ) -> tuple[list[Any], str]:
     if manual_tags:
-        return list(manual_tags), "manual"
+        return validate_tag_ids(manual_tags, tag_snapshot), "manual"
     filename_ids = match_filename_tag_ids(file_name, tag_snapshot)
     ai_ids = await classify_document_tag_ids(
         document,
