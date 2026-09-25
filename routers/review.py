@@ -20,6 +20,7 @@ from models import (
     KnowledgeDocumentSection,
     SourceDocument,
     User,
+    Tag, 
 )
 from schemas import DocumentReviewRequest, DocumentReviewResponse, Result
 from utils.app_exceptions import AppException
@@ -44,6 +45,38 @@ def _normalize_library_type(library_type: str) -> str:
     """把审核请求里的目标库类型固定为故障库或知识库，避免审核通过时写错表。"""
     return "knowledge" if str(library_type or "").strip().lower() == "knowledge" else "breakdown"
 
+async def resolve_tag_names_to_ids(db: AsyncSession, tag_names) -> list[int]:
+       """根据标签名称列表，查询并返回对应的数字 ID 列表。"""
+       if not tag_names:
+           return []
+       
+       # 兼容处理：如果是 JSON 字符串，先解析
+       if isinstance(tag_names, str):
+           import json
+           try:
+               tag_names = json.loads(tag_names)
+           except Exception:
+               tag_names = [tag_names]
+               
+       if not isinstance(tag_names, (list, tuple)):
+           tag_names = [tag_names]
+           
+       # 清理并去重
+       clean_names = list(set([str(name).strip() for name in tag_names if str(name).strip()]))
+       if not clean_names:
+           return []
+
+       # 去 Tag 表查询对应的 ID
+       result = await db.execute(
+           select(Tag).where(Tag.name.in_(clean_names), Tag.is_deleted == 0)
+       )
+       tags = result.scalars().all()
+       
+       # 建立 名称 -> ID 的映射
+       name_to_id = {tag.name: tag.id for tag in tags}
+       
+       # 返回能匹配上的 ID 列表
+       return [name_to_id[name] for name in clean_names if name in name_to_id]
 
 def _get_document_model(library_type: str):
     """按审核记录里的库类型选择实际文档表模型。"""
@@ -909,6 +942,7 @@ async def approve_review(
         document_model = _get_document_model(review_document_library_type)
 
         if review.action_type == 1:
+            tag_ids = await resolve_tag_names_to_ids(db, review.tag)
             new_document = document_model(**_filter_model_data(document_model, {
                 "title": review.title,
                 "contributor_id": review.contributor_id,
@@ -928,12 +962,12 @@ async def approve_review(
                 "image_urls_inspection": getattr(review, "image_urls_inspection", None),
                 "image_urls_solutions": getattr(review, "image_urls_solutions", None),
                 "image_urls_key_points": getattr(review, "image_urls_key_points", None),
-                "tag": _normalize_tags(review.tag),
+                "tag": tag_ids,
                 "is_vectorized": 0,
             }))
             db.add(new_document)
             await db.flush()
-            await set_document_tag_ids(db, new_document, review.tag)
+            await set_document_tag_ids(db, new_document, tag_ids) 
             if _review_library_type(review) == "knowledge":
                 await replace_knowledge_document_sections(db, new_document, _review_sections_for_create(review))
             review.document_id = new_document.id
@@ -959,7 +993,10 @@ async def approve_review(
                 if field == "title" and not review.title:
                     continue
                 if field == "tag":
-                    await set_document_tag_ids(db, document, getattr(review, field))
+                    # ✅ 1. 先把审核表里的标签名称转换成数字 ID
+                    tag_ids = await resolve_tag_names_to_ids(db, getattr(review, field))
+                    # ✅ 2. 传入数字 ID
+                    await set_document_tag_ids(db, document, tag_ids)
                     continue
                 if hasattr(document, field):
                     setattr(document, field, getattr(review, field))
