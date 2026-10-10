@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库版本分支视图</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/knowledge-version-lab.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/app-config.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+</head>
+<body>
+    <header class="lab-header">
+        <div class="lab-header-inner">
+            <a class="icon-button" id="backLink" title="返回版本管理"><i class="fas fa-arrow-left"></i></a>
+            <div class="title-block">
+                <div class="eyebrow">知识库 / 版本分支</div>
+                <h1 id="documentTitle">正在加载文档</h1>
+                <p id="documentMeta">按硬件版本查看并存的发布分支</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="lab-shell">
+        <div id="notice" class="notice" hidden></div>
+        <section class="branch-band">
+            <div class="section-heading">
+                <div><h2>设备版本分支</h2><p>每个硬件版本保留一条独立的文档演进线。</p></div>
+                <div class="legend"><span><i class="dot active"></i>当前有效</span><span><i class="dot history"></i>历史版本</span></div>
+            </div>
+            <div id="branchList" class="branch-list"><div class="loading">正在读取版本...</div></div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <aside class="version-panel">
+                <div class="panel-heading"><span>分支版本</span><strong id="branchName"></strong></div>
+                <div id="versionList" class="version-list"></div>
+            </aside>
+
+            <article class="snapshot-panel">
+                <div class="snapshot-header">
+                    <div><div class="eyebrow" id="snapshotBranch"></div><h2 id="snapshotTitle"></h2></div>
+                    <div id="snapshotStatus"></div>
+                </div>
+                <div id="snapshotSummary" class="summary-grid"></div>
+
+                <section class="content-section">
+                    <div class="content-heading"><h3>源文件快照</h3><span id="fileCount"></span></div>
+                    <div id="fileList" class="file-list"></div>
+                </section>
+
+                <section class="content-section">
+                    <div class="content-heading"><h3>章节快照</h3><span id="sectionCount"></span></div>
+                    <div id="sectionList" class="section-list"></div>
+                </section>
+            </article>
+        </section>
+    </main>
+    <script src="js/knowledge-version-lab.js"></script>
+</body>
+</html>

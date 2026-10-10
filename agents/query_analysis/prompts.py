@@ -31,10 +31,7 @@ SYSTEM_PROMPT = """你是设备维护知识库的 Query Analysis Agent。你的�
     },
     "primary_terms": [],
     "hard_filters": {},
-    "soft_filters": {
-      "component": "示例部件名称",
-      "symptoms": ["示例现象1", "示例现象2"]
-    },
+    "soft_filters": {},
     "need_clarification": false,
     "clarification_question": null
   },
@@ -59,6 +56,8 @@ SYSTEM_PROMPT = """你是设备维护知识库的 Query Analysis Agent。你的�
 11. soft_filters 是排序加分条件，可放明确识别的设备、部件、现象和工况；同义表达或字段缺失时仍允许召回。单值使用字符串，多值（例如多个 symptoms）使用字符串数组。
 12. “运行时、启动时、初始化时”等阶段应提取到 operating_conditions，不得整体归为 generic_terms。
 13. 只有缺失信息导致无法形成任何可靠查询时才选择 clarification。
+14. understanding 中未识别的信息可以使用 null。
+15. hard_filters 和 soft_filters 的值只能是非空字符串或非空字符串数组，禁止使用 null；未识别到的信息必须省略对应键。没有任何有效筛选条件时输出 {}。
 """
 
 

@@ -392,6 +392,7 @@ PARSE_TASK_ITEM_ACTIVE_STATUSES = {"pending", "parsing"}
 PARSE_TASK_STALE_TIMEOUT_MINUTES = int(
     os.getenv("PARSE_TASK_STALE_TIMEOUT_MINUTES", str(SOURCE_PARSE_TIMEOUT_MINUTES))
 )
+from services.knowledge_version_service import KnowledgeVersionService
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -1351,10 +1352,17 @@ async def create_document(
                 document_data,
                 _knowledge_sections_from_request(document.sections),
             )
+            await KnowledgeVersionService(db).initialize_legacy_document(
+                document_data.id, current_user.id
+            )
         await set_document_tag_ids(db, document_data, document.tag)
         print("数据库插入成功")
         vector_service = VectorService(db)
         await vector_service.add_document_to_vector_store(document_data, commit=False)
+        if _is_knowledge_library(document.library_type) and document_data.default_version_id:
+            version = await KnowledgeVersionService(db).get_version(document_data.default_version_id)
+            version.index_status = "indexed"
+            version.indexed_at = datetime.now()
         await db.commit()
         print("向量化完成")
         data = await document_convert_documentResponse(
@@ -1490,6 +1498,12 @@ async def update_document(
     current_user: User = Depends(get_current_active_user),
 ):
     try:
+        if _is_knowledge_library(library_type or document.library_type):
+            raise AppException(
+                status.HTTP_409_CONFLICT,
+                BizCode.DOC_REQUEST_INVALID,
+                "知识库文档已启用版本管理，请从当前版本创建草稿后提交、审核并发布",
+            )
         config = get_image_config()
         base_url = os.path.join(
             config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")

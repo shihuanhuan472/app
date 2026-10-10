@@ -476,6 +476,10 @@ class VectorStoreMultimodal:
             "metadata_truncated": True,
             "source_doc_id": metadata.get("source_doc_id"),
             "library_type": metadata.get("library_type"),
+            "version_id": metadata.get("version_id"),
+            "version": metadata.get("version"),
+            "hardware_version": metadata.get("hardware_version"),
+            "stable_section_key": metadata.get("stable_section_key"),
             "chunk_id": metadata.get("chunk_id"),
             "chunk_size": metadata.get("chunk_size"),
             "content_type": metadata.get("content_type"),
@@ -994,6 +998,10 @@ class VectorStoreMultimodal:
                 "section_index": section.get("section_index", 0),
                 "image_urls": image_urls,
                 "image_positions": image_positions,
+                "version_id": getattr(document, "version_id", None),
+                "version": getattr(document, "version_label", None),
+                "hardware_version": getattr(document, "hardware_version", None),
+                "stable_section_key": metadata.get("stable_section_key"),
             }
             if metadata.get("parser_type") == "long_hierarchical_image":
                 base_metadata.update({
@@ -1274,6 +1282,9 @@ class VectorStoreMultimodal:
                     "chunk_id": f"knowledge-main-{document.id}",
                     "chunk_size": len(content),
                     "semantic_method": "knowledge_main_chunk_v1",
+                    "version_id": getattr(document, "version_id", None),
+                    "version": getattr(document, "version_label", None),
+                    "hardware_version": getattr(document, "hardware_version", None),
                 }
             else:
                 content = f"问题简介：{main_chunk['problem_intro']}\n核心成因：{main_chunk['causes']}\n关键特征：{main_chunk['feature']}"
@@ -1339,7 +1350,30 @@ class VectorStoreMultimodal:
         print(f"Added {len(chunks)} chunks from document {document.id} to vector store")
         print(embeddings[0])
 
-    def search(self, query_text: str, query_image=None, top_k: int = -1) -> List[Dict]:
+    def _version_rows(self):
+        """Read scalar metadata without retrieving embeddings (legacy schema)."""
+        self.load_collection()
+        iterator = self.collection.query_iterator(
+            batch_size=1000, expr="id >= 0", output_fields=["id", "doc_id", "metadata"]
+        )
+        try:
+            while True:
+                rows = iterator.next()
+                if not rows:
+                    break
+                yield from rows
+        finally:
+            iterator.close()
+
+    def delete_version(self, version_id: int):
+        ids = [row["id"] for row in self._version_rows()
+               if int(json.loads(row.get("metadata") or "{}").get("version_id") or 0) == int(version_id)]
+        for start in range(0, len(ids), 1000):
+            self.collection.delete("id in " + json.dumps(ids[start:start + 1000]))
+        self.collection.flush()
+
+    def search(self, query_text: str, query_image=None, top_k: int = -1,
+               allowed_version_ids=None, managed_document_ids=None) -> List[Dict]:
         """搜索相似文档"""
         # 返回格式举例
         # {
@@ -1381,11 +1415,28 @@ class VectorStoreMultimodal:
         # print(f"query_embedding完成，{query_embedding}")
 
         # 执行搜索
+        search_expr = None
+        if allowed_version_ids is not None:
+            allowed = set(allowed_version_ids)
+            managed = set(managed_document_ids or [])
+            ids = []
+            for row in self._version_rows():
+                metadata = json.loads(row.get("metadata") or "{}")
+                if metadata.get("library_type") == "knowledge":
+                    version_id = int(metadata.get("version_id") or 0)
+                    doc_id = int(metadata.get("source_doc_id") or self._decode_doc_id(row["doc_id"], "knowledge"))
+                    if (version_id and version_id not in allowed) or (not version_id and doc_id in managed):
+                        continue
+                ids.append(row["id"])
+            if not ids:
+                return []
+            search_expr = "id in " + json.dumps(ids)
         results = self.collection.search(
             data=[query_embedding],
             anns_field="embedding",
             param=search_params,
             limit=top_k,
+            expr=search_expr,
             output_fields=["doc_id", "title", "content", "image_url", "metadata"]
         )
 

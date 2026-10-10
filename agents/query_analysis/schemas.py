@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, TypeAlias
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RetrievalMode(str, Enum):
@@ -48,6 +48,13 @@ class RetrievalStrategy(BaseModel):
     soft_filters: dict[str, FilterValue] = Field(default_factory=dict)
     need_clarification: bool = False
     clarification_question: Optional[str] = None
+
+    @field_validator("hard_filters", "soft_filters", mode="before")
+    @classmethod
+    def remove_null_filters(cls, value):
+        if isinstance(value, dict):
+            return {key: item for key, item in value.items() if item is not None}
+        return value
 
     @model_validator(mode="after")
     def validate_clarification(self) -> "RetrievalStrategy":

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
+from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection, KnowledgeDocumentVersion, KnowledgeDocumentVersionSection
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
@@ -153,6 +153,52 @@ class VectorService:
             await self.db.rollback()
             print(f"文档向量化失败: {e}")
             raise
+
+    async def add_knowledge_version_to_vector_store(self, version: KnowledgeDocumentVersion):
+        """Index one immutable knowledge version without overwriting coexist branches."""
+        document = (await self.db.execute(
+            select(DocumentKnowledge).where(DocumentKnowledge.id == version.document_id)
+        )).scalar_one()
+        section_models = list((await self.db.execute(
+            select(KnowledgeDocumentVersionSection)
+            .where(KnowledgeDocumentVersionSection.version_id == version.id)
+            .order_by(KnowledgeDocumentVersionSection.section_index, KnowledgeDocumentVersionSection.id)
+        )).scalars().all())
+        sections = []
+        for section in section_models:
+            metadata = dict(section.section_metadata or {})
+            metadata.update({
+                "version_id": version.id,
+                "version": version.version_label,
+                "hardware_version": version.hardware_version,
+                "stable_section_key": section.stable_section_key,
+            })
+            sections.append({
+                "id": section.id,
+                "document_id": version.document_id,
+                "document_library_type": "knowledge",
+                "section_index": section.section_index,
+                "section_title": section.section_title,
+                "section_type": section.section_type,
+                "plain_text": section.plain_text,
+                "image_urls": section.image_urls or [],
+                "char_start": None,
+                "char_end": None,
+                "metadata": metadata,
+            })
+        vector_document = _snapshot_document_for_vector_store(document)
+        vector_document.title = version.title_snapshot
+        vector_document.tag = version.tag_snapshot or []
+        vector_document.first_edit_date = version.published_at or version.updated_at
+        vector_document.knowledge_sections = sections
+        vector_document.version_id = version.id
+        vector_document.version_label = version.version_label
+        vector_document.hardware_version = version.hardware_version
+        await asyncio.to_thread(self.vector_store_multimodal.delete_version, version.id)
+        await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
+
+    async def delete_knowledge_version_vectors(self, version_id: int):
+        await asyncio.to_thread(self.vector_store_multimodal.delete_version, version_id)
 
     async def delete_document_from_vector_store(self, doc_id: int, library_type: str = "breakdown"):
         """从向量库删除文档。"""
@@ -467,6 +513,7 @@ class VectorService:
             key = "|".join([
                 str(item.get("library_type") or "breakdown"),
                 str(item.get("doc_id") or ""),
+                str(metadata.get("version_id") or ""),
                 str(metadata.get("section_index") or metadata.get("section_title") or ""),
             ])
             existing = merged.get(key)
@@ -514,6 +561,7 @@ class VectorService:
         user_id: Optional[int] = None,
         session_id: Optional[int] = None,
         apply_domain_term_score: bool = True,
+        knowledge_version_ids: Optional[List[int]] = None,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
         # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）
@@ -553,6 +601,21 @@ class VectorService:
         #     }
         try:
             top_k = self.top_k if top_k < 1 else top_k
+            requested_version_ids = {int(value) for value in (knowledge_version_ids or [])}
+            allowed_version_ids = set((await self.db.execute(select(KnowledgeDocumentVersion.id).join(
+                DocumentKnowledge, DocumentKnowledge.id == KnowledgeDocumentVersion.document_id
+            ).where(
+                DocumentKnowledge.is_deleted == 0,
+                KnowledgeDocumentVersion.workflow_status == "published",
+                KnowledgeDocumentVersion.validity_status.in_(["active", "legacy_active"]),
+                KnowledgeDocumentVersion.index_status == "indexed",
+            ))).scalars().all())
+            if requested_version_ids:
+                allowed_version_ids &= requested_version_ids
+            managed_document_ids = set((await self.db.execute(
+                select(KnowledgeDocumentVersion.document_id).distinct()
+            )).scalars().all())
+            vector_top_k = top_k
             top_k_documents = self.top_k_documents if top_k_documents < 1 else top_k_documents
             all_results: List[Dict[str, Any]] = []
 
@@ -573,16 +636,26 @@ class VectorService:
                         enhanced_query = f"{query}\n[图像语义]：{image_description}"
 
                     results = await asyncio.to_thread(
-                        self.vector_store_multimodal.search, enhanced_query, image_path, top_k
+                        self.vector_store_multimodal.search, enhanced_query, image_path, vector_top_k,
+                        allowed_version_ids, managed_document_ids
                     )
 
                     all_results.extend(results)
             else:
-                results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, top_k)
+                results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, vector_top_k,
+                                                  allowed_version_ids, managed_document_ids)
                 all_results.extend(results)
 
             if not all_results:
                 return []
+
+            if requested_version_ids:
+                all_results = [item for item in all_results if (
+                    _normalize_library_type(item.get("library_type", "breakdown")) != "knowledge"
+                    or int(self._metadata_dict(item.get("metadata")).get("version_id") or 0) in requested_version_ids
+                )]
+                if not all_results:
+                    return []
 
             # 合并/去重/按分数排序
             all_results = self._merge_retrieval_candidates(all_results)
@@ -623,7 +696,9 @@ class VectorService:
 
                 doc_id = int(doc_id)
                 library_type = _normalize_library_type(item.get("library_type", "breakdown"))
-                group_key = f"{library_type}:{doc_id}"
+                metadata = self._metadata_dict(item.get("metadata"))
+                version_id = int(metadata.get("version_id") or 0) if library_type == "knowledge" else 0
+                group_key = f"{library_type}:{doc_id}:{version_id}"
                 if group_key not in grouped:
                     grouped[group_key] = {
                         "doc_id": doc_id,
@@ -633,6 +708,9 @@ class VectorService:
                         "image_url": item.get("image_url", ""),
                         "score": score,
                         "chunks": [item],
+                        "version_id": version_id or None,
+                        "version": metadata.get("version"),
+                        "hardware_version": metadata.get("hardware_version"),
                     }
                 else:
                     grouped[group_key]["chunks"].append(item)

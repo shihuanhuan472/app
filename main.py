@@ -52,7 +52,7 @@ from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 # 导入路由
 # from routers import auth
-from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags
+from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags, knowledge_versions
 from feedback_learning.router import router as feedback_learning_router
 # conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
@@ -116,6 +116,108 @@ async def ensure_tag_match_aliases_column():
             )
 
 
+async def ensure_knowledge_versioning_schema():
+    """为已有知识库表幂等补齐版本管理字段，不修改或删除现有文档。"""
+    definitions = {
+        "document_code": "VARCHAR(128) NULL",
+        "document_type": "VARCHAR(64) NOT NULL DEFAULT 'other'",
+        "category_id": "INT NULL",
+        "category_path": "VARCHAR(512) NULL",
+        "lifecycle_status": "VARCHAR(32) NOT NULL DEFAULT 'active'",
+        "applicability_mode": "VARCHAR(32) NOT NULL DEFAULT 'global'",
+        "default_version_id": "INT NULL",
+        "updated_time": "DATETIME NULL",
+    }
+    async with engine.begin() as conn:
+        if not await _table_exists(conn, "document_knowledge"):
+            return
+        for column_name, definition in definitions.items():
+            if not await _column_exists(conn, "document_knowledge", column_name):
+                await conn.execute(
+                    text(f"ALTER TABLE document_knowledge ADD COLUMN `{column_name}` {definition}")
+                )
+        await conn.execute(
+            text(
+                "UPDATE document_knowledge "
+                "SET document_code = CONCAT('KB-', LPAD(id, 6, '0')) "
+                "WHERE document_code IS NULL OR document_code = ''"
+            )
+        )
+        if not await _index_exists(conn, "document_knowledge", "uk_document_knowledge_code"):
+            await conn.execute(
+                text("CREATE UNIQUE INDEX uk_document_knowledge_code ON document_knowledge(document_code)")
+            )
+        if not await _index_exists(conn, "document_knowledge", "ix_document_knowledge_category_id"):
+            await conn.execute(
+                text("CREATE INDEX ix_document_knowledge_category_id ON document_knowledge(category_id)")
+            )
+        category_fk_exists = (await conn.execute(text(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_knowledge' "
+            "AND COLUMN_NAME = 'category_id' AND REFERENCED_TABLE_NAME = 'knowledge_categories'"
+        ))).scalar_one()
+        if await _table_exists(conn, "knowledge_categories") and not category_fk_exists:
+            await conn.execute(text(
+                "ALTER TABLE document_knowledge ADD CONSTRAINT fk_document_knowledge_category "
+                "FOREIGN KEY (category_id) REFERENCES knowledge_categories(id)"
+            ))
+
+        if await _table_exists(conn, "knowledge_document_types"):
+            if await _table_exists(conn, "knowledge_document_versions") and not await _column_exists(conn, "knowledge_document_versions", "hardware_version"):
+                await conn.execute(text("ALTER TABLE knowledge_document_versions ADD COLUMN hardware_version VARCHAR(128) NULL"))
+            if await _table_exists(conn, "knowledge_document_versions") and not await _column_exists(conn, "knowledge_document_versions", "planned_publish_mode"):
+                await conn.execute(text("ALTER TABLE knowledge_document_versions ADD COLUMN planned_publish_mode VARCHAR(32) NOT NULL DEFAULT 'replace'"))
+            if await _table_exists(conn, "knowledge_document_versions") and not await _column_exists(conn, "knowledge_document_versions", "planned_supersedes_version_ids"):
+                await conn.execute(text("ALTER TABLE knowledge_document_versions ADD COLUMN planned_supersedes_version_ids JSON NULL"))
+            type_rows = (
+                ("operation_guide", "操作指导", True, True),
+                ("maintenance_guide", "维修指导", True, True),
+                ("service_manual", "服务手册", True, True),
+                ("technical_notice", "技术公告", True, False),
+                ("troubleshooting", "故障排查", True, True),
+                ("safety_instruction", "安全说明", True, False),
+                ("training_material", "培训材料", False, False),
+                ("faq", "常见问题", False, False),
+                ("other", "其他", True, False),
+            )
+            for code, name, review, applicability in type_rows:
+                await conn.execute(
+                    text(
+                        "INSERT INTO knowledge_document_types "
+                        "(type_code, type_name, requires_review, requires_applicability, is_active, created_time, updated_time) "
+                        "VALUES (:code, :name, :review, :applicability, TRUE, NOW(), NOW()) "
+                        "ON DUPLICATE KEY UPDATE type_name = VALUES(type_name)"
+                    ),
+                    {"code": code, "name": name, "review": review, "applicability": applicability},
+                )
+
+        if await _table_exists(conn, "knowledge_categories"):
+            legacy_paths = (await conn.execute(text(
+                "SELECT DISTINCT category_path FROM document_knowledge "
+                "WHERE category_id IS NULL AND category_path IS NOT NULL AND category_path <> ''"
+            ))).scalars().all()
+            for legacy_path in legacy_paths:
+                parts = [part.strip() for part in legacy_path.split("/") if part.strip()]
+                parent_id = None
+                full_parts = []
+                for part in parts:
+                    full_parts.append(part)
+                    full_path = " / ".join(full_parts)
+                    await conn.execute(text(
+                        "INSERT INTO knowledge_categories "
+                        "(name, parent_id, full_path, sort_order, is_active, created_time, updated_time) "
+                        "VALUES (:name, :parent_id, :full_path, 0, TRUE, NOW(), NOW()) "
+                        "ON DUPLICATE KEY UPDATE updated_time = updated_time"
+                    ), {"name": part, "parent_id": parent_id, "full_path": full_path})
+                    parent_id = (await conn.execute(
+                        text("SELECT id FROM knowledge_categories WHERE full_path = :full_path"),
+                        {"full_path": full_path},
+                    )).scalar_one()
+                if parent_id is not None:
+                    await conn.execute(text(
+                        "UPDATE document_knowledge SET category_id = :category_id, category_path = :normalized_path "
+                        "WHERE category_id IS NULL AND category_path = :legacy_path"
+                    ), {"category_id": parent_id, "normalized_path": " / ".join(parts), "legacy_path": legacy_path})
 async def _table_exists(conn, table_name: str) -> bool:
     result = await conn.execute(
         text(
@@ -996,6 +1098,7 @@ async def trace_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await ensure_knowledge_versioning_schema()
     await ensure_user_registration_schema()
     await ensure_role_group_schema()
     await ensure_tag_match_aliases_column()
@@ -1036,6 +1139,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(knowledge_versions.router)
 app.include_router(review.router)
 app.include_router(source_documents.router)
 app.include_router(tags.router)
@@ -1049,6 +1153,7 @@ app.include_router(auth.router, prefix=API_V1_PREFIX)
 app.include_router(users.router, prefix=API_V1_PREFIX)
 app.include_router(admin.router, prefix=API_V1_PREFIX)
 app.include_router(documents.router, prefix=API_V1_PREFIX)
+app.include_router(knowledge_versions.router, prefix=API_V1_PREFIX)
 app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)
 app.include_router(tags.router, prefix=API_V1_PREFIX)

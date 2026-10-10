@@ -1,6 +1,7 @@
 ﻿# routers/message.py
 import asyncio
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -41,6 +42,8 @@ from models import (
     DocumentBreakdown,
     DocumentKnowledge,
     KnowledgeDocumentSection,
+    KnowledgeDocumentVersion,
+    KnowledgeDocumentVersionSection,
 )
 from schemas import MessageCreate, MessageResponse
 from database import get_db, AsyncSessionLocal
@@ -70,6 +73,8 @@ from agents.query_analysis import QueryAnalysisAgent
 from agents.retrieval import QueryRefiner, ResultObserver, RetrievalExecutor
 from feedback_learning.repository import FeedbackLearningRepository
 from fastapi.responses import StreamingResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/message", tags=["消息"])
 chat_router = APIRouter(prefix="/api/v1/chats", tags=["对话与AI问答"])
@@ -1253,6 +1258,7 @@ async def _adaptive_retrieve_reference_documents(
     memory_pack: Optional[MemoryPack],
     current_user: Optional[User] = None,
     session_id: Optional[int] = None,
+    knowledge_version_ids: Optional[List[int]] = None,
 ) -> tuple[List[Dict[str, Any]], List[str]]:
     plan = memory_pack.adaptive_rag if memory_pack else None
     top_k = plan.top_k if plan else -1
@@ -1260,7 +1266,7 @@ async def _adaptive_retrieve_reference_documents(
     actions = [f"rag_search:{plan.strategy if plan else 'default'}"]
     user_id = current_user.id if current_user else None
 
-    if _get_bool_env("AGENTIC_RETRIEVAL_ENABLED", False):
+    if _get_bool_env("AGENTIC_RETRIEVAL_ENABLED", False) and not knowledge_version_ids:
         return await _agentic_retrieve_reference_documents(
             db,
             retrieval_query,
@@ -1279,6 +1285,7 @@ async def _adaptive_retrieve_reference_documents(
         top_k_documents=top_k_documents,
         user_id=user_id,
         session_id=session_id,
+        knowledge_version_ids=knowledge_version_ids,
     )
     reference_docs, feedback_metadata = await _apply_feedback_retrieval_layer(
         db,
@@ -1312,6 +1319,7 @@ async def _adaptive_retrieve_reference_documents(
         top_k_documents=top_k_documents,
         user_id=user_id,
         session_id=session_id,
+        knowledge_version_ids=knowledge_version_ids,
     )
     secondary_docs, secondary_feedback_metadata = await _apply_feedback_retrieval_layer(
         db,
@@ -1325,6 +1333,28 @@ async def _adaptive_retrieve_reference_documents(
         actions.append("feedback_patch_apply_secondary")
     max_docs = top_k_documents if top_k_documents and top_k_documents > 0 else -1
     return _merge_reference_documents(reference_docs, secondary_docs, max_docs=max_docs), actions
+
+
+async def _resolve_knowledge_version_ids(
+    db: AsyncSession,
+    knowledge_version_id: Optional[int],
+    hardware_version: Optional[str],
+) -> List[int]:
+    if not knowledge_version_id and not (hardware_version or "").strip():
+        return []
+    query = select(KnowledgeDocumentVersion).where(
+        KnowledgeDocumentVersion.workflow_status == "published",
+        KnowledgeDocumentVersion.validity_status.in_(["active", "legacy_active"]),
+        KnowledgeDocumentVersion.index_status == "indexed",
+    )
+    if knowledge_version_id:
+        query = query.where(KnowledgeDocumentVersion.id == knowledge_version_id)
+    if (hardware_version or "").strip():
+        query = query.where(func.lower(KnowledgeDocumentVersion.hardware_version) == hardware_version.strip().lower())
+    versions = list((await db.execute(query)).scalars().all())
+    if not versions:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.DOC_REQUEST_INVALID, "没有找到与指定设备版本匹配的可检索发布版本")
+    return [version.id for version in versions]
 
 
 async def _agentic_retrieve_reference_documents(
@@ -1883,6 +1913,9 @@ def _reference_doc_ids_to_api_reference(reference_docs: List[Dict[str, Any]]) ->
             "title": desensitize_text(doc.get("title", "")),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "score": doc.get("score", 0.0),
+            "version_id": doc.get("version_id"),
+            "version": doc.get("version"),
+            "hardware_version": doc.get("hardware_version"),
         }
         if images:
             item["image_urls"] = [
@@ -2622,8 +2655,11 @@ async def _create_completion(
                 ai_reference_documents = []
                 retrieval_actions.append("rag_gate_clarify")
             else:
+                knowledge_version_ids = await _resolve_knowledge_version_ids(
+                    db, message.knowledge_version_id, message.hardware_version
+                )
                 reusable_reference_documents = []
-                if route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
+                if not knowledge_version_ids and route_decision.reason in {CONTEXTUAL_FOLLOWUP_REASON, CONTEXTUAL_RETRY_REASON}:
                     reusable_reference_documents = await _load_reusable_reference_documents_from_memory(
                         memory_service,
                         memory_pack,
@@ -2646,6 +2682,7 @@ async def _create_completion(
                         memory_pack,
                         current_user=current_user,
                         session_id=message.session_id,
+                        knowledge_version_ids=knowledge_version_ids,
                     )
                     # Agentic results use RRF scores (typically < 0.1), which are
                     # not comparable with the legacy vector-score threshold.
@@ -2662,6 +2699,7 @@ async def _create_completion(
                     )
         else:
             ai_reference_documents = []
+        ai_reference_documents = await _filter_current_version_references(db, ai_reference_documents)
         ai_reference_document_ids = get_ai_reference_document_ids(ai_reference_documents)
         await _publish_progress("retrieving", "complete", "已完成资料检索", f"找到 {len(ai_reference_documents or [])} 条候选资料。")
         await _publish_progress("reranking", "running", "正在筛选相关案例", "正在按问题相关性筛选候选资料。")
@@ -2830,6 +2868,8 @@ async def ask(message: MessageCreate,
         session_id=message.session_id,
         stream=message.stream,
         user_uploaded_images=message.user_uploaded_images,
+        knowledge_version_id=message.knowledge_version_id,
+        hardware_version=message.hardware_version,
     )
     return await _create_completion(completion, db, current_user, api_v1=False)
 
@@ -3353,6 +3393,29 @@ async def get_new_title_by_ai(content):
 
     return new_title
 
+async def _filter_current_version_references(db, references):
+    """Guard vector, feedback and reused conversation references alike."""
+    rows = (await db.execute(select(
+        KnowledgeDocumentVersion.id, KnowledgeDocumentVersion.document_id,
+        KnowledgeDocumentVersion.workflow_status, KnowledgeDocumentVersion.validity_status,
+        KnowledgeDocumentVersion.index_status,
+    ))).all()
+    managed = {row.document_id for row in rows}
+    allowed = {row.id: row.document_id for row in rows if row.workflow_status == "published"
+               and row.validity_status in {"active", "legacy_active"} and row.index_status == "indexed"}
+    result = []
+    for item in references or []:
+        if _normalize_library_type(item.get("library_type", "breakdown")) == "knowledge":
+            doc_id = int(item.get("doc_id") or 0)
+            version_id = int(item.get("version_id") or 0)
+            if version_id and allowed.get(version_id) != doc_id:
+                continue
+            if not version_id and doc_id in managed:
+                continue
+        result.append(item)
+    return result
+
+
 async def get_reference_documents(
     db,
     question: str,
@@ -3361,6 +3424,7 @@ async def get_reference_documents(
     top_k_documents: int = -1,
     user_id: Optional[int] = None,
     session_id: Optional[int] = None,
+    knowledge_version_ids: Optional[List[int]] = None,
 ):
     """向量检索相关文档，并返回可展示的文档匹配信息。"""
     from utils.VectorService import VectorService
@@ -3373,6 +3437,7 @@ async def get_reference_documents(
         top_k_documents=top_k_documents,
         user_id=user_id,
         session_id=session_id,
+        knowledge_version_ids=knowledge_version_ids,
     )
     print(f"[图片排查][search_raw] docs={len(documents or [])}")
     _debug_reference_doc_image_summary(documents, "search_raw")
@@ -3393,12 +3458,52 @@ async def get_reference_documents(
             "matched_node_ids": doc.get("matched_node_ids") or [],
             "matched_graph_regions": doc.get("matched_graph_regions") or [],
             "graph_query_intent": doc.get("graph_query_intent"),
+            "version_id": doc.get("version_id"),
+            "version": doc.get("version"),
+            "hardware_version": doc.get("hardware_version"),
         })
 
     if not normalized_docs:
         print("[图片排查][search_normalized] 无可用检索结果")
         return []
     _debug_reference_doc_image_summary(normalized_docs, "search_normalized")
+
+    referenced_version_ids = {
+        int(doc["version_id"]) for doc in normalized_docs if doc.get("version_id")
+    }
+    valid_version_ids = set()
+    if referenced_version_ids:
+        valid_version_ids = set((await db.execute(
+            select(KnowledgeDocumentVersion.id).where(
+                KnowledgeDocumentVersion.id.in_(referenced_version_ids),
+                KnowledgeDocumentVersion.workflow_status == "published",
+                KnowledgeDocumentVersion.validity_status.in_(["active", "legacy_active"]),
+                KnowledgeDocumentVersion.index_status == "indexed",
+            )
+        )).scalars().all())
+    normalized_docs = [doc for doc in normalized_docs if (
+        doc["library_type"] != "knowledge"
+        or not doc.get("version_id")
+        or int(doc["version_id"]) in valid_version_ids
+    )]
+    versioned_document_ids = {
+        doc["doc_id"] for doc in normalized_docs
+        if doc["library_type"] == "knowledge" and doc.get("version_id")
+    }
+    normalized_docs = [doc for doc in normalized_docs if not (
+        doc["library_type"] == "knowledge"
+        and doc["doc_id"] in versioned_document_ids
+        and not doc.get("version_id")
+    )]
+    if not knowledge_version_ids:
+        versions_by_document = {}
+        for doc in normalized_docs:
+            if doc["library_type"] == "knowledge" and doc.get("version_id"):
+                versions_by_document.setdefault(doc["doc_id"], set()).add(int(doc["version_id"]))
+        ambiguous_document_ids = {
+            doc_id for doc_id, version_ids in versions_by_document.items() if len(version_ids) > 1
+        }
+        normalized_docs = [doc for doc in normalized_docs if doc["doc_id"] not in ambiguous_document_ids]
 
     # 遍历结果，按库类型回查 MySQL 确认文档未被软删除  
     active_map = {}
@@ -3430,6 +3535,9 @@ async def get_reference_documents(
             "matched_node_ids": doc.get("matched_node_ids") or [],
             "matched_graph_regions": doc.get("matched_graph_regions") or [],
             "graph_query_intent": doc.get("graph_query_intent"),
+            "version_id": doc.get("version_id"),
+            "version": doc.get("version"),
+            "hardware_version": doc.get("hardware_version"),
         })
     _debug_reference_doc_image_summary(filtered_docs, "search_filtered")
     return filtered_docs
@@ -3453,6 +3561,9 @@ def get_ai_reference_prompt_refs(reference_docs: List[Dict[str, Any]]) -> List[D
             "matched_node_ids": doc.get("matched_node_ids") or [],
             "matched_graph_regions": doc.get("matched_graph_regions") or [],
             "graph_query_intent": doc.get("graph_query_intent"),
+            "version_id": doc.get("version_id"),
+            "version": doc.get("version"),
+            "hardware_version": doc.get("hardware_version"),
         })
     return refs
 
@@ -3761,6 +3872,24 @@ async def get_prompt(db, document_ids, max_tokens):
             doc_id = int(raw_doc_id or library_type)
             chunks = []
 
+        if library_type == "knowledge":
+            version_id = int((reference_doc or {}).get("version_id") or 0)
+            if version_id:
+                valid = (await db.execute(select(KnowledgeDocumentVersion.id).where(
+                    KnowledgeDocumentVersion.id == version_id,
+                    KnowledgeDocumentVersion.document_id == doc_id,
+                    KnowledgeDocumentVersion.workflow_status == "published",
+                    KnowledgeDocumentVersion.validity_status.in_(["active", "legacy_active"]),
+                    KnowledgeDocumentVersion.index_status == "indexed",
+                ))).scalar_one_or_none()
+                if valid is None:
+                    continue
+            else:
+                managed = (await db.execute(select(KnowledgeDocumentVersion.id).where(
+                    KnowledgeDocumentVersion.document_id == doc_id
+                ).limit(1))).scalar_one_or_none()
+                if managed is not None:
+                    continue
         ref_key = (library_type, doc_id)
         if ref_key in seen_refs:
             continue
@@ -3800,14 +3929,25 @@ async def get_prompt(db, document_ids, max_tokens):
                 if ref_library_type == "knowledge" and ref_doc_id == document.id:
                     matched_chunks.extend(chunks or [])
             print(f"RAG prompt doc={document.id} matched_chunks={len(matched_chunks)} max_tokens={max_tokens}")
-            section_result = await db.execute(
-                select(KnowledgeDocumentSection)
-                .where(KnowledgeDocumentSection.document_id == document.id)
-                .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
-            )
+            version_id = int(reference_doc.get("version_id") or 0) if reference_doc else 0
+            if version_id:
+                section_result = await db.execute(
+                    select(KnowledgeDocumentVersionSection)
+                    .where(KnowledgeDocumentVersionSection.version_id == version_id)
+                    .order_by(KnowledgeDocumentVersionSection.section_index.asc(), KnowledgeDocumentVersionSection.id.asc())
+                )
+            else:
+                section_result = await db.execute(
+                    select(KnowledgeDocumentSection)
+                    .where(KnowledgeDocumentSection.document_id == document.id)
+                    .order_by(KnowledgeDocumentSection.section_index.asc(), KnowledgeDocumentSection.id.asc())
+                )
             all_sections = list(section_result.scalars().all())
             selected_sections = _select_prompt_sections(all_sections, matched_chunks, max_sections=10)
-            doc_parts = [f"【知识库文档{i + 1}】：{document.title}"]
+            version_label = ""
+            if version_id:
+                version_label = f"\n硬件版本：{reference_doc.get('hardware_version') or '未指定'}\n文档版本：v{reference_doc.get('version') or '-'}"
+            doc_parts = [f"【知识库文档{i + 1}】：{document.title}{version_label}"]
             remaining = max_tokens - tokens - _count_text_tokens_cached(doc_parts[0])
             prompt_sections: List[KnowledgeDocumentSection] = []
 
@@ -3963,6 +4103,9 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             "doc_id": int(doc["doc_id"]),
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "title": doc.get("title", ""),
+            "version_id": doc.get("version_id"),
+            "version": doc.get("version"),
+            "hardware_version": doc.get("hardware_version"),
             "score": float(doc.get("score", 0.0)),
             "relevance": doc.get("relevance") or "",
             "chunks": chunks,

@@ -1,6 +1,6 @@
 ﻿from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
-from sqlalchemy import Float, Index, UniqueConstraint
+from sqlalchemy import Boolean, Float, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -220,8 +220,17 @@ class DocumentKnowledge(Base):
     origin_file_name = Column(String(255))
     origin_file_dir = Column(Text)
     tag = Column(JSON, default=list)
+    document_code = Column(String(128), nullable=True, unique=True, index=True)
+    document_type = Column(String(64), nullable=False, default="other", server_default="other", index=True)
+    category_id = Column(Integer, ForeignKey("knowledge_categories.id"), nullable=True, index=True)
+    category_path = Column(String(512), nullable=True, index=True)
+    lifecycle_status = Column(String(32), nullable=False, default="active", server_default="active", index=True)
+    applicability_mode = Column(String(32), nullable=False, default="global", server_default="global")
+    default_version_id = Column(Integer, nullable=True, index=True)
+    updated_time = Column(DateTime, nullable=True)
 
     contributor = relationship("User")
+    category = relationship("KnowledgeCategory", foreign_keys=[category_id])
 
 
 class KnowledgeDocumentSection(Base):
@@ -254,6 +263,204 @@ DocumentKnowledge.section_items = relationship(
     cascade="all, delete-orphan",
     order_by=KnowledgeDocumentSection.section_index,
 )
+
+
+class KnowledgeDocumentType(Base):
+    __tablename__ = "knowledge_document_types"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    type_code = Column(String(64), nullable=False, unique=True)
+    type_name = Column(String(128), nullable=False)
+    description = Column(Text)
+    requires_review = Column(Boolean, nullable=False, default=True)
+    requires_applicability = Column(Boolean, nullable=False, default=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_time = Column(DateTime, nullable=False)
+    updated_time = Column(DateTime, nullable=False)
+
+
+class KnowledgeCategory(Base):
+    __tablename__ = "knowledge_categories"
+    __table_args__ = (
+        UniqueConstraint("parent_id", "name", name="uk_knowledge_category_parent_name"),
+        UniqueConstraint("full_path", name="uk_knowledge_category_full_path"),
+        Index("ix_knowledge_category_parent_sort", "parent_id", "sort_order"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(128), nullable=False)
+    parent_id = Column(Integer, ForeignKey("knowledge_categories.id"), nullable=True, index=True)
+    full_path = Column(String(512), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_time = Column(DateTime, nullable=False)
+    updated_time = Column(DateTime, nullable=False)
+
+    parent = relationship("KnowledgeCategory", remote_side=[id], foreign_keys=[parent_id])
+
+
+class KnowledgeDocumentVersion(Base):
+    __tablename__ = "knowledge_document_versions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version_major", "version_minor", name="uk_knowledge_document_version"),
+        Index("ix_kdv_document_status", "document_id", "workflow_status", "validity_status"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    document_id = Column(Integer, ForeignKey("document_knowledge.id"), nullable=False, index=True)
+    version_major = Column(Integer, nullable=False)
+    version_minor = Column(Integer, nullable=False)
+    version_label = Column(String(32), nullable=False)
+    hardware_version = Column(String(128), nullable=True)
+    planned_publish_mode = Column(String(32), nullable=False, default="replace")
+    planned_supersedes_version_ids = Column(JSON, default=list)
+    draft_number = Column(Integer, nullable=True)
+    based_on_version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=True)
+    workflow_status = Column(String(32), nullable=False, default="draft", index=True)
+    validity_status = Column(String(32), nullable=False, default="inactive", index=True)
+    change_category = Column(String(32), nullable=False, default="minor")
+    change_summary = Column(Text, nullable=False)
+    change_reason = Column(Text)
+    effective_from = Column(DateTime, nullable=True, index=True)
+    effective_to = Column(DateTime, nullable=True, index=True)
+    title_snapshot = Column(String(255), nullable=False)
+    tag_snapshot = Column(JSON, default=list)
+    image_urls_snapshot = Column(LargeText)
+    origin_file_name = Column(String(255))
+    origin_file_dir = Column(Text)
+    content_hash = Column(String(64), nullable=False)
+    parser_version = Column(String(64))
+    embedding_model_version = Column(String(128))
+    index_status = Column(String(32), nullable=False, default="pending", index=True)
+    index_error = Column(Text)
+    indexed_at = Column(DateTime)
+    revision = Column(Integer, nullable=False, default=1)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    published_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    reviewed_at = Column(DateTime)
+    published_at = Column(DateTime)
+
+    document = relationship("DocumentKnowledge", foreign_keys=[document_id])
+    based_on_version = relationship("KnowledgeDocumentVersion", remote_side=[id], foreign_keys=[based_on_version_id])
+
+
+class KnowledgeDocumentVersionSection(Base):
+    __tablename__ = "knowledge_document_version_sections"
+    __table_args__ = (
+        UniqueConstraint("version_id", "stable_section_key", name="uk_kdvs_version_section_key"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=False, index=True)
+    stable_section_key = Column(String(255), nullable=False)
+    parent_section_key = Column(String(255))
+    section_index = Column(Integer, nullable=False, default=0)
+    section_title = Column(String(255))
+    section_type = Column(String(64))
+    plain_text = Column(LargeText)
+    image_urls = Column(JSON, default=list)
+    section_metadata = Column("metadata", JSON, default=dict)
+    content_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+
+class KnowledgeDocumentVersionFile(Base):
+    __tablename__ = "knowledge_document_version_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=False, index=True)
+    file_role = Column(String(32), nullable=False, default="attachment")
+    original_name = Column(String(255), nullable=False)
+    storage_path = Column(Text, nullable=False)
+    mime_type = Column(String(128))
+    file_size = Column(Integer)
+    content_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+
+class MachineModel(Base):
+    __tablename__ = "machine_models"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_code = Column(String(128), nullable=False, unique=True)
+    model_name = Column(String(255), nullable=False)
+    lifecycle_status = Column(String(32), nullable=False, default="active")
+    production_start = Column(DateTime)
+    production_end = Column(DateTime)
+    service_end = Column(DateTime)
+
+
+class MachineModelAlias(Base):
+    __tablename__ = "machine_model_aliases"
+    __table_args__ = (UniqueConstraint("machine_model_id", "alias_name", name="uk_machine_model_alias"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    machine_model_id = Column(Integer, ForeignKey("machine_models.id"), nullable=False, index=True)
+    alias_name = Column(String(255), nullable=False)
+
+
+class MachineRevision(Base):
+    __tablename__ = "machine_revisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    machine_model_id = Column(Integer, ForeignKey("machine_models.id"), nullable=False, index=True)
+    revision_code = Column(String(128), nullable=False)
+    hardware_version = Column(String(128))
+    software_version_min = Column(String(128))
+    software_version_max = Column(String(128))
+    serial_number_from = Column(String(128))
+    serial_number_to = Column(String(128))
+    production_start = Column(DateTime)
+    production_end = Column(DateTime)
+
+
+class KnowledgeVersionApplicability(Base):
+    __tablename__ = "knowledge_version_applicability"
+    __table_args__ = (Index("ix_kva_version_status", "version_id", "applicability_status"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=False, index=True)
+    machine_model_id = Column(Integer, ForeignKey("machine_models.id"), nullable=True, index=True)
+    machine_revision_id = Column(Integer, ForeignKey("machine_revisions.id"), nullable=True, index=True)
+    serial_number_from = Column(String(128))
+    serial_number_to = Column(String(128))
+    firmware_min = Column(String(128))
+    firmware_max = Column(String(128))
+    region_code = Column(String(64))
+    site_id = Column(Integer)
+    effective_from = Column(DateTime)
+    effective_to = Column(DateTime)
+    priority = Column(Integer, nullable=False, default=100)
+    applicability_status = Column(String(32), nullable=False, default="active")
+    exclusion_reason = Column(Text)
+
+
+class KnowledgeVersionRelation(Base):
+    __tablename__ = "knowledge_version_relations"
+    __table_args__ = (UniqueConstraint("source_version_id", "target_version_id", "relation_type", name="uk_kvr_relation"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=False, index=True)
+    target_version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=False, index=True)
+    relation_type = Column(String(64), nullable=False)
+    reason = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+
+class KnowledgeVersionAuditLog(Base):
+    __tablename__ = "knowledge_version_audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    document_id = Column(Integer, ForeignKey("document_knowledge.id"), nullable=False, index=True)
+    version_id = Column(Integer, ForeignKey("knowledge_document_versions.id"), nullable=True, index=True)
+    action = Column(String(64), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    payload_json = Column(JSON)
+    created_at = Column(DateTime, nullable=False)
 
 
 Document = DocumentBreakdown

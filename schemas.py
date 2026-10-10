@@ -533,6 +533,8 @@ class MessageCreateNew(BaseModel):
     session_id: int
     stream: bool
     user_uploaded_images: Optional[str] = None
+    knowledge_version_id: Optional[int] = Field(default=None, ge=1)
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
 
 
 class MessageCreate(BaseModel):
@@ -540,6 +542,8 @@ class MessageCreate(BaseModel):
     content_text: str = None
     user_uploaded_images: Optional[str] = None
     stream: bool = True
+    knowledge_version_id: Optional[int] = Field(default=None, ge=1)
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
 
 
 class MessageResponse(BaseModel):
@@ -591,6 +595,150 @@ class UserQueryByPage(BaseModel):
     data: str
     page: Optional[int] = 1
     size: Optional[int] = 6
+
+
+# 知识库版本管理（仅适用于 library_type=knowledge）
+class KnowledgeVersionSectionInput(BaseModel):
+    stable_section_key: Optional[str] = Field(default=None, max_length=255)
+    parent_section_key: Optional[str] = Field(default=None, max_length=255)
+    section_index: Optional[int] = None
+    section_title: Optional[str] = Field(default=None, max_length=255)
+    section_type: Optional[str] = Field(default="1", max_length=64)
+    plain_text: Optional[str] = None
+    image_urls: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeVersionFileInput(BaseModel):
+    file_role: str = Field(default="attachment", pattern=r"^(primary|attachment|image|video|reference)$")
+    original_name: str = Field(..., min_length=1, max_length=255)
+    storage_path: str = Field(..., min_length=1)
+    mime_type: Optional[str] = Field(default=None, max_length=128)
+    file_size: Optional[int] = Field(default=None, ge=0)
+    content_hash: Optional[str] = Field(default=None, max_length=64)
+
+
+class KnowledgeApplicabilityInput(BaseModel):
+    machine_model_id: Optional[int] = None
+    machine_revision_id: Optional[int] = None
+    serial_number_from: Optional[str] = Field(default=None, max_length=128)
+    serial_number_to: Optional[str] = Field(default=None, max_length=128)
+    firmware_min: Optional[str] = Field(default=None, max_length=128)
+    firmware_max: Optional[str] = Field(default=None, max_length=128)
+    region_code: Optional[str] = Field(default=None, max_length=64)
+    site_id: Optional[int] = None
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    priority: int = 100
+    applicability_status: str = Field(default="active", pattern=r"^(active|excluded|inactive)$")
+    exclusion_reason: Optional[str] = None
+
+
+class KnowledgeVersionCreate(BaseModel):
+    based_on_version_id: Optional[int] = None
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
+    planned_publish_mode: str = Field(default="replace", pattern=r"^(replace|coexist)$")
+    planned_supersedes_version_ids: List[int] = Field(default_factory=list)
+    change_category: str = Field(default="minor", pattern=r"^(minor|major|correction|rollback|emergency)$")
+    change_summary: str = Field(..., min_length=1)
+    change_reason: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=255)
+    tag: Optional[List[int]] = None
+    image_urls: Optional[str] = None
+    origin_file_name: Optional[str] = Field(default=None, max_length=255)
+    origin_file_dir: Optional[str] = None
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    sections: Optional[List[KnowledgeVersionSectionInput]] = None
+    files: Optional[List[KnowledgeVersionFileInput]] = None
+    applicability: Optional[List[KnowledgeApplicabilityInput]] = None
+
+
+class KnowledgeVersionUpdate(BaseModel):
+    revision: int = Field(..., ge=1)
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
+    planned_publish_mode: Optional[str] = Field(default=None, pattern=r"^(replace|coexist)$")
+    planned_supersedes_version_ids: Optional[List[int]] = None
+    change_category: Optional[str] = Field(default=None, pattern=r"^(minor|major|correction|rollback|emergency)$")
+    change_summary: Optional[str] = Field(default=None, min_length=1)
+    change_reason: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=255)
+    tag: Optional[List[int]] = None
+    image_urls: Optional[str] = None
+    origin_file_name: Optional[str] = Field(default=None, max_length=255)
+    origin_file_dir: Optional[str] = None
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    sections: Optional[List[KnowledgeVersionSectionInput]] = None
+    files: Optional[List[KnowledgeVersionFileInput]] = None
+    applicability: Optional[List[KnowledgeApplicabilityInput]] = None
+
+
+class KnowledgeVersionDecision(BaseModel):
+    comment: Optional[str] = None
+
+
+class KnowledgeVersionPublish(BaseModel):
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
+    existing_hardware_versions: Dict[int, str] = Field(default_factory=dict)
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    publish_mode: str = Field(default="replace", pattern=r"^(replace|coexist)$")
+    supersedes_version_ids: List[int] = Field(default_factory=list)
+
+
+class KnowledgeVersionInvalidate(BaseModel):
+    reason: str = Field(..., min_length=1)
+    new_default_version_id: Optional[int] = None
+
+
+class KnowledgeVersionRollback(BaseModel):
+    source_version_id: int
+    change_summary: str = Field(..., min_length=1)
+    change_reason: Optional[str] = None
+
+
+class KnowledgeDocumentMetadataUpdate(BaseModel):
+    document_code: Optional[str] = Field(default=None, max_length=128)
+    document_type: Optional[str] = Field(default=None, max_length=64)
+    category_id: Optional[int] = Field(default=None, ge=1)
+    category_path: Optional[str] = Field(default=None, max_length=512)
+    lifecycle_status: Optional[str] = Field(default=None, pattern=r"^(active|archived)$")
+    applicability_mode: Optional[str] = Field(default=None, pattern=r"^(global|conditional|reference_only)$")
+
+
+class KnowledgeCategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    parent_id: Optional[int] = Field(default=None, ge=1)
+    sort_order: int = 0
+
+
+class KnowledgeCategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    parent_id: Optional[int] = Field(default=None, ge=1)
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class MachineModelInput(BaseModel):
+    model_code: str = Field(..., min_length=1, max_length=128)
+    model_name: str = Field(..., min_length=1, max_length=255)
+    lifecycle_status: str = Field(default="active", pattern=r"^(active|discontinued|retired)$")
+    production_start: Optional[datetime] = None
+    production_end: Optional[datetime] = None
+    service_end: Optional[datetime] = None
+    aliases: List[str] = Field(default_factory=list)
+
+
+class MachineRevisionInput(BaseModel):
+    revision_code: str = Field(..., min_length=1, max_length=128)
+    hardware_version: Optional[str] = Field(default=None, max_length=128)
+    software_version_min: Optional[str] = Field(default=None, max_length=128)
+    software_version_max: Optional[str] = Field(default=None, max_length=128)
+    serial_number_from: Optional[str] = Field(default=None, max_length=128)
+    serial_number_to: Optional[str] = Field(default=None, max_length=128)
+    production_start: Optional[datetime] = None
+    production_end: Optional[datetime] = None
 
 
 class TokenData(BaseModel):

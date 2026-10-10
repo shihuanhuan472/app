@@ -657,11 +657,7 @@ const documentAPI = {
             }
         } catch (error) {
             console.error('获取分页文档失败:', error);
-            return {
-                total_count: 0,
-                total_pages: 0,
-                documents: []
-            };
+            throw error;
         }
     },
 
@@ -1095,6 +1091,31 @@ const sourceDocumentAPI = {
         }
         throw new Error(response.msg || '批量删除源文档失败');
     }
+};
+
+const knowledgeVersionAPI = {
+    client: new APIClient(),
+    getMetadata(documentId) { return this.client.get(`/knowledge/documents/${documentId}/metadata`); },
+    updateMetadata(documentId, data) { return this.client.put(`/knowledge/documents/${documentId}/metadata`, data); },
+    getDocumentTypes() { return this.client.get('/knowledge/document-types'); },
+    getCategories() { return this.client.get('/knowledge/categories'); },
+    createCategory(data) { return this.client.post('/knowledge/categories', data); },
+    updateCategory(id, data) { return this.client.put(`/knowledge/categories/${id}`, data); },
+    getVersions(documentId) { return this.client.get(`/knowledge/documents/${documentId}/versions`); },
+    getVersion(versionId) { return this.client.get(`/knowledge/versions/${versionId}`); },
+    createVersion(documentId, data) { return this.client.post(`/knowledge/documents/${documentId}/versions`, data); },
+    updateVersion(versionId, data) { return this.client.put(`/knowledge/versions/${versionId}`, data); },
+    action(versionId, action, data = {}) { return this.client.post(`/knowledge/versions/${versionId}/${action}`, data); },
+    rollback(documentId, data) { return this.client.post(`/knowledge/documents/${documentId}/rollback`, data); },
+    setDefault(versionId) { return this.client.post(`/knowledge/versions/${versionId}/set-default`, {}); },
+    reindex(versionId) { return this.client.post(`/knowledge/versions/${versionId}/reindex`, {}); },
+    initialize(documentId) { return this.client.post(`/knowledge/documents/${documentId}/initialize-versioning`, {}); },
+    getAuditLogs(documentId) { return this.client.get(`/knowledge/documents/${documentId}/audit-logs`); },
+    getMachineModels() { return this.client.get('/knowledge/machine-models'); },
+    createMachineModel(data) { return this.client.post('/knowledge/machine-models', data); },
+    updateMachineModel(id, data) { return this.client.put(`/knowledge/machine-models/${id}`, data); },
+    createMachineRevision(id, data) { return this.client.post(`/knowledge/machine-models/${id}/revisions`, data); },
+    uploadVersionFiles(versionId, files) { return this.client.uploadFiles(`/knowledge/versions/${versionId}/files`, files); }
 };
 
 const tagAPI = {
@@ -1839,7 +1860,9 @@ const messageAPI = {
                     question: messageData.question || messageData.content_text || '',
                     session_id: messageData.session_id,
                     stream: false,
-                    user_uploaded_images: messageData.user_uploaded_images || null
+                    user_uploaded_images: messageData.user_uploaded_images || null,
+                    knowledge_version_id: messageData.knowledge_version_id || null,
+                    hardware_version: messageData.hardware_version || null
                 },
                 true
             );
@@ -1918,6 +1941,8 @@ const messageAPI = {
                 question: messageData.question || messageData.content_text || '',
                 session_id: messageData.session_id,
                 user_uploaded_images: messageData.user_uploaded_images || null,
+                knowledge_version_id: messageData.knowledge_version_id || null,
+                hardware_version: messageData.hardware_version || null,
                 stream: true
             })
         })

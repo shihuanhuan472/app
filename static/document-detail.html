@@ -245,10 +245,38 @@
             border-left-color: #4a9eff !important;
             padding: 28px !important;
         }
+        .knowledge-version-viewer {
+            margin-top: 18px;
+            padding: 13px 14px;
+            border: 1px solid #cfe2dc;
+            border-radius: 7px;
+            background: #f4faf8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .knowledge-version-viewer__copy { min-width: 0; }
+        .knowledge-version-viewer__copy strong { display: block; color: #174f45; font-size: 13px; }
+        .knowledge-version-viewer__copy span { display: block; margin-top: 3px; color: #667781; font-size: 12px; }
+        .knowledge-version-viewer select {
+            width: min(360px, 48vw);
+            min-height: 38px;
+            border: 1px solid #9bbcb3;
+            border-radius: 6px;
+            padding: 7px 34px 7px 10px;
+            background: #fff;
+            color: #172b3a;
+            font: inherit;
+        }
         .knowledge-paragraph {
             margin: 0 0 14px 0 !important;
             line-height: 1.8 !important;
             white-space: pre-wrap !important;
+        }
+        @media (max-width: 700px) {
+            .knowledge-version-viewer { align-items: stretch; flex-direction: column; }
+            .knowledge-version-viewer select { width: 100%; }
         }
         .knowledge-inline-image {
             margin: 14px auto 18px auto !important;
@@ -945,6 +973,9 @@
         function getFullAssetUrl(relativeUrl) {
             if (!relativeUrl) return '';
             if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
+            const normalized = String(relativeUrl).replace(/\\/g, '/');
+            const uploadMatch = normalized.match(/(?:^|\/)upload\/(.+)$/i);
+            if (uploadMatch) relativeUrl = `/upload/${uploadMatch[1]}`;
             const apiBase = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
             if (!apiBase) return `/${String(relativeUrl).replace(/^\/+/, '')}`;
             const cleanPath = String(relativeUrl).replace(/^\/+/, '');
@@ -1360,6 +1391,7 @@
             const tagsLabel = context.tagsLabel || '无';
             const originalFileHtml = context.originalFileHtml || '';
             const actionButtons = context.actionButtons || '';
+            const versionSelectorHtml = context.versionSelectorHtml || '';
             const lead = getKnowledgeLead(bodySections);
             const tocHtml = renderManualToc(bodySections);
             return `
@@ -1395,6 +1427,7 @@
                                             <span><i class="fas fa-hashtag"></i>ID ${doc.id}</span>
                                             <span><i class="fas fa-tags"></i>${escapeHtml(tagsLabel)}</span>
                                         </div>
+                                        ${versionSelectorHtml}
                                     </div>
                                 </section>
                                 <div class="knowledge-book-content post-card">
@@ -1682,10 +1715,41 @@
             try {
                 // 详情页根据列表传来的 source 查询对应表，避免知识库/故障库同 id 时读取错误。
                 const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
-                const doc = await documentAPI.getDocumentById(docId, source);
+                let doc = await documentAPI.getDocumentById(docId, source);
                 if (!doc) {
                     showError('文档不存在或已被删除');
                     return;
+                }
+
+                let knowledgeVersions = [];
+                let selectedKnowledgeVersion = null;
+                if (normalizeLibraryType(doc.library_type || source) === 'knowledge') {
+                    try {
+                        const versionResponse = await knowledgeVersionAPI.getVersions(docId);
+                        const allVersions = versionResponse && Object.prototype.hasOwnProperty.call(versionResponse, 'data') ? versionResponse.data : versionResponse;
+                        knowledgeVersions = (allVersions || []).filter(version =>
+                            version.workflow_status === 'published' && ['active', 'legacy_active'].includes(version.validity_status)
+                        );
+                        const requestedVersionId = Number(new URLSearchParams(window.location.search).get('versionId'));
+                        const selectedSummary = knowledgeVersions.find(version => version.id === requestedVersionId)
+                            || knowledgeVersions.find(version => version.id === doc.default_version_id)
+                            || knowledgeVersions[0];
+                        if (selectedSummary) {
+                            const detailResponse = await knowledgeVersionAPI.getVersion(selectedSummary.id);
+                            selectedKnowledgeVersion = detailResponse && Object.prototype.hasOwnProperty.call(detailResponse, 'data') ? detailResponse.data : detailResponse;
+                            const primaryFile = (selectedKnowledgeVersion.files || []).find(file => file.file_role === 'primary');
+                            doc = {
+                                ...doc,
+                                title: selectedKnowledgeVersion.title || doc.title,
+                                sections: selectedKnowledgeVersion.sections || [],
+                                origin_file_name: primaryFile?.original_name || selectedKnowledgeVersion.origin_file_name || null,
+                                origin_file_dir: primaryFile?.storage_path || selectedKnowledgeVersion.origin_file_dir || null,
+                                first_edit_date: selectedKnowledgeVersion.published_at || doc.first_edit_date,
+                            };
+                        }
+                    } catch (versionError) {
+                        console.warn('版本选择器加载失败，继续显示默认知识文档', versionError);
+                    }
                 }
 
                 currentDocument = doc;
@@ -1755,6 +1819,9 @@
                 }
 
                 let actionButtons = `<div class="action-left"><a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a></div>`;
+                if (isKnowledge) {
+                    actionButtons = `<div class="action-left"><a href="main.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回列表</a><a href="knowledge-versions.html?documentId=${doc.id}" class="btn btn-secondary"><i class="fas fa-code-branch"></i> 版本管理</a></div>`;
+                }
                 if (showEditDeleteButtons) {
                     if (isAdmin) {
                         actionButtons += `
@@ -1775,11 +1842,23 @@
 
                 let html = '';
                 if (isKnowledge) {
+                    const versionSelectorHtml = selectedKnowledgeVersion ? `
+                        <div class="knowledge-version-viewer">
+                            <div class="knowledge-version-viewer__copy">
+                                <strong>当前查看版本</strong>
+                                <span>${escapeHtml(selectedKnowledgeVersion.hardware_version || '未指定硬件版本')} · 当前页面内容和附件均来自所选版本</span>
+                            </div>
+                            <select id="knowledgeVersionSelector" aria-label="当前查看版本">
+                                ${knowledgeVersions.map(version => `<option value="${version.id}" ${version.id === selectedKnowledgeVersion.id ? 'selected' : ''}>${escapeHtml(version.hardware_version || '未指定硬件版本')} · v${escapeHtml(version.version)}</option>`).join('')}
+                            </select>
+                        </div>
+                    ` : '';
                     html = renderKnowledgeManualDocument(doc, {
                         authorName,
                         tagsLabel,
                         originalFileHtml,
-                        actionButtons
+                        actionButtons,
+                        versionSelectorHtml
                     });
                 } else {
                     html = `
@@ -1802,7 +1881,17 @@
                 }
 
                 document.getElementById('documentDetail').innerHTML = html;
-                if (isKnowledge) initializeManualReader();
+                if (isKnowledge) {
+                    initializeManualReader();
+                    const versionSelector = document.getElementById('knowledgeVersionSelector');
+                    if (versionSelector) {
+                        versionSelector.addEventListener('change', event => {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('versionId', event.target.value);
+                            window.location.href = url.toString();
+                        });
+                    }
+                }
             } catch (error) {
                 console.error('加载文档详情失败:', error);
                 showError('加载文档详情失败: ' + (error.message || '未知错误'));
