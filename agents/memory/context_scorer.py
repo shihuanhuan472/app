@@ -87,11 +87,16 @@ def slots_from_decision(decision: Any) -> Dict[str, str]:
         raw_slots = slots
     else:
         return {}
-    return {
-        key: str(value).strip()
-        for key, value in raw_slots.items()
-        if value is not None and str(value).strip()
-    }
+    normalized: Dict[str, str] = {}
+    for key, value in raw_slots.items():
+        if value is None:
+            continue
+        if isinstance(value, (list, tuple)):
+            value = ", ".join(str(item).strip() for item in value if str(item).strip())
+        value = str(value).strip()
+        if value:
+            normalized[key] = value
+    return normalized
 
 
 def analyze_context_transition(

@@ -17,5 +17,5 @@ route 只能是：knowledge_search、tool_call、casual_chat、emotional_feedbac
 字段必须包含：
 route、confidence、reason、dialog_act、target、query_rewrite、need_clarification、clarification_question、slots。
 
-slots 必须包含：device、component、error_code、metric、symptom；未知值写 null。
+slots 必须包含：device、component、error_code、metric、symptom；component 必须是字符串数组，没有部件时返回 []；其他未知值写 null。
 """

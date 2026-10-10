@@ -15,11 +15,24 @@ class QuestionUnderstanding(BaseModel):
     intent: str
     user_goal: str
     device: Optional[str] = None
-    component: Optional[str] = None
+    # 一个问题可能同时涉及多个部件；兼容旧模型返回的单个字符串。
+    component: list[str] = Field(default_factory=list)
     error_code: Optional[str] = None
     symptoms: list[str] = Field(default_factory=list)
     operating_conditions: list[str] = Field(default_factory=list)
     requested_information: list[str] = Field(default_factory=list)
+
+    @field_validator("component", mode="before")
+    @classmethod
+    def normalize_component(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = value.strip()
+            return [value] if value else []
+        if isinstance(value, (list, tuple)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return value
 
 
 class DomainTerms(BaseModel):

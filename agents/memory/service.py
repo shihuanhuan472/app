@@ -1086,12 +1086,14 @@ class MemoryService:
         context.active_issue = active_issue
         if previous and context_analysis.should_switch:
             context.active_device = all_slots.get("device")
-            context.active_component = all_slots.get("component")
+            component = all_slots.get("component")
+            context.active_component = ", ".join(component) if isinstance(component, list) else component
             context.active_symptom = all_slots.get("symptom") or active_issue
             context.active_error_code = all_slots.get("error_code")
         else:
             context.active_device = all_slots.get("device") or context.active_device
-            context.active_component = all_slots.get("component") or context.active_component
+            component = all_slots.get("component")
+            context.active_component = (", ".join(component) if isinstance(component, list) else component) or context.active_component
             context.active_symptom = all_slots.get("symptom") or context.active_symptom or active_issue
             context.active_error_code = all_slots.get("error_code") or context.active_error_code
         context.active_question = user_message.content_text
