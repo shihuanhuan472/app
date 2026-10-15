@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from utils.retrieval_log import log_retrieval
 from typing import Any, Callable, Optional
 
 from pydantic import ValidationError
@@ -66,13 +67,14 @@ class QueryAnalysisAgent:
                     {"role": "user", "content": build_user_prompt(question, conversation_context)},
                 ],
                 temperature=0,
-                max_tokens=int(os.getenv("QUERY_ANALYSIS_MAX_TOKENS", "1200")),
+                max_tokens=int(os.getenv("QUERY_ANALYSIS_MAX_TOKENS", "2200")),
                 json_mode=True,
             ),
             timeout=request_timeout,
         )
 
         payload = parse_chat_completion_json(response)
+        self._emit("model_output", dict(payload))
         payload["original_question"] = question
         payload["source"] = "llm"
         try:
@@ -88,6 +90,7 @@ class QueryAnalysisAgent:
         return analysis
 
     def _emit(self, stage: str, payload: dict[str, Any]) -> None:
+        log_retrieval(f"QueryAnalysis.{stage}", payload)
         if self.verbose:
             serialized = json.dumps(payload, ensure_ascii=False, default=str)
             print(f"[QueryAnalysis][{stage}] {serialized}")

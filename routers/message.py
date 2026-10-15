@@ -63,14 +63,15 @@ from utils.desensitize import (
 )
 from utils.openai_client import create_async_openai_client, create_openai_client
 from utils.VectorService import VectorService
+from utils.retrieval_log import log_retrieval, trace_retrieval
 from utils.token_counter import get_token_count
 from utils.ai_usage import record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
 from agents.intent.taxonomy import IntentRoute
 from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
 from agents.skills import AgentSkill, SkillPromptBuilder, SkillRegistry
-from agents.query_analysis import QueryAnalysisAgent
-from agents.retrieval import QueryRefiner, ResultObserver, RetrievalExecutor
+from agents.query_analysis import QueryAnalysis, QueryAnalysisAgent
+from agents.retrieval import QueryRefiner, ResultObserver, RetrievalExecutor, RetrievalResult
 from feedback_learning.repository import FeedbackLearningRepository
 from fastapi.responses import StreamingResponse
 
@@ -203,6 +204,18 @@ async def _get_or_update_text_token_count(db: AsyncSession, message: Message) ->
 
 def _estimate_image_tokens(uploaded_images: str, per_image_tokens: int) -> int:
     return len(_split_uploaded_images(uploaded_images)) * per_image_tokens
+
+
+def _is_completion_timeout(error: Exception) -> bool:
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        if isinstance(error, TimeoutError) or type(error).__name__ in {
+            "APITimeoutError", "ReadTimeout", "ConnectTimeout", "WriteTimeout", "PoolTimeout",
+        }:
+            return True
+        error = error.__cause__ or error.__context__
+    return False
 
 
 def _is_ai_service_unavailable_error(error: Exception) -> bool:
@@ -1357,6 +1370,24 @@ async def _resolve_knowledge_version_ids(
     return [version.id for version in versions]
 
 
+def _rank_agentic_results(
+    results: List[RetrievalResult],
+    evidence_order: List[str],
+    observer_scores: Optional[Dict[str, float]] = None,
+) -> List[RetrievalResult]:
+    """Select supported candidates and optionally order them by Observer scores."""
+    evidence_ids = set(evidence_order)
+    score_map = observer_scores or {}
+    return sorted(
+        (item for item in results if item.document_id in evidence_ids),
+        key=lambda item: (
+            0 if item.document_id in score_map else 1,
+            -float(score_map[item.document_id]) if item.document_id in score_map else -float(item.score or 0.0),
+        ),
+    )
+
+
+@trace_retrieval
 async def _agentic_retrieve_reference_documents(
     db: AsyncSession,
     question: str,
@@ -1369,17 +1400,29 @@ async def _agentic_retrieve_reference_documents(
 ) -> tuple[List[Dict[str, Any]], List[str]]:
     """Run the new analysis/retrieval loop, then adapt results to the old RAG contract."""
     analysis = await QueryAnalysisAgent(verbose=True).analyze(question)
+    from agents.retrieval.device_filter import device_document_scope
+    document_scope = await device_document_scope(db, analysis.understanding.device)
+    if document_scope is not None:
+        actions.append(f"device_tag_filter:{analysis.understanding.device}")
     vector_service = VectorService(db)
     executor = RetrievalExecutor(
         db=db,
         vector_service=vector_service,
-        top_k=top_k_documents if top_k_documents and top_k_documents > 0 else 8,
+        session_factory=AsyncSessionLocal,
+        allowed_document_ids=document_scope,
+        top_k=max(20, top_k_documents if top_k_documents and top_k_documents > 0 else 8),
         verbose=True,
     )
     results = await executor.execute(analysis.retrieval_strategy)
     observer = ResultObserver(verbose=True)
     observation = await observer.observe_with_llm(analysis, results)
-    evidence_ids = set(observation.supporting_documents)
+    evidence_order = list(dict.fromkeys(observation.supporting_documents))
+    observer_scores = {
+        item.document_id: item.score
+        for item in observation.document_scores
+        if item.document_id in evidence_order
+    }
+    evidence_ids = set(evidence_order)
     actions.append(f"agentic_observe:{observation.next_action}")
 
     if observation.next_action in {"refine", "replan"}:
@@ -1390,11 +1433,21 @@ async def _agentic_retrieve_reference_documents(
         merged.update({item.document_id: item for item in second_results})
         results = list(merged.values())
         observation = await observer.observe_with_llm(analysis, results)
-        evidence_ids.update(observation.supporting_documents)
+        # The second observer evaluates the merged candidates; its judgement
+        # supersedes the first round, including any retracted support.
+        evidence_order = list(dict.fromkeys(observation.supporting_documents))
+        evidence_ids = set(evidence_order)
+        observer_scores = {
+            item.document_id: item.score
+            for item in observation.document_scores
+            if item.document_id in evidence_order
+        }
         actions.append(f"agentic_second_retrieve:{observation.next_action}")
 
+    limit = top_k_documents if top_k_documents and top_k_documents > 0 else 8
+    results = _rank_agentic_results(results, evidence_order, observer_scores)
+    results = results[:limit]
     reference_docs = []
-    results = sorted(results, key=lambda item: (item.document_id not in evidence_ids, -float(item.score or 0.0)))
     for item in results:
         try:
             doc_id = int(item.document_id)
@@ -1404,7 +1457,8 @@ async def _agentic_retrieve_reference_documents(
             "doc_id": doc_id,
             "library_type": _normalize_library_type(item.library_type),
             "title": item.title,
-            "score": item.score,
+            "score": observer_scores[item.document_id] / 100.0 if item.document_id in observer_scores else item.score,
+            "match_score": round(observer_scores[item.document_id], 1) if item.document_id in observer_scores else None,
             "relevance": (
                 "partial" if item.document_id in evidence_ids and observation.relevance == "partial"
                 else "strong" if item.document_id in evidence_ids and observation.relevance == "strong"
@@ -1640,7 +1694,7 @@ def _debug_reference_doc_image_summary(reference_docs: List[Dict[str, Any]], lab
     """打印参考文档图片字段摘要，便于排查图片未展示问题。"""
     try:
         docs = reference_docs or []
-        print(f"[图片排查][{label}] docs={len(docs)}")
+        # print(f"[图片排查][{label}] docs={len(docs)}")
         for index, doc in enumerate(docs, start=1):
             chunks = doc.get("chunks") or []
             matched_image_urls = doc.get("matched_image_urls") or []
@@ -1650,15 +1704,16 @@ def _debug_reference_doc_image_summary(reference_docs: List[Dict[str, Any]], lab
                 for chunk in chunks
                 if isinstance(chunk, dict) and chunk.get("image_url")
             ]
-            print(
-                f"[图片排查][{label}] doc#{index} "
-                f"id={doc.get('doc_id')} library={doc.get('library_type')} "
-                f"title={doc.get('title')} chunks={len(chunks)} "
-                f"evidence_image_urls={evidence_image_urls} "
-                f"matched_image_urls={matched_image_urls} chunk_images={chunk_images}"
-            )
+            # print(
+            #     f"[图片排查][{label}] doc#{index} "
+            #     f"id={doc.get('doc_id')} library={doc.get('library_type')} "
+            #     f"title={doc.get('title')} chunks={len(chunks)} "
+            #     f"evidence_image_urls={evidence_image_urls} "
+            #     f"matched_image_urls={matched_image_urls} chunk_images={chunk_images}"
+            # )
     except Exception as e:
-        print(f"[图片排查][{label}] 打印失败: {e}")
+        # print(f"[图片排查][{label}] 打印失败: {e}")
+        pass
 
 
 def _normalize_reference_image_values(raw_value: Any) -> List[str]:
@@ -1722,7 +1777,7 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
         收集时会做本地文件存在性校验，避免把历史脏数据或已丢失文件返回给前端造成 404。
     """
     images: List[str] = []
-    print(f"[图片排查][collect_start] max_images={max_images}")
+    # print(f"[图片排查][collect_start] max_images={max_images}")
     _debug_reference_doc_image_summary(reference_docs, "collect_input")
 
     def add(image: Optional[str], source: str):
@@ -1731,13 +1786,14 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
         normalized = str(image).strip().replace("\\", "/")
         if not normalized or normalized in images:
             if normalized in images:
-                print(f"[图片排查][collect_skip_duplicate] source={source} image={normalized}")
+                # print(f"[图片排查][collect_skip_duplicate] source={source} image={normalized}")
+                pass
             return
         web_url = _image_to_web_url_if_exists(normalized)
         if web_url is None:
             print(f"[图片过滤] source={source} 文件不存在，跳过引用: {normalized}")
             return
-        print(f"[图片排查][collect_ok] source={source} image={normalized} web_url={web_url}")
+        # print(f"[图片排查][collect_ok] source={source} image={normalized} web_url={web_url}")
         images.append(normalized)
 
     for doc_index, doc in enumerate(reference_docs or [], start=1):
@@ -1759,7 +1815,7 @@ def _collect_reference_image_paths(reference_docs: List[Dict[str, Any]], max_ima
             break
 
     result = images[:max_images] if max_images is not None else images
-    print(f"[图片排查][collect_result] count={len(result)} images={result}")
+    # print(f"[图片排查][collect_result] count={len(result)} images={result}")
     return result
 
 
@@ -1846,7 +1902,7 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
     max_images = int(os.getenv("MAX_DOC_IMAGES", 5))
     _debug_reference_doc_image_summary(reference_docs, "append_answer_input")
     image_paths = _collect_reference_image_paths(reference_docs, max_images=max_images)
-    print(f"[图片排查][append_answer] image_paths={image_paths}")
+    # print(f"[图片排查][append_answer] image_paths={image_paths}")
 
     if image_paths:
         final_answer = await _replace_image_urls_in_text(final_answer, config, image_paths)
@@ -1854,21 +1910,22 @@ async def _append_reference_images_to_answer(answer: str, reference_docs: List[D
         for index, image_path in enumerate(image_paths, start=1):
             web_url = _image_to_web_url_if_exists(image_path)
             if not web_url:
-                print(f"[图片排查][append_skip_no_web_url] image={image_path}")
+                # print(f"[图片排查][append_skip_no_web_url] image={image_path}")
                 continue
             if image_path in final_answer or web_url in final_answer:
-                print(f"[图片排查][append_skip_exists] image={image_path} web_url={web_url}")
+                # print(f"[图片排查][append_skip_exists] image={image_path} web_url={web_url}")
                 continue
-            print(f"[图片排查][append_grid_image] image={image_path} web_url={web_url}")
+            # print(f"[图片排查][append_grid_image] image={image_path} web_url={web_url}")
             appended_urls.append(web_url)
         appended_grid = _build_reference_image_grid_html(appended_urls)
         if appended_grid:
             final_answer = final_answer.rstrip() + "\n\n参考图片：\n\n" + appended_grid
-            print(f"[图片排查][append_done] appended={len(appended_urls)}")
+            # print(f"[图片排查][append_done] appended={len(appended_urls)}")
         else:
-            print("[图片排查][append_done] 没有新增参考图片")
+            # print("[图片排查][append_done] 没有新增参考图片")
+            pass
     else:
-        print("[图片排查][append_answer] 未收集到可用参考图片")
+        # print("[图片排查][append_answer] 未收集到可用参考图片")
         final_answer = await _replace_image_urls_in_text(final_answer, config)
         final_answer = _remove_reference_image_hint_without_images(final_answer)
 
@@ -2410,7 +2467,9 @@ async def stream_ai_response(
         except Exception as usage_error:
             print(usage_error)
         fallback_content = (
-            "AI服务不可用或响应超时，请检查模型服务地址、模型名称和服务状态。"
+            "处理超时，请重新提问。"
+            if _is_completion_timeout(e)
+            else "AI服务不可用或响应超时，请检查模型服务地址、模型名称和服务状态。"
             if _is_ai_service_unavailable_error(e)
             else "回答生成失败，请稍后重试。"
         )
@@ -2839,6 +2898,12 @@ async def _create_completion(
                     )
             except Exception as trace_error:
                 print(trace_error)
+        if _is_completion_timeout(e):
+            raise AppException(
+                status.HTTP_504_GATEWAY_TIMEOUT,
+                BizCode.AI_SERVICE_UNAVAILABLE,
+                "处理超时，请重新提问。",
+            ) from e
         if _is_ai_service_unavailable_error(e):
             raise AppException(
                 status.HTTP_502_BAD_GATEWAY,
@@ -3137,6 +3202,26 @@ async def _stream_completion_with_workflow(message, db, current_user):
         if not task.done():
             task.cancel()
         raise
+    except Exception as exc:
+        # HTTP headers have already been sent: report failure through SSE.
+        is_timeout = _is_completion_timeout(exc)
+        error_message = (
+            "处理超时，请重新提问。" if is_timeout
+            else exc.message if isinstance(exc, AppException)
+            else "回答生成失败，请稍后重试。"
+        )
+        if is_timeout:
+            # Send a normal answer event so the existing UI renders a visible AI
+            # chat bubble even when timeout happens before the AI row is created.
+            payload = {
+                "answer": error_message, "final": True, "reference_docs": [],
+                "reference": {"total": 0, "doc_aggs": []},
+                "id": None, "ai_message_id": None, "session_id": getattr(message, "session_id", None),
+            }
+            yield f"data: {json.dumps({'code': 0, 'data': payload}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'code': 1, 'data': 'true'}, ensure_ascii=False)}\n\n"
+        else:
+            yield f"data: {json.dumps({'code': 102, 'message': error_message, 'data': {'code': 0, 'message': error_message}}, ensure_ascii=False)}\n\n"
     finally:
         _progress_sink.reset(token)
 
@@ -3304,12 +3389,12 @@ async def generate_messages(
         documents_id if prompt and isinstance(documents_id, list) else [],
         max_images=int(os.getenv("MAX_DOC_IMAGES", 5)),
     )
-    print(f"[图片排查][generate_messages] doc_image_urls={doc_image_urls}")
+    # print(f"[图片排查][generate_messages] doc_image_urls={doc_image_urls}")
     for image in doc_image_urls:
         image_path = os.path.join(config["MESSAGE_BASE_DIR"], image.lstrip("/"))
-        print(f"[图片排查][generate_messages] 准备加入模型图片 image={image} resolved_path={image_path}")
+        # print(f"[图片排查][generate_messages] 准备加入模型图片 image={image} resolved_path={image_path}")
         if not await asyncio.to_thread(os.path.exists, image_path):
-            print(f"[图片排查][generate_messages] 文件不存在，跳过模型图片: {image_path}")
+            # print(f"[图片排查][generate_messages] 文件不存在，跳过模型图片: {image_path}")
             continue
         try:
             image_compressed = await compress_image(image_path, max_size=512)
@@ -3328,11 +3413,11 @@ async def generate_messages(
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}
             })
-            print(f"[图片排查][generate_messages] 已加入模型图片: {image_compressed}")
+            # print(f"[图片排查][generate_messages] 已加入模型图片: {image_compressed}")
         except Exception as e:
             print(f"添加文档图片失败 {image}: {e}")
 
-    print(f"[图片排查][generate_messages] msg_content_types={[item.get('type') for item in msg_content]}")
+    # print(f"[图片排查][generate_messages] msg_content_types={[item.get('type') for item in msg_content]}")
     if message_now.user_uploaded_images and len(message_now.user_uploaded_images) > 0:
         images = _split_uploaded_images(message_now.user_uploaded_images)
         for image in images:
@@ -3439,7 +3524,7 @@ async def get_reference_documents(
         session_id=session_id,
         knowledge_version_ids=knowledge_version_ids,
     )
-    print(f"[图片排查][search_raw] docs={len(documents or [])}")
+    # print(f"[图片排查][search_raw] docs={len(documents or [])}")
     _debug_reference_doc_image_summary(documents, "search_raw")
     normalized_docs = []
     for doc in documents:
@@ -3464,7 +3549,7 @@ async def get_reference_documents(
         })
 
     if not normalized_docs:
-        print("[图片排查][search_normalized] 无可用检索结果")
+        # print("[图片排查][search_normalized] 无可用检索结果")
         return []
     _debug_reference_doc_image_summary(normalized_docs, "search_normalized")
 
@@ -4008,11 +4093,11 @@ async def get_prompt(db, document_ids, max_tokens):
                             "needs_review": bool(metadata.get("needs_review")),
                         })
                     reference_doc["evidence_graph_regions"] = graph_regions
-                print(
-                    f"[图片排查][evidence] doc=knowledge:{document.id} "
-                    f"sections={reference_doc['evidence_section_titles']} "
-                    f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
-                )
+                # print(
+                #     f"[图片排查][evidence] doc=knowledge:{document.id} "
+                #     f"sections={reference_doc['evidence_section_titles']} "
+                #     f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
+                # )
 
             doc_prompt = "\n".join(part for part in doc_parts if part).strip()
         else:
@@ -4025,11 +4110,11 @@ async def get_prompt(db, document_ids, max_tokens):
                     reference_doc["evidence_section_ids"] = []
                     reference_doc["evidence_section_titles"] = ["完整故障文档"]
                     reference_doc["evidence_image_urls"] = evidence_images
-                print(
-                    f"[图片排查][evidence] doc=breakdown:{document.id} "
-                    f"sections={reference_doc['evidence_section_titles']} "
-                    f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
-                )
+                # print(
+                #     f"[图片排查][evidence] doc=breakdown:{document.id} "
+                #     f"sections={reference_doc['evidence_section_titles']} "
+                #     f"images={reference_doc.get('evidence_image_urls') or evidence_images}"
+                # )
             doc_prompt = f"""【文档{i + 1}】：{document.title}
 问题描述：{document.problem_intro}
 原因分析：{document.causes}
@@ -4107,6 +4192,7 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             "version": doc.get("version"),
             "hardware_version": doc.get("hardware_version"),
             "score": float(doc.get("score", 0.0)),
+            "match_score": doc.get("match_score"),
             "relevance": doc.get("relevance") or "",
             "chunks": chunks,
             "image_urls": [

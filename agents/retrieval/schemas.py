@@ -8,6 +8,7 @@ class RetrievalResult(BaseModel):
     library_type: str = "unknown"
     title: str = ""
     content: str = ""
+    chunks: list[dict[str, Any]] = Field(default_factory=list)
     score: float = 0.0
     base_score: float = 0.0
     rrf_score: float = 0.0

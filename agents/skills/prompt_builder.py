@@ -30,6 +30,7 @@ class SkillPromptBuilder:
             blocks.append(f"【短期记忆】\n{memory_prompt.strip()}")
         if skill.use_rag_context:
             blocks.append(self._rag_block(rag_prompt))
+            blocks.append("【复合问题证据规则】\n若用户提出多个现象，逐项覆盖其原因与处理，并单独说明现象之间的关联或共同原因是否有文档证据。单项资料不能证明共同根因；共同出现不能证明因果、同批次或同时发生。区分文档支持的结论、待验证假设和缺失证据；排查顺序应基于证据。不要把子问题答案直接拼接成已确认的联合诊断。")
 
         user_lines = [f"用户原问题：{question or '无'}"]
         if retrieval_query and retrieval_query != question:

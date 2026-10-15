@@ -58,6 +58,16 @@ class User(Base):
     role_group = relationship("RoleGroup")
 
 
+class PasswordResetChallenge(Base):
+    __tablename__ = "password_reset_challenges"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    code_hash = Column(String(64), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
+
+
 class RoleGroup(Base):
     __tablename__ = "role_groups"
 

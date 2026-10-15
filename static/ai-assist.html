@@ -704,6 +704,10 @@
                         library_type: doc.library_type === 'knowledge' ? 'knowledge' : 'breakdown',
                         title: doc.title || doc.doc_name || '',
                         score: doc.score !== undefined && doc.score !== null ? Number(doc.score) : null,
+                        has_match_score: doc.has_match_score !== undefined
+                            ? doc.has_match_score : Object.prototype.hasOwnProperty.call(doc, 'match_score'),
+                        match_score: doc.match_score !== undefined && doc.match_score !== null
+                            ? Number(doc.match_score) : null,
                         relevance: doc.relevance || ''
                     }))
                     .filter(doc => Number.isInteger(doc.doc_id));
@@ -748,16 +752,21 @@
         }
 
         formatReferenceScore(score) {
-            if (typeof score !== 'number' || Number.isNaN(score)) return '';
-            const normalized = Math.max(0, Math.min(1, score));
-            const level = this.getReferenceScoreLevel(normalized);
-            return `匹配度：${(normalized * 100).toFixed(1)}%（${level.label}）`;
+            if (typeof score !== 'number' || !Number.isFinite(score)) return '匹配度暂不可用';
+            return `匹配度：${Math.max(0, Math.min(100, score)).toFixed(1)}%`;
         }
 
         formatReferenceRelevance(doc) {
             const labels = { strong: '高度相关', partial: '部分相关', weak: '低相关', none: '不相关' };
             const label = labels[String(doc && doc.relevance || '').toLowerCase()];
             return label ? `匹配度：${label}` : '';
+        }
+
+        formatLegacyReferenceScore(score) {
+            if (typeof score !== 'number' || !Number.isFinite(score)) return '';
+            const normalized = Math.max(0, Math.min(1, score));
+            const level = this.getReferenceScoreLevel(normalized);
+            return `匹配度：${(normalized * 100).toFixed(1)}%（${level.label}）`;
         }
 
         getReferenceScoreLevel(score) {
@@ -783,15 +792,17 @@
             docs.forEach(doc => {
                 const docId = doc.doc_id;
                 const safeTitle = doc.title && doc.title.trim() ? doc.title.trim() : `文档 ${docId}`;
-                const scoreText = this.formatReferenceRelevance(doc) || this.formatReferenceScore(doc.score);
+                const hasMatchScore = doc.has_match_score !== undefined
+                    ? doc.has_match_score : Object.prototype.hasOwnProperty.call(doc, 'match_score');
+                const scoreText = hasMatchScore ? this.formatReferenceScore(doc.match_score)
+                    : this.formatReferenceRelevance(doc) || this.formatLegacyReferenceScore(doc.score);
                 const relevanceClass = { strong: 'score-high', partial: 'score-medium', weak: 'score-low', none: 'score-low' };
-                const scoreLevel = relevanceClass[String(doc.relevance || '').toLowerCase()]
-                    ? { className: relevanceClass[String(doc.relevance || '').toLowerCase()] }
-                    : this.getReferenceScoreLevel(
-                        typeof doc.score === 'number' && !Number.isNaN(doc.score)
-                            ? Math.max(0, Math.min(1, doc.score))
-                            : 0
-                    );
+                const scoreLevel = !hasMatchScore
+                    ? { className: relevanceClass[String(doc.relevance || '').toLowerCase()]
+                        || this.getReferenceScoreLevel(doc.score || 0).className }
+                    : typeof doc.match_score === 'number' && Number.isFinite(doc.match_score)
+                    ? this.getReferenceScoreLevel(doc.match_score / 100)
+                    : { className: '' };
                 const scoreHtml = scoreText ? `<span class="doc-score ${scoreLevel.className}">${scoreText}</span>` : '';
                 const loadingClass = doc.title && doc.title.trim() ? '' : 'loading';
                 const linkTitle = safeTitle.replace(/"/g, '&quot;');

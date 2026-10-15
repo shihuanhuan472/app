@@ -279,6 +279,16 @@ class VectorStoreMultimodal:
     def create_or_load_collection(self):
         """创建或加载集合"""
 
+        # Evaluation must never create/drop collections or build indexes.
+        if os.getenv("RETEST_READ_ONLY", "0") == "1":
+            if not utility.has_collection(self.collection_name):
+                raise RuntimeError("Read-only retest requires an existing Milvus collection")
+            self.collection = Collection(self.collection_name)
+            if not self.validate_collection_schema() or not self.collection.has_index():
+                raise RuntimeError("Read-only retest requires a valid existing schema and index")
+            self.load_collection()
+            return
+
         # 检查集合是否存在
         if utility.has_collection(self.collection_name):
             print(f"集合 '{self.collection_name}' 已存在，加载集合...")
@@ -1373,7 +1383,7 @@ class VectorStoreMultimodal:
         self.collection.flush()
 
     def search(self, query_text: str, query_image=None, top_k: int = -1,
-               allowed_version_ids=None, managed_document_ids=None) -> List[Dict]:
+               allowed_version_ids=None, managed_document_ids=None, allowed_document_ids=None) -> List[Dict]:
         """搜索相似文档"""
         # 返回格式举例
         # {
@@ -1416,13 +1426,18 @@ class VectorStoreMultimodal:
 
         # 执行搜索
         search_expr = None
-        if allowed_version_ids is not None:
-            allowed = set(allowed_version_ids)
+        if allowed_version_ids is not None or allowed_document_ids is not None:
+            allowed = set(allowed_version_ids or [])
             managed = set(managed_document_ids or [])
             ids = []
             for row in self._version_rows():
                 metadata = json.loads(row.get("metadata") or "{}")
-                if metadata.get("library_type") == "knowledge":
+                library = self._normalize_library_type(metadata.get("library_type", "breakdown"))
+                if allowed_document_ids is not None:
+                    doc_id = int(metadata.get("source_doc_id") or self._decode_doc_id(row["doc_id"], library))
+                    if doc_id not in allowed_document_ids.get(library, set()):
+                        continue
+                if library == "knowledge" and allowed_version_ids is not None:
                     version_id = int(metadata.get("version_id") or 0)
                     doc_id = int(metadata.get("source_doc_id") or self._decode_doc_id(row["doc_id"], "knowledge"))
                     if (version_id and version_id not in allowed) or (not version_id and doc_id in managed):

@@ -1,11 +1,13 @@
+import asyncio
 import json
+from utils.retrieval_log import log_retrieval
 from typing import Any
 
 from sqlalchemy import or_, select
 
 from models import DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
 
-from ..query_analysis.schemas import RetrievalQueries, RetrievalStrategy
+from ..query_analysis.schemas import RetrievalQueries, RetrievalStrategy, semantic_query_key
 from .schemas import RetrievalResult
 
 
@@ -23,19 +25,78 @@ class RetrievalExecutor:
         "broad_semantic": 1.0,
         "precise_keyword": 1.2,
         "precise_semantic": 1.2,
+        "original_semantic": 1.2,
+        "symptom_semantic": 1.0,
+        "relation_semantic": 1.2,
+        "rewritten_semantic": 1.2,
     }
 
-    def __init__(self, *, db: Any = None, vector_service: Any = None, top_k: int = 8, verbose: bool = True):
+    def __init__(self, *, db: Any = None, vector_service: Any = None, top_k: int = 8, verbose: bool = True,
+                 session_factory: Any = None, allowed_document_ids: Any = None):
         self.db = db
         self.vector_service = vector_service
         self.top_k = max(1, top_k)
         self.verbose = verbose
+        self.session_factory = session_factory
+        self.allowed_document_ids = allowed_document_ids
 
     async def execute(self, strategy: RetrievalStrategy) -> list[RetrievalResult]:
         self._print("plan", strategy.model_dump(mode="json"))
         collected: list[tuple[str, list[RetrievalResult]]] = []
-        await self._run_queries("broad", strategy.broad_queries, strategy, collected)
-        await self._run_queries("precise", strategy.precise_queries, strategy, collected)
+        routes = [
+            ("original", strategy.original_queries),
+            ("symptom", strategy.symptom_queries),
+            ("rewritten", strategy.rewritten_queries),
+            ("relation", strategy.relation_queries),
+            ("broad", strategy.broad_queries),
+            ("precise", strategy.precise_queries),
+        ]
+        seen = set()
+        semantic_jobs = []
+        # SQL uses the request session serially. Semantic jobs use independent
+        # sessions in production and bounded concurrency for vector inference.
+        ordinary_rewrite_count = 0
+        for level, queries in routes:
+            keywords = []
+            for query in queries.keyword:
+                key = ("keyword", " ".join(query.lower().split()))
+                if key[1] and key not in seen:
+                    seen.add(key)
+                    keywords.append(query)
+            await self._run_queries(level, RetrievalQueries(keyword=keywords), strategy, collected)
+            for index, query in enumerate(queries.semantic, start=1):
+                key = ("semantic", semantic_query_key(query))
+                if key[1] and key not in seen:
+                    # Legacy broad/precise semantic queries are also rewrites.
+                    # In an analyzed plan they share the single ordinary-rewrite
+                    # budget; preserve compound evidence queries separately.
+                    ordinary = level in {"rewritten", "broad", "precise"} and not (
+                        level == "rewritten" and any(
+                            marker in query for marker in ("联合故障案例", "是否存在关联或共同原因")
+                        )
+                    )
+                    if strategy.original_queries.semantic and ordinary:
+                        if ordinary_rewrite_count >= 1:
+                            continue
+                        ordinary_rewrite_count += 1
+                    seen.add(key)
+                    semantic_jobs.append((level, index, query))
+
+        semaphore = asyncio.Semaphore(3)
+
+        async def retrieve(level, index, query):
+            async with semaphore:
+                self._print(f"{level}_semantic", {"query": query})
+                results = await self._semantic_search(query, level)
+                results.sort(key=lambda item: item.base_score, reverse=True)
+                return (f"{level}_semantic:{index}", results)
+
+        # Real session-backed services without a factory must remain serial.
+        if self.session_factory is None and getattr(self.vector_service, "db", None) is not None:
+            for job in semantic_jobs:
+                collected.append(await retrieve(*job))
+        else:
+            collected.extend(await asyncio.gather(*(retrieve(*job) for job in semantic_jobs)))
         merged = self._rrf_merge(collected, strategy)
         self._print("merged", [item.model_dump(mode="json") for item in merged])
         return merged
@@ -67,11 +128,14 @@ class RetrievalExecutor:
             return []
         results: list[RetrievalResult] = []
         for model, library in ((DocumentBreakdown, "breakdown"), (DocumentKnowledge, "knowledge")):
+            scope_conditions = []
+            if self.allowed_document_ids is not None:
+                scope_conditions.append(model.id.in_(self.allowed_document_ids.get(library, set())))
             fields = [model.title]
             if library == "breakdown":
                 fields += [model.problem_intro, model.causes, model.evaluation, model.inspection, model.solutions, model.key_points]
                 conditions = [or_(*[field.ilike(f"%{term}%") for field in fields]) for term in terms]
-                stmt = select(model).where(model.is_deleted == 0, *conditions).limit(self.top_k)
+                stmt = select(model).where(model.is_deleted == 0, *conditions, *scope_conditions).limit(self.top_k)
             else:
                 fields += [KnowledgeDocumentSection.section_title, KnowledgeDocumentSection.plain_text]
                 conditions = [or_(*[field.ilike(f"%{term}%") for field in fields]) for term in terms]
@@ -81,7 +145,7 @@ class RetrievalExecutor:
                         KnowledgeDocumentSection,
                         KnowledgeDocumentSection.document_id == DocumentKnowledge.id,
                     )
-                    .where(model.is_deleted == 0, *conditions)
+                    .where(model.is_deleted == 0, *conditions, *scope_conditions)
                     .distinct()
                     .limit(self.top_k)
                 )
@@ -99,11 +163,15 @@ class RetrievalExecutor:
     async def _semantic_search(self, query: str, level: str) -> list[RetrievalResult]:
         if self.vector_service is None:
             return []
-        raw = await self.vector_service.search_similar_documents(
-            query=query,
-            top_k_documents=self.top_k,
-            apply_domain_term_score=False,
-        )
+        kwargs = dict(query=query, top_k_documents=self.top_k, apply_domain_term_score=False)
+        if self.allowed_document_ids is not None:
+            kwargs["allowed_document_ids"] = self.allowed_document_ids
+        if self.session_factory is not None:
+            async with self.session_factory() as session:
+                service = type(self.vector_service)(session)
+                raw = await service.search_similar_documents(**kwargs)
+        else:
+            raw = await self.vector_service.search_similar_documents(**kwargs)
         results = []
         for item in raw or []:
             results.append(RetrievalResult(
@@ -111,7 +179,7 @@ class RetrievalExecutor:
                 title=str(item.get("title", "")), content=str(item.get("content", "")),
                 score=float(item.get("score", 0.0)), base_score=float(item.get("score", 0.0)),
                 source=f"semantic:{level}", matched_terms=list(item.get("matched_terms") or []),
-                metadata=item.get("metadata") or {},
+                metadata=item.get("metadata") or {}, chunks=list(item.get("chunks") or []),
             ))
         return results
 
@@ -146,6 +214,12 @@ class RetrievalExecutor:
                     existing.source = item.source
                     existing.metadata = item.metadata or existing.metadata
                 existing.rrf_score += contribution
+                chunk_keys = {str(chunk.get("content") or "").strip() for chunk in existing.chunks}
+                for chunk in item.chunks:
+                    chunk_text = str(chunk.get("content") or "").strip()
+                    if chunk_text and chunk_text not in chunk_keys:
+                        existing.chunks.append(chunk)
+                        chunk_keys.add(chunk_text)
                 existing.sources.append(list_id)
                 existing.matched_terms = sorted(set(existing.matched_terms + item.matched_terms))
                 existing.rrf_contributions.append({
@@ -207,6 +281,7 @@ class RetrievalExecutor:
         ))
 
     def _print(self, stage: str, payload: Any) -> None:
+        log_retrieval(f"Retrieval.{stage}", payload)
         if self.verbose:
             print(f"[Retrieval][{stage}] {json.dumps(payload, ensure_ascii=False, default=str)}")
 

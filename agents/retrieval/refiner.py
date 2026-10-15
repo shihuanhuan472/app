@@ -1,4 +1,5 @@
 import json
+from utils.retrieval_log import log_retrieval
 from typing import Any
 
 from ..query_analysis.schemas import RetrievalMode, RetrievalQueries, RetrievalStrategy
@@ -63,10 +64,16 @@ class QueryRefiner:
             primary_terms=primary,
             hard_filters=old.hard_filters,
             soft_filters=old.soft_filters,
+            original_queries=old.original_queries,
+            symptom_queries=old.symptom_queries,
+            rewritten_queries=old.rewritten_queries,
+            relation_queries=old.relation_queries,
+            semantic_checks=old.semantic_checks,
         )
         self._print("output", strategy.model_dump(mode="json"))
         return strategy
 
     def _print(self, stage: str, payload: dict[str, Any]) -> None:
+        log_retrieval(f"QueryRefiner.{stage}", payload)
         if self.verbose:
             print(f"[QueryRefiner][{stage}] {json.dumps(payload, ensure_ascii=False, default=str)}")

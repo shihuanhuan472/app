@@ -532,6 +532,8 @@ class VectorService:
 
     @staticmethod
     def _debug_print_search_results(stage: str, results: List[Dict[str, Any]], limit: int = 20):
+        from utils.retrieval_log import log_retrieval
+        log_retrieval(f"VectorSearch.{stage}", results)
         print(f"\n========== RAG DEBUG: {stage} count={len(results or [])} ==========")
         for index, item in enumerate((results or [])[:limit], start=1):
             metadata = VectorService._metadata_dict(item.get("metadata"))
@@ -562,6 +564,7 @@ class VectorService:
         session_id: Optional[int] = None,
         apply_domain_term_score: bool = True,
         knowledge_version_ids: Optional[List[int]] = None,
+        allowed_document_ids: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """检索相似文档并聚合为文档级结果。"""
         # 返回格式举例（知识库的matadata为简写，具体格式看search函数的注释）
@@ -637,13 +640,13 @@ class VectorService:
 
                     results = await asyncio.to_thread(
                         self.vector_store_multimodal.search, enhanced_query, image_path, vector_top_k,
-                        allowed_version_ids, managed_document_ids
+                        allowed_version_ids, managed_document_ids, allowed_document_ids
                     )
 
                     all_results.extend(results)
             else:
                 results = await asyncio.to_thread(self.vector_store_multimodal.search, query, None, vector_top_k,
-                                                  allowed_version_ids, managed_document_ids)
+                                                  allowed_version_ids, managed_document_ids, allowed_document_ids)
                 all_results.extend(results)
 
             if not all_results:

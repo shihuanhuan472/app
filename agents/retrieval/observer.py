@@ -1,6 +1,7 @@
 import json
 import asyncio
 import os
+from utils.retrieval_log import log_retrieval
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -18,8 +19,17 @@ class ObservationDecision(BaseModel):
     reason: str
     matched_primary_terms: list[str] = Field(default_factory=list)
     supporting_documents: list[str] = Field(default_factory=list)
+    document_scores: list["DocumentScore"] = Field(default_factory=list)
     irrelevant_documents: list[str] = Field(default_factory=list)
     missing_aspects: list[str] = Field(default_factory=list)
+
+
+class DocumentScore(BaseModel):
+    """Semantic evidence score for every candidate shown to the Observer."""
+
+    document_id: str
+    score: float = Field(ge=0.0, le=100.0)
+    evidence: str = ""
 
 
 class ResultObserver:
@@ -29,24 +39,117 @@ class ResultObserver:
         self.min_results = max(1, min_results)
         self.verbose = verbose
 
+    @staticmethod
+    def _normalize_scores(decision: ObservationDecision, candidate_ids: list[str]) -> ObservationDecision:
+        """Derive relevance classes from scores instead of trusting model labels."""
+        allowed = list(dict.fromkeys(str(document_id) for document_id in candidate_ids))
+        score_by_id = {}
+        for item in decision.document_scores:
+            if item.document_id in allowed and item.document_id not in score_by_id:
+                score_by_id[item.document_id] = item
+        # A missing score is not evidence of support. Keep it observable as zero.
+        normalized = [
+            score_by_id.get(document_id)
+            or DocumentScore(document_id=document_id, score=0.0, evidence="模型未返回该候选文档的评分")
+            for document_id in allowed
+        ]
+        strong = [item.document_id for item in normalized if item.score >= 80.0]
+        partial = [item.document_id for item in normalized if 60.0 <= item.score < 80.0]
+        irrelevant = [item.document_id for item in normalized if item.score < 60.0]
+        decision.document_scores = normalized
+        decision.supporting_documents = strong + partial
+        decision.irrelevant_documents = irrelevant
+        if strong:
+            decision.relevance = "strong"
+        elif partial:
+            decision.relevance = "partial"
+        else:
+            decision.relevance = "none"
+            decision.is_sufficient = False
+            if decision.next_action == "answer":
+                decision.next_action = "refine"
+        return decision
+
+    @staticmethod
+    def _document_payload(result: RetrievalResult) -> dict[str, Any]:
+        """Build bounded evidence input from hits and their available neighbours."""
+        snippets = []
+        seen = set()
+        representative = str(result.content or "").strip()[:1800]
+        ranked_chunks = sorted(
+            result.chunks, key=lambda chunk: float(chunk.get("score", 0.0)), reverse=True
+        )
+        seed_chunks = ranked_chunks[:3]
+        selected = []
+        selected_ids = set()
+
+        def chunk_position(chunk):
+            metadata = chunk.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                return None
+            value = metadata.get("chunk_index")
+            if value is None:
+                value = metadata.get("subchunk_index")
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        # Keep each top hit, followed by chunks immediately around it when those
+        # chunks are present in the merged multi-query retrieval evidence.
+        for seed in seed_chunks:
+            seed_position = chunk_position(seed)
+            group = [seed]
+            if seed_position is not None:
+                group.extend(
+                    chunk for chunk in result.chunks
+                    if chunk is not seed and chunk_position(chunk) in {seed_position - 1, seed_position + 1}
+                )
+            for chunk in sorted(group, key=lambda item: (chunk_position(item) is None, chunk_position(item) or 0)):
+                identity = str((chunk.get("metadata") or {}).get("chunk_id") or id(chunk))
+                if identity not in selected_ids:
+                    selected.append(chunk)
+                    selected_ids.add(identity)
+
+        for chunk in selected:
+            content = str(chunk.get("content") or "").strip()
+            # The representative body already supplies this evidence verbatim.
+            if not content or content in seen or content in representative:
+                continue
+            seen.add(content)
+            metadata = chunk.get("metadata") or {}
+            snippets.append({
+                "content": content[:800],
+                "score": float(chunk.get("score", 0.0)),
+                "section_title": metadata.get("section_title") if isinstance(metadata, dict) else None,
+                "content_type": metadata.get("content_type") if isinstance(metadata, dict) else None,
+            })
+            if len(snippets) == 6:
+                break
+        return {
+            "document_id": result.document_id, "title": result.title,
+            "content": representative, "matched_chunks": snippets,
+        }
+
     async def observe_with_llm(self, analysis: QueryAnalysis, results: list[RetrievalResult]) -> ObservationDecision:
         """Use the LLM for semantic evidence judgement, with deterministic fallback."""
-        documents = [{"document_id": r.document_id, "title": r.title, "content": r.content[:1800]} for r in results[:12]]
+        documents = [self._document_payload(result) for result in results[:8]]
         prompt = {
             "question": analysis.original_question,
             "understanding": analysis.understanding.model_dump(mode="json"),
             "primary_terms": analysis.retrieval_strategy.primary_terms,
             "documents": documents,
-            "instruction": "判断候选文档是否语义上支持用户问题。不要因关键词缺失就判无关；但也不要臆造别名或把仅有相邻部件的文档判为同一部件。只有有证据的文档才能进入 supporting_documents。",
+            "instruction": "对 documents 中每篇候选文档逐篇进行语义证据评分，不能漏评。content 是代表正文，matched_chunks 是各路向量检索实际命中的原文片段，应优先用于核对直接证据。80到100表示直接覆盖问题对象、现象、工况及所需信息；60到79表示有部分直接证据但覆盖不完整；0到59表示不支持、仅表面相似或适用对象不符。不要因关键词重复给高分，不得臆造别名、原因或适用关系。多现象问题须评估逐项覆盖及关系证据；多个独立案例不能证明共同根因。缺失证据写入 missing_aspects。",
         }
         try:
-            timeout = float(os.getenv("RESULT_OBSERVER_TIMEOUT", "45"))
+            timeout = float(os.getenv("RESULT_OBSERVER_TIMEOUT", "90"))
             client = create_async_openai_client(base_url=get_ai_base_url(), api_key=os.getenv("API_KEY", "EMPTY"), timeout=timeout)
             response = await asyncio.wait_for(create_chat_completion(client, model=os.getenv("QUERY_ANALYSIS_MODEL") or os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct"), messages=[
-                {"role": "system", "content": "你是检索结果评估器。仅输出JSON。字段：is_sufficient(bool), relevance(str strong/partial/weak/none), next_action(str answer/refine/replan), reason(str), matched_primary_terms(array), supporting_documents(array), irrelevant_documents(array), missing_aspects(array)。"},
+                {"role": "system", "content": "你是检索结果评估器。仅输出JSON。字段：is_sufficient(bool), relevance(str strong/partial/weak/none), next_action(str answer/refine/replan), reason(str), matched_primary_terms(array), document_scores(array), missing_aspects(array)。document_scores 必须覆盖输入的每个 document_id，不能多也不能少；每项格式为 {document_id:string, score:number(0到100), evidence:string}，evidence 简述该文档正文或命中片段中的评分依据。不要输出 supporting_documents 或 irrelevant_documents，它们由程序按分数生成。"},
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
-            ], temperature=0, max_tokens=900, json_mode=True), timeout=timeout)
+            ], temperature=0, max_tokens=1600, json_mode=True), timeout=timeout)
             decision = ObservationDecision.model_validate(parse_chat_completion_json(response))
+            decision = self._normalize_scores(decision, [document["document_id"] for document in documents])
             self._print("llm_decision", decision.model_dump(mode="json"))
             return decision
         except Exception as exc:
@@ -75,6 +178,13 @@ class ResultObserver:
                 irrelevant.append(item.document_id)
 
         missing: list[str] = []
+        evidence_text = "\n".join(f"{item.title} {item.content}".lower() for item in results)
+        for symptom in (analysis.understanding.symptoms if analysis.understanding.joint_diagnosis_required else []):
+            if symptom.lower() not in evidence_text:
+                missing.append(f"现象证据待验证：{symptom}")
+        if analysis.understanding.joint_diagnosis_required:
+            # Lexical co-occurrence cannot establish a causal relationship.
+            missing.append("多个现象的关联或共同原因需要直接证据验证")
         if primary_terms and not matched:
             missing.append("未找到明确的主语或专业参数匹配")
         if requested and supporting and not any(
@@ -90,8 +200,8 @@ class ResultObserver:
             )
         elif supporting:
             decision = ObservationDecision(
-                is_sufficient=True, relevance="strong" if len(supporting) >= 2 else "partial",
-                next_action="answer" if len(supporting) >= self.min_results else "refine",
+                is_sufficient=not missing, relevance="strong" if len(supporting) >= 2 and not missing else "partial",
+                next_action="answer" if len(supporting) >= self.min_results and not missing else "refine",
                 reason="存在命中核心主语且包含原因或处理信息的候选文档",
                 matched_primary_terms=sorted(matched), supporting_documents=supporting,
                 irrelevant_documents=irrelevant, missing_aspects=missing,
@@ -115,5 +225,6 @@ class ResultObserver:
         return decision
 
     def _print(self, stage: str, payload: dict[str, Any]) -> None:
+        log_retrieval(f"ResultObserver.{stage}", payload)
         if self.verbose:
             print(f"[ResultObserver][{stage}] {json.dumps(payload, ensure_ascii=False, default=str)}")

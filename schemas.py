@@ -42,6 +42,17 @@ class UserRegister(BaseModel):
     department: Optional[str] = Field(default=None, max_length=100)
 
 
+class PasswordResetRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    phone: str = Field(..., pattern=PHONE_PATTERN)
+
+
+class PasswordResetConfirm(PasswordResetRequest):
+    code: str = Field(..., pattern=r"^[0-9]{6}$")
+    new_password: str = Field(..., min_length=6, max_length=128)
+    confirm_password: str = Field(..., min_length=6, max_length=128)
+
+
 class RegistrationApproval(BaseModel):
     user_id: int = Field(..., gt=0)
     role_group_id: int = Field(..., gt=0)

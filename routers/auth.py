@@ -1,16 +1,20 @@
 ﻿import hashlib
 import logging
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.concurrency import run_in_threadpool
 
 from database import AsyncSessionLocal, get_db
-from models import RoleGroup, User
+from models import PasswordResetChallenge, RoleGroup, User
+from schemas import PasswordResetRequest, PasswordResetConfirm
+from utils.dingtalk_notifier import send_dingtalk_message
 from schemas import (
     Result,
     UserLogin,
@@ -234,6 +238,64 @@ async def login(
             },
         }
     )
+
+
+async def _reset_user(data, db):
+    result = await db.execute(select(User).where(
+        User.username == data.username.strip(), User.phone == data.phone,
+        User.status == 1, User.registration_status == REGISTRATION_APPROVED,
+    ).with_for_update())
+    return result.scalar_one_or_none()
+
+
+@router.post("/password-reset/code", summary="发送钉钉重置密码验证码")
+async def request_password_reset(data: PasswordResetRequest, db: AsyncSession = Depends(get_db)):
+    user = await _reset_user(data, db)
+    generic = Result(code=1, msg="验证码已发送至绑定手机号对应的钉钉，请查收", data=None)
+    if not user:
+        raise AppException(400, BizCode.BAD_REQUEST, "用户名或绑定手机号不正确，或账号尚未审核通过或已被禁用，请核对账号资料")
+    challenge = await db.get(PasswordResetChallenge, user.id)
+    now = datetime.now()
+    if challenge and now < challenge.sent_at + timedelta(seconds=60):
+        return Result(code=1, msg="验证码已发送，请在钉钉中查收，60秒内请勿重复发送", data=None)
+    code = f"{secrets.randbelow(1000000):06d}"
+    try:
+        sent = await run_in_threadpool(send_dingtalk_message, "重置密码验证码",
+            f"您的重置密码验证码为：{code}，5分钟内有效。请勿向他人透露。若非本人操作，请忽略。", user.phone)
+    except Exception:
+        sent = False
+    if not sent:
+        raise AppException(503, BizCode.INTERNAL_ERROR, "验证码发送失败，请稍后重试或联系管理员")
+    if challenge is None:
+        challenge = PasswordResetChallenge(user_id=user.id)
+        db.add(challenge)
+    challenge.code_hash = hashlib.sha256(code.encode()).hexdigest()
+    challenge.expires_at = now + timedelta(minutes=5)
+    challenge.sent_at = now
+    challenge.attempts = 0
+    await db.commit()
+    return generic
+
+
+@router.post("/password-reset/confirm", summary="验证钉钉验证码并重置密码")
+async def confirm_password_reset(data: PasswordResetConfirm, background_tasks: BackgroundTasks,
+                                 db: AsyncSession = Depends(get_db)):
+    if data.new_password != data.confirm_password:
+        raise AppException(400, BizCode.BAD_REQUEST, "两次输入的密码不一致")
+    user = await _reset_user(data, db)
+    challenge = await db.get(PasswordResetChallenge, user.id) if user else None
+    if not challenge or challenge.expires_at <= datetime.now() or challenge.attempts >= 5:
+        raise AppException(400, BizCode.BAD_REQUEST, "验证码无效或已过期，请重新获取")
+    if not secrets.compare_digest(challenge.code_hash, hashlib.sha256(data.code.encode()).hexdigest()):
+        challenge.attempts += 1
+        await db.commit()
+        raise AppException(400, BizCode.BAD_REQUEST, "验证码错误")
+    user.password = hashlib.md5(data.new_password.encode()).hexdigest()
+    await db.delete(challenge)
+    await db.commit()
+    background_tasks.add_task(sync_external_user, username=user.username, password=data.new_password,
+                              real_name=user.full_name, phone=user.phone, update_password=True)
+    return Result(code=1, msg="密码已重置，请使用新密码登录", data=None)
 
 
 @router.post("/refresh", summary="刷新 Token")
