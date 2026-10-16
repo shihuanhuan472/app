@@ -65,7 +65,7 @@ from utils.openai_client import create_async_openai_client, create_openai_client
 from utils.VectorService import VectorService
 from utils.retrieval_log import log_retrieval, trace_retrieval
 from utils.token_counter import get_token_count
-from utils.ai_usage import record_ai_usage
+from utils.ai_usage import extract_ai_usage, record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
 from agents.intent.taxonomy import IntentRoute
 from agents.memory import MemoryPack, MemoryPackBuilder, MemoryService
@@ -2374,13 +2374,7 @@ async def stream_ai_response(
                 first_event_logged = True
                 print(f"[AI流式] 首个事件耗时: {time.perf_counter() - stream_start:.3f}s")
             if getattr(chunk, "usage", None) is not None:
-                usage_payload = {
-                    "input_tokens": getattr(chunk.usage, "prompt_tokens", 0) or getattr(chunk.usage, "input_tokens", 0) or 0,
-                    "output_tokens": getattr(chunk.usage, "completion_tokens", 0) or getattr(chunk.usage, "output_tokens", 0) or 0,
-                    "total_tokens": getattr(chunk.usage, "total_tokens", 0) or 0,
-                    "prompt_tokens": getattr(chunk.usage, "prompt_tokens", 0) or 0,
-                    "completion_tokens": getattr(chunk.usage, "completion_tokens", 0) or 0,
-                }
+                usage_payload = extract_ai_usage(chunk)
             if chunk.choices and chunk.choices[0].delta.content:
                 if not first_chunk_logged:
                     first_chunk_logged = True
@@ -4240,9 +4234,12 @@ async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str
             max_tokens=max_token,
             **get_qwen_no_thinking_options(),
         )
-        return response.choices[0].message.content
+        return response
 
-    final_ans = await asyncio.to_thread(_call_openai)
+    response = await asyncio.to_thread(_call_openai)
+    await record_ai_usage(db, message_id=id, model=model, request_type="chat", response=response)
+    await db.commit()
+    final_ans = response.choices[0].message.content or ""
     final_ans = final_ans.replace("\n---\n", "---").replace("\n\n", "\n")
 
     # 图片路径替换为 Web URL，并在必要时追加参考图片 Markdown。

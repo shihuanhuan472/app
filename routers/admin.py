@@ -483,12 +483,12 @@ async def _build_token_summary(
             func.coalesce(func.sum(AiUsageLog.output_tokens), 0),
             func.coalesce(func.sum(AiUsageLog.total_tokens), 0),
             func.count(AiUsageLog.id),
-        ).where(AiUsageLog.status == "success", *usage_filters)
+        ).where(AiUsageLog.status.in_(["success", "usage_missing"]), *usage_filters)
     )
     usage_row = usage_result.one()
     parse_result = await db.execute(
         select(func.coalesce(func.sum(AiUsageLog.total_tokens), 0)).where(
-            AiUsageLog.status == "success",
+            AiUsageLog.status.in_(["success", "usage_missing"]),
             AiUsageLog.request_type.like("parse%"),
             *usage_filters,
         )
@@ -525,7 +525,7 @@ async def _build_token_summary(
 
     total_tokens = int(message_tokens + image_tokens + reference_tokens)
     return {
-        "total": int(usage_row[2] or total_tokens),
+        "total": int(usage_row[2] or 0),
         "api_total": int(usage_row[2] or 0),
         "api_input_tokens": int(usage_row[0] or 0),
         "api_output_tokens": int(usage_row[1] or 0),
@@ -539,8 +539,8 @@ async def _build_token_summary(
         "reference_tokens": reference_tokens,
         "image_count": image_count,
         "reference_count": reference_count,
-        "call_count": call_count,
-        "average_per_call": int(round(total_tokens / call_count)) if call_count else 0,
+        "call_count": int(usage_row[3] or 0),
+        "average_per_call": int(round(int(usage_row[2] or 0) / usage_row[3])) if usage_row[3] else 0,
         "breakdown": [
             {"label": "AI 回答", "value": ai_tokens, "color": "blue"},
             {"label": "用户提问", "value": user_tokens, "color": "orange"},
@@ -719,7 +719,37 @@ async def get_dashboard(
     yesterday_active_users = await _collect_active_user_ids(db, yesterday_start, today_start)
 
     today_token_summary = await _build_token_summary(db, today_start, tomorrow_start)
+    token_daily_result = await db.execute(
+        select(func.date(AiUsageLog.created_time), AiUsageLog.request_type, func.sum(AiUsageLog.total_tokens))
+        .where(
+            AiUsageLog.status.in_(["success", "usage_missing"]),
+            AiUsageLog.created_time < tomorrow_start,
+        )
+        .group_by(func.date(AiUsageLog.created_time), AiUsageLog.request_type)
+    )
+    token_daily = {}
+    token_business_daily = {}
+    for day, request_type, tokens in token_daily_result.all():
+        key = str(day)
+        value = int(tokens or 0)
+        token_daily[key] = token_daily.get(key, 0) + value
+        business = token_business_daily.setdefault(key, {"qa_tokens": 0, "parse_tokens": 0})
+        business["parse_tokens" if str(request_type or "").startswith("parse") else "qa_tokens"] += value
+    token_week = [
+        {"date": (today_start - timedelta(days=offset)).strftime("%Y-%m-%d"),
+         "total": token_daily.get((today_start - timedelta(days=offset)).strftime("%Y-%m-%d"), 0),
+         **token_business_daily.get((today_start - timedelta(days=offset)).strftime("%Y-%m-%d"), {"qa_tokens": 0, "parse_tokens": 0})}
+        for offset in range(6, -1, -1)
+    ]
     total_token_summary = await _build_token_summary(db)
+    hourly_result = await db.execute(
+        select(func.extract("hour", AiUsageLog.created_time), AiUsageLog.request_type, func.sum(AiUsageLog.total_tokens))
+        .where(AiUsageLog.status.in_(["success", "usage_missing"]), AiUsageLog.created_time >= today_start, AiUsageLog.created_time < tomorrow_start)
+        .group_by(func.extract("hour", AiUsageLog.created_time), AiUsageLog.request_type)
+    )
+    token_hours = [{"date": f"{hour:02d}:00", "qa_tokens": 0, "parse_tokens": 0} for hour in range(24)]
+    for hour, request_type, tokens in hourly_result.all():
+        token_hours[int(hour)]["parse_tokens" if str(request_type or "").startswith("parse") else "qa_tokens"] += int(tokens or 0)
 
     data = {
         "updated_at": _iso_datetime(now),
@@ -759,6 +789,11 @@ async def get_dashboard(
         "token_usage": {
             "today": today_token_summary,
             "total": total_token_summary,
+            "month_total": sum(tokens for day, tokens in token_daily.items() if day >= today_start.strftime("%Y-%m-01")),
+            "yesterday_total": token_daily.get(yesterday_start.strftime("%Y-%m-%d"), 0),
+            "daily": token_week,
+            "hourly": token_hours,
+            "history": [{"date": day, **values} for day, values in sorted(token_business_daily.items())],
         },
         "hot_documents": await _build_hot_documents(db, today_start),
         "recent_questions": await _build_recent_questions(db),

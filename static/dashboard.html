@@ -124,9 +124,13 @@
 
         .dashboard-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+            grid-template-columns: minmax(0, 1.2fr) minmax(360px, 1fr);
             gap: 18px;
         }
+        .dashboard-grid > .dashboard-panel { display: flex; flex-direction: column; min-width: 0; }
+        .dashboard-grid > .dashboard-panel > .panel-header { min-height: 74px; box-sizing: border-box; }
+        .dashboard-grid .chart-area { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px; }
+        .dashboard-grid .line-chart { height: auto; min-height: 290px; max-height: 380px; flex: 1; }
 
         .dashboard-panel {
             overflow: hidden;
@@ -322,7 +326,7 @@
 
         .token-summary {
             display: grid;
-            grid-template-columns: 1.15fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin-bottom: 14px;
         }
@@ -340,17 +344,69 @@
             background: #1971c2;
         }
 
-        .token-stat-label { font-size: 12px; color: #667085; }
+        .token-stat-label { font-size: 16px; color: #667085; }
         .token-stat.primary .token-stat-label { color: #dbeafe; }
-        .token-stat-value { margin-top: 5px; font-size: 22px; font-weight: 700; }
+        .token-stat-value { margin-top: 8px; font-size: 32px; font-weight: 700; }
+        .token-ratio-heading { margin: 4px 0 10px; font-size: 16px; font-weight: 600; color: #344054; }
+        .token-stat.output { background: #eff6ff; border-color: #dbeafe; }
+        .token-stat.output .token-stat-value { color: #1971c2; }
+        .token-stat.parse { background: #fff7ed; border-color: #ffedd5; }
+        .token-stat.parse .token-stat-value { color: #ea580c; }
+        .token-ratio-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+        .token-ratio-groups .token-ratio-heading { font-size: 15px; margin: 0 0 12px; }
+        .token-ratio-groups .token-summary { gap: 8px; margin-bottom: 0; }
+        .token-ratio-groups .token-stat { padding: 14px 12px; border-radius: 10px; }
+        .token-ratio-groups .token-stat-label { font-size: 15px; white-space: nowrap; }
+        .token-ratio-groups .token-stat-value { font-size: clamp(24px, 1.7vw, 32px); letter-spacing: -.5px; }
+        .token-ratio-groups .token-stat.primary { background: #eff6ff; border-color: #dbeafe; color: #1971c2; }
+        .token-ratio-groups .token-stat.primary .token-stat-label { color: #667085; }
+        .token-breakdown .token-chart-heading { padding-top: 18px; border-top: 1px solid #edf1f7; }
+        .token-breakdown .token-chart-heading .token-section-label { font-size: 15px; font-weight: 600; color: #344054; }
+        .token-breakdown .token-footnote { display: flex; gap: 18px; padding-top: 14px; margin-top: 12px; border-top: 1px solid #edf1f7; font-size: 14px; }
+        .token-breakdown .token-footnote strong { color: #344054; font-weight: 600; }
+        @media (min-width: 1025px) and (max-width: 1400px) {
+            .token-ratio-groups { gap: 12px; }
+            .token-ratio-groups .token-stat { padding: 12px 8px; }
+            .token-ratio-groups .token-stat-label { font-size: 14px; white-space: normal; }
+        }
+        @media (max-width: 600px) {
+            .token-ratio-groups { grid-template-columns: 1fr; }
+            .token-breakdown .token-footnote { flex-wrap: wrap; gap: 8px; }
+        }
         .token-stat-unit { margin-left: 3px; font-size: 11px; font-weight: 400; }
         .token-detail-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
         .token-detail { display: flex; justify-content: space-between; padding-top: 9px; border-top: 1px solid #eef1f5; font-size: 12px; color: #667085; }
         .token-detail strong { color: #344054; }
+        .token-section-label { margin: 12px 0 8px; color: #667085; font-size: 12px; }
+        .token-business { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #344054; font-size: 12px; }
+        .token-business .muted { color: #98a2b3; }
+        .token-trend { width: 100%; position: relative; }
+        .token-trend svg { display: block; width: 100%; height: auto; }
+        .token-trend { overflow-x: auto; }
+        .token-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+        .token-chart-heading .token-section-label { margin: 0; }
+        .token-chart-ranges { display: flex; padding: 3px; border: 1px solid #e5eaf0; border-radius: 7px; background: #f8fafc; }
+        .token-chart-ranges button { border: 0; background: transparent; color: #667085; padding: 5px 9px; cursor: pointer; border-radius: 5px; font-size: 12px; }
+        .token-chart-ranges button.active { background: #fff; color: #1971c2; box-shadow: 0 1px 4px #16365d14; }
+        .token-chart-day { outline: none; cursor: pointer; }
+        .token-chart-focus { fill: #eff6ff; opacity: 0; transition: opacity .2s ease; }
+        .token-chart-day:hover .token-chart-focus, .token-chart-day:focus .token-chart-focus { opacity: 1; }
+        .token-chart-stack { transform-origin: 0 174px; animation: token-bar-grow .85s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--bar-delay); transition: filter .2s; }
+        .token-chart-day:hover .token-chart-stack, .token-chart-day:focus .token-chart-stack { filter: brightness(1.12) drop-shadow(0 3px 3px #1971c233); }
+        .token-chart-total { animation: token-label-in .5s ease both; animation-delay: calc(var(--bar-delay) + .45s); }
+        .token-chart-tooltip { position: absolute; z-index: 5; pointer-events: none; min-width: 155px; padding: 12px 14px; border: 1px solid #e5eaf0; border-radius: 10px; background: rgba(255,255,255,.97); box-shadow: 0 8px 28px #16365d26; color: #344054; font-size: 12px; line-height: 1.9; }
+        .token-chart-tooltip[hidden] { display: none; }
+        .token-chart-tooltip strong { display: block; color: #101828; }
+        @keyframes token-bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+        @keyframes token-label-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) { .token-chart-stack, .token-chart-total { animation: none; } }
+        .token-trend-legend { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 4px; color: #667085; font-size: 11px; }
+        .token-trend-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 2px; }
+        .token-footnote { margin-top: 10px; color: #667085; font-size: 11px; }
 
         @media (max-width: 720px) {
             .token-summary { grid-template-columns: 1fr 1fr; }
-            .token-stat.primary { grid-column: 1 / -1; }
+            .token-stat-label { font-size: 15px; }
         }
 
         .breakdown-label,
@@ -1296,7 +1352,7 @@
             return `${pointsToPath(points)} L${last[0]} 220 L${first[0]} 220 Z`;
         }
 
-        function applyTokenPanel(tokenUsage) {
+        function applyLegacyTokenPanel(tokenUsage) {
             const tokenPanel = document.querySelectorAll('.dashboard-grid .dashboard-panel')[1];
             if (!tokenPanel) return;
 
@@ -1329,8 +1385,11 @@
             }
         }
 
-        // Compact token summary: emphasize today's total, then separate QA and parsing usage.
+        let tokenChartUsage = {};
+        let tokenChartRange = 'week';
+        // Today's API usage, business distribution and daily consumption trend.
         function applyTokenPanel(tokenUsage) {
+            tokenChartUsage = tokenUsage;
             const tokenPanel = document.querySelectorAll('.dashboard-grid .dashboard-panel')[1];
             if (!tokenPanel) return;
             const subtitle = tokenPanel.querySelector('.panel-subtitle');
@@ -1339,24 +1398,104 @@
             const lifetime = tokenUsage.total || {};
             const total = Number(today.api_total ?? today.total ?? 0);
             const lifetimeTotal = Number(lifetime.api_total ?? lifetime.total ?? 0);
-            const qa = Number(today.qa_tokens ?? 0) || Number(today.api_input_tokens ?? 0) + Number(today.api_output_tokens ?? 0);
+            const qa = Number(today.qa_tokens ?? 0);
             const parse = Number(today.parse_tokens ?? 0);
             const input = Number(today.api_input_tokens ?? 0);
             const output = Number(today.api_output_tokens ?? 0);
-            const calls = Number(today.api_call_count ?? today.call_count ?? 0);
-            if (subtitle) subtitle.textContent = `${formatCompact(calls)} 次 API 调用`;
+            const share = (value, sum) => sum > 0 ? `${(value / sum * 100).toFixed(1)}%` : '—';
+            if (subtitle) subtitle.hidden = true;
             if (container) container.innerHTML = `
+                <div class="token-ratio-groups"><div>
+                <div class="token-ratio-heading">今日输入 / 输出</div>
                 <div class="token-summary">
-                    <div class="token-stat primary"><div class="token-stat-label">今日消耗</div><div class="token-stat-value">${formatCompact(total)}<span class="token-stat-unit">Token</span></div></div>
-                    <div class="token-stat"><div class="token-stat-label">累计总计</div><div class="token-stat-value">${formatCompact(lifetimeTotal)}<span class="token-stat-unit">Token</span></div></div>
-                    <div class="token-stat"><div class="token-stat-label">问答 Token</div><div class="token-stat-value">${formatCompact(qa)}<span class="token-stat-unit">Token</span></div></div>
+                    <div class="token-stat primary"><div class="token-stat-label">输入占比</div><div class="token-stat-value">${share(input, input + output)}</div></div>
+                    <div class="token-stat output"><div class="token-stat-label">输出占比</div><div class="token-stat-value">${share(output, input + output)}</div></div>
                 </div>
-                <div class="token-detail-list">
-                    <div class="token-detail"><span>解析 Token</span><strong>${formatCompact(parse)}</strong></div>
-                    <div class="token-detail"><span>输入 Token</span><strong>${formatCompact(input)}</strong></div>
-                    <div class="token-detail"><span>输出 Token</span><strong>${formatCompact(output)}</strong></div>
-                    <div class="token-detail"><span>平均每次</span><strong>${formatCompact(calls ? Math.round(total / calls) : 0)}</strong></div>
-                </div>`;
+                </div><div>
+                <div class="token-ratio-heading">今日业务消耗</div>
+                <div class="token-summary">
+                    <div class="token-stat output"><div class="token-stat-label">问答占比</div><div class="token-stat-value">${share(qa, qa + parse)}</div></div>
+                    <div class="token-stat parse"><div class="token-stat-label">文档解析占比</div><div class="token-stat-value">${share(parse, qa + parse)}</div></div>
+                </div>
+                </div></div>
+                <div class="token-chart-heading"><div class="token-section-label" id="tokenChartTitle">Token 消耗总量</div><div class="token-chart-ranges" aria-label="Token 图表时间段">${[['today', '今天'], ['week', '7天内'], ['all', '历史累计']].map(([range, label]) => `<button type="button" data-token-range="${range}" class="${range === tokenChartRange ? 'active' : ''}" aria-pressed="${range === tokenChartRange}" onclick="switchTokenChartRange('${range}')">${label}</button>`).join('')}</div></div>
+                <div class="token-trend" id="tokenRangeChart"></div>
+                <div class="token-footnote"><span>本月消耗 <strong>${formatCompact(tokenUsage.month_total ?? 0)}</strong> Token</span><span>历史累计 <strong>${formatCompact(lifetimeTotal)}</strong> Token</span></div>`;
+            switchTokenChartRange(tokenChartRange);
+        }
+
+        function switchTokenChartRange(range) {
+            tokenChartRange = range;
+            const chart = document.getElementById('tokenRangeChart');
+            if (!chart) return;
+            const series = range === 'today' ? tokenChartUsage.hourly : range === 'all' ? tokenChartUsage.history : tokenChartUsage.daily;
+            chart.innerHTML = renderTokenDailyChart(series, range);
+            document.getElementById('tokenChartTitle').textContent = `${range === 'today' ? '今天' : range === 'all' ? '历史累计' : '近七日'} Token 消耗总量`;
+            document.querySelectorAll('[data-token-range]').forEach(button => {
+                const active = button.dataset.tokenRange === range;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-pressed', String(active));
+            });
+        }
+
+        function renderTokenDailyChart(series, range = 'week') {
+            // Older API responses still render seven dates instead of an empty chart.
+            const source = new Map((Array.isArray(series) ? series : []).map(day => [day.date, day]));
+            const rows = range === 'week' ? Array.from({ length: 7 }, (_, index) => {
+                const date = new Date();
+                date.setDate(date.getDate() - 6 + index);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                return { date: key, ...(source.get(key) || {}) };
+            }) : (Array.isArray(series) ? series : []);
+            const days = rows.map(day => {
+                const parse = Math.max(0, Number(day.parse_tokens || 0));
+                const qa = Math.max(0, Number(day.qa_tokens ?? Math.max(0, Number(day.total || 0) - parse)));
+                return { date: day.date, qa, parse, total: qa + parse };
+            });
+            const chartWidth = Math.max(620, 88 + days.length * 54);
+            const plotRight = chartWidth - 20;
+            const step = (plotRight - 64) / Math.max(1, days.length);
+            const max = getNiceAxisMax(Math.max(1, ...days.map(day => day.total)));
+            const bottom = 174;
+            const height = 140;
+            const grid = Array.from({ length: 5 }, (_, index) => {
+                const y = bottom - index * height / 4;
+                return `<line x1="64" y1="${y}" x2="${plotRight}" y2="${y}" stroke="#e5eaf0"/><text x="56" y="${y + 4}" text-anchor="end" fill="#667085" font-size="11">${formatAxisValue(max * index / 4)}</text>`;
+            }).join('');
+            const bars = days.map((day, index) => {
+                const x = 64 + step * (index + .5) - 16;
+                const qaHeight = day.qa / max * height;
+                const parseHeight = day.parse / max * height;
+                return `<g class="token-chart-day" tabindex="0" style="--bar-delay:${index * 75}ms" data-date="${day.date}" data-qa="${day.qa}" data-parse="${day.parse}" aria-label="${day.date} 总计 ${day.total} Token，问答 ${day.qa}，文档解析 ${day.parse}" onpointermove="showTokenChartTooltip(event, this)" onpointerleave="hideTokenChartTooltip(this)" onfocus="showTokenChartTooltip(event, this)" onblur="hideTokenChartTooltip(this)">
+                    <rect class="token-chart-focus" x="${x - 17}" y="28" width="66" height="171" rx="8"/>
+                    <g class="token-chart-stack">
+                    <rect x="${x}" y="${bottom - qaHeight}" width="32" height="${qaHeight}" fill="url(#tokenQaGradient)"/>
+                    <rect x="${x}" y="${bottom - qaHeight - parseHeight}" width="32" height="${parseHeight}" fill="url(#tokenParseGradient)"/>
+                    </g>
+                    <text class="token-chart-total" x="${x + 16}" y="${bottom - qaHeight - parseHeight - 6}" text-anchor="middle" fill="#344054" font-size="11">${formatCompact(day.total)}</text>
+                    <text x="${x + 16}" y="193" text-anchor="middle" fill="#667085" font-size="11">${range === 'today' ? day.date : day.date.slice(5).replace('-', '/')}</text></g>`;
+            }).join('');
+            return `<div class="token-trend-legend"><span><i style="background:#1971c2"></i>问答</span><span><i style="background:#f97316"></i>文档解析</span></div>
+                <svg viewBox="0 0 ${chartWidth} 218" style="min-width:${chartWidth}px" role="group" aria-label="Token 消耗堆叠柱状图，蓝色为问答，橙色为文档解析"><defs><linearGradient id="tokenQaGradient" x1="0" y1="1" x2="0" y2="0"><stop stop-color="#1971c2"/><stop offset="1" stop-color="#49a5f8"/></linearGradient><linearGradient id="tokenParseGradient" x1="0" y1="1" x2="0" y2="0"><stop stop-color="#f97316"/><stop offset="1" stop-color="#ffba65"/></linearGradient></defs><text x="12" y="16" fill="#667085" font-size="11">Token 数</text>${grid}<line x1="64" y1="34" x2="64" y2="174" stroke="#98a2b3"/>${bars}<text x="${plotRight}" y="214" text-anchor="end" fill="#667085" font-size="11">${range === 'today' ? '时间' : '日期'}</text></svg><div class="token-chart-tooltip" role="status" hidden></div>`;
+        }
+
+        function showTokenChartTooltip(event, bar) {
+            const chart = bar.closest('.token-trend');
+            const tooltip = chart.querySelector('.token-chart-tooltip');
+            const qa = Number(bar.dataset.qa);
+            const parse = Number(bar.dataset.parse);
+            tooltip.innerHTML = `<strong>${escapeHtml(bar.dataset.date)}</strong><span style="color:#1971c2">● 问答</span> ${qa.toLocaleString()}<br><span style="color:#f97316">● 文档解析</span> ${parse.toLocaleString()}<br>总计 <b>${(qa + parse).toLocaleString()}</b> Token`;
+            tooltip.hidden = false;
+            const bounds = chart.getBoundingClientRect();
+            const target = bar.getBoundingClientRect();
+            const x = Number.isFinite(event.clientX) ? event.clientX : target.left + target.width / 2;
+            const y = Number.isFinite(event.clientY) ? event.clientY : target.top;
+            tooltip.style.left = `${Math.max(0, Math.min(x - bounds.left + 14, bounds.width - tooltip.offsetWidth))}px`;
+            tooltip.style.top = `${Math.max(0, y - bounds.top - tooltip.offsetHeight - 12)}px`;
+        }
+
+        function hideTokenChartTooltip(bar) {
+            bar.closest('.token-trend').querySelector('.token-chart-tooltip').hidden = true;
         }
 
         function renderTokenBreakdown(container, rows, total) {

@@ -83,7 +83,19 @@ def create_chat_completion(
         )
     if json_mode and os.getenv("AI_RESPONSE_FORMAT_JSON", "0") == "1":
         options.setdefault("response_format", {"type": "json_object"})
-    return client.chat.completions.create(**options)
+    response = client.chat.completions.create(**options)
+    # Only calls inside a document-processing scope are collected. Chat usage
+    # keeps its existing recording path and is not double-counted.
+    from utils.document_usage import capture_document_usage
+
+    if inspect.isawaitable(response):
+        async def capture_async_response():
+            result = await response
+            capture_document_usage(result, options.get("model", ""))
+            return result
+        return capture_async_response()
+    capture_document_usage(response, options.get("model", ""))
+    return response
 
 
 def _strip_markdown_fence(text: str) -> str:

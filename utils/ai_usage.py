@@ -8,7 +8,7 @@ from models import AiUsageLog
 
 
 def _usage_attr(obj: Any, name: str) -> Optional[int]:
-    value = getattr(obj, name, None)
+    value = obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
     if value is None:
         return None
     try:
@@ -18,7 +18,7 @@ def _usage_attr(obj: Any, name: str) -> Optional[int]:
 
 
 def extract_ai_usage(response: Any) -> dict:
-    usage = getattr(response, "usage", None)
+    usage = response.get("usage") if isinstance(response, dict) else getattr(response, "usage", None)
     if usage is None:
         return {
             "input_tokens": 0,
@@ -75,7 +75,9 @@ async def record_ai_usage(
     status: str = "success",
     error_message: Optional[str] = None,
 ) -> AiUsageLog:
-    payload = usage or extract_ai_usage(response)
+    payload = extract_ai_usage({"usage": usage}) if usage is not None else extract_ai_usage(response)
+    if usage is not None and usage.get("raw_usage_json") is not None:
+        payload["raw_usage_json"] = usage["raw_usage_json"]
     log = AiUsageLog(
         user_id=user_id,
         session_id=session_id,

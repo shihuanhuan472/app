@@ -79,6 +79,7 @@ from utils.pagination import build_pagination_payload
 from utils.roles import UserRole, has_role
 from utils.upload_paths import normalize_upload_path
 from utils.automatic_tagging import format_ncmr_title, resolve_automatic_tag_ids
+from utils.document_usage import document_model_to_thread
 from utils.tag_service import (
     get_active_tag_snapshot,
     get_document_tag_names,
@@ -2801,7 +2802,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 continue
 
             if _is_knowledge_library(file_list.library_type):
-                parsed = await asyncio.to_thread(knowledge_parser.parse, url)
+                parsed = await document_model_to_thread(knowledge_parser.parse, url, request_type="parse_knowledge", user_id=current_user_id)
                 if parsed is None:
                     error_origin_filename.append(file_name)
                     has_invalid_request_error = True
@@ -2882,6 +2883,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                     file_name=file_name,
                     document=parsed,
                     tag_snapshot=tag_snapshot,
+                    user_id=current_user_id,
                 )
                 document.tag = _normalize_tags(resolved_tags)
                 document.title = format_ncmr_title(
@@ -2974,36 +2976,36 @@ async def analyze_files(file_list: AnalyzeRequest,
             if file_ext == ".pdf":
                 parser_for_error = pdf_parser
                 # document = pdf_parser.parse(url)
-                document = await asyncio.to_thread(pdf_parser.parse, url)
+                document = await document_model_to_thread(pdf_parser.parse, url, user_id=current_user_id)
 
             elif file_ext == ".pptx" or file_ext == ".ppt":
                 parser_for_error = ppt_parser
                 # document = ppt_parser.parse(url)
-                document = await asyncio.to_thread(ppt_parser.parse, url)
+                document = await document_model_to_thread(ppt_parser.parse, url, user_id=current_user_id)
 
             elif file_ext == ".html" or file_ext == ".mhtml":
                 parser_for_error = html_parser
                 # document = await asyncio.to_thread(html_parser.parse(url))
                 # document = html_parser.parse(url)
 
-                document = await asyncio.to_thread(html_parser.parse, url)
+                document = await document_model_to_thread(html_parser.parse, url, user_id=current_user_id)
 
             elif file_ext == ".docx":
                 parser_for_error = word_parser
                 # document = word_parser.parse(url)
-                document = await asyncio.to_thread(word_parser.parse, url)
+                document = await document_model_to_thread(word_parser.parse, url, user_id=current_user_id)
             elif file_ext == ".txt":
                 parser_for_error = txt_parser
-                document = await asyncio.to_thread(txt_parser.parse, url)
+                document = await document_model_to_thread(txt_parser.parse, url, user_id=current_user_id)
             elif file_ext == ".md" or file_ext == ".markdown":
                 parser_for_error = markdown_parser
-                document = await asyncio.to_thread(markdown_parser.parse, url)
+                document = await document_model_to_thread(markdown_parser.parse, url, user_id=current_user_id)
             elif file_ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
                 parser_for_error = image_parser
-                document = await asyncio.to_thread(image_parser.parse, url)
+                document = await document_model_to_thread(image_parser.parse, url, user_id=current_user_id)
             elif file_ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
                 parser_for_error = csv_excel_parser
-                document = await asyncio.to_thread(csv_excel_parser.parse, url)
+                document = await document_model_to_thread(csv_excel_parser.parse, url, user_id=current_user_id)
 
             logger.info(
                 "document analyze parser done, file=%s, ext=%s, elapsed=%.2fs",
@@ -3102,6 +3104,7 @@ async def analyze_files(file_list: AnalyzeRequest,
                 file_name=file_name,
                 document=document,
                 tag_snapshot=tag_snapshot,
+                user_id=current_user_id,
             )
             document.tag = _normalize_tags(resolved_tags)
             document.title = format_ncmr_title(

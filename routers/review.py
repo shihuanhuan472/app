@@ -31,6 +31,7 @@ from utils.tag_service import normalize_tag_ids, set_document_tag_ids, validate_
 from utils.title_utils import normalize_document_title
 from utils.upload_paths import normalize_upload_path
 from utils.VectorService import VectorService
+from utils.document_usage import document_model_to_thread
 from knowledge_parsers import knowledge_parser
 from knowledge_parsers.section_service import delete_section_images_for_document, replace_knowledge_document_sections
 
@@ -612,7 +613,7 @@ async def _sections_from_source_file(source: SourceDocument, review: Document_re
     absolute_path = os.path.join(document_base_dir, stored_path)
     if not absolute_path or not await asyncio.to_thread(os.path.exists, absolute_path):
         return None
-    parsed = await asyncio.to_thread(knowledge_parser.parse, absolute_path)
+    parsed = await document_model_to_thread(knowledge_parser.parse, absolute_path, request_type="parse_knowledge_review")
     if not parsed:
         return None
     if parsed.title and not review.title:

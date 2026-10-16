@@ -17,6 +17,7 @@ from models import Document, DocumentBreakdown, DocumentKnowledge, KnowledgeDocu
 from utils.VectorStoreMultimodal import vector_store_multimodal
 from utils.ai_endpoint import get_ai_base_url
 from utils.openai_client import create_chat_completion, create_openai_client, parse_chat_completion_json
+from utils.document_usage import document_model_to_thread
 
 load_dotenv()
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -126,9 +127,10 @@ class VectorService:
                 )
                 section_models = list(section_result.scalars().all())
                 section_snapshots = [_snapshot_section_for_vector_store(section) for section in section_models]
-                prepared_sections = await asyncio.to_thread(
+                prepared_sections = await document_model_to_thread(
                     self.vector_store_multimodal.prepare_knowledge_sections,
                     section_snapshots,
+                    request_type="parse_image_description",
                 )
                 prepared_by_id = {section.get("id"): section for section in prepared_sections}
                 for section_model in section_models:
@@ -141,7 +143,7 @@ class VectorService:
             vector_document = _snapshot_document_for_vector_store(document)
             if knowledge_sections:
                 vector_document.knowledge_sections = knowledge_sections
-            await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
+            await document_model_to_thread(self.vector_store_multimodal.add_document, vector_document, request_type="parse_index")
             document.is_vectorized = 1
             document.vector_update_time = datetime.now()
             if commit:
@@ -195,7 +197,7 @@ class VectorService:
         vector_document.version_label = version.version_label
         vector_document.hardware_version = version.hardware_version
         await asyncio.to_thread(self.vector_store_multimodal.delete_version, version.id)
-        await asyncio.to_thread(self.vector_store_multimodal.add_document, vector_document)
+        await document_model_to_thread(self.vector_store_multimodal.add_document, vector_document, request_type="parse_index_version")
 
     async def delete_knowledge_version_vectors(self, version_id: int):
         await asyncio.to_thread(self.vector_store_multimodal.delete_version, version_id)

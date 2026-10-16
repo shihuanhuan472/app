@@ -2,10 +2,12 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from utils.ai_endpoint import get_ai_base_url
+from utils.document_usage import persist_document_usage
 from utils.openai_client import (
     create_async_openai_client,
     parse_chat_completion_json,
@@ -136,6 +138,7 @@ async def classify_document_tag_ids(
     tag_snapshot: list[dict],
     file_name: str = "",
     filename_candidate_ids: list[int] | None = None,
+    user_id: int | None = None,
 ) -> list[int]:
     content = document_text_for_tagging(document)
     if not content.strip() or not tag_snapshot:
@@ -185,6 +188,11 @@ async def classify_document_tag_ids(
             max_tokens=200,
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
+        await persist_document_usage(
+            [{"response": response, "model": os.getenv("MODEL_AI"), "created_time": datetime.now()}],
+            "parse_auto_tag",
+            user_id=user_id,
+        )
         payload = parse_chat_completion_json(response)
         return validate_tag_ids(payload.get("tag_ids", []), tag_snapshot)
     except Exception:
@@ -196,7 +204,7 @@ async def classify_document_tag_ids(
 
 
 async def resolve_automatic_tag_ids(
-    *, manual_tags, file_name: str, document: Any, tag_snapshot: list[dict]
+    *, manual_tags, file_name: str, document: Any, tag_snapshot: list[dict], user_id: int | None = None
 ) -> tuple[list[Any], str]:
     if manual_tags:
         return validate_tag_ids(manual_tags, tag_snapshot), "manual"
@@ -206,5 +214,6 @@ async def resolve_automatic_tag_ids(
         tag_snapshot,
         file_name=file_name,
         filename_candidate_ids=filename_ids,
+        user_id=user_id,
     )
     return ai_ids, "content" if ai_ids else "unresolved"
