@@ -449,26 +449,32 @@ async def _collect_active_user_ids(db: AsyncSession, start: datetime, end: datet
     return user_ids
 
 
-async def _build_tag_usage(db: AsyncSession, tags: Sequence[Tag]) -> Dict[str, int]:
-    if not tags:
-        return {"high_frequency": 0}
-
+async def _build_tag_usage(db: AsyncSession, tags: Sequence[Tag]) -> Dict[str, Any]:
     tag_lookup: Dict[str, int] = {str(tag.id): int(tag.id) for tag in tags}
 
     tag_counts = Counter()
+    untagged_count = 0
     for model in (DocumentBreakdown, DocumentKnowledge):
         result = await db.execute(select(model.tag).where(model.is_deleted == 0))
         for row in result.all():
-            for raw_tag in _parse_json_or_csv_list(row[0]):
-                key = str(raw_tag or "").strip()
-                tag_id = tag_lookup.get(key)
-                if tag_id is not None:
-                    tag_counts[tag_id] += 1
+            document_tags = {
+                tag_lookup[key]
+                for value in _parse_json_or_csv_list(row[0])
+                if (key := str(value or "").strip()) in tag_lookup
+            }
+            if not document_tags:
+                untagged_count += 1
+            tag_counts.update(document_tags)
 
     high_frequency = sum(1 for count in tag_counts.values() if count >= 2)
     if high_frequency == 0:
         high_frequency = sum(1 for count in tag_counts.values() if count > 0)
-    return {"high_frequency": high_frequency}
+    devices = sorted(
+        [{"id": int(tag.id), "name": tag.name, "document_count": tag_counts[int(tag.id)]} for tag in tags],
+        key=lambda row: (-row["document_count"], row["name"]),
+    )
+    devices.append({"id": None, "name": "未标注设备", "document_count": untagged_count, "untagged": True})
+    return {"high_frequency": high_frequency, "devices": devices}
 
 
 async def _build_token_summary(
@@ -751,7 +757,23 @@ async def get_dashboard(
     for hour, request_type, tokens in hourly_result.all():
         token_hours[int(hour)]["parse_tokens" if str(request_type or "").startswith("parse") else "qa_tokens"] += int(tokens or 0)
 
+    week_start = today_start - timedelta(days=6)
+    week_questions = await _count_user_questions(db, week_start, tomorrow_start)
+    week_active_users = await _collect_active_user_ids(db, week_start, tomorrow_start)
+    enabled_users = await _count_rows(db, User, [User.status == 1, User.registration_status == "approved"])
+    unindexed_documents = (
+        await _count_rows(db, DocumentKnowledge, [DocumentKnowledge.is_deleted == 0, DocumentKnowledge.is_vectorized == 0])
+        + await _count_rows(db, DocumentBreakdown, [DocumentBreakdown.is_deleted == 0, DocumentBreakdown.is_vectorized == 0])
+    )
     data = {
+        "overview": {
+            "week_questions": week_questions,
+            "week_active_users": len(week_active_users),
+            "enabled_users": enabled_users,
+            "unindexed_documents": unindexed_documents,
+            "today_ai_answers": today_ai_answers,
+            "today_referenced_answers": today_ai_hits,
+        },
         "updated_at": _iso_datetime(now),
         "metrics": {
             "uploads": {
@@ -772,6 +794,7 @@ async def get_dashboard(
                 "total": total_tags,
                 "today": today_tags,
                 "high_frequency": tag_usage["high_frequency"],
+                "devices": tag_usage["devices"],
                 "change_percent": _percent_change(today_tags, yesterday_tags),
             },
             "questions": {

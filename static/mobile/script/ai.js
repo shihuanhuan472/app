@@ -111,7 +111,7 @@
         },
 
         getDisplayName(user) {
-            return (user && (user.full_name || user.username)) || '鐢ㄦ埛';
+            return (user && (user.full_name || user.username)) || '用户';
         }
     };
 
@@ -121,7 +121,7 @@
             const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
             if (!refreshToken) {
                 MobileUtils.logout();
-                throw new Error('娌℃湁鍙敤鐨勫埛鏂颁护鐗?);
+                throw new Error('没有可用的刷新令牌');
             }
 
             const response = await fetch(`${this.baseUrl}/auth/refresh`, {
@@ -132,7 +132,7 @@
             const result = await response.json().catch(() => ({}));
             if (!response.ok || Number(result.code) !== 1) {
                 MobileUtils.logout();
-                throw new Error(result.msg || result.message || '鐧诲綍宸茶繃鏈燂紝璇烽噸鏂扮櫥褰?);
+                throw new Error(result.msg || result.message || '登录已过期，请重新登录');
             }
 
             const tokenData = result.data || {};
@@ -178,7 +178,7 @@
             const tail = output.slice(lastImageStart);
             if (!tail.includes(')')) output = output.slice(0, lastImageStart);
         }
-        output = output.replace(/^.*(?:img_url|image_url|閰嶅浘璺緞|鏈枃閰嶅浘璺緞).*$(\r?\n)?/gmi, '');
+        output = output.replace(/^.*(?:img_url|image_url|配图路径|本文配图路径).*$(\r?\n)?/gmi, '');
         output = output.replace(/[A-Za-z]:[/\\][^\s)\]]+/g, '');
         output = output.replace(/\/upload\/[^\s)\]]+/g, '');
         output = output.replace(/\bupload\/(?:images|ask)\/[^\s)\]]+/g, '');
@@ -353,7 +353,7 @@
         async loadMoreHistory() {
             if (this.isLoadingMore || !this.hasMore || this.searchMode) return;
             this.isLoadingMore = true;
-            this.showHistoryFooter('鍔犺浇涓?..');
+            this.showHistoryFooter('加载中...');
             try {
                 await this.loadHistoryList(this.currentPage + 1, true);
             } finally {
@@ -402,9 +402,9 @@
                 this.currentPage = page;
                 this.totalPages = totalPages;
                 if (!this.searchMode) this.hasMore = this.currentPage < this.totalPages;
-                this.showHistoryFooter(this.hasMore ? '' : (conversations.length ? '娌℃湁鏇村瀵硅瘽浜? : ''));
+                this.showHistoryFooter(this.hasMore ? '' : (conversations.length ? '没有更多对话了' : ''));
             } catch (error) {
-                container.innerHTML = `<div class="history-error"><i class="fas fa-exclamation-triangle"></i><p>鍔犺浇澶辫触锛?{this.escapeHtml(error.message)}</p></div>`;
+                container.innerHTML = `<div class="history-error"><i class="fas fa-exclamation-triangle"></i><p>加载失败：${this.escapeHtml(error.message)}</p></div>`;
                 this.showHistoryFooter('');
             }
         }
@@ -422,7 +422,7 @@
 
         renderConversationList(conversations, container) {
             if (!conversations.length) {
-                container.innerHTML = '<div class="empty-history"><i class="fas fa-comments"></i><p>鏆傛棤瀵硅瘽</p></div>';
+                container.innerHTML = '<div class="empty-history"><i class="fas fa-comments"></i><p>暂无对话</p></div>';
                 return;
             }
             container.innerHTML = conversations.map((conv) => this.generateHistoryItemHTML(conv)).join('');
@@ -439,7 +439,7 @@
 
         generateHistoryItemHTML(conv) {
             const id = Number(conv.id);
-            const title = this.escapeHtml(conv.title || conv.name || '鏃犳爣棰樺璇?);
+            const title = this.escapeHtml(conv.title || conv.name || '无标题对话');
             const date = conv.updated_time ? MobileUtils.formatDate(conv.updated_time, 'MM-DD HH:mm') : '';
             const active = id === this.currentConversationId ? ' active' : '';
             return `
@@ -449,8 +449,8 @@
                         <div class="history-item-date">${date}</div>
                     </div>
                     <div class="history-item-actions">
-                        <button class="btn-edit-title" type="button" title="淇敼鏍囬" aria-label="淇敼鏍囬"><i class="fas fa-edit"></i></button>
-                        <button class="btn-delete-conversation" type="button" title="鍒犻櫎瀵硅瘽" aria-label="鍒犻櫎瀵硅瘽"><i class="fas fa-trash"></i></button>
+                        <button class="btn-edit-title" type="button" title="修改标题" aria-label="修改标题"><i class="fas fa-edit"></i></button>
+                        <button class="btn-delete-conversation" type="button" title="删除对话" aria-label="删除对话"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>`;
         }
@@ -473,16 +473,16 @@
 
         async createNewConversation() {
             try {
-                MobileUtils.showMessage('姝ｅ湪鍒涘缓鏂板璇?..', 'info');
+                MobileUtils.showMessage('正在创建新对话...', 'info');
                 const response = await conversationAPI.createConversation();
                 const conversation = this.extractSingleConversation(response);
-                if (!conversation || !conversation.id) throw new Error('鍒涘缓瀵硅瘽澶辫触');
+                if (!conversation || !conversation.id) throw new Error('创建对话失败');
                 await this.loadConversation(Number(conversation.id), { keepDrawer: false });
                 await this.loadHistoryList(1);
                 this.clearInputAndAttachments();
-                MobileUtils.showMessage('鏂板璇濆凡鍒涘缓', 'success');
+                MobileUtils.showMessage('新对话已创建', 'success');
             } catch (error) {
-                MobileUtils.showMessage(`鍒涘缓瀵硅瘽澶辫触锛?{error.message}`, 'error');
+                MobileUtils.showMessage(`创建对话失败：${error.message}`, 'error');
             }
         }
 
@@ -495,14 +495,14 @@
 
         async loadConversation(conversationId, options = {}) {
             if (!conversationId || Number.isNaN(conversationId)) {
-                MobileUtils.showMessage('鏃犳晥鐨勫璇滻D', 'error');
+                MobileUtils.showMessage('无效的对话ID', 'error');
                 return;
             }
 
             try {
                 const response = await conversationAPI.getConversationById(conversationId);
                 const conversation = this.extractSingleConversation(response);
-                if (!conversation) throw new Error('瀵硅瘽涓嶅瓨鍦ㄦ垨鏃犳潈闄愯闂?);
+                if (!conversation) throw new Error('对话不存在或无权限访问');
 
                 this.currentConversationId = conversationId;
                 sessionStorage.setItem('last_conversation_id', String(conversationId));
@@ -515,7 +515,7 @@
                 await this.loadHistoryList(1);
                 if (!options.keepDrawer) this.closeDrawer();
             } catch (error) {
-                MobileUtils.showMessage(`鍔犺浇瀵硅瘽澶辫触锛?{error.message}`, 'error');
+                MobileUtils.showMessage(`加载对话失败：${error.message}`, 'error');
                 this.showEmptyState();
             }
         }
@@ -529,7 +529,7 @@
         }
 
         updateConversationHeader(conversation) {
-            const title = conversation.title || conversation.name || '鏃犳爣棰樺璇?;
+            const title = conversation.title || conversation.name || '无标题对话';
             const titleEl = document.getElementById('currentConversationTitle');
             const pageTitle = document.getElementById('mobilePageTitle');
             const dateEl = document.getElementById('currentConversationDate');
@@ -551,7 +551,7 @@
             })));
 
             if (!messages || messages.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="fas fa-comments"></i></div><h2>瀵硅瘽寮€濮?/h2><p>杩欐槸鎮ㄧ殑鏂板璇濓紝璇疯緭鍏ユ偍鐨勯棶棰樺紑濮嬩氦娴併€?/p></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="fas fa-comments"></i></div><h2>对话开始</h2><p>这是您的新对话，请输入您的问题开始交流。</p></div>';
                 return;
             }
 
@@ -573,7 +573,7 @@
             const container = document.createElement('div');
             container.className = `message-container ${isAI ? 'ai' : 'user'}`;
 
-            let html = `<div class="message-sender ${isAI ? 'ai' : 'user'}">${isAI ? 'AI鍔╂墜' : '鐢ㄦ埛'}</div>`;
+            let html = `<div class="message-sender ${isAI ? 'ai' : 'user'}">${isAI ? 'AI助手' : '用户'}</div>`;
             html += `<div class="message-content ${isAI ? 'ai' : 'user'}">`;
             const content = message.content_text || message.content || '';
             const isCompletedAI = isAI && content && !content.includes('回答生成中，请稍后刷新') && !content.includes('回答生成失败');
@@ -582,7 +582,7 @@
                 const steps = process.map((step) => `<div class="ai-process-step is-complete"><span class="ai-process-step-mark">✓</span><span><b>${step.title || '处理完成'}</b><small>${step.detail || ''}</small></span></div>`).join('');
                 html += `<details class="ai-process is-complete"><summary><span class="ai-process-icon">◇</span><span>已经完成思考</span><span class="ai-process-chevron">›</span></summary>${steps ? `<div class="ai-process-steps">${steps}</div>` : ''}</details>`;
             }
-            html += `<div class="message-text">${this.formatMessageContent(content || '鏆傛棤鍐呭', isAI)}</div>`;
+            html += `<div class="message-text">${this.formatMessageContent(content || '暂无内容', isAI)}</div>`;
 
             if (!isAI && message.user_uploaded_images && String(message.user_uploaded_images).trim()) {
                 const images = String(message.user_uploaded_images).split(',').map((item) => item.trim()).filter(Boolean);
@@ -590,7 +590,7 @@
                     html += '<div class="message-image-previews">';
                     images.forEach((imageUrl) => {
                         const fullUrl = imageUrl.startsWith('data:image') ? imageUrl : API_CONFIG.getAssetUrl(imageUrl);
-                        const fileName = this.escapeHtml(imageUrl.split('/').pop() || '鍥剧墖');
+                        const fileName = this.escapeHtml(imageUrl.split('/').pop() || '图片');
                         html += `<div class="image-preview-item" data-image-url="${this.escapeAttribute(imageUrl)}"><img src="${this.escapeAttribute(fullUrl)}" alt="${fileName}"></div>`;
                     });
                     html += '</div>';
@@ -819,7 +819,7 @@
                     try {
                         return this.normalizeReferenceDocuments(JSON.parse(raw));
                     } catch (_) {
-                        // 鍏煎鏃ф牸寮?
+                        // 兼容旧格式
                     }
                 }
                 return raw.split(',').map((value) => {
@@ -838,14 +838,14 @@
 
         renderReferenceDocumentsHtml(docs) {
             const items = docs.map((doc) => {
-                const title = this.escapeHtml(doc.title && doc.title.trim() ? doc.title : `鏂囨。 ${doc.doc_id}`);
+                const title = this.escapeHtml(doc.title && doc.title.trim() ? doc.title : `文档 ${doc.doc_id}`);
                 const libraryType = doc.library_type === 'knowledge' ? 'knowledge' : 'breakdown';
                 const scoreHtml = typeof doc.score === 'number' && !Number.isNaN(doc.score)
-                    ? `<span class="doc-score ${this.getReferenceScoreLevel(doc.score).className}">鍖归厤搴?${(Math.max(0, Math.min(1, doc.score)) * 100).toFixed(1)}%</span>`
+                    ? `<span class="doc-score ${this.getReferenceScoreLevel(doc.score).className}">匹配度：${(Math.max(0, Math.min(1, doc.score)) * 100).toFixed(1)}%</span>`
                     : '';
                 return `<div class="document-item document-item-static" data-doc-id="${doc.doc_id}" data-library-type="${libraryType}"><div class="document-item-title"><i class="fas fa-book-open"></i><span class="doc-title">${title}</span>${scoreHtml}</div></div>`;
             }).join('');
-            return `<div class="message-documents"><div class="documents-title"><i class="fas fa-book-open"></i> 鐩稿叧鍙傝€冩枃妗?/div><div class="documents-list">${items}</div></div>`;
+            return `<div class="message-documents"><div class="documents-title"><i class="fas fa-book-open"></i> 相关参考文档</div><div class="documents-list">${items}</div></div>`;
         }
 
         getReferenceScoreLevel(score) {
@@ -864,7 +864,7 @@
         }
 
         async editConversationTitle(conversationId, currentTitle) {
-            const newTitle = window.prompt('璇疯緭鍏ユ柊鐨勫璇濇爣棰?, currentTitle || '');
+            const newTitle = window.prompt('请输入新的对话标题', currentTitle || '');
             if (!newTitle || !newTitle.trim() || newTitle.trim() === currentTitle) return;
             try {
                 await conversationAPI.updateTitle(conversationId, newTitle.trim());
@@ -872,14 +872,14 @@
                     this.updateConversationHeader({ id: conversationId, title: newTitle.trim(), updated_time: new Date() });
                 }
                 await this.loadHistoryList(1);
-                MobileUtils.showMessage('鏍囬宸叉洿鏂?, 'success');
+                MobileUtils.showMessage('标题已更新', 'success');
             } catch (error) {
-                MobileUtils.showMessage(`鏇存柊鏍囬澶辫触锛?{error.message}`, 'error');
+                MobileUtils.showMessage(`更新标题失败：${error.message}`, 'error');
             }
         }
 
         async deleteConversation(conversationId) {
-            if (!window.confirm('纭畾瑕佸垹闄よ繖涓璇濆悧锛熸鎿嶄綔涓嶅彲鎭㈠銆?)) return;
+            if (!window.confirm('确定要删除这个对话吗？此操作不可恢复。')) return;
             try {
                 await conversationAPI.deleteConversation(conversationId);
                 if (this.currentConversationId === conversationId) {
@@ -888,9 +888,9 @@
                     this.showEmptyState();
                 }
                 await this.loadHistoryList(1);
-                MobileUtils.showMessage('瀵硅瘽宸插垹闄?, 'success');
+                MobileUtils.showMessage('对话已删除', 'success');
             } catch (error) {
-                MobileUtils.showMessage(`鍒犻櫎瀵硅瘽澶辫触锛?{error.message}`, 'error');
+                MobileUtils.showMessage(`删除对话失败：${error.message}`, 'error');
             }
         }
 
@@ -901,11 +901,11 @@
             const messageText = input ? input.value.trim() : '';
 
             if (!messageText && this.currentAttachments.length === 0) {
-                MobileUtils.showMessage('璇疯緭鍏ユ秷鎭垨涓婁紶鍥剧墖', 'warning');
+                MobileUtils.showMessage('请输入消息或上传图片', 'warning');
                 return;
             }
             if (!this.currentConversationId) {
-                MobileUtils.showMessage('璇峰厛閫夋嫨鎴栧垱寤轰竴涓璇?, 'warning');
+                MobileUtils.showMessage('请先选择或创建一个对话', 'warning');
                 return;
             }
 
@@ -944,12 +944,12 @@
                     (error) => {
                         this.removeStreamingMessage();
                         this.removeTemporaryElements();
-                        MobileUtils.showMessage(`鍙戦€佹秷鎭け璐ワ細${error.message}`, 'error');
+                        MobileUtils.showMessage(`发送消息失败：${error.message}`, 'error');
                     },
                     (status) => this.updateAIStatus(status)
                 );
             } catch (error) {
-                MobileUtils.showMessage(`鍙戦€佹秷鎭け璐ワ細${error.message}`, 'error');
+                MobileUtils.showMessage(`发送消息失败：${error.message}`, 'error');
                 if (this.currentConversationId) await this.loadConversation(this.currentConversationId, { keepDrawer: true });
             } finally {
                 if (sendButton) sendButton.disabled = false;
@@ -1046,11 +1046,11 @@
             if (!previewContainer) return;
             Array.from(files || []).forEach((file) => {
                 if (!file.type.startsWith('image/')) {
-                    MobileUtils.showMessage('鍙兘涓婁紶鍥剧墖鏂囦欢', 'warning');
+                    MobileUtils.showMessage('只能上传图片文件', 'warning');
                     return;
                 }
                 if (file.size > 10 * 1024 * 1024) {
-                    MobileUtils.showMessage('鍥剧墖澶у皬涓嶈兘瓒呰繃10MB', 'warning');
+                    MobileUtils.showMessage('图片大小不能超过10MB', 'warning');
                     return;
                 }
                 this.currentAttachments.push(file);
@@ -1067,12 +1067,12 @@
                 preview.dataset.index = String(index);
                 preview.innerHTML = `
                     <div class="attachment-preview-content">
-                        <img src="${event.target.result}" alt="棰勮">
+                        <img src="${event.target.result}" alt="预览">
                         <div class="attachment-info">
                             <div class="attachment-name" title="${this.escapeAttribute(file.name)}">${this.escapeHtml(file.name)}</div>
                             <div class="attachment-size">${this.formatFileSize(file.size)}</div>
                         </div>
-                        <button type="button" class="btn-remove-attachment" aria-label="绉婚櫎闄勪欢"><i class="fas fa-times"></i></button>
+                        <button type="button" class="btn-remove-attachment" aria-label="移除附件"><i class="fas fa-times"></i></button>
                     </div>`;
                 preview.querySelector('.btn-remove-attachment')?.addEventListener('click', () => {
                     const currentIndex = Number(preview.dataset.index);
@@ -1115,7 +1115,7 @@
             if (!this.supportsSpeechRecognition) {
                 const btn = document.getElementById('voiceInputButton');
                 if (btn) btn.disabled = true;
-                this.updateVoiceStatus('褰撳墠娴忚鍣ㄤ笉鏀寔璇煶杈撳叆锛堝缓璁?Chrome/Edge锛?);
+                this.updateVoiceStatus('当前浏览器不支持语音输入（建议使用 Chrome/Edge）');
                 return;
             }
 
@@ -1126,7 +1126,7 @@
             this.speechRecognition.onstart = () => {
                 this.isListening = true;
                 this.updateVoiceInputButtonState();
-                this.updateVoiceStatus('姝ｅ湪鍚綘璇磋瘽...');
+                this.updateVoiceStatus('正在听您说话...');
             };
             this.speechRecognition.onresult = (event) => {
                 const input = document.getElementById('messageInput');
@@ -1143,18 +1143,18 @@
             this.speechRecognition.onend = () => {
                 this.isListening = false;
                 this.updateVoiceInputButtonState();
-                this.updateVoiceStatus(this.speechFinalText ? '璇嗗埆瀹屾垚' : '璇煶杈撳叆宸插仠姝?);
+                this.updateVoiceStatus(this.speechFinalText ? '识别完成' : '语音输入已停止');
             };
             this.speechRecognition.onerror = () => {
                 this.isListening = false;
                 this.updateVoiceInputButtonState();
-                this.updateVoiceStatus('璇煶璇嗗埆澶辫触锛岃閲嶈瘯');
+                this.updateVoiceStatus('语音识别失败，请重试');
             };
         }
 
         toggleVoiceInput() {
             if (!this.supportsSpeechRecognition || !this.speechRecognition) {
-                MobileUtils.showMessage('褰撳墠娴忚鍣ㄤ笉鏀寔璇煶杈撳叆', 'warning');
+                MobileUtils.showMessage('当前浏览器不支持语音输入', 'warning');
                 return;
             }
             if (this.isListening) this.stopVoiceInput();
@@ -1189,7 +1189,7 @@
             container.querySelectorAll('.message-text img').forEach((image) => {
                 if (image.dataset.previewBound === '1') return;
                 image.dataset.previewBound = '1';
-                image.setAttribute('title', '鐐瑰嚮鏌ョ湅澶у浘');
+                image.setAttribute('title', '点击查看大图');
                 image.addEventListener('click', (event) => {
                     event.stopPropagation();
                     this.previewImage(image.getAttribute('src') || '');
@@ -1201,10 +1201,10 @@
             if (!imageUrl) return;
             const isBase64 = imageUrl.startsWith('data:image');
             const imageSrc = isBase64 ? imageUrl : API_CONFIG.getAssetUrl(imageUrl);
-            const fileName = isBase64 ? '棰勮鍥剧墖' : imageUrl.split('/').pop();
+            const fileName = isBase64 ? '预览图片' : imageUrl.split('/').pop();
             const modal = document.createElement('div');
             modal.className = 'image-modal';
-            modal.innerHTML = `<div class="image-modal-content"><button class="close-modal" type="button">&times;</button><img src="${this.escapeAttribute(imageSrc)}" alt="棰勮鍥剧墖"><div class="image-filename">${this.escapeHtml(fileName || '鍥剧墖')}</div></div>`;
+            modal.innerHTML = `<div class="image-modal-content"><button class="close-modal" type="button">&times;</button><img src="${this.escapeAttribute(imageSrc)}" alt="预览图片"><div class="image-filename">${this.escapeHtml(fileName || '图片')}</div></div>`;
             modal.querySelector('.close-modal')?.addEventListener('click', () => modal.remove());
             modal.addEventListener('click', (event) => {
                 if (event.target === modal) modal.remove();
@@ -1220,15 +1220,15 @@
         showEmptyState() {
             const container = document.getElementById('conversationContent');
             if (container) {
-                container.innerHTML = `<div class="empty-state" id="emptyState"><div class="empty-icon"><i class="fas fa-robot"></i></div><h2>AI缁翠慨鍔╂墜</h2><p>鎮ㄥソ锛佹垜鏄偍鐨勭淮淇緟鍔〢I鍔╂墜锛屽彲浠ュ府鎮ㄨВ鍐宠澶囨晠闅溿€佹彁渚涚淮淇缓璁€佹煡鎵剧浉鍏虫枃妗ｃ€?/p><button class="empty-primary" id="emptyNewConversationBtn" type="button"><i class="fas fa-comments"></i> 寮€濮嬫柊瀵硅瘽</button></div>`;
+                container.innerHTML = `<div class="empty-state" id="emptyState"><div class="empty-icon"><i class="fas fa-robot"></i></div><h2>AI维修助手</h2><p>您好！我是您的维修辅助AI助手，可以帮您解决设备故障、提供维修建议、查找相关文档。</p><button class="empty-primary" id="emptyNewConversationBtn" type="button"><i class="fas fa-comments"></i> 开始新对话</button></div>`;
                 document.getElementById('emptyNewConversationBtn')?.addEventListener('click', () => this.createNewConversation());
             }
             this.showInputSection(false);
             const titleEl = document.getElementById('currentConversationTitle');
             const pageTitle = document.getElementById('mobilePageTitle');
             const dateEl = document.getElementById('currentConversationDate');
-            if (titleEl) titleEl.textContent = '璇烽€夋嫨鎴栨柊寤轰竴涓璇?;
-            if (pageTitle) pageTitle.textContent = 'AI杈呭姪瀵硅瘽';
+            if (titleEl) titleEl.textContent = '请选择或新建一个对话';
+            if (pageTitle) pageTitle.textContent = 'AI辅助对话';
             if (dateEl) dateEl.textContent = '';
         }
 
@@ -1259,7 +1259,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         MarkdownParser.init();
         if (typeof conversationAPI === 'undefined' || typeof messageAPI === 'undefined') {
-            MobileUtils.showMessage('绯荤粺鍒濆鍖栧け璐ワ紝璇峰埛鏂伴〉闈?, 'error');
+            MobileUtils.showMessage('系统初始化失败，请刷新页面', 'error');
             return;
         }
         window.MobileAIConversation = new MobileAIConversationSystem();

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-app-template="数据看板 - {{fullName}}"></title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard-overview.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
@@ -659,6 +660,93 @@
                 justify-items: center;
             }
         }
+        .main-content .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .metric-card:nth-child(3) { display: none; }
+        .device-document-chart { padding: 20px 20px 14px; overflow-x: auto; }
+        .device-chart-canvas { position: relative; min-width: 100%; width: max-content; }
+        .device-chart-grid { position: absolute; left: 32px; right: 0; top: 20px; height: 120px; pointer-events: none; }
+        .device-chart-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed #e8eef5; }
+        .device-chart-gridline:last-child { border-top-style: solid; border-color: #dce5ef; }
+        .device-chart-tick { position: absolute; right: calc(100% + 10px); top: -7px; font-size: 10px; color: #98a2b3; }
+        .device-chart-columns { position: relative; display: flex; padding-left: 32px; }
+        .device-chart-column { flex: 1 0 88px; min-width: 88px; text-align: center; border-radius: 6px; transition: background .2s; }
+        .device-chart-column:hover { background: #1971c206; }
+        .device-chart-plot { height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+        .device-chart-count { color: #34516d; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+        .device-chart-bar { width: 32px; background: linear-gradient(0deg, #287cca, #69b9ea); border-radius: 5px 5px 0 0; box-shadow: inset 0 1px 0 #ffffff55; transition: filter .2s; }
+        .device-chart-column:hover .device-chart-bar { filter: brightness(1.08); }
+        .device-chart-column.is-untagged .device-chart-bar { background: linear-gradient(0deg, #8798ab, #b8c5d3); }
+        .device-chart-label { margin: 10px 8px 0; font-size: 12px; line-height: 1.5; color: #526677; overflow-wrap: anywhere; }
+        @media(max-width: 700px) { .main-content .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+        /* Compact cards and spacing for the dashboard content area. */
+        .main-content .dashboard-page { gap: 12px; }
+        .main-content .executive-grid,
+        .main-content .metric-grid,
+        .main-content .dashboard-grid,
+        .main-content .lower-grid { gap: 12px; }
+        .main-content .executive-hero { padding: 18px 22px; border-radius: 12px; gap: 16px; }
+        .main-content .executive-hero h2 { margin: 8px 0; }
+        .main-content .hero-signal { padding: 10px 12px; }
+        .main-content .overview-panel { padding: 14px 16px; }
+        .main-content .overview-heading { margin-bottom: 14px; }
+        .main-content .overview-stat strong { margin-top: 6px; }
+        .main-content .overview-stat p { margin: 6px 0; }
+        .main-content .overview-pair { margin-top: 10px; gap: 20px; }
+        .main-content .overview-footnote { margin-top: 10px; }
+        .main-content .asset-track,
+        .main-content .coverage-track { height: 6px; margin: 16px 0 10px; }
+        .main-content .attention-row { padding: 8px 0; }
+        .main-content .metric-card { min-height: 0; padding: 12px 14px; }
+        .main-content .metric-card-header { margin-bottom: 10px; }
+        .main-content .metric-icon { width: 32px; height: 32px; font-size: 15px; }
+        .main-content .metric-label { margin-bottom: 4px; }
+        .main-content .metric-note { margin-top: 6px; }
+        .main-content .panel-header { min-height: 48px; padding: 10px 14px; gap: 10px; }
+        .main-content .chart-area,
+        .main-content .token-breakdown { padding: 14px; }
+        .main-content .dashboard-grid .line-chart { min-height: 220px; max-height: 300px; }
+        .main-content .token-ratio-groups { gap: 12px; margin-bottom: 12px; }
+        .main-content .token-ratio-groups .token-ratio-heading { margin-bottom: 8px; }
+        .main-content .token-stat { padding: 10px; }
+        .main-content .token-stat-value { margin-top: 5px; }
+        .main-content .token-breakdown .token-chart-heading { padding-top: 12px; }
+        .main-content .mini-stat-grid { gap: 8px; padding: 0 14px 14px; }
+        .main-content .mini-stat { padding: 10px; }
+        .main-content .ranking-list,
+        .main-content .qa-list,
+        .main-content .status-list { padding: 4px 14px 12px; }
+        .main-content .ranking-row,
+        .main-content .qa-row,
+        .main-content .status-row { padding: 9px 0; gap: 8px; }
+
+        /* Compact typography for the dashboard content area. */
+        .main-content { font-size: 12px; }
+        .main-content .header h1 { font-size: 20px; }
+        .main-content .header p { font-size: 12px; }
+        .main-content .executive-hero h2 { font-size: 20px; }
+        .main-content .executive-hero p { font-size: 12px; }
+        .main-content .overview-stat strong { font-size: 26px; }
+        .main-content .overview-pair b,
+        .main-content .attention-row b { font-size: 18px; }
+        .main-content .metric-value,
+        .main-content .token-stat-value { font-size: 22px; }
+        .main-content .token-ratio-groups .token-stat-value { font-size: clamp(20px, 1.3vw, 24px); }
+        .main-content .mini-stat-value { font-size: 17px; }
+        .main-content .panel-title { font-size: 14px; }
+        .main-content .token-stat-label,
+        .main-content .token-ratio-heading,
+        .main-content .token-breakdown .token-section-label,
+        .main-content .row-title,
+        .main-content .row-value { font-size: 12px; }
+        .main-content .dashboard-updated,
+        .main-content .overview-stat > span,
+        .main-content .attention-row,
+        .main-content .metric-label { font-size: 12px; }
+        .main-content .metric-note,
+        .main-content .metric-change,
+        .main-content .panel-subtitle,
+        .main-content .token-breakdown .token-footnote { font-size: 11px; }
     </style>
 </head>
 <body>
@@ -720,6 +808,8 @@
                 </div>
                 <div class="header-actions dashboard-toolbar">
                     <div class="dashboard-updated" id="dashboardUpdated">最后更新 --:--</div>
+                    <label class="auto-refresh"><input type="checkbox" id="autoRefresh"> 每分钟刷新</label>
+                    <button type="button" class="btn btn-secondary" id="presentationToggle" aria-pressed="false">演示模式</button>
                     <button type="button" class="btn btn-secondary" onclick="refreshDashboardMockData()">
                         <i class="fas fa-rotate-right"></i> 刷新
                     </button>
@@ -727,6 +817,13 @@
             </div>
 
             <div class="dashboard-page">
+                <section class="executive-hero" aria-label="管理总览">
+                    <div><div class="hero-eyebrow">OPERATION OVERVIEW / 系统运行总览</div><h2>让知识沉淀，让维修有据可依</h2><p id="executiveSummary" role="status">正在汇总系统数据…</p></div>
+                    <div class="hero-signal"><span class="signal-dot"></span><span id="overviewState">等待数据</span><small>基于系统业务记录</small></div>
+                </section>
+                <section class="executive-grid" id="executiveOverview" aria-label="管理关注指标"><div class="dashboard-empty">正在加载管理指标…</div></section>
+
+
                 <section class="metric-grid" aria-label="核心指标">
                     <div class="metric-card">
                         <div class="metric-card-header">
@@ -777,6 +874,11 @@
                         <div class="metric-value">328</div>
                         <div class="metric-note">今日内有有效操作的去重用户</div>
                     </div>
+                </section>
+
+                <section class="dashboard-panel" aria-label="各设备文档数量">
+                    <div class="panel-header"><div><div class="panel-title">各设备文档数量</div><div class="panel-subtitle">同一文档可计入多个设备，每个设备内去重；各柱合计不等于文档总数。无有效设备标签归入“未标注设备”，不含待审核和已删除文档。</div></div></div>
+                    <div id="deviceDocumentChart" class="device-document-chart" role="list" aria-label="设备及其文档篇数"><div class="dashboard-empty">正在加载设备文档统计…</div></div>
                 </section>
 
                 <section class="dashboard-grid">
@@ -973,6 +1075,8 @@
                         </div>
                     </div>
                 </section>
+
+
             </div>
         </div>
     </div>
@@ -1022,8 +1126,8 @@
             }
 
             Utils.loadUserInfo();
-            updateDashboardTime();
             initTrendRangeButtons();
+            initializeExecutiveDashboard();
         });
 
         function initTrendRangeButtons() {
@@ -1116,6 +1220,9 @@
         }
 
         async function loadDashboardData(showToast) {
+            if (window.dashboardLoading) return;
+            window.dashboardLoading = true;
+            document.querySelector('.dashboard-page').setAttribute('aria-busy', 'true');
             try {
                 const response = await dashboardClient.get('/admin/dashboard', true);
                 if (!response || response.code !== 1) {
@@ -1127,10 +1234,15 @@
                     Utils.showMessage('数据看板已刷新', 'success');
                 }
             } catch (error) {
+                document.getElementById('overviewState').textContent = dashboardData ? '刷新失败 · 保留上次数据' : '数据加载失败';
+                document.getElementById('executiveSummary').textContent = dashboardData ? '当前展示上次成功加载的数据，请稍后刷新。' : '暂时无法获取业务数据，请点击刷新重试。';
                 console.error('加载数据看板失败:', error);
                 if (showToast) {
                     Utils.showMessage(`数据看板刷新失败：${error.message}`, 'error');
                 }
+            } finally {
+                window.dashboardLoading = false;
+                document.querySelector('.dashboard-page').setAttribute('aria-busy', 'false');
             }
         }
 
@@ -1139,6 +1251,7 @@
         }
 
         function applyDashboardData(data) {
+            renderExecutiveOverview(data);
             updateDashboardTimeFromServer(data.updated_at);
             applyMetricCards(data.metrics || {});
             applyTrendRanges(data.trends || {});
@@ -1157,7 +1270,27 @@
             updatedEl.textContent = `最后更新 ${hours}:${minutes}`;
         }
 
+
+        function renderDeviceDocumentChart(rows) {
+            const container = document.getElementById('deviceDocumentChart');
+            if (!rows.length) {
+                container.innerHTML = '<div class="dashboard-empty">暂无设备标签，请先在标签管理中维护设备</div>';
+                return;
+            }
+            const maximum = Math.max(1, ...rows.map(row => Number(row.document_count) || 0));
+            const step = Math.max(1, Math.ceil(maximum / 4));
+            const ceiling = step * 4;
+            const grid = Array.from({length: 5}, (_, index) => `<div class="device-chart-gridline" style="top:${index * 25}%"><span class="device-chart-tick">${ceiling - index * step}</span></div>`).join('');
+            const columns = rows.map(row => {
+                const count = Math.max(0, Number(row.document_count) || 0);
+                const label = escapeHtml(row.name || '未命名设备');
+                return `<div class="device-chart-column${row.untagged ? ' is-untagged' : ''}" role="listitem" aria-label="${label}：${count} 篇文档"><div class="device-chart-plot"><span class="device-chart-count">${count}</span><div class="device-chart-bar" style="height:${count / ceiling * 120}px"></div></div><div class="device-chart-label">${label}</div></div>`;
+            }).join('');
+            container.innerHTML = `<div class="device-chart-canvas"><div class="device-chart-grid" aria-hidden="true">${grid}</div><div class="device-chart-columns" role="list">${columns}</div></div>`;
+        }
+
         function applyMetricCards(metrics) {
+            renderDeviceDocumentChart((metrics.tags || {}).devices || []);
             const uploads = metrics.uploads || {};
             updateMetricCard(0, uploads.total, `今日上传 ${formatNumber(uploads.today)} / 解析中 ${formatNumber(uploads.parsing)}`, uploads.change_percent);
 
@@ -1168,7 +1301,7 @@
             updateMetricCard(2, tags.total, `今日新增 ${formatNumber(tags.today)} / 高频标签 ${formatNumber(tags.high_frequency)}`, tags.change_percent);
 
             const questions = metrics.questions || {};
-            updateMetricCard(3, questions.today, `成功率 ${formatPercentValue(questions.success_rate)} / 命中率 ${formatPercentValue(questions.hit_rate)}`, questions.change_percent);
+            updateMetricCard(3, questions.today, `回答/提问比 ${formatPercentValue(questions.success_rate)} / 引用覆盖率 ${formatPercentValue(questions.hit_rate)}`, questions.change_percent);
 
             const users = metrics.active_users || {};
             updateMetricCard(4, users.today, '今日有登录、问答、上传或审核操作的去重用户', users.change_percent);
@@ -1198,8 +1331,7 @@
 
         function setTrendRange(range) {
             dashboardCurrentRange = range || 'week';
-            const data = (window.dashboardTrendRanges && window.dashboardTrendRanges[dashboardCurrentRange]) ||
-                ((typeof trendRanges !== 'undefined' && trendRanges[dashboardCurrentRange]) ? trendRanges[dashboardCurrentRange] : null);
+            const data = window.dashboardTrendRanges && window.dashboardTrendRanges[dashboardCurrentRange];
             if (!data) return;
 
             document.querySelectorAll('.chart-range-btn').forEach((button) => {
@@ -1533,6 +1665,7 @@
             return ['blue', 'orange', 'green', 'gray'].includes(color) ? color : 'gray';
         }
 
+
         function renderHotDocuments(rows) {
             const container = document.querySelector('.ranking-list');
             if (!container) return;
@@ -1651,5 +1784,6 @@
                 .replace(/'/g, '&#39;');
         }
     </script>
+    <script src="js/dashboard-overview.js"></script>
 </body>
 </html>
