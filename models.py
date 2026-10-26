@@ -8,6 +8,21 @@ from database import Base
 
 LargeText = Text().with_variant(MEDIUMTEXT(), "mysql")
 
+
+class UserFeedback(Base):
+    __tablename__ = "user_feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    software = Column(String(50), nullable=False)
+    feedback_type = Column(String(10), nullable=False)
+    description = Column(String(200), nullable=False)
+    details = Column(Text, nullable=False, default="")
+    department = Column(String(50), nullable=False)
+    person = Column(String(100), nullable=False)
+    attachments = Column(JSON, nullable=False, default=list)
+    created_time = Column(DateTime, nullable=False)
+
 FEEDBACK_RECORD_TYPES = {
     "positive",
     "negative",

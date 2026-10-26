@@ -393,7 +393,8 @@ PARSE_TASK_ITEM_ACTIVE_STATUSES = {"pending", "parsing"}
 PARSE_TASK_STALE_TIMEOUT_MINUTES = int(
     os.getenv("PARSE_TASK_STALE_TIMEOUT_MINUTES", str(SOURCE_PARSE_TIMEOUT_MINUTES))
 )
-from services.knowledge_version_service import KnowledgeVersionService
+from services.knowledge_version_service import KnowledgeVersionService, KnowledgeVersionError
+from services.knowledge_document_delete import purge_knowledge_document, cleanup_deleted_files
 
 
 def _normalize_document_for_db(document: Document) -> None:
@@ -1361,9 +1362,7 @@ async def create_document(
         vector_service = VectorService(db)
         await vector_service.add_document_to_vector_store(document_data, commit=False)
         if _is_knowledge_library(document.library_type) and document_data.default_version_id:
-            version = await KnowledgeVersionService(db).get_version(document_data.default_version_id)
-            version.index_status = "indexed"
-            version.indexed_at = datetime.now()
+            await KnowledgeVersionService(db).reindex(document_data.default_version_id, current_user.id)
         await db.commit()
         print("向量化完成")
         data = await document_convert_documentResponse(
@@ -1495,16 +1494,27 @@ async def update_document(
     id: int,
     document: DocumentCreate,
     library_type: str = "breakdown",
+    version_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
         if _is_knowledge_library(library_type or document.library_type):
-            raise AppException(
-                status.HTTP_409_CONFLICT,
-                BizCode.DOC_REQUEST_INVALID,
-                "知识库文档已启用版本管理，请从当前版本创建草稿后提交、审核并发布",
-            )
+            _require_admin_document_write(current_user, "知识库文档编辑需管理员处理")
+            service = KnowledgeVersionService(db)
+            current = await service.get_document(id, lock=True)
+            if document.title is not None:
+                document.title = normalize_document_title(document.title)
+            if document.tag is not None:
+                from utils.tag_service import validate_active_tag_ids
+                document.tag = await validate_active_tag_ids(db, document.tag)
+            await service.edit_current(current, document,
+                _knowledge_sections_from_request(document.sections), current_user.id, version_id=version_id)
+            await db.commit()
+            await db.refresh(current)
+            name = (await db.execute(select(User.full_name).where(
+                User.id == current.contributor_id))).scalar_one_or_none()
+            return Result.success_with_data(await document_convert_documentResponse(db, current, name))
         config = get_image_config()
         base_url = os.path.join(
             config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
@@ -1675,7 +1685,11 @@ async def update_document(
             db, document_now, full_name
         )
         return Result.success_with_data(document_response)
+    except KnowledgeVersionError as e:
+        await db.rollback()
+        raise AppException(status.HTTP_409_CONFLICT, BizCode.DOC_REQUEST_INVALID, str(e))
     except AppException:
+        await db.rollback()
         raise
     except Exception as e:
         await db.rollback()
@@ -1717,6 +1731,11 @@ async def delete(
             )
 
         doc_library_type = getattr(document, "library_type", library_type)
+        if _is_knowledge_library(doc_library_type):
+            paths = await purge_knowledge_document(db, document, VectorService(db))
+            await db.commit()
+            await cleanup_deleted_files(paths)
+            return Result.success()
         config = get_image_config()
         base_url = os.path.join(
             config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")
@@ -1964,6 +1983,7 @@ async def delete_documents(
         deleted_count = 0
         failed_items = []
         deleted_documents = []  # 记录成功删除的文档，用于 commit 后清理文件
+        knowledge_files_to_delete = []
 
         # 4. 处理故障库文档
         if breakdown_ids:
@@ -1998,9 +2018,10 @@ async def delete_documents(
 
             for document in documents:
                 try:
-                    await _delete_single_document(db, document, "knowledge")
+                    async with db.begin_nested():
+                        paths = await purge_knowledge_document(db, document, VectorService(db))
+                    knowledge_files_to_delete.extend(paths)
                     deleted_count += 1
-                    deleted_documents.append((document, "knowledge"))
                 except Exception as e:
                     logger.exception(f"批量删除知识库文档失败, id={document.id}")
                     failed_items.append(
@@ -2011,6 +2032,7 @@ async def delete_documents(
         await db.commit()
 
         # 6.1 事务提交成功后，清理磁盘文件（单个文件删除失败不影响整体结果）
+        await cleanup_deleted_files(knowledge_files_to_delete)
         for document, lib_type in deleted_documents:
             try:
                 await _cleanup_document_disk_files(db, document, lib_type)
@@ -2939,6 +2961,8 @@ async def analyze_files(file_list: AnalyzeRequest,
                 vector_service = VectorService(db)
                 vector_started = time.perf_counter()
                 await vector_service.add_document_to_vector_store(document, commit=False)
+                initial_version = await KnowledgeVersionService(db).initialize_legacy_document(document.id, current_user_id)
+                await KnowledgeVersionService(db).reindex(initial_version.id, current_user_id)
                 logger.info(
                     "knowledge document analyze vectorize done, file=%s, document_id=%s, elapsed=%.2fs",
                     file_name,

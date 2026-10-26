@@ -767,12 +767,12 @@ const documentAPI = {
     },
 
     // 更新文档
-    async updateDocument(id, documentData, libraryType = 'breakdown') {
+    async updateDocument(id, documentData, libraryType = 'breakdown', versionId = null) {
         try {
             // 更新接口原本默认故障库，传入库类型后知识库文档保存时不会误写到故障库。
             const query = libraryType ? `&library_type=${encodeURIComponent(libraryType)}` : '';
             const response = await this.client.put(
-                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/update?id=${id}${query}`,
+                `${API_CONFIG.ENDPOINTS.DOCUMENTS}/update?id=${id}${query}${versionId ? '&version_id=' + encodeURIComponent(versionId) : ''}`,
                 documentData,
                 true
             );

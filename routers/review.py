@@ -1029,6 +1029,12 @@ async def approve_review(
                 raise AppException(status.HTTP_404_NOT_FOUND, BizCode.NOT_FOUND, "待删除文档不存在")
 
             document_library_type = getattr(document, "library_type", "breakdown")
+            if document_library_type == "knowledge":
+                from services.knowledge_document_delete import purge_knowledge_document, cleanup_deleted_files
+                paths = await purge_knowledge_document(db, document, vector_service)
+                await db.commit()
+                await cleanup_deleted_files(paths)
+                return Result.success_with_data({"document_id": target_document_id, "deleted": True})
             should_restore_vector = bool(getattr(document, "is_vectorized", 0))
             await vector_service.delete_document_from_vector_store(document.id, document_library_type)
             if should_restore_vector:
@@ -1060,6 +1066,10 @@ async def approve_review(
                 getattr(vector_target, "library_type", review_document_library_type),
             )
             await vector_service.add_document_to_vector_store(vector_target, commit=False)
+            if review_document_library_type == "knowledge" and review.action_type == 1:
+                from services.knowledge_version_service import KnowledgeVersionService
+                initial_version = await KnowledgeVersionService(db).initialize_legacy_document(vector_target.id, current_user.id)
+                await KnowledgeVersionService(db).reindex(initial_version.id, current_user.id)
             vectorization_finished = True
             if source_document:
                 source_document.status = "vectorized"

@@ -16,11 +16,40 @@ class MenuManager {
             this.currentUser = Utils.getCurrentUser();
             if (!this.currentUser) return;
 
+            this.ensureBaseMenuLinks();
             this.updateMenuByRole();
+            const nav = document.querySelector('.nav-menu');
+            if (nav && !nav.querySelector('a[href="user-feedback.html"]')) {
+                const link = document.createElement('a');
+                link.href = 'user-feedback.html';
+                link.className = 'nav-item';
+                link.innerHTML = '<span class="nav-icon"><i class="fas fa-comment-dots"></i></span><span>问题反馈</span>';
+                nav.appendChild(link);
+            }
             this.setActiveMenu();
         } catch (error) {
             console.error('Failed to load menu:', error);
         }
+    }
+
+    ensureBaseMenuLinks() {
+        const nav = document.querySelector('.nav-menu');
+        if (!nav) return;
+        const links = [
+            ['main.html', 'fa-file-alt', '知识库'],
+            ['my-submissions.html', 'fa-clipboard-list', '我的提交'],
+            ['ai-assist.html', 'fa-robot', 'AI辅助'],
+            ['user-management.html', 'fa-users', '用户管理'],
+            ['user-profile.html', 'fa-user', '我的资料'],
+        ];
+        links.forEach(([href, icon, label]) => {
+            if (nav.querySelector(`a[href="${href}"]`)) return;
+            const link = document.createElement('a');
+            link.href = href;
+            link.className = 'nav-item';
+            link.innerHTML = `<span class="nav-icon"><i class="fas ${icon}"></i></span><span>${label}</span>`;
+            nav.appendChild(link);
+        });
     }
 
     updateMenuByRole() {

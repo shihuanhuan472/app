@@ -1519,7 +1519,7 @@
             }
             currentDocumentId = docId;
             setDeletePending(false);
-            document.getElementById('deleteModalMessage').innerHTML = `确定要删除文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">此操作不可撤销。</span>`;
+            document.getElementById('deleteModalMessage').innerHTML = `确定要删除整篇文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">将永久删除全部版本（含草稿）、正文、附件、源文件和检索索引，无法恢复。单个版本请到版本管理中操作。</span>`;
             document.getElementById('deleteModal').style.display = 'flex';
         }
 
@@ -1559,7 +1559,8 @@
             }
             // 编辑页要继续沿用详情页的库类型，避免保存知识库文档时默认落到故障库。
             const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
-            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}`;
+            const versionId = currentDocument && currentDocument.selected_version_id;
+            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}${versionId ? '&versionId=' + encodeURIComponent(versionId) : ''}`;
         }
 
         async function submitDeleteReviewFromDetail(docId) {
@@ -1740,6 +1741,7 @@
                             const primaryFile = (selectedKnowledgeVersion.files || []).find(file => file.file_role === 'primary');
                             doc = {
                                 ...doc,
+                                selected_version_id: selectedKnowledgeVersion.id,
                                 title: selectedKnowledgeVersion.title || doc.title,
                                 sections: selectedKnowledgeVersion.sections || [],
                                 origin_file_name: primaryFile?.original_name || selectedKnowledgeVersion.origin_file_name || null,
@@ -1811,6 +1813,7 @@
                                 </div>
                                 <div class="file-actions">
                                     ${previewAction}
+                                    <a href="${escapeHtml(fileUrl)}" target="_blank" download class="btn btn-sm btn-secondary"><i class="fas fa-download"></i> 打开源文件</a>
                                 </div>
                                 ${previewHint}
                             </div>

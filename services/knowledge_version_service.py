@@ -57,6 +57,10 @@ def _slug(value: str) -> str:
 
 def _section_key(section: Any, index: int) -> str:
     supplied = getattr(section, "stable_section_key", None)
+    if not supplied:
+        metadata = getattr(section, "section_metadata", None) or getattr(section, "metadata", None)
+        if isinstance(metadata, dict):
+            supplied = metadata.get("stable_section_key")
     if supplied:
         return str(supplied).strip()
     title = getattr(section, "section_title", None) or "section"
@@ -457,6 +461,47 @@ class KnowledgeVersionService:
                 await self._audit(version.document_id, old_id, "vector_cleanup_failed", operator_id,
                                   {"error": str(exc)[:2000]})
         await self._audit(version.document_id, version.id, "publish", operator_id, {"publish_mode": version.planned_publish_mode, "supersedes_version_ids": sorted(selected_ids), "hardware_version": version.hardware_version})
+        return version
+
+    async def edit_current(self, document, request, sections, operator_id: int, version_id=None):
+        """Correct the selected published version in place, retaining its release number."""
+        target_id = version_id or document.default_version_id
+        version = (await self.get_version(target_id, lock=True)
+                   if target_id else
+                   await self.initialize_legacy_document(document.id, operator_id))
+        if (version.document_id != document.id or version.workflow_status != "published"
+                or version.validity_status not in PUBLISHED_VALIDITY):
+            raise KnowledgeVersionError("只能直接编辑当前有效的已发布版本")
+        before = {"content_hash": version.content_hash, "revision": version.revision}
+        fields = request.model_fields_set if hasattr(request, "model_fields_set") else request.__fields_set__
+        if "title" in fields:
+            version.title_snapshot = request.title
+        if "tag" in fields:
+            version.tag_snapshot = request.tag or []
+        if "image_urls" in fields:
+            version.image_urls_snapshot = request.image_urls
+        if "sections" in fields and request.sections is not None:
+            await self._replace_children(version, sections=sections)
+        await self.db.flush()
+        rows = await self._source_sections(version.id)
+        version.content_hash = _sha256({"title": version.title_snapshot,
+            "tags": version.tag_snapshot, "images": version.image_urls_snapshot,
+            "sections": [row.content_hash for row in rows]})
+        version.revision = (version.revision or 0) + 1
+        version.updated_at = _now()
+        if document.default_version_id == version.id:
+            document.title = version.title_snapshot
+            document.tag = version.tag_snapshot or []
+            document.image_urls = version.image_urls_snapshot
+            document.updated_time = version.updated_at
+            document.first_edit_date = version.updated_at
+            await self._sync_current_sections(document, version.id)
+        await self.reindex(version.id, operator_id)
+        if document.default_version_id == version.id:
+            document.is_vectorized = 1
+            document.vector_update_time = version.indexed_at
+        await self._audit(document.id, version.id, "edit_current", operator_id,
+            {"before": before, "content_hash": version.content_hash, "revision": version.revision})
         return version
 
     async def _sync_current_sections(self, document: DocumentKnowledge, version_id: int):

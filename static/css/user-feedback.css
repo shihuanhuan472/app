@@ -1,0 +1,56 @@
+/* Feedback styles stay within the content area. */
+.main-content:has(.feedback-layout){background:#f5f7fb;padding:28px 32px}
+.main-content:has(.feedback-layout)>.header{max-width:1500px;margin:0 auto;border:0;padding:0 0 22px}
+.main-content:has(.feedback-layout) .page-title{font-size:27px;font-weight:700;color:#16324f;letter-spacing:.5px}
+.main-content:has(.feedback-layout) .page-subtitle{font-size:14px;color:#7b889a;margin-top:9px;line-height:1.7}
+.feedback-layout{display:grid;grid-template-columns:minmax(440px,1.1fr) minmax(340px,.9fr);gap:26px;align-items:start;max-width:1500px;margin:24px auto 40px;color:#25364d}
+.feedback-form,.feedback-history{background:#fff;border:1px solid #e7edf4;border-radius:16px;box-shadow:0 4px 22px #19385605;overflow:hidden;padding:28px}
+.feedback-form h2,.feedback-history h2{font-size:18px;font-weight:650;margin:0;color:#1c344f;display:flex;align-items:center;gap:10px}
+.feedback-form h2:before,.feedback-history h2:before{content:'\f044';font-family:'Font Awesome 6 Free';font-weight:900;color:#397be6;background:#eef5ff;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;font-size:15px}
+.feedback-history h2:before{content:'\f086';background:#edf8f6;color:#299c8c}
+.panel-description{font-size:13px;color:#8995a6;line-height:1.7;margin:10px 0 24px;padding-bottom:20px;border-bottom:1px solid #edf1f6}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 18px}
+.feedback-form label{display:flex;flex-direction:column;gap:10px;color:#47566d;font-weight:500;font-size:13px;line-height:1.4}
+.feedback-form .full{grid-column:1/-1}
+.feedback-form input,.feedback-form select,.feedback-form textarea{box-sizing:border-box;width:100%;border:1px solid #dfe6ef;border-radius:8px;padding:12px 14px;font:inherit;font-size:14px;color:#25364d;background:#fcfdff;outline:none;transition:border-color .18s,box-shadow .18s}
+.feedback-form input:focus,.feedback-form select:focus,.feedback-form textarea:focus{border-color:#6ba2ef;box-shadow:0 0 0 3px #4285ef12;background:#fff}
+.feedback-form input::placeholder,.feedback-form textarea::placeholder{color:#a1adbd;font-size:13px}
+.feedback-form textarea{min-height:152px;resize:vertical;line-height:1.8}
+.feedback-form .counter{font-size:12px;color:#a0adbe;text-align:right;font-weight:400;margin-top:-3px}
+.feedback-form .counter b{font-weight:400}
+.feedback-form .hint{font-weight:400;color:#96a2b2;font-size:12px}
+.feedback-form .attachment-label{margin:24px 0 22px;gap:8px}
+.feedback-form input[type=file]{border:1px dashed #bdcfe8;background:#f8fbff;padding:24px 16px;color:#8b9aaf;font-size:12px;cursor:pointer}
+.feedback-form input[type=file]::file-selector-button{border:0;background:#e7f0ff;color:#3675d7;border-radius:6px;padding:9px 14px;margin-right:12px;cursor:pointer;font:inherit;font-weight:500}
+.file-names{font-size:12px;color:#73849a;font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}
+.feedback-form>.btn{width:100%;justify-content:center;border-radius:8px;min-height:44px;font-size:14px;font-weight:600;background:#367de3;border-color:#367de3;box-shadow:0 4px 10px #367de31a;gap:8px}
+.feedback-form>.btn:hover{background:#2468ce}
+.feedback-form button:disabled{opacity:.55;cursor:wait}
+#formMessage{margin:12px 0 0;line-height:1.6;font-size:13px;color:#208674}
+#formMessage:empty{display:none}
+#formMessage[data-error=true]{color:#d45050}
+.feedback-history{position:sticky;top:24px}
+.feedback-history h2+p{font-size:12px;color:#8b98aa;line-height:1.8;margin:12px 0 20px;padding-bottom:20px;border-bottom:1px solid #edf1f6}
+#feedbackList{max-height:620px;overflow:auto;padding-right:3px;scrollbar-width:thin;scrollbar-color:#dfe6ef transparent}
+.feedback-item{padding:18px;border:1px solid #e7edf4;border-radius:10px;background:#fff;margin-bottom:12px;transition:background .15s,border-color .15s}
+.feedback-item:hover{background:#fbfdff;border-color:#cfdef0}
+.feedback-item-head{display:flex;align-items:center;gap:9px;font-size:12px;color:#8896a8;flex-wrap:wrap}
+.feedback-type{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 8px;font-size:11px;color:#dc8b2f;background:#fff5e7}
+.feedback-type.is-request{color:#4f7bdd;background:#edf3ff}
+.feedback-software{color:#718198;font-size:12px}
+.feedback-description{font-size:15px;font-weight:600;line-height:1.7;margin:12px 0;color:#263d57;overflow-wrap:anywhere}
+.feedback-item details{font-size:12px;color:#6583a6;line-height:1.8;margin:8px 0 12px}
+.feedback-item summary{cursor:pointer;width:fit-content}
+.feedback-item details p{font-size:13px;color:#64748b;line-height:1.8;overflow-wrap:anywhere}
+.feedback-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:#94a0b0;line-height:1.7;margin-top:14px;padding-top:12px;border-top:1px solid #f0f3f7}
+.feedback-author{display:inline-flex;align-items:center;gap:6px;color:#748297}
+.feedback-time{margin-left:auto}
+.feedback-attachment{display:inline-flex;color:#5b83bc;font-size:12px;margin-top:9px;max-width:100%;overflow-wrap:anywhere;text-decoration:none;background:#f3f7fc;border-radius:5px;padding:5px 8px}
+.feedback-pagination{display:flex;justify-content:center;align-items:center;gap:16px;padding-top:20px;margin-top:8px;border-top:1px solid #edf1f6;font-size:12px;color:#8c99ab}
+.feedback-pagination .btn{border:1px solid #e1e8f1;color:#66809f;border-radius:6px;padding:7px 12px;background:#fff;font-size:12px}
+.feedback-pagination button:disabled{opacity:.4;cursor:default}
+.empty{color:#99a6b7;text-align:center;padding:65px 20px;font-size:13px;background:#fafcfe;border:1px dashed #e4ebf3;border-radius:10px;line-height:2}
+.empty i{display:block;font-size:30px;color:#c3d2e5;margin-bottom:14px}
+@media(min-width:1650px){.feedback-form{padding:32px 36px}.feedback-history{padding:32px}}
+@media(max-width:1150px){.feedback-layout{grid-template-columns:minmax(0,1fr)}.feedback-history{position:static}}
+@media(max-width:600px){.main-content:has(.feedback-layout){padding:20px 14px}.field-grid{grid-template-columns:1fr}.feedback-form .full{grid-column:auto}.feedback-form,.feedback-history{padding:22px 18px}.feedback-layout{margin-top:14px;gap:18px}.feedback-time{margin-left:0}}

@@ -363,6 +363,23 @@ async def upload_version_files(version_id: int, files: list[UploadFile] = File(.
         await db.flush()
         result.append(_file_dict(row))
         if index == 0:
+            from knowledge_parsers import knowledge_parser
+            from utils.document_usage import document_model_to_thread
+            from services.knowledge_version_service import _sha256
+            parsed = await document_model_to_thread(knowledge_parser.parse, str(target),
+                request_type="parse_knowledge", user_id=current_user.id)
+            if not parsed or not parsed.sections:
+                raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.DOC_REQUEST_INVALID,
+                    "主文件解析失败或未提取到章节，请重新上传")
+            await service._replace_children(version, sections=parsed.sections)
+            await db.flush()
+            version.title_snapshot = parsed.title or version.title_snapshot
+            parsed_sections = await service._source_sections(version.id)
+            version.image_urls_snapshot = ', '.join(dict.fromkeys(
+                url for section in parsed_sections for url in (section.image_urls or [])))
+            version.content_hash = _sha256({"title": version.title_snapshot,
+                "tags": version.tag_snapshot, "sections": [s.content_hash for s in parsed_sections]})
+            version.index_status = "pending"
             version.origin_file_name = original
             version.origin_file_dir = storage_path
     version.revision += 1
@@ -451,6 +468,7 @@ async def audit_logs(document_id: int, db: AsyncSession = Depends(get_db), curre
 async def initialize_versioning(document_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     _require(current_user, PermissionCode.ADMIN)
     row = await _call(KnowledgeVersionService(db).initialize_legacy_document(document_id, current_user.id))
+    await KnowledgeVersionService(db).reindex(row.id, current_user.id)
     await db.flush()
     return Result.success_with_data(_version_dict(row))
 

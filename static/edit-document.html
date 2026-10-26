@@ -596,7 +596,7 @@
                 return 'my-submissions.html';
             }
             // 返回详情时保留原来的库类型，让用户回到同一个故障库/知识库文档。
-            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown');
+            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown') + (params.get('versionId') ? '&versionId=' + encodeURIComponent(params.get('versionId')) : '');
         }
 
         let isSubmitting = false;
@@ -658,13 +658,27 @@
             try {
                 // 编辑页读取文档时沿用 URL 中的库类型，避免知识库文档按默认故障库查询失败。
                 const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
-                const doc = await documentAPI.getDocumentById(docId, source);
+                let doc = await documentAPI.getDocumentById(docId, source);
                 if (!doc) {
                     Utils.showMessage('文档不存在', 'error');
                     setTimeout(() => window.location.href = 'main.html', 1000);
                     return;
                 }
 
+                if (doc && isKnowledgeDocument(doc)) {
+                    const versionId = new URLSearchParams(window.location.search).get('versionId') || doc.default_version_id;
+                    if (versionId) {
+                        const response = await knowledgeVersionAPI.getVersion(Number(versionId));
+                        const version = response && Object.prototype.hasOwnProperty.call(response, 'data') ? response.data : response;
+                        if (version.document_id !== Number(docId) || version.workflow_status !== 'published' || !['active', 'legacy_active'].includes(version.validity_status)) {
+                            throw new Error('只能编辑本篇文档的有效已发布版本');
+                        }
+                        doc = {...doc, title: version.title, tag: version.tag || [], sections: version.sections || [], selected_version_id: version.id};
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('versionId', version.id);
+                        window.history.replaceState(null, '', url);
+                    }
+                }
                 if (!checkEditPermission(doc)) {
                     Utils.showMessage('您没有权限编辑该文档', 'error');
                     setTimeout(() => window.location.href = getReturnUrl(docId), 1000);
@@ -841,7 +855,7 @@
                 <form id="editDocumentForm" onsubmit="updateDocument(event)">
                     <div class="knowledge-edit-intro">
                         <i class="fas fa-circle-info"></i>
-                        <div>当前为知识库文档编辑。正文按解析后的章节保存，保存后会自动重建向量。</div>
+                        <div>修改将直接保存到当前版本，不生成新版本，并同步更新检索内容。原始上传文件保持不变；上传更新文档请使用版本管理。</div>
                     </div>
                     <div class="form-group">
                         <label for="title" class="required">文档标题</label>
@@ -1271,16 +1285,13 @@
                 image_urls: imageUrls.join(', '),
                 sections
             };
-            const result = await documentAPI.updateDocument(docId, finalData, 'knowledge');
+            const result = await documentAPI.updateDocument(docId, finalData, 'knowledge', currentEditingDocument.selected_version_id);
             if (!result) throw new Error('更新失败');
 
-            const deleteTargets = [...new Set(knowledgeRemovedImages)].filter(url => !imageUrls.includes(url));
-            if (deleteTargets.length > 0) {
-                await Promise.all(deleteTargets.map(url => documentAPI.deleteImage(url).catch(e => console.warn('Delete image failed', url, e))));
-            }
+            // 图片可能仍被历史版本或草稿引用，移出正文时保留原文件。
 
             Utils.showMessage('知识库文档已保存', 'success');
-            setTimeout(() => window.location.href = 'document-detail.html?id=' + docId + '&source=knowledge', 1200);
+            setTimeout(() => window.location.href = getReturnUrl(docId), 1200);
         }
 
         async function updateDocument(event) {

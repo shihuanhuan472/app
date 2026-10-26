@@ -54,6 +54,7 @@ from fastapi.staticfiles import StaticFiles
 # from routers import auth
 from routers import auth, users, admin, conversation, message, file_manage, review, source_documents, tags, knowledge_versions
 from feedback_learning.router import router as feedback_learning_router
+from routers.user_feedback import router as user_feedback_router
 # conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
 from models import Base, DocumentBreakdown, DocumentKnowledge
@@ -1159,6 +1160,7 @@ app.include_router(source_documents.router, prefix=API_V1_PREFIX)
 app.include_router(tags.router, prefix=API_V1_PREFIX)
 app.include_router(conversation.router, prefix=API_V1_PREFIX)
 app.include_router(feedback_learning_router, prefix=API_V1_PREFIX)
+app.include_router(user_feedback_router, prefix=API_V1_PREFIX)
 app.include_router(message.chat_router)
 
 @app.get("/", summary="根路径")

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>问题反馈</title><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/user-feedback.css?v=20261021-redesign-1"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"><script src="js/app-config.js"></script><script src="js/config.js"></script><script src="js/common.js"></script><script src="js/api.js"></script><script src="js/menu.js?v=20261021-feedback-nav-2"></script></head>
+<body><div class="system-container"><div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">
+                    <div class="logo-icon">🔧</div>
+                    <span data-app-text="shortName"></span>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="main.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                    <span>知识库</span>
+                </a>
+                <a href="my-submissions.html" class="nav-item" id="mySubmissionsNav">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>我的提交</span>
+                </a>
+                <a href="document-review.html" class="nav-item" id="reviewCenterNav">
+                    <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+                    <span>文档审核</span>
+                </a>
+                <a href="ai-assist.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                    <span>AI辅助</span>
+                </a>
+                <!-- 管理员显示这个 -->
+                <a href="user-management.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>用户管理</span>
+                </a>
+                <!-- 技术人员显示这个 -->
+                <a href="user-profile.html" class="nav-item active" style="display: none;">
+                    <span class="nav-icon"><i class="fas fa-user"></i></span>
+                    <span>我的资料</span>
+                </a>
+            </div>
+
+            <div class="user-info">
+                <div class="user-details">
+                    <div class="user-avatar" id="userAvatar">李</div>
+                    <div>
+                        <div class="user-name" id="userName">李四</div>
+                        <div class="user-role" id="userRole">维修工程师</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="Utils.logout()" style="margin-top: 10px; width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </div>
+<main class="main-content"><div class="header"><div><div class="page-title">问题反馈</div><div class="page-subtitle">提交对系统的建议、问题与需求</div></div></div><section class="feedback-layout"><form id="feedbackForm" class="feedback-form"><h2>填写反馈</h2><div class="field-grid"><label>软件名称<select id="software" required><option value="">请选择</option><option>智能诊断知识库</option><option>智能诊断系统</option><option>实验室管理云平台</option></select></label><label>类型<select id="feedbackType" required><option value="">请选择</option><option>问题</option><option>需求</option></select></label><label class="full">问题/需求描述<input id="description" maxlength="200" placeholder="请输入内容" required></label><label class="full">详细描述<textarea id="details" maxlength="2000" placeholder="可以补充出现场景、复现步骤、期望的效果等"></textarea><span class="counter"><b id="detailCount">0</b> / 2000</span></label><label>部门<select id="department" required><option value="">请选择</option><option>研发</option><option>生产/工程/质量</option><option>FSE/FAS</option></select></label><label>人员<input id="person" maxlength="100" placeholder="请输入姓名" required></label></div><label class="full attachment-label">图片和附件<span class="hint">最多 6 个，单个不超过 10 MB</span><input id="files" type="file" multiple accept="image/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.log"><span id="fileNames" class="file-names">未选择文件</span></label><button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i> 提交反馈</button><p id="formMessage" role="status"></p></form><section class="feedback-history"><h2>我的反馈</h2><div id="feedbackList"><p class="empty">加载中...</p></div></section></section></main></div><script src="js/user-feedback-page.js?v=20261021-redesign-1"></script></body></html>
