@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from .schemas import IntentSlots, RouteDecision
 from .taxonomy import IntentRoute
+from .knowledge_statistics import is_statistics_question
 
 
 CASUAL_PATTERNS = (
@@ -79,6 +80,9 @@ KNOWLEDGE_TERMS = (
     "原因", "排查", "维修", "维护", "修复", "解决", "操作", "步骤", "参数",
     "阈值", "范围", "设备", "仪器", "试剂", "测序", "芯片", "Q30", "ECR",
     "DNBSEQ", "DL-T7", "G50", "FIT", "NSB", "SBC", "DNQ", "Cycle", "PE",
+    "HeatMap", "Heat Map", "热图", "Lag/Runon", "lagrunon", "Spiking",
+    "FineAlign", "Fine Align", "GetQCAndEndCycleTime", "ConfigList",
+    "FOVMetrics", "VerifyStageFlatness", "report_check", "picture_check",
 )
 TOOL_PATTERNS = (
     r"(查|查询|看|获取)(一下)?(今天|明天|未来|近|最近).*(天气|气温|汇率|航班|快递|股票)",
@@ -157,6 +161,12 @@ def route_semantically(question: str, has_images: bool = False) -> SemanticRoute
     raw_text = str(question or "").strip()
     compact = _compact(raw_text)
     slots = _extract_slots(raw_text)
+
+    if is_statistics_question(raw_text):
+        return SemanticRouteResult(RouteDecision(
+            route=IntentRoute.KNOWLEDGE_STATISTICS, use_rag=False, confidence=0.99,
+            reason="knowledge_statistics", slots=slots,
+        ), True)
 
     if has_images:
         return SemanticRouteResult(RouteDecision(

@@ -1,3 +1,4 @@
+from utils.qa_timing import timed_step
 import asyncio
 import json
 from utils.retrieval_log import log_retrieval
@@ -40,6 +41,7 @@ class RetrievalExecutor:
         self.session_factory = session_factory
         self.allowed_document_ids = allowed_document_ids
 
+    @timed_step('retrieval.execute')
     async def execute(self, strategy: RetrievalStrategy) -> list[RetrievalResult]:
         self._print("plan", strategy.model_dump(mode="json"))
         collected: list[tuple[str, list[RetrievalResult]]] = []
@@ -120,6 +122,7 @@ class RetrievalExecutor:
             results.sort(key=lambda item: item.base_score, reverse=True)
             out.append((f"{level}_semantic:{query_index}", results))
 
+    @timed_step('retrieval.sql')
     async def _keyword_search(self, query: str, level: str, strategy: RetrievalStrategy) -> list[RetrievalResult]:
         if self.db is None:
             return []
@@ -160,6 +163,7 @@ class RetrievalExecutor:
                 ))
         return results
 
+    @timed_step('retrieval.semantic')
     async def _semantic_search(self, query: str, level: str) -> list[RetrievalResult]:
         if self.vector_service is None:
             return []

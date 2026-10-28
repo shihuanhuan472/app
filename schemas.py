@@ -251,29 +251,6 @@ class KnowledgeSectionResponse(KnowledgeSectionCreate):
         from_attributes = True
 
 
-class ImageGraphNodeUpdate(BaseModel):
-    node_id: str = Field(..., min_length=1, max_length=64)
-    text: Optional[str] = Field(default=None, min_length=1, max_length=500)
-    parent_node_id: Optional[str] = Field(default=None, max_length=64)
-    bbox: Optional[List[int]] = Field(default=None, min_length=4, max_length=4)
-    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-
-    @field_validator("bbox")
-    @classmethod
-    def validate_bbox(cls, bbox):
-        if bbox is None:
-            return None
-        if bbox[0] < 0 or bbox[1] < 0 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
-            raise ValueError("bbox 必须是有效的 [x0, y0, x1, y1]")
-        return bbox
-
-
-class ImageGraphReviewUpdate(BaseModel):
-    nodes: List[ImageGraphNodeUpdate] = Field(..., min_length=1)
-    review_comment: Optional[str] = Field(default=None, max_length=2000)
-    approved: bool = True
-
-
 class DocumentCreate(BaseModel):
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[int]] = None

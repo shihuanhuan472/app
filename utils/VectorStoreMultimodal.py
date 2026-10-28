@@ -1013,33 +1013,6 @@ class VectorStoreMultimodal:
                 "hardware_version": getattr(document, "hardware_version", None),
                 "stable_section_key": metadata.get("stable_section_key"),
             }
-            if metadata.get("parser_type") == "long_hierarchical_image":
-                base_metadata.update({
-                    key: metadata.get(key)
-                    for key in (
-                        "parser_type",
-                        "parser_version",
-                        "unit_type",
-                        "node_id",
-                        "parent_node_id",
-                        "child_node_ids",
-                        "path",
-                        "path_text",
-                        "level",
-                        "bbox",
-                        "confidence",
-                        "relation_confidence",
-                        "relation_evidence",
-                        "source_tiles",
-                        "original_image_url",
-                        "crop_image_url",
-                        "edges",
-                        "parse_confidence",
-                        "needs_review",
-                    )
-                    if metadata.get(key) is not None
-                })
-
             text_without_tables = self._strip_markdown_tables(section_text)
             text_chunks = self._split_text_for_vector(text_without_tables)
             if not text_chunks and image_urls:
@@ -1061,18 +1034,10 @@ class VectorStoreMultimodal:
                     **base_metadata,
                     "subchunk_index": text_index,
                     "unit_type": metadata.get("unit_type") or "section_text",
-                    "content_type": (
-                        "image_graph_node"
-                        if metadata.get("parser_type") == "long_hierarchical_image"
-                        else "section_text"
-                    ),
+                    "content_type": "section_text",
                     "chunk_id": f"knowledge-section-{section_id or section.get('section_index', 0)}-text-{text_index}",
                     "chunk_size": len(content),
-                    "semantic_method": (
-                        "hierarchical_image_path_v1"
-                        if metadata.get("parser_type") == "long_hierarchical_image"
-                        else "knowledge_section_text_v3"
-                    ),
+                    "semantic_method": "knowledge_section_text_v3",
                     "chunk_strategy": metadata.get("chunk_strategy") or "enterprise_docx_adaptive_text_v1",
                 }
                 chunks.append({

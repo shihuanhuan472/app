@@ -1,3 +1,4 @@
+from utils.qa_timing import timed_step
 import asyncio
 import base64
 import json
@@ -299,6 +300,7 @@ class VectorService:
             print(f"rerank失败: {e}")
             return None
 
+    @timed_step('vector.describe_image')
     async def describe_image(self, image_path: str) -> Optional[str]:
         """提取查询图片语义，增强召回。"""
 
@@ -428,60 +430,6 @@ class VectorService:
         return adjusted_results
 
     @staticmethod
-    def _classify_graph_query_intent(query: str) -> str:
-        text = str(query or "").strip().lower()
-        if re.search(r"(完整|全部|整体|总览|有哪些|包括什么|结构|思维导图)", text):
-            return "overview"
-        if re.search(r"(怎么|如何|步骤|流程|处理|检查|排查|操作|解决)", text):
-            return "procedure"
-        if re.search(r"(上级|下级|父节点|子节点|属于|关系|关联|分支|下面)", text):
-            return "relation"
-        return "node_lookup"
-
-    @staticmethod
-    def _query_terms(query: str) -> List[str]:
-        text = str(query or "").lower()
-        text = re.sub(
-            r"(请问|请帮我|帮我|一下|应该|需要|怎么|如何|是什么|有哪些|什么|相关|进行|处理|说明|介绍)",
-            " ",
-            text,
-        )
-        terms = re.findall(r"[a-zA-Z0-9_.+-]{2,}|[\u4e00-\u9fff]{2,}", text)
-        stop = {"什么", "如何", "怎么", "哪些", "一下", "请问", "相关", "进行", "这个"}
-        expanded = []
-        for term in terms:
-            if term in stop:
-                continue
-            expanded.append(term)
-            if re.fullmatch(r"[\u4e00-\u9fff]{5,}", term):
-                expanded.extend(term[index:index + 4] for index in range(0, len(term) - 3, 2))
-        return list(dict.fromkeys(expanded))[:12]
-
-    @staticmethod
-    def _apply_image_graph_score(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
-        intent = VectorService._classify_graph_query_intent(query)
-        terms = VectorService._query_terms(query)
-        for item in results:
-            metadata = VectorService._metadata_dict(item.get("metadata"))
-            if metadata.get("parser_type") != "long_hierarchical_image":
-                continue
-            path_text = str(metadata.get("path_text") or "").lower()
-            content = str(item.get("content") or "").lower()
-            matched = [term for term in terms if term in path_text or term in content]
-            coverage = len(set(matched)) / max(1, len(set(terms))) if terms else 0.0
-            path_bonus = min(0.16, 0.04 + coverage * 0.12)
-            relation_confidence = float(metadata.get("relation_confidence") or 0.0)
-            quality_adjustment = min(0.04, relation_confidence * 0.04)
-            if metadata.get("needs_review"):
-                quality_adjustment -= 0.08
-            original_score = float(item.get("score", 0.0))
-            item["score"] = max(0.0, min(1.0, original_score + path_bonus + quality_adjustment))
-            item["graph_score_bonus"] = round(path_bonus + quality_adjustment, 6)
-            item["graph_query_intent"] = intent
-            item["matched_graph_terms"] = matched
-        return results
-
-    @staticmethod
     def _first_image_url(value: Any) -> str:
         if isinstance(value, list):
             return str(value[0]) if value else ""
@@ -556,6 +504,7 @@ class VectorService:
             )
         print(f"========== RAG DEBUG END: {stage} ==========\n")
 
+    @timed_step('vector.search')
     async def search_similar_documents(
         self,
         query: str,
@@ -668,7 +617,6 @@ class VectorService:
             self._debug_print_search_results("raw vector results", all_results)
             if apply_domain_term_score:
                 all_results = self._apply_domain_term_score(all_results, query)
-            all_results = self._apply_image_graph_score(all_results, query)
             all_results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
             debug_stage = "after domain term score" if apply_domain_term_score else "domain term score disabled"
             self._debug_print_search_results(debug_stage, all_results)
@@ -735,9 +683,6 @@ class VectorService:
                 if doc.get("library_type") == "knowledge":
                     matched_section_ids = []
                     matched_image_urls = []
-                    matched_node_ids = []
-                    matched_graph_regions = []
-                    graph_query_intent = None
                     for chunk in chunks_sorted:
                         metadata = self._metadata_dict(chunk.get("metadata"))
                         section_id = metadata.get("section_id")
@@ -746,27 +691,8 @@ class VectorService:
                         img = chunk.get("image_url")
                         if img and img not in matched_image_urls:
                             matched_image_urls.append(img)
-                        node_id = metadata.get("node_id")
-                        if node_id and node_id not in matched_node_ids:
-                            matched_node_ids.append(node_id)
-                            matched_graph_regions.append({
-                                "node_id": node_id,
-                                "path": metadata.get("path") or [],
-                                "path_text": metadata.get("path_text") or "",
-                                "bbox": metadata.get("bbox"),
-                                "crop_image_url": metadata.get("crop_image_url") or img or "",
-                                "original_image_url": metadata.get("original_image_url") or "",
-                                "confidence": metadata.get("confidence"),
-                                "relation_confidence": metadata.get("relation_confidence"),
-                                "needs_review": bool(metadata.get("needs_review")),
-                            })
-                        graph_query_intent = graph_query_intent or chunk.get("graph_query_intent")
                     doc["matched_section_ids"] = matched_section_ids
                     doc["matched_image_urls"] = matched_image_urls
-                    if matched_node_ids:
-                        doc["matched_node_ids"] = matched_node_ids
-                        doc["matched_graph_regions"] = matched_graph_regions
-                        doc["graph_query_intent"] = graph_query_intent or self._classify_graph_query_intent(query)
                 docs.append(doc)
 
             # 过滤低于阈值的低分文档

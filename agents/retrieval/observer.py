@@ -1,6 +1,9 @@
+from utils.qa_timing import timed_step
 import json
 import asyncio
 import os
+import time
+from uuid import uuid4
 from utils.retrieval_log import log_retrieval
 from typing import Any
 
@@ -12,11 +15,19 @@ from utils.ai_endpoint import get_ai_base_url
 from utils.openai_client import create_async_openai_client, create_chat_completion, parse_chat_completion_json
 
 
+OBSERVER_SYSTEM_PROMPT = """你是检索结果评估器。逐篇核对证据，只输出紧凑JSON，不输出Markdown或解释。
+必填字段：is_sufficient(bool), next_action(str answer/refine/replan), document_scores(array)。
+document_scores必须覆盖每个输入document_id且不重复；每项为{document_id:string,score:number(0到100),evidence:string}。
+evidence只写一句不超过30字的关键依据，不复述问题、标题或整段原文；不相关文档简述不匹配点。
+缺失证据时输出missing_aspects(string数组)，无缺失可省略。is_sufficient和next_action须结合问题整体覆盖及缺失证据判断，不能仅凭单篇高分判定充分。
+不要输出reason、relevance、matched_primary_terms、supporting_documents、irrelevant_documents；不写总结。"""
+
+
 class ObservationDecision(BaseModel):
     is_sufficient: bool
-    relevance: str
+    relevance: str = "none"
     next_action: str
-    reason: str
+    reason: str = ""
     matched_primary_terms: list[str] = Field(default_factory=list)
     supporting_documents: list[str] = Field(default_factory=list)
     document_scores: list["DocumentScore"] = Field(default_factory=list)
@@ -57,6 +68,10 @@ class ResultObserver:
         partial = [item.document_id for item in normalized if 60.0 <= item.score < 80.0]
         irrelevant = [item.document_id for item in normalized if item.score < 60.0]
         decision.document_scores = normalized
+        if not decision.reason:
+            decision.reason = "；".join(decision.missing_aspects) or (
+                "证据充分" if decision.is_sufficient else "证据不足，需继续检索"
+            )
         decision.supporting_documents = strong + partial
         decision.irrelevant_documents = irrelevant
         if strong:
@@ -131,6 +146,7 @@ class ResultObserver:
             "content": representative, "matched_chunks": snippets,
         }
 
+    @timed_step('retrieval.observer_llm')
     async def observe_with_llm(self, analysis: QueryAnalysis, results: list[RetrievalResult]) -> ObservationDecision:
         """Use the LLM for semantic evidence judgement, with deterministic fallback."""
         documents = [self._document_payload(result) for result in results[:8]]
@@ -143,11 +159,44 @@ class ResultObserver:
         }
         try:
             timeout = float(os.getenv("RESULT_OBSERVER_TIMEOUT", "90"))
+            model = os.getenv("QUERY_ANALYSIS_MODEL") or os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+            call_id = uuid4().hex
             client = create_async_openai_client(base_url=get_ai_base_url(), api_key=os.getenv("API_KEY", "EMPTY"), timeout=timeout)
-            response = await asyncio.wait_for(create_chat_completion(client, model=os.getenv("QUERY_ANALYSIS_MODEL") or os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct"), messages=[
-                {"role": "system", "content": "你是检索结果评估器。仅输出JSON。字段：is_sufficient(bool), relevance(str strong/partial/weak/none), next_action(str answer/refine/replan), reason(str), matched_primary_terms(array), document_scores(array), missing_aspects(array)。document_scores 必须覆盖输入的每个 document_id，不能多也不能少；每项格式为 {document_id:string, score:number(0到100), evidence:string}，evidence 简述该文档正文或命中片段中的评分依据。不要输出 supporting_documents 或 irrelevant_documents，它们由程序按分数生成。"},
+            messages = [
+                {"role": "system", "content": OBSERVER_SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
-            ], temperature=0, max_tokens=1600, json_mode=True), timeout=timeout)
+            ]
+            self._print("llm_request", {
+                "call_id": call_id, "model": model, "messages": messages,
+                "temperature": 0, "max_tokens": 1600, "stream": False,
+                "timeout_seconds": timeout, "document_count": len(documents),
+                "chat_template_kwargs": {"enable_thinking": False},
+                "response_format": {"type": "json_object"} if os.getenv("AI_RESPONSE_FORMAT_JSON", "0") == "1" else None,
+            })
+            started = time.perf_counter()
+            response = None
+            request_status = "ok"
+            try:
+                response = await asyncio.wait_for(create_chat_completion(
+                    client, model=model, messages=messages, temperature=0,
+                    max_tokens=1600, json_mode=True,
+                ), timeout=timeout)
+            except BaseException as exc:
+                request_status = type(exc).__name__
+                raise
+            finally:
+                usage = getattr(response, "usage", None)
+                def usage_value(key):
+                    return usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
+                choices = getattr(response, "choices", None) or []
+                self._print("llm_complete", {
+                    "call_id": call_id, "model": model, "status": request_status,
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "prompt_tokens": usage_value("prompt_tokens"),
+                    "completion_tokens": usage_value("completion_tokens"),
+                    "total_tokens": usage_value("total_tokens"),
+                    "finish_reason": getattr(choices[0], "finish_reason", None) if choices else None,
+                })
             decision = ObservationDecision.model_validate(parse_chat_completion_json(response))
             decision = self._normalize_scores(decision, [document["document_id"] for document in documents])
             self._print("llm_decision", decision.model_dump(mode="json"))

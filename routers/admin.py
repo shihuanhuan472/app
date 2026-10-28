@@ -655,6 +655,34 @@ async def _build_recent_questions(db: AsyncSession, limit: int = 5) -> List[Dict
     return rows
 
 
+async def _build_upload_contributions(db: AsyncSession) -> List[Dict[str, Any]]:
+    counts = (
+        select(SourceDocument.uploader_id.label("user_id"), func.count(SourceDocument.id).label("upload_count"))
+        .where(SourceDocument.is_deleted == 0)
+        .group_by(SourceDocument.uploader_id)
+        .subquery()
+    )
+    result = await db.execute(
+        select(User.id, User.full_name, User.username, User.department,
+               func.coalesce(counts.c.upload_count, 0))
+        .outerjoin(counts, counts.c.user_id == User.id)
+        .where(or_(User.registration_status == "approved", counts.c.upload_count > 0))
+    )
+    rows = [
+        {"user_id": user_id, "name": full_name or username or f"用户 {user_id}",
+         "username": username, "department": department or "", "upload_count": int(count)}
+        for user_id, full_name, username, department, count in result.all()
+    ]
+    # Keep legacy files without an available uploader visible in the total.
+    unknown = await _scalar_int(db, select(func.count(SourceDocument.id)).outerjoin(
+        User, User.id == SourceDocument.uploader_id
+    ).where(SourceDocument.is_deleted == 0, User.id.is_(None)))
+    if unknown:
+        rows.append({"user_id": None, "name": "未记录上传人", "username": "",
+                     "department": "历史文件", "upload_count": unknown})
+    return sorted(rows, key=lambda row: (-row["upload_count"], row["name"], row["user_id"] or 0))
+
+
 @router.get("/dashboard", summary="管理员数据看板统计")
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
@@ -818,6 +846,7 @@ async def get_dashboard(
             "hourly": token_hours,
             "history": [{"date": day, **values} for day, values in sorted(token_business_daily.items())],
         },
+        "upload_contributions": await _build_upload_contributions(db),
         "hot_documents": await _build_hot_documents(db, today_start),
         "recent_questions": await _build_recent_questions(db),
         "document_categories": [

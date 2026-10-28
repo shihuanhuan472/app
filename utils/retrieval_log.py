@@ -40,7 +40,7 @@ def log_retrieval(stage, payload):
 def trace_retrieval(function):
     @wraps(function)
     async def wrapped(*args, **kwargs):
-        token = _request_id.set(uuid4().hex)
+        token = _request_id.set(_request_id.get() or uuid4().hex)
         log_retrieval("request.start", {"question": args[1] if len(args) > 1 else kwargs.get("question"),
                                         "session_id": kwargs.get("session_id")})
         try:

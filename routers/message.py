@@ -1,4 +1,4 @@
-﻿# routers/message.py
+# routers/message.py
 import asyncio
 import json
 import logging
@@ -64,6 +64,7 @@ from utils.desensitize import (
 from utils.openai_client import create_async_openai_client, create_openai_client
 from utils.VectorService import VectorService
 from utils.retrieval_log import log_retrieval, trace_retrieval
+from utils.qa_timing import timed_step, trace_qa, timing_event
 from utils.token_counter import get_token_count
 from utils.ai_usage import extract_ai_usage, record_ai_usage
 from agents.intent import IntentRouterAgent, RouteDecision
@@ -111,6 +112,8 @@ RETRY_BASE_DOMAIN_RE = re.compile(
     r"设备|仪器|试剂|测序|芯片|相机|温控|注射泵|barcode|"
     r"冰箱|洗衣机|洗碗机|烘干机|干衣机|笔记本|电脑|耳机|电视|电源|PLC|激光|切割机|CNC|"
     r"Q30|ECR|DNBSEQ|DL-T7|G50|FIT|NSB|SBC|DNQ|Cycle|PE|"
+    r"heat\s*map|热图|lag\s*/?\s*runon|spiking|fine\s*align|GetQCAndEndCycleTime|"
+    r"ConfigList|FOVMetrics|VerifyStageFlatness|report_check|picture_check|"
     r"(?:error|err)[\s:_-]*[a-z0-9_-]+|[A-Z]{1,5}[-_]?[0-9]{2,}",
     re.IGNORECASE,
 )
@@ -165,6 +168,7 @@ def _split_uploaded_images(uploaded_images: str) -> List[str]:
     return [image.strip() for image in uploaded_images.split(",") if image.strip()]
 
 
+@timed_step('tokens.count')
 async def _count_text_tokens(text: str) -> int:
     if not text:
         return 0
@@ -454,10 +458,6 @@ def _normalize_stored_reference_doc(doc: Any) -> Optional[Dict[str, Any]]:
         "image_urls": image_urls,
         "evidence_section_ids": doc.get("evidence_section_ids") or [],
         "evidence_section_titles": doc.get("evidence_section_titles") or [],
-        "matched_node_ids": doc.get("matched_node_ids") or [],
-        "matched_graph_regions": doc.get("matched_graph_regions") or [],
-        "evidence_graph_regions": doc.get("evidence_graph_regions") or [],
-        "graph_query_intent": doc.get("graph_query_intent"),
         "reused_from_history": True,
     }
     return normalized
@@ -798,6 +798,7 @@ def _compare_trace_pair(first: AiMessageTrace, second: AiMessageTrace) -> Dict[s
     }
 
 
+@timed_step('answer.audit')
 async def _build_answer_audit_response(
     db: AsyncSession,
     message_now: Message,
@@ -968,6 +969,7 @@ def _format_history_for_query_rewrite(history: List[Any]) -> str:
     return "\n".join(lines[-6:])
 
 
+@timed_step('query.rewrite_llm')
 async def _rewrite_query_with_llm(
     current_question: str,
     history: List[Any],
@@ -1016,6 +1018,7 @@ def _should_rewrite_retrieval_query(question: str, decision: RouteDecision) -> b
     )
 
 
+@timed_step('query.resolve')
 async def _resolve_retrieval_query(
     db: AsyncSession,
     message_now: Message,
@@ -1226,25 +1229,13 @@ def _merge_reference_documents(
                     images.append(image)
             if images:
                 existing[image_field] = images
-        for region_field in ("matched_graph_regions", "evidence_graph_regions"):
-            regions = list(existing.get(region_field) or [])
-            seen_region_ids = {region.get("node_id") for region in regions if isinstance(region, dict)}
-            for region in doc.get(region_field) or []:
-                if isinstance(region, dict) and region.get("node_id") not in seen_region_ids:
-                    regions.append(region)
-                    seen_region_ids.add(region.get("node_id"))
-            if regions:
-                existing[region_field] = regions
-        existing["matched_node_ids"] = list(dict.fromkeys(
-            list(existing.get("matched_node_ids") or []) + list(doc.get("matched_node_ids") or [])
-        ))
-        existing["graph_query_intent"] = existing.get("graph_query_intent") or doc.get("graph_query_intent")
 
     docs = [merged[key] for key in order]
     docs.sort(key=lambda item: float(item.get("score", 0.0) or 0.0), reverse=True)
     return docs[:max_docs] if max_docs and max_docs > 0 else docs
 
 
+@timed_step('retrieval.reuse')
 async def _load_reusable_reference_documents_from_memory(
     memory_service: MemoryService,
     memory_pack: Optional[MemoryPack],
@@ -1263,6 +1254,7 @@ async def _load_reusable_reference_documents_from_memory(
     return []
 
 
+@timed_step('retrieval.adaptive')
 async def _adaptive_retrieve_reference_documents(
     db: AsyncSession,
     retrieval_query: str,
@@ -1348,6 +1340,7 @@ async def _adaptive_retrieve_reference_documents(
     return _merge_reference_documents(reference_docs, secondary_docs, max_docs=max_docs), actions
 
 
+@timed_step('retrieval.version_scope')
 async def _resolve_knowledge_version_ids(
     db: AsyncSession,
     knowledge_version_id: Optional[int],
@@ -1388,6 +1381,7 @@ def _rank_agentic_results(
 
 
 @trace_retrieval
+@timed_step('retrieval.agentic')
 async def _agentic_retrieve_reference_documents(
     db: AsyncSession,
     question: str,
@@ -1401,7 +1395,15 @@ async def _agentic_retrieve_reference_documents(
     """Run the new analysis/retrieval loop, then adapt results to the old RAG contract."""
     analysis = await QueryAnalysisAgent(verbose=True).analyze(question)
     from agents.retrieval.device_filter import device_document_scope
-    document_scope = await device_document_scope(db, analysis.understanding.device)
+    scope_started = time.perf_counter()
+    scope_status = "ok"
+    try:
+        document_scope = await device_document_scope(db, analysis.understanding.device)
+    except BaseException as error:
+        scope_status = type(error).__name__
+        raise
+    finally:
+        timing_event('retrieval.device_scope', scope_status, scope_started)
     if document_scope is not None:
         actions.append(f"device_tag_filter:{analysis.understanding.device}")
     vector_service = VectorService(db)
@@ -1444,36 +1446,42 @@ async def _agentic_retrieve_reference_documents(
         }
         actions.append(f"agentic_second_retrieve:{observation.next_action}")
 
-    limit = top_k_documents if top_k_documents and top_k_documents > 0 else 8
-    results = _rank_agentic_results(results, evidence_order, observer_scores)
-    results = results[:limit]
-    reference_docs = []
-    for item in results:
-        try:
-            doc_id = int(item.document_id)
-        except (TypeError, ValueError):
-            continue
-        reference_docs.append({
-            "doc_id": doc_id,
-            "library_type": _normalize_library_type(item.library_type),
-            "title": item.title,
-            "score": observer_scores[item.document_id] / 100.0 if item.document_id in observer_scores else item.score,
-            "match_score": round(observer_scores[item.document_id], 1) if item.document_id in observer_scores else None,
-            "relevance": (
-                "partial" if item.document_id in evidence_ids and observation.relevance == "partial"
-                else "strong" if item.document_id in evidence_ids and observation.relevance == "strong"
-                else "weak"
-            ),
-            "chunks": [],
-            "matched_image_urls": [],
-            "matched_node_ids": [],
-            "matched_graph_regions": [],
-            "graph_query_intent": None,
-        })
+    rank_started = time.perf_counter()
+    rank_status = "ok"
+    try:
+        limit = top_k_documents if top_k_documents and top_k_documents > 0 else 8
+        results = _rank_agentic_results(results, evidence_order, observer_scores)
+        results = results[:limit]
+        reference_docs = []
+        for item in results:
+            try:
+                doc_id = int(item.document_id)
+            except (TypeError, ValueError):
+                continue
+            reference_docs.append({
+                "doc_id": doc_id,
+                "library_type": _normalize_library_type(item.library_type),
+                "title": item.title,
+                "score": observer_scores[item.document_id] / 100.0 if item.document_id in observer_scores else item.score,
+                "match_score": round(observer_scores[item.document_id], 1) if item.document_id in observer_scores else None,
+                "relevance": (
+                    "partial" if item.document_id in evidence_ids and observation.relevance == "partial"
+                    else "strong" if item.document_id in evidence_ids and observation.relevance == "strong"
+                    else "weak"
+                ),
+                "chunks": [],
+                "matched_image_urls": [],
+            })
+    except BaseException as error:
+        rank_status = type(error).__name__
+        raise
+    finally:
+        timing_event('retrieval.rank_results', rank_status, rank_started)
     actions.append("agentic_retrieval")
     return reference_docs, actions
 
 
+@timed_step('retrieval.feedback')
 async def _apply_feedback_retrieval_layer(
     db: AsyncSession,
     reference_docs: List[Dict[str, Any]],
@@ -1662,6 +1670,7 @@ def _normalize_uploaded_images(uploaded_images: Optional[str]) -> Optional[str]:
     return ", ".join(images) if images else None
 
 
+@timed_step('input.validate_images')
 async def _validate_uploaded_images_exist(uploaded_images: Optional[str], config: dict) -> Optional[str]:
     """
     功能说明：
@@ -1882,6 +1891,7 @@ def _build_reference_image_grid_html(image_urls: List[str]) -> str:
     )
 
 
+@timed_step('answer.images')
 async def _append_reference_images_to_answer(answer: str, reference_docs: List[Dict[str, Any]]) -> str:
     """
     功能说明：
@@ -1981,19 +1991,6 @@ def _reference_doc_ids_to_api_reference(reference_docs: List[Dict[str, Any]]) ->
                 for web_url in [_image_to_web_url_if_exists(image)]
                 if web_url
             ]
-        graph_regions = []
-        for region in doc.get("evidence_graph_regions") or doc.get("matched_graph_regions") or []:
-            if not isinstance(region, dict):
-                continue
-            normalized_region = dict(region)
-            for image_key in ("crop_image_url", "original_image_url"):
-                image_url = normalized_region.get(image_key)
-                if image_url:
-                    normalized_region[image_key] = _image_to_web_url_if_exists(image_url) or image_url
-            graph_regions.append(normalized_region)
-        if graph_regions:
-            item["graph_regions"] = graph_regions
-            item["graph_query_intent"] = doc.get("graph_query_intent")
         doc_aggs.append(item)
     return {"total": len(doc_aggs), "doc_aggs": doc_aggs}
 
@@ -2285,6 +2282,7 @@ async def stream_ai_response(
             return f"data: {json.dumps(envelope, ensure_ascii=False)}\n\n"
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
+    @timed_step('answer.persist_and_memory')
     async def persist_ai_content(content_text: str, with_token_count: bool = False, status_value: str = "success"):
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Message).where(Message.id == id))
@@ -2324,6 +2322,7 @@ async def stream_ai_response(
 
     try:
         stream_start = time.perf_counter()
+        timing_event("answer.model_stream", "start", stream_start)
         yield ": stream-start\n\n"
         print(
             "[AI流式] 已建立SSE连接，开始请求模型 "
@@ -2350,6 +2349,7 @@ async def stream_ai_response(
             ) from e
         print(f"[AI流式] 模型流响应已创建，耗时: {time.perf_counter() - stream_start:.3f}s")
 
+        timing_event("answer.stream_open", started=stream_start)
         full_content = ""
         usage_payload = None
         last_stream_content = None
@@ -2378,6 +2378,7 @@ async def stream_ai_response(
             if chunk.choices and chunk.choices[0].delta.content:
                 if not first_chunk_logged:
                     first_chunk_logged = True
+                    timing_event("answer.first_content", started=stream_start)
                     print(f"[AI流式] 首个chunk耗时: {time.perf_counter() - stream_start:.3f}s")
                 content = chunk.choices[0].delta.content
                 full_content += content
@@ -2393,6 +2394,8 @@ async def stream_ai_response(
                 stream_content = desensitize_text(display_source)
                 if not stream_content or stream_content == last_stream_content:
                     continue
+                if last_stream_content is None:
+                    timing_event("answer.first_visible", started=stream_start)
                 last_stream_content = stream_content
                 data["answer"] = stream_content
                 data["final"] = False
@@ -2400,6 +2403,7 @@ async def stream_ai_response(
                     data["code"] = 1
                 yield _format_stream_event(data)
 
+        timing_event("answer.model_stream", started=stream_start)
         final_content = full_content.strip()
         already_persisted = False
 
@@ -2445,6 +2449,7 @@ async def stream_ai_response(
         yield _format_stream_event({"type": "status", "stage": "done", "status": "complete", "message": "回答生成完成"})
         yield f"data: {json.dumps(final_data)}\n\n"
     except Exception as e:
+        timing_event("answer.stream_error", type(e).__name__)
         print(f"[AI流式] 请求失败: {type(e).__name__}: {e}")
         try:
             async with AsyncSessionLocal() as usage_db:
@@ -2506,6 +2511,7 @@ async def stream_static_ai_response(
     yield f"data: {json.dumps({'code': 1, 'data': 'true'}, ensure_ascii=False)}\n\n"
 
 
+@trace_qa
 async def _create_completion(
     message: MessageCreateNew,
     db: AsyncSession,
@@ -2615,18 +2621,32 @@ async def _create_completion(
             f"description={selected_skill.description}"
         )
 
-        if route_decision.route.value == ANSWER_AUDIT_ROUTE and _get_bool_env("ANSWER_AUDIT_ENABLED", True):
-            answer, audit_actions, audit_validation = await _build_answer_audit_response(
-                db,
-                db_message,
-                memory_pack=memory_pack,
-                decision=route_decision,
-                skill=selected_skill,
-            )
+        is_statistics = route_decision.route == IntentRoute.KNOWLEDGE_STATISTICS
+        if is_statistics or (route_decision.route.value == ANSWER_AUDIT_ROUTE and _get_bool_env("ANSWER_AUDIT_ENABLED", True)):
+            if is_statistics:
+                from services.knowledge_statistics import build_statistics_response
+
+                await _publish_progress("statistics", "running", "正在统计文档", "正在查询数据库中的实时数量。")
+                statistics_question = db_message.content_text
+                if message.knowledge_version_id or message.hardware_version:
+                    # Request-level version filters must not be ignored when counting.
+                    statistics_question += "（指定版本筛选）"
+                answer, audit_actions, audit_validation = await build_statistics_response(db, statistics_question)
+                audit_actions.extend(["intent_route", "select_skill:knowledge_statistics", *selected_skill.actions])
+                audit_validation.update(selected_skill.to_trace_validation())
+                await _publish_progress("statistics", "complete", "已完成文档统计", "统计结果已生成。")
+            else:
+                answer, audit_actions, audit_validation = await _build_answer_audit_response(
+                    db,
+                    db_message,
+                    memory_pack=memory_pack,
+                    decision=route_decision,
+                    skill=selected_skill,
+                )
             answer_token_count = await _count_text_tokens(answer)
             conversation.updated_time = datetime.now()
             if max_order == 0 or conversation.title == "新对话":
-                conversation.title = await get_new_title_by_ai(message.question)
+                conversation.title = message.question[:60] if is_statistics else await get_new_title_by_ai(message.question)
 
             ai_msg = Message(
                 session_id=message.session_id,
@@ -3248,6 +3268,7 @@ async def create_chat_completion(
         )
     return await _create_completion(message, db, current_user, api_v1=True)
 
+@timed_step('prompt.build_messages')
 async def generate_messages(
     db,
     id,
@@ -3440,6 +3461,7 @@ async def generate_messages(
 
     return messages
 
+@timed_step('title.generate')
 async def get_new_title_by_ai(content):
     """使用大模型为新会话生成简短标题。"""
 
@@ -3472,6 +3494,7 @@ async def get_new_title_by_ai(content):
 
     return new_title
 
+@timed_step('retrieval.filter_versions')
 async def _filter_current_version_references(db, references):
     """Guard vector, feedback and reused conversation references alike."""
     rows = (await db.execute(select(
@@ -3495,6 +3518,7 @@ async def _filter_current_version_references(db, references):
     return result
 
 
+@timed_step('retrieval.vector_documents')
 async def get_reference_documents(
     db,
     question: str,
@@ -3534,9 +3558,6 @@ async def get_reference_documents(
             "score": round(score, 6),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
-            "matched_node_ids": doc.get("matched_node_ids") or [],
-            "matched_graph_regions": doc.get("matched_graph_regions") or [],
-            "graph_query_intent": doc.get("graph_query_intent"),
             "version_id": doc.get("version_id"),
             "version": doc.get("version"),
             "hardware_version": doc.get("hardware_version"),
@@ -3611,9 +3632,6 @@ async def get_reference_documents(
             "score": doc.get("score", 0.0),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
-            "matched_node_ids": doc.get("matched_node_ids") or [],
-            "matched_graph_regions": doc.get("matched_graph_regions") or [],
-            "graph_query_intent": doc.get("graph_query_intent"),
             "version_id": doc.get("version_id"),
             "version": doc.get("version"),
             "hardware_version": doc.get("hardware_version"),
@@ -3637,9 +3655,6 @@ def get_ai_reference_prompt_refs(reference_docs: List[Dict[str, Any]]) -> List[D
             "library_type": _normalize_library_type(doc.get("library_type", "breakdown")),
             "chunks": doc.get("chunks") or [],
             "matched_image_urls": doc.get("matched_image_urls") or [],
-            "matched_node_ids": doc.get("matched_node_ids") or [],
-            "matched_graph_regions": doc.get("matched_graph_regions") or [],
-            "graph_query_intent": doc.get("graph_query_intent"),
             "version_id": doc.get("version_id"),
             "version": doc.get("version"),
             "hardware_version": doc.get("hardware_version"),
@@ -3669,105 +3684,6 @@ def _is_child_or_self_section(candidate: KnowledgeDocumentSection, parent: Knowl
     return candidate_marker == parent_marker or candidate_marker.startswith(parent_marker + ".")
 
 
-def _section_graph_metadata(section: KnowledgeDocumentSection) -> Dict[str, Any]:
-    metadata = section.section_metadata or {}
-    return metadata if isinstance(metadata, dict) else {}
-
-
-def _select_image_graph_sections(
-    sections: List[KnowledgeDocumentSection],
-    matched_chunks: List[Dict[str, Any]],
-    max_sections: int,
-) -> List[KnowledgeDocumentSection]:
-    graph_sections = [
-        section for section in sections
-        if _section_graph_metadata(section).get("parser_type") == "long_hierarchical_image"
-    ]
-    if not graph_sections:
-        return []
-    by_node_id = {
-        _section_graph_metadata(section).get("node_id"): section
-        for section in graph_sections
-        if _section_graph_metadata(section).get("node_id")
-    }
-    matched_node_ids = []
-    intent = "node_lookup"
-    for chunk in matched_chunks or []:
-        metadata = _chunk_metadata(chunk)
-        node_id = metadata.get("node_id")
-        if node_id in by_node_id and node_id not in matched_node_ids:
-            matched_node_ids.append(node_id)
-        intent = chunk.get("graph_query_intent") or intent
-
-    selected = []
-    selected_ids = set()
-
-    def add_node(node_id):
-        section = by_node_id.get(node_id)
-        if not section or node_id in selected_ids or not _section_has_body(section):
-            return
-        selected.append(section)
-        selected_ids.add(node_id)
-
-    def add_ancestors(node_id):
-        ancestors = []
-        seen = set()
-        current = node_id
-        while current in by_node_id and current not in seen:
-            seen.add(current)
-            parent_id = _section_graph_metadata(by_node_id[current]).get("parent_node_id")
-            if not parent_id:
-                break
-            ancestors.append(parent_id)
-            current = parent_id
-        for ancestor_id in reversed(ancestors):
-            add_node(ancestor_id)
-
-    def add_descendants(node_id, unlimited=False):
-        queue = list(_section_graph_metadata(by_node_id[node_id]).get("child_node_ids") or [])
-        seen = set()
-        while queue and len(selected) < max_sections:
-            child_id = queue.pop(0)
-            if child_id in seen or child_id not in by_node_id:
-                continue
-            seen.add(child_id)
-            add_node(child_id)
-            if unlimited:
-                queue.extend(_section_graph_metadata(by_node_id[child_id]).get("child_node_ids") or [])
-
-    if not matched_node_ids:
-        matched_node_ids = [
-            node_id for node_id, section in by_node_id.items()
-            if not _section_graph_metadata(section).get("parent_node_id")
-        ][:1]
-
-    if intent == "overview":
-        roots = [
-            node_id for node_id, section in by_node_id.items()
-            if not _section_graph_metadata(section).get("parent_node_id")
-        ]
-        for root_id in roots:
-            add_node(root_id)
-            add_descendants(root_id, unlimited=True)
-            if len(selected) >= max_sections:
-                break
-        return selected[:max_sections]
-
-    for node_id in matched_node_ids:
-        add_ancestors(node_id)
-        add_node(node_id)
-        metadata = _section_graph_metadata(by_node_id[node_id])
-        parent_id = metadata.get("parent_node_id")
-        if intent == "relation" and parent_id in by_node_id:
-            add_node(parent_id)
-            for sibling_id in _section_graph_metadata(by_node_id[parent_id]).get("child_node_ids") or []:
-                add_node(sibling_id)
-        add_descendants(node_id, unlimited=intent == "procedure")
-        if len(selected) >= max_sections:
-            break
-    return selected[:max_sections]
-
-
 def _select_prompt_sections(
     sections: List[KnowledgeDocumentSection],
     matched_chunks: List[Dict[str, Any]],
@@ -3775,10 +3691,6 @@ def _select_prompt_sections(
 ) -> List[KnowledgeDocumentSection]:
     if not sections:
         return []
-
-    graph_selected = _select_image_graph_sections(sections, matched_chunks, max_sections)
-    if graph_selected:
-        return graph_selected
 
     by_id = {section.id: section for section in sections if section.id is not None}
     by_index = {section.section_index: section for section in sections}
@@ -3884,23 +3796,6 @@ def _matched_chunk_image_urls(matched_chunks: List[Dict[str, Any]], limit: int =
     return images
 
 
-def _section_prompt_piece(section: KnowledgeDocumentSection) -> str:
-    metadata = _section_graph_metadata(section)
-    if metadata.get("parser_type") != "long_hierarchical_image":
-        return f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
-    bbox = metadata.get("bbox") or []
-    confidence = metadata.get("confidence")
-    relation_confidence = metadata.get("relation_confidence")
-    review_note = "；该关系尚待人工确认" if metadata.get("needs_review") else ""
-    evidence = (
-        f"节点ID={metadata.get('node_id')}；"
-        f"路径={metadata.get('path_text') or section.section_title or ''}；"
-        f"原图区域={bbox}；"
-        f"文字置信度={confidence}；关系置信度={relation_confidence}{review_note}"
-    )
-    return f"{section.plain_text or section.section_title or ''}\n[图结构证据] {evidence}"
-
-
 def _append_prompt_piece(parts: List[str], text: str, remaining_tokens: int) -> int:
     text = str(text or "").strip()
     if not text or remaining_tokens <= 0:
@@ -3915,6 +3810,7 @@ def _append_prompt_piece(parts: List[str], text: str, remaining_tokens: int) -> 
         return _count_text_tokens_cached(truncated)
     return 0
 
+@timed_step('prompt.build_documents')
 async def get_prompt(db, document_ids, max_tokens):
     """
     功能说明：
@@ -4044,7 +3940,7 @@ async def get_prompt(db, document_ids, max_tokens):
             if selected_sections and remaining > 0:
                 section_parts = []
                 for section in selected_sections:
-                    section_piece = _section_prompt_piece(section)
+                    section_piece = f"{section.section_title or '未命名章节'}：{section.plain_text or ''}"
                     used = _append_prompt_piece(section_parts, section_piece, remaining)
                     remaining -= used
                     if used > 0:
@@ -4070,23 +3966,6 @@ async def get_prompt(db, document_ids, max_tokens):
                         section.section_title or "未命名章节" for section in prompt_sections
                     ]
                     reference_doc["evidence_image_urls"] = evidence_images
-                    graph_regions = []
-                    for section in prompt_sections:
-                        metadata = _section_graph_metadata(section)
-                        if metadata.get("parser_type") != "long_hierarchical_image":
-                            continue
-                        graph_regions.append({
-                            "node_id": metadata.get("node_id"),
-                            "path": metadata.get("path") or [],
-                            "path_text": metadata.get("path_text") or "",
-                            "bbox": metadata.get("bbox"),
-                            "crop_image_url": metadata.get("crop_image_url") or "",
-                            "original_image_url": metadata.get("original_image_url") or "",
-                            "confidence": metadata.get("confidence"),
-                            "relation_confidence": metadata.get("relation_confidence"),
-                            "needs_review": bool(metadata.get("needs_review")),
-                        })
-                    reference_doc["evidence_graph_regions"] = graph_regions
                 # print(
                 #     f"[图片排查][evidence] doc=knowledge:{document.id} "
                 #     f"sections={reference_doc['evidence_section_titles']} "
@@ -4172,9 +4051,6 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
                 "table_index": metadata.get("table_index"),
                 "row_start": metadata.get("row_start"),
                 "row_end": metadata.get("row_end"),
-                "node_id": metadata.get("node_id"),
-                "path_text": metadata.get("path_text"),
-                "bbox": metadata.get("bbox"),
                 "preview": str(chunk.get("content") or "")[:300],
             })
         images = _collect_reference_image_paths([doc], max_images=3)
@@ -4197,15 +4073,12 @@ def get_ai_reference_documents_payload(reference_docs: List[Dict[str, Any]]) -> 
             ],
             "evidence_section_ids": doc.get("evidence_section_ids") or [],
             "evidence_section_titles": doc.get("evidence_section_titles") or [],
-            "matched_node_ids": doc.get("matched_node_ids") or [],
-            "matched_graph_regions": doc.get("matched_graph_regions") or [],
-            "evidence_graph_regions": doc.get("evidence_graph_regions") or [],
-            "graph_query_intent": doc.get("graph_query_intent"),
         })
     if not payload:
         return ""
     return json.dumps(desensitize_value(payload), ensure_ascii=False)
 
+@timed_step('answer.non_stream')
 async def get_ai_answer(db, messages, id, reference_docs: Optional[List[Dict[str, Any]]] = None):
     """
     功能说明：

@@ -1,3 +1,4 @@
+from utils.qa_timing import timed_step
 import os
 from typing import Optional
 
@@ -17,6 +18,7 @@ def _env_enabled(name: str, default: bool) -> bool:
 class IntentRouterAgent:
     """Two-stage router: semantic fast path, LLM inference, then knowledge fallback."""
 
+    @timed_step('intent.route')
     async def route(self, question: str, uploaded_images: Optional[str] = None) -> RouteDecision:
         has_images = bool([item for item in str(uploaded_images or "").split(",") if item.strip()])
         semantic_result = route_semantically(question, has_images=has_images)

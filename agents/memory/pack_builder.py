@@ -1,3 +1,4 @@
+from utils.qa_timing import timed_step
 import re
 from typing import Optional
 
@@ -30,6 +31,7 @@ class MemoryPackBuilder:
     def __init__(self, memory_service: MemoryService):
         self.memory_service = memory_service
 
+    @timed_step('memory.build')
     async def build(
         self,
         message_now: Message,

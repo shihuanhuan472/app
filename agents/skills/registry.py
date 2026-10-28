@@ -7,6 +7,12 @@ from .schemas import AgentSkill
 
 
 SKILLS = {
+    "knowledge_statistics": AgentSkill(
+        name="knowledge_statistics",
+        description="直接查询数据库中的文档数量及分类分布。",
+        prompt_file="knowledge_statistics.md",
+        actions=["skill:knowledge_statistics"],
+    ),
     "fault_qa": AgentSkill(
         name="fault_qa",
         description="基于知识库和短期记忆回答设备故障、维护、参数和排查类问题。",
@@ -71,6 +77,8 @@ class SkillRegistry:
 
     def select(self, decision: RouteDecision, memory_pack: Optional[MemoryPack] = None) -> AgentSkill:
         route = _route_value(decision)
+        if route == "knowledge_statistics":
+            return SKILLS["knowledge_statistics"]
         reason = str(getattr(decision, "reason", "") or "")
         dialog_act = str(getattr(decision, "dialog_act", "") or "")
 
@@ -98,6 +106,8 @@ class SkillRegistry:
         if not memory_pack:
             return SKILLS["casual_chat"]
         route = str(getattr(memory_pack, "route", "") or "")
+        if route == "knowledge_statistics":
+            return SKILLS["knowledge_statistics"]
         reason = str(getattr(memory_pack, "reason", "") or "")
         dialog_act = str(getattr(memory_pack, "dialog_act", "") or "")
 

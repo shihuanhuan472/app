@@ -881,6 +881,14 @@
                     <div id="deviceDocumentChart" class="device-document-chart" role="list" aria-label="设备及其文档篇数"><div class="dashboard-empty">正在加载设备文档统计…</div></div>
                 </section>
 
+                <section class="dashboard-panel" aria-label="文件上传贡献统计">
+                    <div class="panel-header">
+                        <div><div class="panel-title">贡献统计</div><div class="panel-subtitle">按上传文件数排序，仅展示前六名；统计未删除的源文件，不按解析章节重复计数。</div></div>
+                        <div class="contribution-summary" id="contributionSummary" role="status">等待数据</div>
+                    </div>
+                    <div id="uploadContributions" class="contribution-list" role="list" aria-label="上传文件数量前六名"><div class="dashboard-empty">正在加载贡献统计…</div></div>
+                </section>
+
                 <section class="dashboard-grid">
                     <div class="dashboard-panel">
                         <div class="panel-header">
@@ -1252,6 +1260,7 @@
 
         function applyDashboardData(data) {
             renderExecutiveOverview(data);
+            renderUploadContributions(data.upload_contributions || []);
             updateDashboardTimeFromServer(data.updated_at);
             applyMetricCards(data.metrics || {});
             applyTrendRanges(data.trends || {});

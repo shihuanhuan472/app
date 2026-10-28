@@ -20,6 +20,28 @@ function initializeExecutiveDashboard() {
     }, 60000);
 }
 
+function renderUploadContributions(rows) {
+    const container = document.getElementById('uploadContributions');
+    const total = rows.reduce((sum, row) => sum + Math.max(0, Number(row.upload_count) || 0), 0);
+    const contributors = rows.filter(row => row.user_id !== null && Number(row.upload_count) > 0).length;
+    document.getElementById('contributionSummary').textContent = `${formatNumber(contributors)} 位贡献者 · ${formatNumber(total)} 份文件`;
+    if (!rows.length) {
+        container.innerHTML = '<div class="dashboard-empty">暂无用户贡献数据</div>';
+        return;
+    }
+    const maximum = Math.max(1, ...rows.map(row => Number(row.upload_count) || 0));
+    container.innerHTML = rows.slice(0, 6).map(row => {
+        const count = Math.max(0, Number(row.upload_count) || 0);
+        const details = [row.username, row.department].filter(Boolean).join(' · ');
+        return `<div class="contribution-item" role="listitem">
+            <div class="user-mini-avatar" aria-hidden="true">${escapeHtml(firstChar(row.name))}</div>
+            <div class="row-main"><div class="contribution-name">${escapeHtml(row.name)}</div><div class="contribution-detail">${escapeHtml(details || '—')}</div>
+            <div class="contribution-track" aria-hidden="true"><span style="width:${(count / maximum * 100).toFixed(1)}%"></span></div></div>
+            <div class="contribution-count">${formatNumber(count)}<small> 份文件</small></div>
+        </div>`;
+    }).join('');
+}
+
 function renderExecutiveOverview(data) {
     const metrics = data.metrics || {};
     const docs = metrics.documents || {};

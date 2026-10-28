@@ -1,3 +1,4 @@
+from utils.qa_timing import timed_step
 import json
 import os
 import re
@@ -715,6 +716,7 @@ class MemoryService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @timed_step('memory.context_analysis')
     async def analyze_context_transition(
         self,
         current_text: str,
@@ -745,6 +747,7 @@ class MemoryService:
             print(f"[MemoryService] context classifier fallback: {type(error).__name__}: {error}")
             return heuristic
 
+    @timed_step('memory.context_llm')
     async def _classify_context_with_llm(
         self,
         current_text: str,
@@ -912,6 +915,7 @@ class MemoryService:
             "updated_time": context.updated_time.isoformat() if context.updated_time else None,
         }
 
+    @timed_step('memory.create_trace')
     async def create_ai_trace(
         self,
         user_message: Message,
@@ -1021,6 +1025,7 @@ class MemoryService:
             return True
         return bool(reference_docs)
 
+    @timed_step('memory.update_context')
     async def update_active_context(
         self,
         user_message: Message,
@@ -1132,6 +1137,7 @@ class MemoryService:
         await self.db.refresh(context)
         return context
 
+    @timed_step('memory.refine_after_answer')
     async def refine_after_answer(
         self,
         user_message: Message,
@@ -1694,6 +1700,7 @@ class MemoryService:
             lines.append(f"Last retrieval query: {active_context['active_query']}")
         return "\n".join(lines)
 
+    @timed_step('memory.refresh_summary')
     async def maybe_refresh_summary(
         self,
         session_id: int,
