@@ -442,7 +442,14 @@ async def set_default_version(version_id: int, db: AsyncSession = Depends(get_db
 @router.post("/versions/{version_id}/reindex", summary="重建知识文档版本索引")
 async def reindex_version(version_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     _require(current_user, PermissionCode.ADMIN)
-    row = await _call(KnowledgeVersionService(db).reindex(version_id, current_user.id))
+    service = KnowledgeVersionService(db)
+    version = await service.get_version(version_id)
+    await service.get_document(version.document_id, lock=True)
+    try:
+        row = await service.reindex(version_id, current_user.id)
+    except KnowledgeVersionError as exc:
+        await db.commit()
+        raise AppException(status.HTTP_409_CONFLICT, BizCode.DOC_REQUEST_INVALID, str(exc))
     await db.flush()
     return Result.success_with_data(_version_dict(row))
 

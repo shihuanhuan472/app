@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-app-template="文档详情 - {{shortName}}"></title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/mindmap-viewer.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
@@ -12,6 +13,7 @@
     <script src="js/api.js"></script>
     <script src="js/review.js"></script>
     <script src="js/menu.js"></script>
+    <script src="js/mindmap-viewer.js"></script>
     <style>
         .document-detail-container {
             padding: 20px !important;
@@ -1249,6 +1251,9 @@
 
         function renderKnowledgeSectionContent(section) {
             const imageUrls = normalizeImageUrls(section.image_urls);
+            const renderSectionImage = (url, index) =>
+                window.MindmapViewer.render(section, url, index, getFullAssetUrl)
+                || renderInlineKnowledgeImage(url, index);
             const role = getKnowledgeSectionRole(section);
             const text = role === 'revision_history'
                 ? normalizeRevisionHistoryText(section.plain_text || '')
@@ -1272,7 +1277,7 @@
                 const imageUrl = imageUrls[imageIndex - 1];
                 if (imageUrl) {
                     usedImageIndexes.add(imageIndex - 1);
-                    html += renderInlineKnowledgeImage(imageUrl, imageIndex);
+                    html += renderSectionImage(imageUrl, imageIndex);
                 }
                 lastIndex = markerPattern.lastIndex;
             }
@@ -1281,15 +1286,15 @@
             if (!isLongText || isExpanded) {
                 imageUrls.forEach((url, index) => {
                     if (!usedImageIndexes.has(index)) {
-                        html += renderInlineKnowledgeImage(url, index + 1);
+                        html += renderSectionImage(url, index + 1);
                     }
                 });
             } else {
                 imageUrls.slice(0, 2).forEach((url, index) => {
                     if (!usedImageIndexes.has(index)) {
                         usedImageIndexes.add(index);
+                        html += renderSectionImage(url, index + 1);
                     }
-                    html += renderInlineKnowledgeImage(url, index + 1);
                 });
             }
 

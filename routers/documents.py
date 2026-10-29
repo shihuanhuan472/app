@@ -1437,13 +1437,17 @@ async def update_document(
             if document.tag is not None:
                 from utils.tag_service import validate_active_tag_ids
                 document.tag = await validate_active_tag_ids(db, document.tag)
-            await service.edit_current(current, document,
+            edited_version = await service.edit_current(current, document,
                 _knowledge_sections_from_request(document.sections), current_user.id, version_id=version_id)
             await db.commit()
             await db.refresh(current)
             name = (await db.execute(select(User.full_name).where(
                 User.id == current.contributor_id))).scalar_one_or_none()
-            return Result.success_with_data(await document_convert_documentResponse(db, current, name))
+            response = await document_convert_documentResponse(db, current, name)
+            response = response.model_dump() if hasattr(response, 'model_dump') else response.dict() if hasattr(response, 'dict') else response
+            response['index_sync'] = {'version_id': edited_version.id,
+                'status': edited_version.index_status, 'error': edited_version.index_error}
+            return Result.success_with_data(response)
         config = get_image_config()
         base_url = os.path.join(
             config["BASE_DIR"], config["IMAGE_DIR"].lstrip("/").lstrip("\\")

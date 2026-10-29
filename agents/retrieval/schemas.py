@@ -9,6 +9,9 @@ class RetrievalResult(BaseModel):
     title: str = ""
     content: str = ""
     chunks: list[dict[str, Any]] = Field(default_factory=list)
+    version_id: int | None = None
+    version: str | None = None
+    hardware_version: str | None = None
     score: float = 0.0
     base_score: float = 0.0
     rrf_score: float = 0.0

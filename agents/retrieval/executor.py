@@ -184,6 +184,8 @@ class RetrievalExecutor:
                 score=float(item.get("score", 0.0)), base_score=float(item.get("score", 0.0)),
                 source=f"semantic:{level}", matched_terms=list(item.get("matched_terms") or []),
                 metadata=item.get("metadata") or {}, chunks=list(item.get("chunks") or []),
+                version_id=item.get("version_id"), version=item.get("version"),
+                hardware_version=item.get("hardware_version"),
             ))
         return results
 
@@ -192,13 +194,13 @@ class RetrievalExecutor:
         result_lists: list[tuple[str, list[RetrievalResult]]],
         strategy: RetrievalStrategy,
     ) -> list[RetrievalResult]:
-        merged: dict[tuple[str, str], RetrievalResult] = {}
+        merged: dict[tuple[str, str, int | None], RetrievalResult] = {}
         for list_id, items in result_lists:
             source_type = list_id.split(":", 1)[0]
             weight = self.SOURCE_WEIGHTS[source_type]
-            seen_in_list: set[tuple[str, str]] = set()
+            seen_in_list: set[tuple[str, str, int | None]] = set()
             for rank, item in enumerate(items, start=1):
-                key = (item.library_type, item.document_id)
+                key = (item.library_type, item.document_id, item.version_id)
                 if key in seen_in_list:
                     continue
                 seen_in_list.add(key)

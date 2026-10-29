@@ -69,6 +69,44 @@ class KnowledgeParser:
         os.makedirs(os.path.join(self.document_base_dir, self.image_dir), exist_ok=True)
 
     def parse(self, file_path: str) -> Optional[KnowledgeParsedDocument]:
+        document = self._parse_document(file_path)
+        if document is not None:
+            self._parse_document_mindmaps(document)
+        return document
+
+    def _parse_document_mindmaps(self, document: KnowledgeParsedDocument):
+        """Enrich image metadata; preserve existing text and section boundaries."""
+        cache = {}
+        for section in document.sections:
+            results = []
+            for image_url in section.image_urls:
+                if image_url not in cache:
+                    try:
+                        from knowledge_parsers.mindmap_parser import parse_mindmap_candidate
+                        result = parse_mindmap_candidate(os.path.join(self.document_base_dir, image_url))
+                    except Exception as exc:
+                        result = {"status": "failed", "error": str(exc)}
+                    if result.get("tree"):
+                        try:
+                            from knowledge_parsers.mindmap_chunker import chunk_mindmap
+                            result["chunks"] = chunk_mindmap(result["tree"], source_file=image_url)
+                        except Exception as exc:
+                            result["chunk_error"] = str(exc)
+                    try:
+                        from knowledge_parsers.mindmap_parser import export_parse_result
+                        result["output_files"] = export_parse_result(
+                            os.path.join(self.document_base_dir, image_url), result,
+                            os.path.join(self.document_base_dir, "runtime", "mindmap_results"))
+                        print(f"[MindmapParser] {image_url}: {result['status']} -> {result['output_files']}")
+                    except Exception as exc:
+                        result["export_error"] = str(exc)
+                        print(f"[MindmapParser] export failed: {exc}")
+                    cache[image_url] = {"image_url": image_url, **result}
+                results.append(cache[image_url])
+            if results:
+                section.metadata["image_parsing"] = results
+
+    def _parse_document(self, file_path: str) -> Optional[KnowledgeParsedDocument]:
         self.last_error_code = None
         self.last_error_detail = None
         try:

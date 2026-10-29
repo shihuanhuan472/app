@@ -68,6 +68,7 @@ def _section_key(section: Any, index: int) -> str:
 
 
 def _section_payload(section: Any, index: int) -> dict:
+    from knowledge_parsers.mindmap_edit import normalize_image_metadata
     section_metadata = getattr(section, "section_metadata", None)
     if section_metadata is None:
         candidate = getattr(section, "metadata", None)
@@ -80,7 +81,7 @@ def _section_payload(section: Any, index: int) -> dict:
         "section_type": getattr(section, "section_type", None) or str(index + 1),
         "plain_text": getattr(section, "plain_text", None) or "",
         "image_urls": getattr(section, "image_urls", None) or [],
-        "section_metadata": section_metadata or {},
+        "section_metadata": normalize_image_metadata(section_metadata, getattr(section, "image_urls", None) or []),
     }
 
 
@@ -132,7 +133,7 @@ class KnowledgeVersionService:
     async def get_version(self, version_id: int, lock: bool = False) -> KnowledgeDocumentVersion:
         stmt = select(KnowledgeDocumentVersion).where(KnowledgeDocumentVersion.id == version_id)
         if lock:
-            stmt = stmt.with_for_update()
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
         version = (await self.db.execute(stmt)).scalar_one_or_none()
         if not version:
             raise KnowledgeVersionError("文档版本不存在")
@@ -187,7 +188,10 @@ class KnowledgeVersionService:
             await self.db.execute(delete(KnowledgeDocumentVersionSection).where(KnowledgeDocumentVersionSection.version_id == version.id))
             seen = set()
             for index, raw in enumerate(sections):
-                payload = _section_payload(raw, index)
+                try:
+                    payload = _section_payload(raw, index)
+                except ValueError as exc:
+                    raise KnowledgeVersionError(str(exc)) from exc
                 key = payload["stable_section_key"]
                 if key in seen:
                     raise KnowledgeVersionError(f"章节稳定键重复：{key}")
@@ -496,12 +500,23 @@ class KnowledgeVersionService:
             document.updated_time = version.updated_at
             document.first_edit_date = version.updated_at
             await self._sync_current_sections(document, version.id)
-        await self.reindex(version.id, operator_id)
-        if document.default_version_id == version.id:
-            document.is_vectorized = 1
-            document.vector_update_time = version.indexed_at
         await self._audit(document.id, version.id, "edit_current", operator_id,
             {"before": before, "content_hash": version.content_hash, "revision": version.revision})
+        version.index_status = "pending"
+        version.index_error = None
+        if document.default_version_id == version.id:
+            document.is_vectorized = 0
+        # Commit the corrected source and its pending index state together. Retrieval
+        # excludes non-indexed versions; a failed rebuild must not resurrect old text.
+        await self.db.commit()
+        try:
+            await self.get_document(document.id, lock=True)
+            await self.reindex(version.id, operator_id)
+            if document.default_version_id == version.id:
+                document.is_vectorized = 1
+                document.vector_update_time = version.indexed_at
+        except KnowledgeVersionError:
+            await self.db.commit()
         return version
 
     async def _sync_current_sections(self, document: DocumentKnowledge, version_id: int):
@@ -574,6 +589,10 @@ class KnowledgeVersionService:
             await VectorService(self.db).add_knowledge_version_to_vector_store(version)
             version.index_status = "indexed"
             version.indexed_at = _now()
+            document = await self.get_document(version.document_id)
+            if document.default_version_id == version.id:
+                document.is_vectorized = 1
+                document.vector_update_time = version.indexed_at
         except Exception as exc:
             version.index_status = "failed"
             version.index_error = str(exc)[:2000]

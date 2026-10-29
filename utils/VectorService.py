@@ -465,6 +465,7 @@ class VectorService:
                 str(item.get("doc_id") or ""),
                 str(metadata.get("version_id") or ""),
                 str(metadata.get("section_index") or metadata.get("section_title") or ""),
+                str(metadata.get("chunk_id") or item.get("content") or ""),
             ])
             existing = merged.get(key)
             if not existing:

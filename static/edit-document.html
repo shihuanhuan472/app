@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-app-template="编辑文档 - {{shortName}}"></title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/mindmap-viewer.css">
+    <link rel="stylesheet" href="css/mindmap-editor.css">
+    <script src="js/mindmap-editor.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
@@ -933,9 +936,15 @@
                             <span>上传图片到本章节</span>
                             <input type="file" accept="image/*" multiple style="display:none" onchange="handleKnowledgeSectionFiles(${index}, this.files); this.value = '';">
                         </label>
+                        ${(section.image_urls || []).map((url, imageIndex) => window.MindmapEditor.has(section, url) ? `<button type="button" class="mindmap-edit-entry" onclick="editKnowledgeMindmap(${index}, ${imageIndex})">编辑脑图 · 图片${imageIndex + 1}${(section.metadata.image_parsing || []).some(r => r.image_url === url && r.human_edited) ? ' · 已人工修订' : ''}</button>` : '').join('')}
                     </div>
                 </div>
             `).join('');
+        }
+
+        function editKnowledgeMindmap(sectionIndex, imageIndex) {
+            const section = knowledgeSectionsState[sectionIndex];
+            if (section) MindmapEditor.open(section, section.image_urls[imageIndex], getFullImageUrl, renderKnowledgeSectionsEditor);
         }
 
         function renderKnowledgeSectionImages(section, sectionIndex) {
@@ -1036,6 +1045,11 @@
             const section = knowledgeSectionsState[sectionIndex];
             if (!section || !section.image_urls[imageIndex]) return;
             knowledgeRemovedImages.push(section.image_urls[imageIndex]);
+            const removedUrl = section.image_urls[imageIndex];
+            const normalizeUrl = url => String(url || '').replace(/\\/g, '/').replace(/^\/+/, '');
+            if (section.metadata?.image_parsing) {
+                section.metadata.image_parsing = section.metadata.image_parsing.filter(item => normalizeUrl(item.image_url) !== normalizeUrl(removedUrl));
+            }
             section.image_urls.splice(imageIndex, 1);
             renderKnowledgeSectionsEditor();
         }
@@ -1288,9 +1302,33 @@
             const result = await documentAPI.updateDocument(docId, finalData, 'knowledge', currentEditingDocument.selected_version_id);
             if (!result) throw new Error('更新失败');
 
+            if (result.index_sync && result.index_sync.status !== 'indexed') {
+                const box = document.createElement('div');
+                box.className = 'knowledge-edit-intro';
+                box.setAttribute('role', 'alert');
+                box.textContent = '修改已保存，检索数据同步失败。该版本暂不参与检索，请重试同步。';
+                const retry = document.createElement('button');
+                retry.type = 'button'; retry.className = 'btn btn-secondary'; retry.textContent = '重试同步';
+                retry.onclick = async () => {
+                    retry.disabled = true; retry.textContent = '正在同步…';
+                    try {
+                        await knowledgeVersionAPI.reindex(result.index_sync.version_id);
+                        Utils.showMessage('保存并同步完成', 'success');
+                        window.location.href = getReturnUrl(docId);
+                    } catch (error) {
+                        Utils.showMessage(error.message || '同步失败，请重试', 'error');
+                        retry.disabled = false; retry.textContent = '重试同步';
+                    }
+                };
+                box.appendChild(retry);
+                document.getElementById('editDocumentForm').prepend(box);
+                resetSubmitButton(submitBtn);
+                return;
+            }
+
             // 图片可能仍被历史版本或草稿引用，移出正文时保留原文件。
 
-            Utils.showMessage('知识库文档已保存', 'success');
+            Utils.showMessage('知识库文档已保存并同步检索数据', 'success');
             setTimeout(() => window.location.href = getReturnUrl(docId), 1200);
         }
 
@@ -1305,7 +1343,9 @@
             if (!docId) return;
 
             const submitBtn = event.target.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+            submitBtn.innerHTML = isKnowledgeDocument(currentEditingDocument)
+                ? '<i class="fas fa-spinner fa-spin"></i> 正在保存并同步检索数据…'
+                : '<i class="fas fa-spinner fa-spin"></i> 提交中...';
             submitBtn.disabled = true;
             isSubmitting = true;
 

@@ -19,32 +19,51 @@ def upload_path(value):
     """Accept only local uploads; never delete arbitrary paths or remote URLs."""
     if not isinstance(value, str) or not value or '://' in value:
         return None
-    base = Path(os.getenv('BASE_DIR', '.')).resolve()
-    root = (base / 'upload').resolve()
-    text = value.replace('\\', '/')
-    if text.startswith('/upload/'):
-        text = text.lstrip('/')
-    path = Path(text)
-    if not path.is_absolute():
-        path = base / text.lstrip('/')
-    path = path.resolve()
+    text = value.strip().replace('\\', '/')
+    # Reject content before touching the filesystem (resolve calls Windows'
+    # _getfinalpathname). In particular, metadata may contain entire Markdown.
+    if not text or any(ord(c) < 32 for c in text) or any(c in text for c in '<>"|?*'):
+        return None
+    if any(len(part) > 255 for part in text.split('/')):
+        return None
     try:
+        base = Path(os.getenv('BASE_DIR', '.')).resolve()
+        root = (base / 'upload').resolve()
+        if text.startswith('/upload/'):
+            text = text.lstrip('/')
+        path = Path(text)
+        if not path.is_absolute():
+            if not text.startswith('upload/'):
+                return None
+            path = base / text
+        # Lexical containment first; real containment below still rejects symlinks.
+        path = Path(os.path.abspath(path))
         path.relative_to(root)
-    except ValueError:
+        if os.name == 'nt' and any(':' in part for part in path.parts[1:]):
+            return None  # Do not accept NTFS alternate data streams.
+        path = path.resolve()
+        path.relative_to(root)
+    except (ValueError, OSError, RuntimeError):
         return None
     return path if path != root else None
 
 
 def file_references(row):
     result = set()
-    def add(value):
+    path_fields = {'origin_file_dir', 'storage_path', 'stored_file_path',
+                   'image_urls', 'image_urls_snapshot', 'image_url', 'source_image_url',
+                   'crop_image_url', 'image_path', 'source_file',
+                   'image_urls_problem_intro', 'image_urls_causes', 'image_urls_evaluation',
+                   'image_urls_inspection', 'image_urls_solutions', 'image_urls_key_points'}
+
+    def add(value, is_reference=False):
         if isinstance(value, list):
             for item in value:
-                add(item)
+                add(item, is_reference)
         elif isinstance(value, dict):
-            for item in value.values():
-                add(item)
-        elif isinstance(value, str):
+            for key, item in value.items():
+                add(item, key in path_fields)
+        elif is_reference and isinstance(value, str):
             for part in value.split(', '):
                 path = upload_path(part)
                 if path:
@@ -53,7 +72,7 @@ def file_references(row):
                  'image_urls_problem_intro', 'image_urls_causes', 'image_urls_evaluation',
                  'image_urls_inspection', 'image_urls_solutions', 'image_urls_key_points',
                  'sections', 'section_metadata'):
-        add(getattr(row, name, None))
+        add(getattr(row, name, None), name in path_fields)
     return result
 
 

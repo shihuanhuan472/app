@@ -34,6 +34,7 @@ from cxx
 
 """
 import os
+import asyncio
 import uuid
 import json
 import logging
@@ -1112,6 +1113,18 @@ async def on_startup():
     await ensure_memory_tables_schema()
     await migrate_legacy_documents_to_breakdown()
     await migrate_legacy_upload_document_paths_to_source_documents()
+    from services.knowledge_index_retry import retry_knowledge_indexes
+    app.state.knowledge_index_retry_task = asyncio.create_task(retry_knowledge_indexes())
+
+
+@app.on_event("shutdown")
+async def stop_knowledge_index_retry():
+    task = getattr(app.state, "knowledge_index_retry_task", None)
+    if task:
+        task.cancel()
+        import contextlib
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 # 配置 CORS（跨域资源共享）
 app.add_middleware(

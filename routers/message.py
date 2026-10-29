@@ -1431,8 +1431,8 @@ async def _agentic_retrieve_reference_documents(
         refined_strategy = QueryRefiner(verbose=True).refine(analysis, observation, results)
         analysis = analysis.model_copy(update={"retrieval_strategy": refined_strategy})
         second_results = await executor.execute(refined_strategy)
-        merged = {item.document_id: item for item in results}
-        merged.update({item.document_id: item for item in second_results})
+        merged = {(item.library_type, item.document_id, item.version_id): item for item in results}
+        merged.update({(item.library_type, item.document_id, item.version_id): item for item in second_results})
         results = list(merged.values())
         observation = await observer.observe_with_llm(analysis, results)
         # The second observer evaluates the merged candidates; its judgement
@@ -1469,8 +1469,13 @@ async def _agentic_retrieve_reference_documents(
                     else "strong" if item.document_id in evidence_ids and observation.relevance == "strong"
                     else "weak"
                 ),
-                "chunks": [],
-                "matched_image_urls": [],
+                "chunks": list(item.chunks),
+                "version_id": item.version_id,
+                "version": item.version,
+                "hardware_version": item.hardware_version,
+                "matched_image_urls": list(dict.fromkeys(
+                    str(chunk.get("image_url")) for chunk in item.chunks if chunk.get("image_url")
+                )),
             })
     except BaseException as error:
         rank_status = type(error).__name__
@@ -3763,7 +3768,7 @@ def _matched_chunk_texts(matched_chunks: List[Dict[str, Any]], limit: int = 8) -
         content = str(chunk.get("content") or "").strip()
         if not content:
             continue
-        marker = content[:300]
+        marker = content
         if marker in seen:
             continue
         seen.add(marker)
@@ -3785,7 +3790,7 @@ def _matched_chunk_image_urls(matched_chunks: List[Dict[str, Any]], limit: int =
         content = str(chunk.get("content") or "").strip()
         if not content:
             continue
-        marker = content[:300]
+        marker = content
         if marker in seen:
             continue
         seen.add(marker)

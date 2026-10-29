@@ -466,6 +466,16 @@ class VectorStoreMultimodal:
         if self._milvus_text_length(metadata_json) <= MILVUS_METADATA_SAFE_LENGTH:
             return metadata_json
 
+        if metadata.get("chunk_strategy") == "mindmap_path_branch_v1":
+            # Full tree remains in section metadata; retain an exact lookup key.
+            compact = {k: v for k, v in metadata.items()
+                       if k not in {"path", "path_nodes", "node_ids", "branches", "image_positions"}}
+            compact["tree_details_in_section"] = True
+            compact_json = json.dumps(compact, ensure_ascii=False)
+            if self._milvus_text_length(compact_json) > MILVUS_METADATA_SAFE_LENGTH:
+                raise ValueError(f"脑图切块元数据超出 Milvus 容量：{metadata.get('chunk_id')}")
+            return compact_json
+
         compact_metadata = {}
         for key, value in metadata.items():
             if isinstance(value, str):
@@ -504,6 +514,11 @@ class VectorStoreMultimodal:
         normalized_chunks = []
         for chunk in chunks:
             original_content = "" if chunk.get("content") is None else str(chunk.get("content"))
+            raw_meta = chunk.get("metadata") or {}
+            check_meta = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+            if check_meta.get("chunk_strategy") == "mindmap_path_branch_v1":
+                if self._milvus_text_length(original_content) > MILVUS_CONTENT_SAFE_LENGTH:
+                    raise ValueError(f"脑图切块超出 Milvus 字段容量，请拆分超长节点说明：{check_meta.get('chunk_id')}")
             original_embedding_content = (
                 None if chunk.get("embedding_content") is None else str(chunk.get("embedding_content"))
             )
@@ -1013,6 +1028,28 @@ class VectorStoreMultimodal:
                 "hardware_version": getattr(document, "hardware_version", None),
                 "stable_section_key": metadata.get("stable_section_key"),
             }
+            from knowledge_parsers.mindmap_chunker import chunk_mindmap
+            for parsed_image in metadata.get("image_parsing") or []:
+                if not parsed_image.get("tree") or parsed_image.get("status") not in {"parsed", "needs_review"}:
+                    continue
+                source_image = parsed_image.get("image_url") or ""
+                for mindmap_chunk in chunk_mindmap(
+                    parsed_image["tree"], source_file=source_image,
+                    source_version=getattr(document, "version_label", None),
+                ):
+                    content = "\n".join(p for p in [
+                        tag_prefix.rstrip(), f"文档标题：{getattr(document, 'title', '')}",
+                        f"目录标题：{section_title}", mindmap_chunk["text"],
+                    ] if p)
+                    chunk_metadata = {**base_metadata,
+                        **{k: v for k, v in mindmap_chunk.items() if k != "text"},
+                        "content_type": "mindmap", "needs_review": parsed_image.get("needs_review", True),
+                        "source_image_url": source_image, "chunk_size": len(content),
+                    }
+                    chunks.append({"doc_id": vector_doc_id,
+                        "title": getattr(document, "title", ""),
+                        "content": content, "embedding_content": content,
+                        "image_url": "", "metadata": json.dumps(chunk_metadata, ensure_ascii=False)})
             text_without_tables = self._strip_markdown_tables(section_text)
             text_chunks = self._split_text_for_vector(text_without_tables)
             if not text_chunks and image_urls:
@@ -1788,6 +1825,11 @@ class VectorStoreMultimodal:
         embeds = []
         with torch.no_grad():
             for chunk in chunks:
+                metadata = chunk.get("metadata") or {}
+                metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+                if (metadata.get("chunk_strategy") == "mindmap_path_branch_v1"
+                        and _count_tokens_cached(chunk.get("embedding_content") or chunk.get("content") or "") > 7800):
+                    raise ValueError(f"脑图切块超出向量模型输入预算，请拆分超长节点说明：{metadata.get('chunk_id')}")
                 chunk["image_url"] = None if chunk["image_url"] == "" else chunk["image_url"]
                 embedding_text = self._safe_embedding_text(
                     chunk.get("embedding_content") or chunk.get("content") or ""
