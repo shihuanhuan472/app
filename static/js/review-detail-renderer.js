@@ -179,6 +179,14 @@
         }).join('');
     }
 
+    function renderKnowledgeImages(section, options = {}) {
+        if (options.includeImages === false) return '';
+        return normalizeImageUrls(section.image_urls).map((url, index) =>
+            window.MindmapViewer?.render(section, url, index + 1, getAssetUrl)
+            || renderImageGrid([url], options)
+        ).join('');
+    }
+
     function renderKnowledgeSections(item, options = {}) {
         const sections = getKnowledgeSections(item);
         if (!sections.length) {
@@ -202,7 +210,7 @@
                 : bodyText;
             return renderSection(
                 `${marker} ${title}`,
-                `${metaHtml}${renderTextBlock(preview, options)}${renderImageGrid(section.image_urls, options)}`,
+                `${metaHtml}${renderTextBlock(preview, options)}${renderKnowledgeImages(section, options)}`,
                 options
             );
         }).join('');
@@ -224,6 +232,7 @@
         renderBreakdownSections,
         renderImageGrid,
         renderKnowledgeSections,
+        renderKnowledgeImages,
         renderReviewContent,
         renderTextBlock
     };

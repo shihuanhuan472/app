@@ -128,6 +128,12 @@ def _section_to_review_payload(section, index: int) -> dict:
     if metadata is None:
         metadata = data.get("section_metadata") or {}
 
+    from knowledge_parsers.mindmap_edit import normalize_image_metadata
+    try:
+        metadata = normalize_image_metadata(metadata, image_urls)
+    except ValueError as exc:
+        raise AppException(status.HTTP_400_BAD_REQUEST, BizCode.DOC_REQUEST_INVALID, str(exc)) from exc
+
     plain_text = data.get("plain_text") or ""
     return {
         "section_index": data.get("section_index") if data.get("section_index") is not None else index,

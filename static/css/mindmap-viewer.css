@@ -27,3 +27,14 @@
 .mindmap-text { margin: 0; padding: 16px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 450px; overflow: auto; background: #f8fafc; font-size: 13px; }
 .mindmap-toolbar :focus-visible, .mindmap-node:focus-visible { outline: 2px solid #2876cc; outline-offset: 2px; }
 @media (max-width: 850px) { .mindmap-tree-pane { max-height: 380px; } }
+
+.submission-detail-page .mindmap-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.submission-detail-page .mindmap-image-pane,
+.submission-detail-page .mindmap-tree-pane { max-height: 420px; }
+.submission-detail-page .mindmap-tree-pane { border-top: 0; border-left: 1px solid #e5eaf0; }
+.submission-detail-page .mindmap-image-stage { max-width: 640px; margin: 0 auto; }
+@media (max-width: 850px) {
+    .submission-detail-page .mindmap-layout { grid-template-columns: minmax(0, 1fr); }
+    .submission-detail-page .mindmap-image-pane { max-height: 280px; }
+    .submission-detail-page .mindmap-tree-pane { max-height: 320px; border-left: 0; border-top: 1px solid #e5eaf0; }
+}

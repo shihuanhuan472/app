@@ -543,6 +543,7 @@
             if (!currentUser) return false;
             const isAdmin = isAdminUser(currentUser);
             if (isAdmin) return true;
+            if (isKnowledgeDocument(doc)) return Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
             const isReviewMode = new URLSearchParams(window.location.search).get('mode') === 'review';
             const isTechnician = Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN);
             const isAuthor = currentUser.id == doc.contributor_id;
@@ -690,17 +691,6 @@
 
                 currentEditingDocument = doc;
 
-                if (isKnowledgeDocument(doc) && !isAdminUser(Utils.getCurrentUser())) {
-                    document.getElementById('editFormContainer').innerHTML = `
-                        <div class="document-error">
-                            <i class="fas fa-lock" style="font-size:48px; color:#f59e0b; margin-bottom:20px;"></i>
-                            <p style="color:#334155; margin-bottom:20px;">知识库文档编辑暂需管理员处理。</p>
-                            <div><a href="${getReturnUrl(docId)}" class="btn btn-secondary">返回详情</a></div>
-                        </div>
-                    `;
-                    return;
-                }
-
                 const loadingState = document.getElementById('loadingState');
                 if (loadingState) loadingState.style.display = 'none';
 
@@ -834,6 +824,8 @@
 
         function cloneKnowledgeSection(section, index) {
             return {
+                stable_section_key: section.stable_section_key || null,
+                parent_section_key: section.parent_section_key || null,
                 section_index: Number.isInteger(section.section_index) ? section.section_index : index,
                 section_title: section.section_title || `章节${index + 1}`,
                 section_type: section.section_type || String(index + 1),
@@ -858,7 +850,7 @@
                 <form id="editDocumentForm" onsubmit="updateDocument(event)">
                     <div class="knowledge-edit-intro">
                         <i class="fas fa-circle-info"></i>
-                        <div>修改将直接保存到当前版本，不生成新版本，并同步更新检索内容。原始上传文件保持不变；上传更新文档请使用版本管理。</div>
+                        <div>修改将保存为版本草稿。请在版本管理中核对变更说明与发布目标，再提交审核；审核通过并发布后生效。</div>
                     </div>
                     <div class="form-group">
                         <label for="title" class="required">文档标题</label>
@@ -875,7 +867,7 @@
                     <div id="knowledgeSectionsEditor"></div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="cancelEdit('${doc.id}')"><i class="fas fa-times"></i> 取消</button>
-                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-save"></i> 保存修改</button>
+                        <button type="submit" class="btn btn-primary" id="editSubmitBtn"><i class="fas fa-save"></i> 保存草稿并前往审核流程</button>
                     </div>
                 </form>
             `;
@@ -1255,6 +1247,8 @@
                 const charStart = fullOffset;
                 const charEnd = charStart + plainText.length;
                 sections.push({
+                    stable_section_key: section.stable_section_key || null,
+                    parent_section_key: section.parent_section_key || null,
                     section_index: index,
                     section_title: String(section.section_title || `章节${index + 1}`).trim(),
                     section_type: String(section.section_type || index + 1).trim(),
@@ -1277,13 +1271,6 @@
                 resetSubmitButton(submitBtn);
                 return;
             }
-            const currentUser = Utils.getCurrentUser();
-            if (!isAdminUser(currentUser)) {
-                Utils.showMessage('知识库文档编辑暂需管理员处理', 'error');
-                resetSubmitButton(submitBtn);
-                return;
-            }
-
             const sections = await buildKnowledgeSectionsPayload();
             const imageUrls = [];
             sections.forEach(section => {
@@ -1299,37 +1286,23 @@
                 image_urls: imageUrls.join(', '),
                 sections
             };
-            const result = await documentAPI.updateDocument(docId, finalData, 'knowledge', currentEditingDocument.selected_version_id);
-            if (!result) throw new Error('更新失败');
-
-            if (result.index_sync && result.index_sync.status !== 'indexed') {
-                const box = document.createElement('div');
-                box.className = 'knowledge-edit-intro';
-                box.setAttribute('role', 'alert');
-                box.textContent = '修改已保存，检索数据同步失败。该版本暂不参与检索，请重试同步。';
-                const retry = document.createElement('button');
-                retry.type = 'button'; retry.className = 'btn btn-secondary'; retry.textContent = '重试同步';
-                retry.onclick = async () => {
-                    retry.disabled = true; retry.textContent = '正在同步…';
-                    try {
-                        await knowledgeVersionAPI.reindex(result.index_sync.version_id);
-                        Utils.showMessage('保存并同步完成', 'success');
-                        window.location.href = getReturnUrl(docId);
-                    } catch (error) {
-                        Utils.showMessage(error.message || '同步失败，请重试', 'error');
-                        retry.disabled = false; retry.textContent = '重试同步';
-                    }
-                };
-                box.appendChild(retry);
-                document.getElementById('editDocumentForm').prepend(box);
-                resetSubmitButton(submitBtn);
-                return;
+            const unwrap = value => value && Object.prototype.hasOwnProperty.call(value, 'data') ? value.data : value;
+            let baseId = currentEditingDocument.selected_version_id;
+            if (!baseId) {
+                // Older documents need a source version before a correction draft can inherit files.
+                const initialized = unwrap(await knowledgeVersionAPI.initialize(docId));
+                baseId = initialized.id;
             }
-
-            // 图片可能仍被历史版本或草稿引用，移出正文时保留原文件。
-
-            Utils.showMessage('知识库文档已保存并同步检索数据', 'success');
-            setTimeout(() => window.location.href = getReturnUrl(docId), 1200);
+            const draft = unwrap(await knowledgeVersionAPI.createVersion(docId, {
+                ...finalData,
+                based_on_version_id: baseId,
+                change_category: 'correction',
+                change_summary: '修订文档内容及脑图解析',
+                planned_publish_mode: 'replace',
+                planned_supersedes_version_ids: [Number(baseId)]
+            }));
+            Utils.showMessage('草稿已保存，请核对后提交审核', 'success');
+            window.location.href = `knowledge-versions.html?documentId=${docId}&versionId=${draft.id}`;
         }
 
         async function updateDocument(event) {
@@ -1344,7 +1317,7 @@
 
             const submitBtn = event.target.querySelector('button[type="submit"]');
             submitBtn.innerHTML = isKnowledgeDocument(currentEditingDocument)
-                ? '<i class="fas fa-spinner fa-spin"></i> 正在保存并同步检索数据…'
+                ? '<i class="fas fa-spinner fa-spin"></i> 正在保存版本草稿…'
                 : '<i class="fas fa-spinner fa-spin"></i> 提交中...';
             submitBtn.disabled = true;
             isSubmitting = true;
