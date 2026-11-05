@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>网页导入文档</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="js/app-config.js"></script><script src="js/config.js"></script>
+<script src="js/common.js"></script><script src="js/api.js"></script>
+<style>
+body{margin:0;background:#f5f7fa;color:#24364b;font-family:Arial,'Microsoft YaHei',sans-serif}
+header{padding:16px;display:flex;gap:20px;align-items:center;background:white}
+.layout{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 70px)}
+aside{overflow:auto;background:white;padding:16px;border-right:1px solid #ddd}
+details{margin-left:12px}summary{padding:8px;cursor:pointer;overflow-wrap:anywhere}
+button,select{padding:7px;margin:4px;max-width:100%;cursor:pointer}button:focus{outline:2px solid #2876ca}
+.page-actions{padding-left:18px}.sections{display:flex;flex-direction:column;align-items:start}
+main{display:flex;flex-direction:column;min-width:0}iframe{width:100%;flex:1;border:0;background:white}
+#location{padding:12px;overflow-wrap:anywhere}#filter{width:100%;padding:8px;box-sizing:border-box}
+summary a{color:#175ca5;text-decoration:none}summary a[aria-current="page"]{font-weight:bold;color:#0065ff}
+.sections button{border:0;background:transparent;color:#526780;text-align:left}
+html.embedded-directory header{display:none}
+html.embedded-directory .layout{height:100vh;grid-template-columns:280px minmax(0,1fr)}
+html.embedded-directory body{overflow:hidden}
+.layout main{min-height:0}.layout iframe{min-height:0}
+@media(max-width:700px){.layout{grid-template-columns:1fr;height:auto}aside{max-height:40vh}iframe{height:80vh;flex:none}}
+/* A compact page tree, with chapters visually separated from page nodes. */
+.layout,html.embedded-directory .layout{grid-template-columns:340px minmax(0,1fr)}
+aside{padding:0;background:#f8fafc;border-right:1px solid #dce4ee;scrollbar-width:thin}
+.tree-toolbar{position:sticky;top:0;z-index:2;padding:18px 16px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.tree-toolbar strong{display:block;font-size:15px;color:#172b4d;margin-bottom:12px}
+#filter{border:1px solid #d7e0eb;border-radius:7px;background:white;padding:10px 12px;font-size:13px;outline:none}
+#filter:focus{border-color:#409eff;box-shadow:0 0 0 3px #409eff18}
+#status{margin:8px 16px;font-size:12px;color:#64748b}#status:empty{display:none}
+#tree{padding:10px 8px 24px}
+#tree .page-node{margin:2px 0}
+#tree .page-node>summary{display:flex;align-items:center;gap:8px;list-style:none;padding:9px 10px 9px calc(8px + var(--depth)*12px);border-radius:6px;font-size:13px;line-height:1.5;color:#334155;overflow-wrap:break-word}
+#tree summary::-webkit-details-marker{display:none}
+#tree .page-node>summary::before{content:'›';flex:0 0 12px;color:#7b8da5;font-size:18px;line-height:18px;text-align:center;transition:transform .15s}
+#tree .page-node[open]>summary::before{transform:rotate(90deg)}
+#tree .page-node>summary:hover{background:#eaf0f7}
+#tree .page-node>summary:has(a[aria-current="page"]){background:#e5f0ff;box-shadow:inset 3px 0 #2684ff}
+#tree summary a{display:block;min-width:0;color:inherit;line-height:1.5;overflow-wrap:break-word}
+#tree summary a[aria-current="page"]{color:#075bc2;font-weight:600}
+#tree summary:focus-visible,#tree a:focus-visible{outline:2px solid #409eff;outline-offset:1px}
+.page-actions{padding:0 8px 0 calc(30px + var(--depth)*12px)}
+.chapter-group{margin:3px 0 8px;border-left:2px solid #dce6f2;padding-left:8px}
+.chapter-group>summary{font-size:12px;color:#8291a5;padding:6px 4px;list-style:none}
+.chapter-group>summary::before{content:'+ ';}.chapter-group[open]>summary::before{content:'− ';}
+.sections{gap:2px;align-items:stretch}.sections button{margin:0;padding:7px 6px;font-size:12px;line-height:1.5;border-radius:4px;overflow-wrap:break-word}
+.sections button:hover{background:#eaf0f7;color:#1665bd}
+#location{background:white;border-bottom:1px solid #e2e8f0;font-size:13px;color:#526780;padding:13px 20px}
+@media(max-width:800px){.layout,html.embedded-directory .layout{grid-template-columns:260px minmax(0,1fr)}}
+</style><script>if(new URLSearchParams(location.search).get('embedded') === '1') document.documentElement.classList.add('embedded-directory');</script></head>
+<body><header><a href="main.html">返回知识库列表</a><strong>网页导入文档</strong></header>
+<div class="layout"><aside><div class="tree-toolbar"><strong>页面目录</strong><input id="filter" placeholder="搜索页面或附件…" aria-label="查找页面或附件"></div><p id="status">正在加载目录…</p><nav id="tree" aria-label="Confluence 来源目录"></nav></aside>
+<main><div id="location">选择左侧页面查看完整内容；目录节点可展开。</div><iframe id="reader" title="完整知识文档"></iframe></main></div>
+<script src="js/source-directory.js?v=20261104-tree-style"></script></body></html>

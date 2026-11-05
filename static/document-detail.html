@@ -1,7 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-<head>
+<head><script src="js/embedded-reader.js?v=1"></script>
     <meta charset="UTF-8">
+    <script src="js/confluence-renderer.js?v=20261104-source-links"></script>
+    <script>
+        if (new URLSearchParams(location.search).get('embedded') === '1') document.documentElement.classList.add('embedded-reader');
+    </script>
+    <style>
+        .embedded-reader .knowledge-book-sidebar { display:none !important; }
+        .embedded-reader .system-container > .sidebar { display:none !important; }
+        .embedded-reader .system-container { display:block !important; }
+        .embedded-reader .main-content { margin-left:0 !important; width:100% !important; padding:0 !important; }
+        .embedded-reader .knowledge-book-page { background:white !important; }
+        .embedded-reader .knowledge-book-main { max-width:none !important; margin:0 !important; }
+        .embedded-reader .knowledge-book-title { font-size:30px !important; }
+        .embedded-reader .knowledge-book-layout { display:block !important; padding:0 28px !important; }
+        .embedded-reader .knowledge-book-content-wrap { width:100% !important; max-width:none !important; }
+    </style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-app-template="文档详情 - {{shortName}}"></title>
     <link rel="stylesheet" href="css/style.css">
@@ -14,6 +29,8 @@
     <script src="js/review.js"></script>
     <script src="js/menu.js"></script>
     <script src="js/mindmap-viewer.js"></script>
+    <script src="js/xmind-viewer.js"></script>
+    <link rel="stylesheet" href="css/xmind-viewer.css">
     <style>
         .document-detail-container {
             padding: 20px !important;
@@ -1039,7 +1056,9 @@
         }
 
         function isKnowledgeDocument(doc, source) {
-            return normalizeLibraryType(doc.library_type || source) === 'knowledge' || Array.isArray(doc.sections);
+            // A shared response can include sections: [] for breakdown documents.
+            // Library identity, not the presence of that field, chooses the layout.
+            return normalizeLibraryType(doc.library_type || source) === 'knowledge';
         }
 
         function renderInlineText(text) {
@@ -1250,10 +1269,16 @@
         }
 
         function renderKnowledgeSectionContent(section) {
+            const excelContent = window.ConfluenceRenderer.renderExcel(section);
+            if (excelContent !== null) return excelContent;
+            const nativeMindmap = window.XMindViewer.render(section);
+            if (nativeMindmap !== null) return nativeMindmap;
             const imageUrls = normalizeImageUrls(section.image_urls);
             const renderSectionImage = (url, index) =>
                 window.MindmapViewer.render(section, url, index, getFullAssetUrl)
                 || renderInlineKnowledgeImage(url, index);
+            const confluenceContent = window.ConfluenceRenderer.render(section, renderSectionImage);
+            if (confluenceContent !== null) return confluenceContent;
             const role = getKnowledgeSectionRole(section);
             const text = role === 'revision_history'
                 ? normalizeRevisionHistoryText(section.plain_text || '')
@@ -1355,7 +1380,7 @@
                     ${bodySections.map((section, index) => {
                         const level = sectionLevelNumber(section.section_type);
                         const sectionNo = section.section_type ? escapeHtml(section.section_type) : String(index + 1);
-                        const title = stripSectionTitleMarker(section.section_title || `章节 ${index + 1}`, section.section_type);
+                        const title = stripSectionTitleMarker(window.XMindViewer.title(section) || `章节 ${index + 1}`, section.section_type);
                         return `<a class="manual-toc-item manual-toc-level-${level}" href="#${manualSectionId(section, index)}" data-section-id="${manualSectionId(section, index)}"><span class="manual-toc-number">${sectionNo}</span><span class="manual-toc-text">${escapeHtml(title)}</span></a>`;
                     }).join('')}
                 </div>
@@ -1364,7 +1389,7 @@
 
         function renderManualArticle(section, index) {
             const level = sectionLevelNumber(section.section_type);
-            const title = stripSectionTitleMarker(section.section_title || `章节 ${index + 1}`, section.section_type);
+            const title = stripSectionTitleMarker(window.XMindViewer.title(section) || `章节 ${index + 1}`, section.section_type);
             const sectionNo = section.section_type ? escapeHtml(section.section_type) : String(index + 1);
             return `
                 <article class="manual-article level-${level}" id="${manualSectionId(section, index)}" data-section-index="${index}" data-section-id="${manualSectionId(section, index)}">
@@ -1409,7 +1434,7 @@
                     <div class="knowledge-book-layout">
                         <aside class="knowledge-book-sidebar" aria-label="文档章节导航">
                             <a class="book-sidebar-home" href="main.html"><i class="fas fa-book"></i><span>知识库首页</span></a>
-                            <details class="book-part" open>
+                            <details class="book-part" id="documentChapterNavigation" open>
                                 <summary class="book-part__summary"><span class="book-part__title">Part I · 文档章节</span></summary>
                                 <div class="book-part__body">${tocHtml}</div>
                             </details>
@@ -1465,7 +1490,7 @@
                 .map((section, index) => {
                     const level = sectionLevelNumber(section.section_type);
                     const sectionNo = sectionBadgeText(section, level);
-                    const title = section.section_title || `章节 ${index + 1}`;
+                    const title = window.XMindViewer.title(section) || `章节 ${index + 1}`;
                     const contentHtml = renderKnowledgeSectionContent(section);
                     return `
                         <div class="document-section knowledge-section level-${level}">
@@ -1516,16 +1541,42 @@
                 : '<i class="fas fa-trash"></i><span>确认删除</span>';
         }
 
-        function openDeleteModal(docId, docTitle) {
+        let branchDeletePreview = null;
+        async function openDeleteModal(docId, docTitle) {
             const currentUser = Utils.getCurrentUser();
             if (!isAdminUser(currentUser)) {
                 Utils.showMessage('请在“我的提交”中发起删除审核', 'warning');
                 return;
             }
             currentDocumentId = docId;
+            branchDeletePreview = null;
             setDeletePending(false);
             document.getElementById('deleteModalMessage').innerHTML = `确定要删除整篇文档 <strong>"${escapeHtml(docTitle || '未命名文档')}"</strong> 吗？<br><span style="color:#ef4444; font-size:14px;">将永久删除全部版本（含草稿）、正文、附件、源文件和检索索引，无法恢复。单个版本请到版本管理中操作。</span>`;
             document.getElementById('deleteModal').style.display = 'flex';
+            const sourceMeta = (currentDocument?.sections || []).map(s => s.metadata || s.section_metadata || {})
+                .find(m => m.source_type === 'confluence' && !m.attachment_id);
+            if (sourceMeta) {
+                const confirm = document.getElementById('deleteConfirmButton');
+                confirm.disabled = true;
+                document.getElementById('deleteModalMessage').textContent = '正在查询整个分支的页面和附件…';
+                try {
+                    const response = await new APIClient().get('/confluence/branch-delete/' + docId);
+                    if (response.code !== 1) throw new Error(response.msg || '删除范围查询失败');
+                    if (currentDocumentId !== docId) return;
+                    branchDeletePreview = response.data;
+                    const items = response.data.items;
+                    const pages = items.filter(i => i.kind === 'page').length;
+                    const attachments = items.length - pages;
+                    document.getElementById('deleteModalMessage').innerHTML =
+                        `<p>将删除整个分支：<strong>${pages} 个页面、${attachments} 个附件</strong>。</p>` +
+                        '<p style="color:#dc2626">包括全部版本和草稿、数据库记录、检索向量及源文件，无法恢复。仅删除本系统内容，不影响 Confluence 原站。</p>' +
+                        '<ul style="max-height:320px;overflow:auto;padding-left:22px">' + items.map(item =>
+                            `<li style="margin:8px 0">${item.kind === 'page' ? '页面' : '附件'}：<strong>${escapeHtml(item.title)}</strong><div style="font-size:12px;color:#64748b">${escapeHtml(item.path)}</div></li>`).join('') + '</ul>';
+                    confirm.disabled = false;
+                } catch (error) {
+                    document.getElementById('deleteModalMessage').textContent = '无法确认删除范围：' + error.message;
+                }
+            }
         }
 
         function closeDeleteModal() {
@@ -1540,11 +1591,21 @@
             try {
                 // 删除时传递当前库类型，避免两张表存在相同 id 时删错库。
                 const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
-                const result = await documentAPI.deleteDocument(currentDocumentId, source);
+                let result;
+                if (branchDeletePreview) {
+                    const response = await new APIClient().post('/confluence/branch-delete/' + currentDocumentId, {token: branchDeletePreview.token});
+                    if (response.code !== 1) throw new Error(response.msg || '分支删除失败');
+                    result = true;
+                } else {
+                    result = await documentAPI.deleteDocument(currentDocumentId, source);
+                }
                 if (result) {
                     Utils.showMessage('文档删除成功', 'success');
                     closeDeleteModal();
-                    setTimeout(() => window.location.href = 'main.html', 1000);
+                    setTimeout(() => {
+                        if (branchDeletePreview && window.parent !== window) window.parent.location.reload();
+                        else window.top.location.href = 'main.html';
+                    }, 1000);
                 } else {
                     Utils.showMessage('文档删除失败', 'error');
                     setDeletePending(false);
@@ -1559,13 +1620,13 @@
             const currentUser = Utils.getCurrentUser();
             if (!isAdminUser(currentUser)) {
                 const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
-                window.location.href = `edit-document.html?id=${docId}&mode=review&source=${encodeURIComponent(source)}`;
+                window.location.href = `edit-document.html?id=${docId}&mode=review&source=${encodeURIComponent(source)}${document.documentElement.classList.contains('embedded-reader') ? '&embedded=1' : ''}`;
                 return;
             }
             // 编辑页要继续沿用详情页的库类型，避免保存知识库文档时默认落到故障库。
             const source = new URLSearchParams(window.location.search).get('source') || 'breakdown';
             const versionId = currentDocument && currentDocument.selected_version_id;
-            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}${versionId ? '&versionId=' + encodeURIComponent(versionId) : ''}`;
+            window.location.href = `edit-document.html?id=${docId}&source=${encodeURIComponent(source)}${versionId ? '&versionId=' + encodeURIComponent(versionId) : ''}${document.documentElement.classList.contains('embedded-reader') ? '&embedded=1' : ''}`;
         }
 
         async function submitDeleteReviewFromDetail(docId) {
@@ -1594,6 +1655,7 @@
                 const body = article.querySelector('.manual-article-body');
                 if (!section || !body) return;
                 body.innerHTML = renderManualArticleBody(section, index);
+                window.ConfluenceRenderer.linkAttachments(body, new APIClient());
                 body.style.minHeight = '';
                 body.style.containIntrinsicSize = '';
                 body.classList.remove('manual-article-body-placeholder');
@@ -1682,6 +1744,7 @@
                     }
                     if (section && body) {
                         body.innerHTML = renderManualArticleBody(section, index);
+                        window.ConfluenceRenderer.linkAttachments(body, new APIClient());
                         body.style.minHeight = '';
                         body.style.containIntrinsicSize = '';
                         body.classList.remove('manual-article-body-placeholder');
@@ -1759,7 +1822,22 @@
                     }
                 }
 
+                doc.sections = window.ConfluenceRenderer.mergeExcelSections(doc.sections || []);
+                const attachmentMetadata = (doc.sections || []).map(section => section.metadata || section.section_metadata || {})
+                    .find(metadata => metadata.attachment_title);
+                if (attachmentMetadata) doc.title = attachmentMetadata.attachment_title;
                 currentDocument = doc;
+                const isWebDocument = (doc.sections || []).some(section =>
+                    (section.metadata || section.section_metadata || {}).source_type === 'confluence');
+                if (isWebDocument && !document.documentElement.classList.contains('embedded-reader')) {
+                    const target = new URL('main.html', location.href);
+                    target.searchParams.set('view', 'web');
+                    target.searchParams.set('documentId', doc.id);
+                    const sectionId = new URLSearchParams(location.search).get('sectionId');
+                    if (sectionId) target.searchParams.set('sectionId', sectionId);
+                    location.replace(target.href);
+                    return;
+                }
                 document.title = APP_CONFIG.formatDocumentTitle(doc.title, '文档详情');
                 document.getElementById('docTitleSubtitle').textContent = doc.title || '文档详情';
 
@@ -1785,7 +1863,8 @@
                 if (doc.origin_file_name && doc.origin_file_dir) {
                     const fileUrl = getFullAssetUrl(doc.origin_file_dir);
                     const fileExt = String(doc.origin_file_name).split('.').pop().toLowerCase();
-                    const isPreviewable = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
+                    const isConfluenceSnapshot = fileExt === 'html' && String(doc.origin_file_dir).includes('/confluence/');
+                    const isPreviewable = isConfluenceSnapshot || ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
                     const previewAction = isPreviewable && canPreviewSourceFile
                         ? `<a href="${fileUrl}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-eye"></i> 预览</a>`
                         : '';
@@ -1889,8 +1968,20 @@
                 }
 
                 document.getElementById('documentDetail').innerHTML = html;
+                window.ConfluenceRenderer.linkAttachments(document.getElementById('documentDetail'), new APIClient());
                 if (isKnowledge) {
                     initializeManualReader();
+                    const sectionParams = new URLSearchParams(window.location.search);
+                    const requestedSection = sectionParams.get('sectionId');
+                    const requestedIndex = sectionParams.get('sectionIndex');
+                    if (requestedSection || requestedIndex !== null) {
+                        const matchingSection = (doc.sections || []).find(section =>
+                            requestedIndex !== null
+                                ? String(section.section_index) === requestedIndex || (section.metadata?.display_section_indices || []).includes(requestedIndex)
+                                : String(section.id) === requestedSection || (section.metadata?.display_section_ids || []).includes(requestedSection));
+                        const target = matchingSection && document.getElementById(manualSectionId(matchingSection, matchingSection.section_index));
+                        if (target) requestAnimationFrame(() => target.scrollIntoView({block: 'start'}));
+                    }
                     const versionSelector = document.getElementById('knowledgeVersionSelector');
                     if (versionSelector) {
                         versionSelector.addEventListener('change', event => {

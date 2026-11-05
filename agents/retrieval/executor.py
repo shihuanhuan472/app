@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import or_, select
 
-from models import DocumentBreakdown, DocumentKnowledge, KnowledgeDocumentSection
+from models import DocumentBreakdown, DocumentKnowledge
 
 from ..query_analysis.schemas import RetrievalQueries, RetrievalStrategy, semantic_query_key
 from .schemas import RetrievalResult
@@ -131,27 +131,18 @@ class RetrievalExecutor:
             return []
         results: list[RetrievalResult] = []
         for model, library in ((DocumentBreakdown, "breakdown"), (DocumentKnowledge, "knowledge")):
+            if library == "knowledge":
+                from .knowledge_evidence import keyword_knowledge
+                results.extend(await keyword_knowledge(self.db, terms, level, self.top_k,
+                                                       self.allowed_document_ids))
+                continue
             scope_conditions = []
             if self.allowed_document_ids is not None:
                 scope_conditions.append(model.id.in_(self.allowed_document_ids.get(library, set())))
             fields = [model.title]
-            if library == "breakdown":
-                fields += [model.problem_intro, model.causes, model.evaluation, model.inspection, model.solutions, model.key_points]
-                conditions = [or_(*[field.ilike(f"%{term}%") for field in fields]) for term in terms]
-                stmt = select(model).where(model.is_deleted == 0, *conditions, *scope_conditions).limit(self.top_k)
-            else:
-                fields += [KnowledgeDocumentSection.section_title, KnowledgeDocumentSection.plain_text]
-                conditions = [or_(*[field.ilike(f"%{term}%") for field in fields]) for term in terms]
-                stmt = (
-                    select(model)
-                    .outerjoin(
-                        KnowledgeDocumentSection,
-                        KnowledgeDocumentSection.document_id == DocumentKnowledge.id,
-                    )
-                    .where(model.is_deleted == 0, *conditions, *scope_conditions)
-                    .distinct()
-                    .limit(self.top_k)
-                )
+            fields += [model.problem_intro, model.causes, model.evaluation, model.inspection, model.solutions, model.key_points]
+            conditions = [or_(*[field.ilike(f"%{term}%") for field in fields]) for term in terms]
+            stmt = select(model).where(model.is_deleted == 0, *conditions, *scope_conditions).limit(self.top_k)
             rows = (await self.db.execute(stmt)).unique().scalars().all()
             for row in rows:
                 content = self._row_text(row, library)

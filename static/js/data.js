@@ -322,6 +322,10 @@ const DataManager = {
         }
     },
 
+    async resetUserPassword(userId) {
+        return adminAPI.resetUserPassword(userId);
+    },
+
     // 删除用户
     async deleteUser(userId) {
         try {

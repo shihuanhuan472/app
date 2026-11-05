@@ -1,6 +1,14 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-CN">
-<head>
+<head><script src="js/embedded-reader.js?v=2"></script>
+    <script>
+        if (new URLSearchParams(location.search).get('embedded') === '1') document.documentElement.classList.add('embedded-reader');
+    </script>
+    <style>
+        html.embedded-reader .system-container > .sidebar { display:none !important; }
+        html.embedded-reader .system-container { display:block !important; }
+        html.embedded-reader .main-content { margin-left:0 !important; width:100% !important; padding:20px !important; box-sizing:border-box; }
+    </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-app-template="编辑文档 - {{shortName}}"></title>
@@ -600,7 +608,7 @@
                 return 'my-submissions.html';
             }
             // 返回详情时保留原来的库类型，让用户回到同一个故障库/知识库文档。
-            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown') + (params.get('versionId') ? '&versionId=' + encodeURIComponent(params.get('versionId')) : '');
+            return 'document-detail.html?id=' + docId + '&source=' + encodeURIComponent(source || 'breakdown') + (params.get('versionId') ? '&versionId=' + encodeURIComponent(params.get('versionId')) : '') + (document.documentElement.classList.contains('embedded-reader') ? '&embedded=1' : '');
         }
 
         let isSubmitting = false;

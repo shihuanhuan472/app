@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 
 ALLOWED_DOCUMENT_EXTENSIONS = {
+    ".xmind",
     ".pdf",
     ".pptx",
     ".ppt",
@@ -27,6 +28,7 @@ ALLOWED_DOCUMENT_EXTENSIONS = {
 
 
 EXTENSION_CATEGORY = {
+    ".xmind": "mindmap",
     ".pdf": "pdf",
     ".docx": "word",
     ".ppt": "presentation",
@@ -47,7 +49,7 @@ EXTENSION_CATEGORY = {
     ".xlsm": "spreadsheet",
 }
 
-ZIP_BASED_EXTENSIONS = {".docx", ".pptx", ".xlsx", ".xlsm"}
+ZIP_BASED_EXTENSIONS = {".docx", ".pptx", ".xlsx", ".xlsm", ".xmind"}
 OLE_BASED_EXTENSIONS = {".ppt", ".xls"}
 TEXT_LIKE_EXTENSIONS = {".txt", ".md", ".markdown", ".csv", ".html", ".mhtml"}
 

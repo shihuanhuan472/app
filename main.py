@@ -58,6 +58,7 @@ from feedback_learning.router import router as feedback_learning_router
 from routers.user_feedback import router as user_feedback_router
 # conversation_v1 已废弃；/api/v1/chats/* 由 routers/message.py 中的 chat_router 统一维护。
 from routers import documents
+from routers import confluence
 from models import Base, DocumentBreakdown, DocumentKnowledge
 from database import AsyncSessionLocal, engine
 from starlette.types import Scope
@@ -1153,6 +1154,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(confluence.router)
 app.include_router(knowledge_versions.router)
 app.include_router(review.router)
 app.include_router(source_documents.router)
@@ -1167,6 +1169,7 @@ app.include_router(auth.router, prefix=API_V1_PREFIX)
 app.include_router(users.router, prefix=API_V1_PREFIX)
 app.include_router(admin.router, prefix=API_V1_PREFIX)
 app.include_router(documents.router, prefix=API_V1_PREFIX)
+app.include_router(confluence.router, prefix=API_V1_PREFIX)
 app.include_router(knowledge_versions.router, prefix=API_V1_PREFIX)
 app.include_router(review.router, prefix=API_V1_PREFIX)
 app.include_router(source_documents.router, prefix=API_V1_PREFIX)

@@ -165,10 +165,15 @@ async def get_source_documents_page(
     category: Optional[str] = Query(None),
     source_status: Optional[str] = Query(None),
     pending_only: bool = Query(False),
+    web_imports: str = Query('all', pattern='^(all|exclude|only)$'),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     conditions = [SourceDocument.is_deleted == 0]
+    if web_imports == 'exclude':
+        conditions.append(~SourceDocument.stored_file_path.like('%/confluence/%'))
+    elif web_imports == 'only':
+        conditions.append(SourceDocument.stored_file_path.like('%/confluence/%'))
 
     if not has_role(current_user, UserRole.ADMIN):
         conditions.append(SourceDocument.uploader_id == current_user.id)
@@ -252,6 +257,26 @@ async def get_source_documents_page(
     return Result.success_with_data(
         build_pagination_payload(total_count, page, size, items, "source_documents")
     )
+
+
+@router.get('/web-tree', summary='浏览网页导入的源文档目录')
+async def get_web_source_tree(db: AsyncSession = Depends(get_db),
+                              current_user: User = Depends(get_current_active_user)):
+    from services.confluence_source_tree import build_source_tree, source_metadata
+    query = select(SourceDocument, User.full_name, User.username).outerjoin(
+        User, User.id == SourceDocument.uploader_id).where(
+        SourceDocument.is_deleted == 0,
+        SourceDocument.stored_file_path.like('%/confluence/%'))
+    if not has_role(current_user, UserRole.ADMIN):
+        query = query.where(SourceDocument.uploader_id == current_user.id)
+    rows = (await db.execute(query.order_by(SourceDocument.id))).all()
+    sources = []
+    for source, full_name, username in rows:
+        meta = await asyncio.to_thread(source_metadata, source)
+        response = source_document_to_response(source,
+            '我' if source.uploader_id == current_user.id else full_name or username)
+        sources.append((response.model_dump(mode='json'), meta))
+    return Result.success_with_data(build_source_tree(sources))
 
 
 @router.delete("/{source_id}", summary="删除源文档")

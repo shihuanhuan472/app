@@ -17,5 +17,8 @@ runtime/
 scripts/
 docs/
 evaluate/
-tests/
+tests/*
+!tests/test_confluence_import.py
+!tests/test_confluence_renderer.cjs
 model_weights/
+.runtime/

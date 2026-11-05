@@ -133,6 +133,7 @@ async def purge_knowledge_document(db, document, vector_service):
 
 async def cleanup_deleted_files(paths):
     """Persist a retry manifest so a disk error never silently loses cleanup work."""
+    paths = sorted({str(path) for path in paths})
     if not paths:
         return
     directory = Path('.runtime/knowledge-deletions')

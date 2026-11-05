@@ -621,11 +621,12 @@ const documentAPI = {
     client: new APIClient(),
 
     // 分页获取文档
-    async getDocumentsPage(page = 1, size = 9, libraryType = 'all', tags = []) {
+    async getDocumentsPage(page = 1, size = 9, libraryType = 'all', tags = [], excludeWebImports = true) {
         try {
             console.log(`POST请求获取第 ${page} 页文档，每页 ${size} 条`);
 
             const requestData = {
+                exclude_web_imports: excludeWebImports,
                 page: page,
                 size: size,
                 // 列表页需要同时展示故障库和知识库，所以明确让后端跨库查询。
@@ -835,11 +836,12 @@ const documentAPI = {
     },
 
     // 搜索文档（分页）
-    async searchDocumentsPage(query, page = 1, size = 9, libraryType = 'all', tags = []) {
+    async searchDocumentsPage(query, page = 1, size = 9, libraryType = 'all', tags = [], excludeWebImports = true) {
         try {
             console.log(`搜索文档: "${query}", 第 ${page} 页，每页 ${size} 条`);
 
             const requestData = {
+                exclude_web_imports: excludeWebImports,
                 data: query,
                 page: page,
                 size: size,
@@ -1059,6 +1061,7 @@ const sourceDocumentAPI = {
             if (filters.category) params.append('category', filters.category);
             if (filters.status) params.append('source_status', filters.status);
             if (filters.pending_only) params.append('pending_only', 'true');
+            if (filters.web_imports) params.append('web_imports', filters.web_imports);
 
             const response = await this.client.get(`/source-documents/page?${params.toString()}`, true);
             if (response.code === 1) {
@@ -1454,6 +1457,14 @@ const DataManager = {
             console.error('更新用户失败:', error);
             throw error;
         }
+    },
+
+    async resetUserPassword(userId) {
+        const response = await this.client.post(`/admin/user/${userId}/reset-password`, {}, true);
+        if (response.code !== 1) {
+            throw new Error(response.msg || '密码重置失败');
+        }
+        return response.data;
     },
 
     // 删除用户（通过更新status为0）

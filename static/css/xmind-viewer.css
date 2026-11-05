@@ -1,0 +1,16 @@
+.xmind-native { background: #fff; border: 1px solid #dbe5ef; border-radius: 10px; padding: 16px; }
+.xmind-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: #526579; font-size: 13px; margin-bottom: 16px; }
+.xmind-controls button { border: 1px solid #b9cfe8; background: #f0f7ff; border-radius: 5px; padding: 5px 10px; cursor: pointer; color: #175ca5; }
+.xmind-scroll { overflow: auto; max-height: 75vh; }
+.xmind-native ul { list-style: none !important; margin: 0 0 0 20px !important; padding: 0 0 0 22px !important; border-left: 1px solid #bdd1e7; }
+.xmind-native ul.xmind-root { margin-left: 0 !important; padding-left: 0 !important; border: 0; }
+.xmind-native li { position: relative; margin: 9px 0 !important; padding: 0 !important; }
+.xmind-native li::before { content: ''; position: absolute; left: -22px; top: 17px; width: 18px; border-top: 1px solid #bdd1e7; }
+.xmind-root > li::before { display: none; }
+.xmind-native summary { cursor: pointer; color: #226cb1; }
+.xmind-label { display: inline-block; vertical-align: middle; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 620px; padding: 6px 10px; border: 1px solid #d7e5f3; border-radius: 6px; color: #23384e; background: #f6faff; }
+.xmind-native small { margin-left: 8px; color: #708195; }
+.xmind-controls .xmind-search { width: 160px; max-width: 100%; box-sizing: border-box; padding: 5px 9px; border: 1px solid #b9cfe8; border-radius: 5px; background: #fff; color: #23384e; font: inherit; }
+.xmind-controls .xmind-search:focus { outline: 2px solid #86baff; outline-offset: 1px; }
+.xmind-native .xmind-label.xmind-match { background: #fff1b8; border-color: #e7ad29; color: #684c00; }
+.xmind-search-status { font-size: 12px; }

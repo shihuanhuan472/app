@@ -9,7 +9,7 @@
     <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/api.js?v=20261104-web-only"></script>
     <script src="js/menu.js"></script>
 </head>
 <body>
@@ -72,6 +72,7 @@
                 <div>
                     <div class="page-title" data-app-text="knowledgeTitle"></div>
                     <div class="page-subtitle" data-app-text="knowledgeSubtitle"></div>
+                    <button type="button" id="webDocumentsToggle" class="btn btn-secondary" style="margin-top:12px" aria-expanded="false">网页导入文档</button>
                 </div>
                 <div class="header-actions">
                     <div class="search-box">
@@ -95,6 +96,7 @@
             </div>
 
             <!-- 文档列表（直接展示，不用card包装） -->
+            <iframe id="webDocumentsPanel" title="网页导入文档：页面树与正文" hidden style="width:100%;height:calc(100vh - 190px);min-height:500px;border:1px solid #e2e8f0;border-radius:8px;background:white"></iframe>
             <div class="document-container">
                 <div class="document-grid" id="documentList">
                     <!-- 文档卡片会动态加载 -->
@@ -127,6 +129,29 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const button = document.getElementById('webDocumentsToggle');
+            const panel = document.getElementById('webDocumentsPanel');
+            const list = document.querySelector('.document-container');
+            const actions = document.querySelector('.header-actions');
+            function setWebView(show) {
+                if (show && typeof exitBatchDeleteMode === 'function') exitBatchDeleteMode();
+                panel.hidden = !show;
+                list.style.display = show ? 'none' : '';
+                actions.style.display = show ? 'none' : '';
+                button.textContent = show ? '返回文档列表' : '网页导入文档';
+                button.setAttribute('aria-expanded', String(show));
+                if (show && !panel.getAttribute('src')) {
+                    const params = new URLSearchParams(location.search);
+                    params.set('embedded', '1');
+                    panel.src = 'source-directory.html?' + params;
+                }
+            }
+            button.addEventListener('click', () => setWebView(panel.hidden));
+            if (new URLSearchParams(location.search).get('view') === 'web') setWebView(true);
+        });
+    </script>
     <div class="batch-delete-bar" id="batchDeleteBar" hidden>
         <div class="batch-delete-meta">
             <div class="batch-delete-icon"><i class="fas fa-check"></i></div>
@@ -357,7 +382,7 @@
                 console.log(`加载第 ${docCurrentPage} 页，每页 ${docPageSize} 条`);
 
                 // 调用 API 获取分页数据
-                const pageData = await documentAPI.getDocumentsPage(docCurrentPage, docPageSize);
+                const pageData = await documentAPI.getDocumentsPage(docCurrentPage, docPageSize, 'all', [], true);
                 console.log('获取到的分页数据:', pageData);
 
                 if (pageData && pageData.documents) {
@@ -398,8 +423,8 @@
                 const nextPage = loadMore ? listViewCurrentPage + 1 : 1;
                 const selectedTags = listViewTag ? [listViewTag] : [];
                 const result = isSearching && currentSearchQuery
-                    ? await documentAPI.searchDocumentsPage(currentSearchQuery, nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags)
-                    : await documentAPI.getDocumentsPage(nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags);
+                    ? await documentAPI.searchDocumentsPage(currentSearchQuery, nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags, true)
+                    : await documentAPI.getDocumentsPage(nextPage, LIST_VIEW_PAGE_SIZE, listViewLibraryType, selectedTags, true);
 
                 const pageDocuments = Array.isArray(result && result.documents)
                     ? result.documents.map(normalizeApiDocument)
@@ -492,7 +517,7 @@
                 showLoading();
 
                 // 调用后端搜索API（分页）
-                const result = await documentAPI.searchDocumentsPage(query, docCurrentPage, docPageSize);
+                const result = await documentAPI.searchDocumentsPage(query, docCurrentPage, docPageSize, 'all', [], true);
 
                 isSearching = true;
                 currentSearchQuery = query;

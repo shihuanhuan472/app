@@ -1,5 +1,6 @@
 import os
 import re
+from time import perf_counter
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
@@ -752,7 +753,9 @@ class VectorStoreMultimodal:
             metadata = dict(section.get("metadata") or {})
             image_urls = self._normalize_image_urls(section.get("image_urls"))
             image_descriptions = list(metadata.get("image_descriptions") or [])
-            if not self.enable_vector_image_description:
+            if (not self.enable_vector_image_description
+                    or metadata.get("source_type") == "confluence"
+                    or metadata.get("confluence_bundle")):
                 # 大 PDF 往往包含上百张图片。逐图调用视觉模型既慢，又容易因为图片 token
                 # 超过 4096 上下文报错。默认跳过图片描述，保留图片位置，继续文本分块和向量化。
                 metadata["image_descriptions"] = image_descriptions
@@ -1007,7 +1010,11 @@ class VectorStoreMultimodal:
             section_text = section.get("plain_text") or ""
             image_urls = self._normalize_image_urls(section.get("image_urls"))
             metadata = section.get("metadata") or {}
+            if metadata.get("unit_type") == "directory_index":
+                continue
             image_positions = metadata.get("image_positions") or []
+            source_path = " / ".join(metadata.get("title_path") or []) if metadata.get("source_type") == "confluence" else ""
+            heading_path = " / ".join(metadata.get("heading_path") or []) if metadata.get("source_type") == "confluence" else ""
             if not section_text.strip() and not image_urls:
                 continue
 
@@ -1028,13 +1035,21 @@ class VectorStoreMultimodal:
                 "hardware_version": getattr(document, "hardware_version", None),
                 "stable_section_key": metadata.get("stable_section_key"),
             }
+            if metadata.get("source_type") == "confluence":
+                base_metadata.update({key: metadata.get(key) for key in (
+                    "source_type", "site", "page_id", "parent_id", "root_id", "source_url",
+                    "source_version", "title_path", "heading_path", "attachment_id", "attachment_version",
+                    "child_pages", "unit_type", "content_hash", "chapter_key")})
+            if metadata.get('chunk_strategy') == 'excel_records_v1':
+                base_metadata.update({key: metadata.get(key) for key in (
+                    'sheet_name', 'row_start', 'row_end', 'header_rows', 'headers', 'attachment_title')})
             from knowledge_parsers.mindmap_chunker import chunk_mindmap
-            for parsed_image in metadata.get("image_parsing") or []:
+            for parsed_image in (metadata.get("image_parsing") or []) + (metadata.get("mindmap_parsing") or []):
                 if not parsed_image.get("tree") or parsed_image.get("status") not in {"parsed", "needs_review"}:
                     continue
                 source_image = parsed_image.get("image_url") or ""
                 for mindmap_chunk in chunk_mindmap(
-                    parsed_image["tree"], source_file=source_image,
+                    parsed_image["tree"], source_file=parsed_image.get("source_file") or source_image,
                     source_version=getattr(document, "version_label", None),
                 ):
                     content = "\n".join(p for p in [
@@ -1050,8 +1065,34 @@ class VectorStoreMultimodal:
                         "title": getattr(document, "title", ""),
                         "content": content, "embedding_content": content,
                         "image_url": "", "metadata": json.dumps(chunk_metadata, ensure_ascii=False)})
-            text_without_tables = self._strip_markdown_tables(section_text)
-            text_chunks = self._split_text_for_vector(text_without_tables)
+            if metadata.get("source_type") == "xmind" and metadata.get("mindmap_parsing"):
+                continue  # Native trees are indexed as complete paths, not arbitrary text slices.
+            if metadata.get("source_type") == "confluence" or metadata.get('chunk_strategy') == 'excel_records_v1':
+                from knowledge_parsers.confluence_chunks import split_text
+                # Confluence HTML tables already have row groups; retain all text.
+                if metadata.get('chunk_strategy') == 'excel_records_v1':
+                    context = f"工作表：{metadata.get('sheet_name', '')}\n附件名称：{metadata.get('attachment_title') or getattr(document, 'title', '')}\n"
+                    records = metadata.get('records') or []
+                    text_chunks, pending = [], ''
+                    for record in records:
+                        candidate = pending + ('\n\n' if pending else '') + record['text']
+                        if pending and _count_tokens_cached(candidate) > 1000:
+                            text_chunks.append(context + pending)
+                            pending = ''
+                        parts = split_text(record['text'], _count_tokens_cached)
+                        if len(parts) > 1:
+                            text_chunks.extend(context + f"原始行号：{record['row']}\n" + part for part in parts)
+                        else:
+                            pending += ('\n\n' if pending else '') + record['text']
+                    if pending:
+                        text_chunks.append(context + pending)
+                    if not records:
+                        text_chunks = split_text(section_text, _count_tokens_cached)
+                else:
+                    text_chunks = split_text(section_text, _count_tokens_cached)
+            else:
+                text_without_tables = self._strip_markdown_tables(section_text)
+                text_chunks = self._split_text_for_vector(text_without_tables)
             if not text_chunks and image_urls:
                 text_chunks = [f"图片所在章节：{section_title}"]
 
@@ -1063,7 +1104,9 @@ class VectorStoreMultimodal:
                         f"文档标题：{getattr(document, 'title', '')}",
                         f"目录编号：{section.get('section_type') or ''}",
                         f"目录标题：{section_title}",
+                        f"章节路径：{heading_path}" if heading_path else "",
                         f"章节正文：{text_chunk}",
+                        f"来源目录：{source_path}" if source_path else "",
                     ]
                     if part
                 )
@@ -1082,11 +1125,11 @@ class VectorStoreMultimodal:
                     "title": getattr(document, "title", ""),
                     "content": content,
                     "embedding_content": content,
-                    "image_url": self._first_existing_image_path(image_urls) if text_index == 0 else "",
+                    "image_url": "" if metadata.get("source_type") == "confluence" else (self._first_existing_image_path(image_urls) if text_index == 0 else ""),
                     "metadata": json.dumps(chunk_metadata, ensure_ascii=False),
                 })
 
-            table_chunks = self._extract_markdown_tables_for_vector(section_text)
+            table_chunks = [] if metadata.get("source_type") == "confluence" else self._extract_markdown_tables_for_vector(section_text)
             for table_chunk in table_chunks:
                 table_content = "\n".join(
                     part
@@ -1256,6 +1299,7 @@ class VectorStoreMultimodal:
 
     def add_document(self, document: Document):
         """添加文档到向量数据库"""
+        started = perf_counter()
         library_type = self._get_document_library_type(document)
         vector_doc_id = self._encode_doc_id(document.id, library_type)
 
@@ -1265,8 +1309,10 @@ class VectorStoreMultimodal:
             pass  # 如果加载失败，继续执行，可能在插入时会有问题
 
         chunks = self.chunk_document(document)
+        chunked_at = perf_counter()
 
         main_chunk = self.get_main_chunk(document)
+        summarized_at = perf_counter()
         # print(111)
         if main_chunk is not None:
             if library_type == "knowledge":
@@ -1344,7 +1390,9 @@ class VectorStoreMultimodal:
         # print(333)
         # 生成向量（文档不使用提示词）
         # embeddings = self.embed_texts(chunk_contents, is_query=False)
+        embedding_started = perf_counter()
         embeddings = self.embed_multimodal(chunks)
+        embedded_at = perf_counter()
         # print(444)
         # 插入数据
         insert_data = [
@@ -1360,7 +1408,10 @@ class VectorStoreMultimodal:
         self.collection.insert(insert_data)
         self.collection.flush()
         print(f"Added {len(chunks)} chunks from document {document.id} to vector store")
-        print(embeddings[0])
+        print(f"[VectorTiming] document={document.id} chunks={len(chunks)} "
+              f"prepare={chunked_at-started:.2f}s summary={summarized_at-chunked_at:.2f}s "
+              f"embedding={embedded_at-embedding_started:.2f}s "
+              f"insert_flush={perf_counter()-embedded_at:.2f}s total={perf_counter()-started:.2f}s")
 
     def _version_rows(self):
         """Read scalar metadata without retrieving embeddings (legacy schema)."""
@@ -1383,6 +1434,11 @@ class VectorStoreMultimodal:
         for start in range(0, len(ids), 1000):
             self.collection.delete("id in " + json.dumps(ids[start:start + 1000]))
         self.collection.flush()
+        for start in range(0, len(ids), 1000):
+            remaining = self.collection.query(expr="id in " + json.dumps(ids[start:start + 1000]),
+                output_fields=['id'], limit=1, consistency_level='Strong')
+            if remaining:
+                raise RuntimeError(f'版本 {version_id} 向量删除后仍有残留片段')
 
     def search(self, query_text: str, query_image=None, top_k: int = -1,
                allowed_version_ids=None, managed_document_ids=None, allowed_document_ids=None) -> List[Dict]:
@@ -1513,13 +1569,15 @@ class VectorStoreMultimodal:
 
     def delete_document(self, doc_id: int, library_type: str = "breakdown"):
         """从向量库中删除文档"""
-        try:
-            self.load_collection()
-        except:
-            pass  # 如果加载失败，继续执行，可能在插入时会有问题
+        self.load_collection()
         vector_doc_id = self._encode_doc_id(doc_id, library_type)
-        self.collection.delete(f'doc_id == {vector_doc_id}')
+        expression = f'doc_id == {vector_doc_id}'
+        self.collection.delete(expression)
         self.collection.flush()
+        remaining = self.collection.query(expr=expression, output_fields=['id'], limit=1,
+                                          consistency_level='Strong')
+        if remaining:
+            raise RuntimeError(f'文档 {doc_id} 向量删除后仍存在片段，停止数据库删除')
         print(f"Deleted document {doc_id} from vector store")
 
     def generate_message(self, content, images):
@@ -1740,7 +1798,14 @@ class VectorStoreMultimodal:
                 "tags": tag_text,
             }
 
-            if not self.enable_knowledge_main_chunk_ai:
+            native_xmind = bool(sections) and all(
+                (section.get("metadata") or {}).get("source_type") == "xmind"
+                for section in sections)
+            native_confluence = bool(sections) and all(
+                (section.get("metadata") or {}).get("source_type") == "confluence"
+                or (section.get("metadata") or {}).get("confluence_bundle")
+                for section in sections)
+            if native_xmind or native_confluence or not self.enable_knowledge_main_chunk_ai:
                 return fallback_main_chunk
 
             try:
@@ -1821,21 +1886,32 @@ class VectorStoreMultimodal:
             return fallback_main_chunk
 
     def embed_multimodal(self, chunks):
-        """生成向量"""
-        embeds = []
+        """Batch pure text using the same model; keep image encoding separate."""
+        from utils.embedding_batches import encode_text_batches
+        embeds = [None] * len(chunks)
+        text_indices, texts = [], []
         with torch.no_grad():
-            for chunk in chunks:
+            for index, chunk in enumerate(chunks):
                 metadata = chunk.get("metadata") or {}
                 metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
                 if (metadata.get("chunk_strategy") == "mindmap_path_branch_v1"
                         and _count_tokens_cached(chunk.get("embedding_content") or chunk.get("content") or "") > 7800):
                     raise ValueError(f"脑图切块超出向量模型输入预算，请拆分超长节点说明：{metadata.get('chunk_id')}")
-                chunk["image_url"] = None if chunk["image_url"] == "" else chunk["image_url"]
                 embedding_text = self._safe_embedding_text(
                     chunk.get("embedding_content") or chunk.get("content") or ""
                 )
-                encode_result = self.model.encode(text=embedding_text, image=chunk["image_url"])
-                embeds.append(encode_result.cpu().numpy().flatten().tolist())
+                if not chunk.get("image_url"):
+                    text_indices.append(index)
+                    texts.append(embedding_text)
+                else:
+                    encode_result = self.model.encode(text=embedding_text, image=chunk["image_url"])
+                    embeds[index] = encode_result.cpu().numpy().flatten().tolist()
+            rows = encode_text_batches(
+                self.model, texts,
+                batch_size=_env_int("VECTOR_TEXT_BATCH_SIZE", default=8),
+                padded_char_budget=_env_int("VECTOR_TEXT_BATCH_CHAR_BUDGET", default=8192))
+            for index, row in zip(text_indices, rows):
+                embeds[index] = row
         return embeds
 
     def _safe_embedding_text(self, text: str, token_limit: int = 7800) -> str:

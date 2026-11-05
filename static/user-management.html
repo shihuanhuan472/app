@@ -137,6 +137,7 @@
 
         .user-actions {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
         }
 
@@ -990,6 +991,9 @@
                                     <button class="btn btn-secondary btn-sm" onclick="UserPagination.editUser(${user.id})">
                                         <i class="fas fa-edit"></i> 编辑
                                     </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="UserPagination.resetUserPassword(${user.id}, this)" data-username="${this.escapeHtml(loginName)}" style="white-space: nowrap;">
+                                        <i class="fas fa-key"></i> 重置密码
+                                    </button>
                                     <button class="btn btn-danger btn-sm" onclick="UserPagination.confirmDeleteUser(${user.id})"
                                             ${Utils.hasRole(user, Utils.ROLE.ADMIN) ? 'disabled' : ''}>
                                         <i class="fas fa-trash"></i> 删除
@@ -1183,6 +1187,23 @@
                 } finally {
                     this.isLoading = false;
                     this.showLoading(false);
+                }
+            },
+
+            async resetUserPassword(userId, button) {
+                if (button.disabled) return;
+                if (!confirm(`确定要将用户“${button.dataset.username}”的密码重置为 123456 吗？\n\n重置后，原密码将无法使用。`)) return;
+                button.disabled = true;
+                const originalContent = button.innerHTML;
+                button.textContent = '重置中...';
+                try {
+                    await DataManager.resetUserPassword(userId);
+                    Utils.showMessage('密码已重置为 123456', 'success');
+                } catch (error) {
+                    Utils.showMessage(error.message || '密码重置失败，请稍后重试', 'error');
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalContent;
                 }
             },
 

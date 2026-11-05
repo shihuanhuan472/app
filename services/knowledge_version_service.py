@@ -329,8 +329,8 @@ class KnowledgeVersionService:
         if not (version.change_summary or "").strip():
             raise KnowledgeVersionError("提交审核前必须填写变更摘要")
         hardware = (version.hardware_version or "").strip()
-        if not hardware:
-            raise KnowledgeVersionError("提交审核前必须填写设备硬件版本号")
+        if not hardware and version.planned_publish_mode == "coexist":
+            raise KnowledgeVersionError("按设备并存必须填写设备硬件版本号")
         current = (await self.db.execute(select(KnowledgeDocumentVersion).where(
             KnowledgeDocumentVersion.document_id == version.document_id,
             KnowledgeDocumentVersion.workflow_status == "published",
@@ -346,6 +346,8 @@ class KnowledgeVersionService:
                 raise KnowledgeVersionError("替代发布必须选择要替代的当前版本")
             for item in current:
                 if item.id in targets and (item.hardware_version or "").strip().casefold() != hardware.casefold():
+                    if not (item.hardware_version or "").strip():
+                        raise KnowledgeVersionError(f"v{item.version_label} 未指定硬件，更新该分支时请将设备硬件版本号留空")
                     raise KnowledgeVersionError(f"只能替代相同硬件版本的 v{item.version_label}")
         elif targets:
             raise KnowledgeVersionError("按设备并存不能选择替代版本")

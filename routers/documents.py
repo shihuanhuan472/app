@@ -569,10 +569,28 @@ def _source_parse_block_message(source: SourceDocument) -> str:
 async def _claim_source_document_for_parse(
     db: AsyncSession, stored_file_path: str, library_type: str
 ) -> str:
+    if "/confluence/" in stored_file_path.replace("\\", "/") and not _is_knowledge_library(library_type):
+        await db.rollback()
+        return "Confluence 源文档只能解析到知识库"
     source = await _get_source_document_by_path(db, stored_file_path, for_update=True)
     if not source:
         await db.rollback()
         return "源文档记录不存在"
+
+    if _is_knowledge_library(library_type):
+        existing = (await db.execute(select(DocumentKnowledge).where(
+            DocumentKnowledge.origin_file_dir == stored_file_path,
+            DocumentKnowledge.is_deleted == 0,
+        ))).scalar_one_or_none()
+        if existing is not None:
+            existing_id = existing.id
+            source.document_id = existing_id
+            source.document_library_type = "knowledge"
+            source.status = SOURCE_STATUS_VECTORIZED if existing.is_vectorized else SOURCE_STATUS_PARSE_FAILED
+            source.parse_started_time = None
+            message = f"该源文件已关联知识文档 {existing_id}，请在文档版本管理中重建索引，无需重复解析"
+            await db.commit()
+            return message
 
     block_message = _source_parse_block_message(source)
     if block_message:
@@ -857,10 +875,15 @@ async def _run_parse_task(task_id: int, user_id: int) -> None:
             .where(ParseTaskItem.task_id == task_id)
             .order_by(ParseTaskItem.id)
         )
-        items = item_result.scalars().all()
+        item_ids = [item.id for item in item_result.scalars().all()]
 
-        for item in items:
-            item_id = item.id
+        for item_id in item_ids:
+            # analyze_files can rollback this session, expiring every ORM object.
+            item = await db.get(ParseTaskItem, item_id, populate_existing=True)
+            task = await db.get(ParseTask, task_id, populate_existing=True)
+            user = await db.get(User, user_id, populate_existing=True)
+            if not item or not task or not user or task.status not in PARSE_TASK_ACTIVE_STATUSES:
+                return
             item.status = "parsing"
             item.error_reason = None
             item.error_code = None
@@ -879,6 +902,10 @@ async def _run_parse_task(task_id: int, user_id: int) -> None:
                     tag=task.tag or [],
                 )
                 response = await analyze_files(analyze_request, db, user)
+                item = await db.get(ParseTaskItem, item_id, populate_existing=True)
+                task = await db.get(ParseTask, task_id, populate_existing=True)
+                if not item or not task or task.status not in PARSE_TASK_ACTIVE_STATUSES:
+                    return
                 response_data = response.data
                 success_names = getattr(response_data, "success_origin_filename", []) or []
                 parse_results = getattr(response_data, "parse_results", []) or []
@@ -2060,6 +2087,23 @@ async def get_document(
         )
 
 
+def _web_import_exclusion(document_model, enabled):
+    if not enabled or document_model is not DocumentKnowledge:
+        return []
+    imported = select(KnowledgeDocumentSection.id).where(
+        KnowledgeDocumentSection.document_id == DocumentKnowledge.id,
+        KnowledgeDocumentSection.section_metadata["source_type"].as_string() == "confluence",
+    ).exists()
+    # Older imports may have lost section metadata during editing/publication.
+    source_imported = select(SourceDocument.id).where(
+        SourceDocument.document_id == DocumentKnowledge.id,
+        SourceDocument.document_library_type == 'knowledge',
+        SourceDocument.stored_file_path.like('%/confluence/%'),
+    ).exists()
+    return [~imported, ~source_imported,
+            ~func.coalesce(DocumentKnowledge.origin_file_dir, '').like('%/confluence/%')]
+
+
 @router.post("/page", summary="分页查询文档内容")
 async def get_page(
     page: Page,
@@ -2080,7 +2124,7 @@ async def get_page(
                 # 每张表都要使用自己的 JSON tag 字段构造过滤条件。
                 tag_condition = _tag_filter(document_model, page.tag)
                 # 默认只展示未删除文档，和原来单库查询行为保持一致。
-                where_conditions = [document_model.is_deleted == 0]
+                where_conditions = [document_model.is_deleted == 0, *_web_import_exclusion(document_model, page.exclude_web_imports)]
                 if tag_condition is not None:
                     # 如果前端选择了标签，就在两个库里都按标签过滤。
                     where_conditions.append(tag_condition)
@@ -2117,7 +2161,7 @@ async def get_page(
         tag_condition = _tag_filter(document_model, page.tag)
         # total_count = db.query(Document).count()
 
-        where_conditions = [document_model.is_deleted == 0]
+        where_conditions = [document_model.is_deleted == 0, *_web_import_exclusion(document_model, page.exclude_web_imports)]
         if tag_condition is not None:
             where_conditions.append(tag_condition)
 
@@ -2177,7 +2221,7 @@ async def query(
                     tag_keyword_condition,
                 )
                 # 默认排除已删除文档，并叠加关键词过滤。
-                where_conditions = [document_model.is_deleted == 0, filter_condition]
+                where_conditions = [document_model.is_deleted == 0, filter_condition, *_web_import_exclusion(document_model, query.exclude_web_imports)]
                 if tag_condition is not None:
                     # 如果前端传入标签，搜索时也要限制对应标签。
                     where_conditions.append(tag_condition)
@@ -2222,7 +2266,7 @@ async def query(
             User.username.like(f"%{query.data}%"),
             tag_keyword_condition,
         )
-        where_conditions = [document_model.is_deleted == 0, filter_condition]
+        where_conditions = [document_model.is_deleted == 0, filter_condition, *_web_import_exclusion(document_model, query.exclude_web_imports)]
         if tag_condition is not None:
             where_conditions.append(tag_condition)
 

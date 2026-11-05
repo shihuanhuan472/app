@@ -208,6 +208,14 @@ async def resolve_automatic_tag_ids(
 ) -> tuple[list[Any], str]:
     if manual_tags:
         return validate_tag_ids(manual_tags, tag_snapshot), "manual"
+    sections = getattr(document, "sections", None) or []
+    if sections and all(
+        (getattr(section, "metadata", None) or {}).get("source_type") == "confluence"
+        or (getattr(section, "metadata", None) or {}).get("confluence_bundle")
+        for section in sections
+    ):
+        # Confluence imports retain source text without generative enrichment.
+        return [], "unresolved"
     filename_ids = match_filename_tag_ids(file_name, tag_snapshot)
     ai_ids = await classify_document_tag_ids(
         document,

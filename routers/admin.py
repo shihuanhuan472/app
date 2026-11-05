@@ -1347,6 +1347,34 @@ async def update_user(
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "服务器内部错误，请稍后重试")
 
 
+@router.post("/user/{user_id}/reset-password", summary="管理员重置用户密码")
+async def reset_user_password(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    try:
+        result = await db.execute(select(User).where(User.id == user_id, User.status == 1))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise AppException(status.HTTP_404_NOT_FOUND, BizCode.USER_NOT_FOUND, "用户不存在或已被禁用")
+
+        default_password = "123456"
+        user.password = hashlib.md5(default_password.encode()).hexdigest()
+        sync_data = dict(username=user.username, password=default_password,
+                         real_name=user.full_name, phone=user.phone, update_password=True)
+        await db.commit()
+        background_tasks.add_task(sync_external_user, **sync_data)
+        return Result(code=1, msg="密码已重置为123456", data=None)
+    except AppException:
+        raise
+    except Exception:
+        await db.rollback()
+        logger.error("管理员重置用户密码失败 user_id=%s", user_id, exc_info=True)
+        raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, "密码重置失败，请稍后重试")
+
+
 @router.get("/users", summary="管理员查询所有用户数据")
 async def get_users(
     db: AsyncSession = Depends(get_db),

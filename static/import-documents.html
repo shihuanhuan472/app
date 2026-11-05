@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -12,12 +12,60 @@
     <script src="js/api.js"></script>
     <script src="js/menu.js"></script>
     <style>
+        #confluenceResumeJob[hidden] { display: none !important; }
         /* 自定义样式 */
         .import-container {
             background: white;
             border-radius: 8px;
             padding: 30px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        .confluence-import-panel { margin-bottom: 24px; overflow: hidden; border: 1px solid #d8e2ed; border-radius: 8px; background: #fff; }
+        .confluence-import-panel[open] { border-color: #b9d3f2; }
+        .confluence-import-panel > summary { display: flex; align-items: center; gap: 12px; padding: 15px 18px; color: #24364b; cursor: pointer; list-style: none; }
+        .confluence-import-panel > summary::-webkit-details-marker { display: none; }
+        .confluence-import-panel > summary::after { content: '\f078'; margin-left: auto; color: #7b8da1; font: 900 12px 'Font Awesome 6 Free'; }
+        .confluence-import-panel[open] > summary::after { content: '\f077'; }
+        .confluence-import-panel > summary > span:nth-child(2) { display: grid; gap: 3px; }
+        .confluence-import-panel > summary strong { font-size: 15px; }
+        .confluence-import-panel > summary small, .confluence-attachment-option small { color: #6e7f92; font-size: 12px; }
+        .confluence-import-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 7px; background: #edf5ff; color: #2876ca; }
+        .confluence-import-body { padding: 0 18px 18px; }
+        .confluence-import-description { margin: 2px 0 16px; color: #607286; font-size: 13px; line-height: 1.6; }
+        .confluence-field-label { display: block; margin-bottom: 6px; color: #35485e; font-size: 13px; font-weight: 600; }
+        .confluence-root-row { display: flex; gap: 8px; }
+        .confluence-root-row input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border: 1px solid #cbd7e3; border-radius: 6px; color: #25384d; font: inherit; }
+        .confluence-root-row input:focus { border-color: #4a9eff; outline: 3px solid #dcecff; }
+        .confluence-root-row button, .confluence-footer button { white-space: nowrap; }
+        .confluence-attachment-option { display: flex; align-items: flex-start; gap: 9px; margin: 14px 0; cursor: pointer; }
+        .confluence-attachment-option input { margin-top: 3px; accent-color: #2876ca; }
+        .confluence-attachment-option span { display: grid; gap: 3px; }
+        .confluence-attachment-option strong { color: #35485e; font-size: 13px; font-weight: 500; }
+        .confluence-tree { display: grid; gap: 2px; max-height: 320px; overflow: auto; padding: 8px 10px; border: 1px solid #e2e9f0; border-radius: 6px; background: #fafcfe; }
+        .confluence-tree:empty { display: none; }
+        .confluence-tree label { display: flex; align-items: flex-start; gap: 8px; min-height: 32px; padding: 6px 8px; border-radius: 4px; color: #34495e; font-size: 13px; line-height: 1.5; }
+        .confluence-tree label:hover { background: #edf5ff; }
+        .confluence-tree input { margin-top: 3px; accent-color: #2876ca; }
+        .confluence-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+        .confluence-selection-hint { color: #7b8da1; font-size: 12px; }
+        #confluenceStatus { max-height: 200px; overflow: auto; margin: 12px 0 0; padding: 10px 12px; border: 1px solid #fecaca; border-radius: 5px; background: #fff7f7; color: #b42318; font: 12px/1.65 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+        #confluenceStatus:empty { display: none; }
+        #confluenceStatus { border-color:#d9e7f7; background:#f5f9ff; color:#375b80; }
+        #confluenceStatus[data-state="error"] { border-color:#fecaca; background:#fff7f7; color:#b42318; }
+        #confluenceActivity { margin-top:14px; padding:14px 16px; border:1px solid #d9e7f7; border-radius:8px; background:#f5f9ff; color:#375b80; }
+        #confluenceActivity[hidden] { display:none; }
+        .confluence-activity-heading { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13px; }
+        .confluence-activity-track { height:5px; margin:12px 0; overflow:hidden; border-radius:5px; background:#dceaff; }
+        .confluence-activity-track::after { content:''; display:block; width:35%; height:100%; border-radius:5px; background:linear-gradient(90deg,#a6ceff,#409eff); animation:confluence-travel 1.8s ease-in-out infinite; }
+        .confluence-activity-note { margin:0; color:#6b8198; font-size:12px; line-height:1.6; }
+        @keyframes confluence-travel { from { transform:translateX(-100%); } to { transform:translateX(390%); } }
+        @media (prefers-reduced-motion:reduce) { .confluence-activity-track::after { animation:none; width:100%; opacity:.5; } }
+        @media (max-width: 640px) {
+            .import-container { padding: 18px; }
+            .confluence-import-body { padding: 0 14px 14px; }
+            .confluence-root-row { flex-direction: column; }
+            .confluence-root-row button, .confluence-footer button { width: 100%; }
+            .confluence-footer { align-items: stretch; flex-direction: column; }
         }
         .step-indicator {
             display: flex;
@@ -292,6 +340,26 @@
         </div>
 
         <div class="import-container">
+            <details id="confluenceImport" class="confluence-import-panel" data-enabled="true" style="display:none;">
+                <summary><span class="confluence-import-icon"><i class="fas fa-diagram-project"></i></span><span><strong>从 Confluence 导入</strong><small>管理员 · 整个页面分支与附件采集</small></span></summary>
+                <div class="confluence-import-body">
+                    <p class="confluence-import-description">输入一次根页面，系统在后台自动分批采集，每批 100 页，完成后继续下一批；刷新页面可恢复进度。页面按章节切片，原始内容可在知识库详情中查看。连接凭据由服务器配置。</p>
+                    <label class="confluence-field-label" for="confluenceRoot">根页面</label>
+                    <div class="confluence-root-row">
+                        <input id="confluenceRoot" type="text" placeholder="粘贴页面链接或输入 pageId" autocomplete="url">
+                    </div>
+                    <label class="confluence-attachment-option" for="confluenceAttachments"><input id="confluenceAttachments" type="checkbox"><span><strong>采集页面附件</strong><small>PPT、PDF、Word、Excel 等文件也会加入待解析列表</small></span></label>
+                    <div class="confluence-footer"><span class="confluence-selection-hint">遍历页面后，文件将加入下方解析列表</span><button type="button" id="confluenceStage" class="btn btn-primary"><i class="fas fa-cloud-arrow-down"></i> 导入整个分支</button></div>
+                    <div id="confluenceActivity" hidden>
+                        <div class="confluence-activity-heading"><strong>正在采集页面和附件</strong><span id="confluenceElapsed">已等待 00:00</span></div>
+                        <div class="confluence-activity-track" aria-hidden="true"></div>
+                        <div id="confluenceCurrent" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;margin-bottom:8px"></div>
+                        <p class="confluence-activity-note">页面和附件较多时需要更长时间，可刷新页面后恢复进度。每批完成后文件会加入下方解析列表。</p>
+                    </div>
+                    <pre id="confluenceStatus" role="status" aria-live="polite"></pre>
+                    <div id="confluenceNotices" role="status" aria-live="polite" style="color:#526579;white-space:pre-wrap;font-size:12px;line-height:1.65"></div>
+                </div>
+            </details>
             <!-- 步骤指示器 -->
             <div class="step-indicator">
                 <div class="step active" id="step1">
@@ -309,8 +377,8 @@
                 <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <div class="image-upload-text">点击或拖拽文件到这里</div>
-                    <div class="image-upload-hint">支持 PDF、PPT、HTML、DOCX、TXT、MD/Markdown、图片(PNG/JPG/JPEG/WebP/BMP)、表格(CSV/XLSX/XLS/XLSM)，每个文件不超过20MB</div>
-                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf,.docx,.pptx,.ppt,.html,.mhtml,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.bmp,.csv,.xlsx,.xls,.xlsm">
+                    <div class="image-upload-hint">支持 XMind、PDF、PPT、HTML、DOCX、TXT、MD/Markdown、图片(PNG/JPG/JPEG/WebP/BMP)、表格(CSV/XLSX/XLS/XLSM)，每个文件不超过20MB</div>
+                    <input type="file" id="fileInput" multiple style="display: none;" accept=".xmind,.pdf,.docx,.pptx,.ppt,.html,.mhtml,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.bmp,.csv,.xlsx,.xls,.xlsm">
                 </div>
 
                 <div id="selectedFilesList" class="file-list" style="display: none;">
@@ -378,12 +446,34 @@
     const ALLOWED_FILE_EXTENSIONS = new Set([
         'pdf', 'docx', 'pptx', 'ppt', 'html', 'mhtml', 'txt', 'md', 'markdown',
         'png', 'jpg', 'jpeg', 'webp', 'bmp',
-        'csv', 'xlsx', 'xls', 'xlsm'
+        'csv', 'xlsx', 'xls', 'xlsm', 'xmind'
     ]);
 
     // 状态变量
     let selectedFiles = [];                // 用户选择的待上传文件列表（File对象）
     let uploadedFiles = [];                // 上传成功的文件列表 { name, url, size, type }
+    let isParsingFiles = false;
+
+    function setParsingControlsLocked(locked) {
+        isParsingFiles = locked;
+        const importing = document.getElementById('confluenceStage')?.getAttribute('aria-busy') === 'true';
+        ['confluenceRoot', 'confluenceStage', 'confluenceAttachments'].forEach(id => {
+            const control = document.getElementById(id);
+            if (control) control.disabled = locked || importing;
+        });
+        document.getElementById('libraryType').disabled = locked;
+        const tags = document.getElementById('documentTags');
+        tags.inert = locked;
+        tags.setAttribute('aria-disabled', String(locked));
+        tags.style.opacity = locked ? '0.6' : '';
+        if (locked) TagSelector.close('documentTags');
+        tags.querySelectorAll('button, input').forEach(control => control.disabled = locked);
+        document.querySelectorAll('.file-checkbox').forEach(control => control.disabled = locked);
+        document.getElementById('selectAllCheckbox').disabled = locked || uploadedFiles.length === 0;
+        const button = document.getElementById('analyzeBtn');
+        button.disabled = locked || uploadedFiles.length === 0;
+        button.innerHTML = locked ? '<i class="fas fa-spinner fa-spin"></i> 解析中...' : '开始解析';
+    }
     let uploadErrorFiles = [];             // 上传失败的文件名列表
     let currentPreviewIndex = 0;           // 预览图片索引
     let previewImages = [];                // 当前可预览的图片文件（用于模态框）
@@ -532,8 +622,7 @@
             `;
         });
         container.innerHTML = html;
-        analyzeBtn.disabled = false;
-        selectAllCheckbox.disabled = false;
+        setParsingControlsLocked(isParsingFiles);
     }
 
     function renderAnalyzeResult(result, fallbackFileNames = []) {
@@ -587,6 +676,9 @@
         const isReviewMode = urlParams.get('mode') === 'review';
         const isSourcePendingMode = urlParams.get('source_mode') === 'pending';
         const currentUser = Utils.getCurrentUser();
+        if (document.getElementById('confluenceImport').dataset.enabled === 'true' && Utils.hasRole(currentUser, Utils.ROLE.ADMIN)) {
+            document.getElementById('confluenceImport').style.display = 'block';
+        }
         if (!isReviewMode && Utils.hasRole(currentUser, Utils.ROLE.TECHNICIAN) && !Utils.hasRole(currentUser, Utils.ROLE.ADMIN)) {
             const redirectParams = new URLSearchParams(window.location.search);
             redirectParams.set('mode', 'review');
@@ -693,7 +785,7 @@
             if (!bytes || bytes.length === 0) return false;
             if (['txt', 'md', 'markdown', 'csv', 'html', 'mhtml'].includes(ext)) return true;
             if (ext === 'pdf') return bytesStartWith(bytes, [0x25, 0x50, 0x44, 0x46]);
-            if (['docx', 'pptx', 'xlsx', 'xlsm'].includes(ext)) {
+            if (['docx', 'pptx', 'xlsx', 'xlsm', 'xmind'].includes(ext)) {
                 return bytesStartWith(bytes, [0x50, 0x4b, 0x03, 0x04])
                     || bytesStartWith(bytes, [0x50, 0x4b, 0x05, 0x06])
                     || bytesStartWith(bytes, [0x50, 0x4b, 0x07, 0x08]);
@@ -1031,6 +1123,7 @@
 
         // 解析文件
         analyzeBtn.addEventListener('click', async () => {
+            if (isParsingFiles) return;
             const checkboxes = document.querySelectorAll('.file-checkbox:checked');
             if (checkboxes.length === 0) {
                 Utils.showMessage('请至少选择一个文件', 'warning');
@@ -1043,13 +1136,13 @@
             const fileList = selectedFilesInfo.map(f => f.url);      // 后端相对路径
             const fileNames = selectedFilesInfo.map(f => f.name);    // 原始文件名
 
-            analyzeBtn.disabled = true;
-            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
-            selectAllCheckbox.disabled = true;
+            setParsingControlsLocked(true);
             setFinishButtonEnabled(false);
 
             try {
-                const result = await documentAPI.analyzeFiles(
+                const analyzeMethod = fileList.some(path => path.includes('/confluence/'))
+                    ? window.analyzeConfluenceFiles : documentAPI.analyzeFiles.bind(documentAPI);
+                const result = await analyzeMethod(
                     fileList,
                     fileNames,
                     isReviewMode,
@@ -1065,6 +1158,8 @@
                 analyzeBtn.innerHTML = '开始解析';
                 analyzeBtn.disabled = uploadedFiles.length === 0;
                 selectAllCheckbox.disabled = uploadedFiles.length === 0;
+            } finally {
+                setParsingControlsLocked(false);
             }
         });
 
@@ -1186,5 +1281,6 @@
     window.closeImageModal = closeImageModal;
     window.changeImage = changeImage;
 </script>
+<script src="js/confluence-import.js?v=20261104-resume-visibility"></script>
 </body>
 </html>

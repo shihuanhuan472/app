@@ -71,6 +71,21 @@ class KnowledgeParser:
     def parse(self, file_path: str) -> Optional[KnowledgeParsedDocument]:
         document = self._parse_document(file_path)
         if document is not None:
+            source_path = Path(str(file_path) + ".source.json")
+            if source_path.exists():
+                import json
+                source = json.loads(source_path.read_text(encoding="utf-8"))
+                if source.get("attachment_title"):
+                    document.title = source["attachment_title"]
+                for section in document.sections:
+                    section.metadata.update(source)
+                    if source.get("source_type") == "confluence":
+                        path = " / ".join(source.get("title_path") or [])
+                        if path and not section.metadata.get("confluence_bundle"):
+                            section.plain_text = f"页面路径：{path}\n" + (section.plain_text or "")
+                        if source.get("attachment_title"):
+                            section.plain_text += f"\n附件名称：{source['attachment_title']}"
+                document.content = "\n\n".join(section.plain_text for section in document.sections if section.plain_text)
             self._parse_document_mindmaps(document)
         return document
 
@@ -78,6 +93,8 @@ class KnowledgeParser:
         """Enrich image metadata; preserve existing text and section boundaries."""
         cache = {}
         for section in document.sections:
+            if section.metadata.get("source_type") == "confluence" or section.metadata.get("confluence_bundle"):
+                continue
             results = []
             for image_url in section.image_urls:
                 if image_url not in cache:
@@ -111,6 +128,8 @@ class KnowledgeParser:
         self.last_error_detail = None
         try:
             ext = Path(file_path).suffix.lower()
+            if ext == ".xmind":
+                return self._parse_xmind(file_path)
             if ext == ".pdf":
                 return self._parse_pdf(file_path)
             if ext == ".docx":
@@ -134,6 +153,23 @@ class KnowledgeParser:
         except Exception as exc:
             self._set_last_error(BizCode.DOC_PARSE_FAILED, str(exc))
             return None
+
+    def _parse_xmind(self, file_path: str) -> KnowledgeParsedDocument:
+        from knowledge_parsers.xmind_parser import parse_xmind, tree_text
+        from knowledge_parsers.mindmap_chunker import chunk_mindmap
+        sections = []
+        for index, tree in enumerate(parse_xmind(file_path)):
+            text = tree_text(tree)
+            result = {"status": "parsed", "needs_review": False, "tree": tree,
+                      "source_file": Path(file_path).name, "markdown": text,
+                      "chunks": chunk_mindmap(tree, source_file=Path(file_path).name)}
+            sections.append(KnowledgeSectionData(
+                section_index=index, section_title=tree["tree_name"], plain_text=text,
+                metadata={"source_type": "xmind", "mindmap_parsing": [result],
+                          "chunk_strategy": "mindmap_path_branch_v1"}))
+        content = "\n\n".join(section.plain_text for section in sections)
+        return KnowledgeParsedDocument(Path(file_path).stem, self._build_summary(content),
+                                       content, [], sections)
 
     def _set_last_error(self, code: int, message: str):
         self.last_error_code = int(code)
@@ -1558,6 +1594,10 @@ class KnowledgeParser:
     def _parse_html(self, file_path: str) -> KnowledgeParsedDocument:
         html = Path(file_path).read_text(encoding="utf-8", errors="ignore")
         soup = BeautifulSoup(html, "html.parser")
+        marker = soup.find("script", id="confluence-source-v1", type="application/json")
+        if marker is not None:
+            from knowledge_parsers.ConfluenceParser import parse_bundle
+            return parse_bundle(marker)
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
         blocks: List[Dict] = []
@@ -1618,21 +1658,18 @@ class KnowledgeParser:
         return self._build_document(file_path, blocks)
 
     def _parse_excel(self, file_path: str) -> KnowledgeParsedDocument:
-        try:
-            import openpyxl
-        except Exception:
-            raise RuntimeError("openpyxl 未安装，无法解析 Excel")
-        workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-        blocks: List[Dict] = []
-        for sheet in workbook.worksheets[:5]:
-            blocks.append({"type": "text", "text": sheet.title, "is_heading": True})
-            for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
-                if row_index >= 100:
-                    break
-                line = " | ".join(str(cell).strip() for cell in row if cell is not None and str(cell).strip())
-                if line:
-                    blocks.append({"type": "text", "text": line})
-        return self._build_document(file_path, blocks)
+        from knowledge_parsers.excel_records import read_groups
+        sections = []
+        for group in read_groups(file_path):
+            text = f"工作表：{group['sheet_name']}\n原始行范围：{group['row_start']}-{group['row_end']}\n"
+            text += (group['preamble'] + '\n') if group['preamble'] else ''
+            text += '\n\n'.join(record['text'] for record in group['records']) or '表头：' + '；'.join(group['headers'])
+            sections.append(KnowledgeSectionData(
+                section_index=len(sections), section_title=f"{group['sheet_name']}（行 {group['row_start']}-{group['row_end']}）",
+                plain_text=text, metadata={**group, 'unit_type': 'table_rows',
+                    'chunk_strategy': 'excel_records_v1', 'heading_path': [group['sheet_name']]}))
+        content = '\n\n'.join(section.plain_text for section in sections)
+        return KnowledgeParsedDocument(Path(file_path).stem, self._build_summary(content), content, [], sections)
 
     def _iter_ppt_shapes(self, shapes):
         for shape in shapes:
@@ -1781,10 +1818,44 @@ class KnowledgeParser:
                     item.get("block_order") or 0,
                 ),
             )
+            if Path(str(file_path) + '.source.json').exists():
+                import json
+                source = json.loads(Path(str(file_path) + '.source.json').read_text(encoding='utf-8'))
+                if source.get('source_type') == 'confluence':
+                    return self._build_ppt_pages(file_path, blocks)
             return self._build_document(file_path, blocks)
         finally:
             if cleanup_context is not None:
                 cleanup_context.cleanup()
+
+    def _build_ppt_pages(self, file_path, blocks):
+        """One display section per slide; vector indexing splits long text later."""
+        pages = {}
+        for block in blocks:
+            pages.setdefault(block.get('page') or 1, []).append(block)
+        sections, all_images = [], []
+        for page_number, items in sorted(pages.items()):
+            content_blocks, images = [], []
+            for item in items:
+                if item.get('is_heading') and item.get('text') == f'第{page_number}页':
+                    continue
+                if item.get('type') == 'image':
+                    url = item.get('image_url')
+                    if not url: continue
+                    images.append(url)
+                    content_blocks.append({'type': 'paragraph', 'text': f'[图片：{url}]'})
+                elif item.get('text'):
+                    content_blocks.append({'type': 'paragraph', 'text': item['text']})
+            text = '\n\n'.join(b['text'] for b in content_blocks)
+            sections.append(KnowledgeSectionData(
+                section_index=len(sections), section_title=f'第{page_number}页',
+                section_type=str(page_number), plain_text=text, image_urls=images,
+                metadata={'chunk_strategy': 'ppt_slide_v1', 'page_number': page_number,
+                          'content_blocks': content_blocks, 'unit_type': 'slide'}))
+            all_images.extend(images)
+        content = '\n\n'.join(s.plain_text for s in sections)
+        return KnowledgeParsedDocument(title=Path(file_path).name, summary=content[:300],
+            content=content, image_urls=all_images, sections=sections)
 
 
 knowledge_parser = KnowledgeParser()

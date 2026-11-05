@@ -9,9 +9,10 @@
     <script src="js/app-config.js"></script>
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/api.js?v=20261104-source-web-tree"></script>
     <script src="js/menu.js"></script>
     <style>
+        [hidden] { display: none !important; }
         .source-modal {
             position: fixed;
             inset: 0;
@@ -49,6 +50,20 @@
             margin-bottom: 8px;
             color: #374151;
         }
+        .web-source-folder { width:100%; min-height:62px; display:flex; align-items:center; gap:14px; padding:12px 18px; margin-bottom:16px; border:1px solid #d5e2f0; border-radius:6px; background:#f8fbff; color:#173b61; text-align:left; cursor:pointer; }
+        .web-source-folder:hover { background:#eef6ff; border-color:#90bdf2; }
+        .web-source-folder i { color:#438de4; font-size:20px; }
+        .web-source-folder strong { display:block; font-size:14px; }
+        .web-source-folder small { display:block; color:#698099; margin-top:3px; }
+        .web-source-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+        .web-source-tree { border:1px solid #dfe7f0; border-radius:6px; background:#fff; padding:10px 12px; min-height:160px; }
+        .web-source-tree details { margin-left:15px; border-left:1px solid #e5ebf2; padding-left:11px; }
+        .web-source-tree > details { margin-left:0; border:0; padding-left:0; }
+        .web-source-tree summary { cursor:pointer; padding:7px 9px; color:#173b61; font-size:13px; border-radius:4px; overflow-wrap:anywhere; }
+        .web-source-tree summary:hover { background:#eff6ff; }
+        .web-source-tree .web-source-file { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:3px 0 3px 27px; padding:8px 10px; border-left:1px solid #e5ebf2; font-size:12px; }
+        .web-source-tree .web-source-file-name { flex:1 1 280px; min-width:0; overflow-wrap:anywhere; color:#203e5e; }
+        .web-source-tree .web-source-file-meta { color:#70849a; }
         .source-form-row .hint {
             color: #6b7280;
             font-size: 13px;
@@ -147,6 +162,11 @@
             </div>
 
             <div class="document-container">
+                <button type="button" id="webSourceFolder" class="web-source-folder" onclick="openWebSourceFolder()"><i class="fas fa-folder"></i><span><strong>网页导入文档</strong><small>按原网页的页面树查看 HTML 和附件</small></span><i class="fas fa-chevron-right" style="margin-left:auto;font-size:12px"></i></button>
+                <div id="webSourcePanel" hidden>
+                    <div class="web-source-toolbar"><button type="button" class="btn btn-secondary btn-sm" onclick="closeWebSourceFolder()"><i class="fas fa-arrow-left"></i> 返回源文档</button><strong>网页导入文档</strong></div>
+                    <div id="webSourceTree" class="web-source-tree"></div>
+                </div>
                 <div class="document-grid" id="sourceDocumentList"></div>
 
                 <div class="pagination" id="sourcePagination" style="margin-top: 40px;">
@@ -313,8 +333,80 @@
             return {
                 keyword: sourceKeyword,
                 category: document.getElementById('categorySelect').value,
-                status: document.getElementById('statusSelect').value
+                status: document.getElementById('statusSelect').value,
+                web_imports: 'exclude'
             };
+        }
+
+        let webSourceOpen = false;
+        async function openWebSourceFolder() {
+            webSourceOpen = true;
+            document.getElementById('webSourceFolder').hidden = true;
+            document.getElementById('sourceDocumentList').hidden = true;
+            document.getElementById('sourcePagination').hidden = true;
+            document.getElementById('webSourcePanel').hidden = false;
+            const container = document.getElementById('webSourceTree');
+            container.textContent = '正在加载页面目录...';
+            try {
+                const response = await new APIClient().get('/source-documents/web-tree');
+                if (response.code !== 1) throw new Error(response.msg || '目录加载失败');
+                renderWebSourceTree(response.data || []);
+            } catch (error) {
+                container.textContent = `目录加载失败：${error.message}`;
+            }
+        }
+
+        function closeWebSourceFolder() {
+            webSourceOpen = false;
+            document.getElementById('webSourceFolder').hidden = false;
+            document.getElementById('sourceDocumentList').hidden = false;
+            document.getElementById('webSourcePanel').hidden = true;
+            renderSourcePagination(sourceRenderedTotalCount);
+        }
+
+        function renderWebSourceTree(nodes) {
+            const container = document.getElementById('webSourceTree');
+            const children = new Map();
+            nodes.forEach(node => {
+                const siblings = children.get(node.parent) || [];
+                siblings.push(node);
+                children.set(node.parent, siblings);
+            });
+            const makeNode = node => {
+                const branch = children.get(node.key) || [];
+                const files = node.files || [];
+                const element = document.createElement('details');
+                const summary = document.createElement('summary');
+                summary.textContent = `${node.title} (${files.length + branch.length})`;
+                element.appendChild(summary);
+                for (const child of branch) element.appendChild(makeNode(child));
+                for (const file of files) {
+                    const row = document.createElement('div');
+                    row.className = 'web-source-file';
+                    const name = document.createElement('span');
+                    name.className = 'web-source-file-name';
+                    name.textContent = file.origin_file_name;
+                    const meta = document.createElement('span');
+                    meta.className = 'web-source-file-meta';
+                    meta.textContent = `${statusText[file.status] || file.status} · ${Utils.formatFileSize(file.file_size || 0)}`;
+                    row.append(name, meta);
+                    if (canPreviewSourceFiles()) {
+                        const preview = document.createElement('button');
+                        preview.type = 'button';
+                        preview.className = 'btn btn-secondary btn-sm';
+                        preview.textContent = '预览';
+                        preview.onclick = () => openSourceDocument(file.stored_file_path);
+                        row.appendChild(preview);
+                    }
+                    const actions = document.createElement('span');
+                    actions.innerHTML = renderSourceListActions(file);
+                    row.appendChild(actions);
+                    element.appendChild(row);
+                }
+                return element;
+            };
+            container.replaceChildren(...(children.get(null) || []).map(makeNode));
+            if (!container.children.length) container.textContent = '暂无网页导入的源文档';
         }
 
         function showSourceLoading() {
@@ -624,7 +716,7 @@
             const nextBtn = document.getElementById('sourceNextBtn');
             const pageInfo = document.getElementById('sourcePageInfo');
 
-            pagination.style.display = totalCount && sourceViewMode !== 'list' ? 'flex' : 'none';
+            pagination.style.display = totalCount && sourceViewMode !== 'list' && !webSourceOpen ? 'flex' : 'none';
             prevBtn.disabled = sourceCurrentPage <= 1;
             nextBtn.disabled = sourceCurrentPage >= sourceTotalPages;
             pageInfo.textContent = `第 ${sourceCurrentPage} 页，共 ${sourceTotalPages} 页 (共 ${totalCount} 条记录)`;

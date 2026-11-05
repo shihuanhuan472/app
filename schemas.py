@@ -152,6 +152,7 @@ class SensitiveTermDelete(BaseModel):
     source: str = Field(..., max_length=200)
 
 class Page(BaseModel):
+    exclude_web_imports: bool = True
     page: Optional[int] = 1
     size: Optional[int] = 6
     library_type: Optional[str] = "breakdown"
@@ -368,6 +369,7 @@ class DocumentReviewResponse(DocumentResponse):
 
 
 class DocumentQuery(BaseModel):
+    exclude_web_imports: bool = True
     data: str
     library_type: Optional[str] = "breakdown"
     tag: Optional[List[int]] = None

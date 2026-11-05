@@ -198,6 +198,11 @@
         }
 
         return sections.map((section, index) => {
+            const nativeTree = window.XMindViewer?.render(section);
+            if (nativeTree != null) {
+                return renderSection(window.XMindViewer.title(section) || labels.knowledgeDocument,
+                    nativeTree, options);
+            }
             const title = section.section_title || `${labels.section} ${index + 1}`;
             const marker = section.section_type || String(index + 1);
             const imageCount = normalizeImageUrls(section.image_urls).length;
