@@ -23,13 +23,13 @@ class ConfluenceClient:
 
     def __init__(self, base_url=None, username=None, password=None, session=None):
         self.base_url = (base_url or os.getenv("CONFLUENCE_BASE_URL", "")).rstrip("/")
-        username = username or os.getenv("CONFLUENCE_USERNAME", "")
-        password = password or os.getenv("CONFLUENCE_PASSWORD", "")
+        username = username or ""
+        password = password or ""
         parsed = urlsplit(self.base_url)
         if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.query or parsed.fragment:
             raise ConfluenceError("请配置 HTTPS CONFLUENCE_BASE_URL（可包含 /confluence 上下文路径）")
         if not username or not password:
-            raise ConfluenceError("请在服务器配置 CONFLUENCE_USERNAME 和 CONFLUENCE_PASSWORD")
+            raise ConfluenceError("请填写 Confluence 用户名和密码")
         self.origin = (parsed.scheme, parsed.hostname, parsed.port)
         self.session = session or requests.Session()
         self.session.auth = HTTPBasicAuth(username, password)

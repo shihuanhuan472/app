@@ -30,8 +30,8 @@ def connection():
         db.close()
 
 
-def create_job(user_id, root_url, include_attachments):
-    client = ConfluenceClient()
+def create_job(user_id, root_url, include_attachments, credentials=None):
+    client = ConfluenceClient(**(credentials or {}))
     try:
         root_id = client.page_id(root_url)  # Validation only; no network request.
     finally:
@@ -147,7 +147,7 @@ def collect_batch(state, report, checkpoint, client_factory=ConfluenceClient):
         client.close()
 
 
-async def run_job(token, user_id, owner):
+async def run_job(token, user_id, owner, credentials):
     from database import AsyncSessionLocal
     from routers.confluence import persist_branch
     state = read_job(user_id, token)
@@ -164,7 +164,8 @@ async def run_job(token, user_id, owner):
         while state['pending'] or state['staged']:
             # A full batch checkpoint may survive a process restart before registration.
             full = state['batch_processed'] >= BATCH_SIZE
-            proceed = True if full else await asyncio.to_thread(collect_batch, state, report, lambda: save(token, owner, state))
+            proceed = True if full else await asyncio.to_thread(collect_batch, state, report, lambda: save(token, owner, state),
+                lambda: ConfluenceClient(**credentials))
             report(phase='本批整理入库', batch=state['batches']+1, completed=state['processed'], url='')
             if state['staged']:
                 async with AsyncSessionLocal() as db:
@@ -202,7 +203,7 @@ async def run_job(token, user_id, owner):
         await asyncio.gather(heartbeat_task, return_exceptions=True)
 
 
-def launch(token, user_id, resume=False):
+def launch(token, user_id, resume=False, credentials=None):
     owner = str(uuid.uuid4())
     with connection() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -211,8 +212,11 @@ def launch(token, user_id, resume=False):
             return
         if row['status'] == 'running' and row['lease'] > time.time():
             return
+        if not credentials:
+            db.execute("UPDATE jobs SET status='paused',lease=0 WHERE id=?", (str(token),))
+            return
         db.execute("UPDATE jobs SET owner=?,lease=?,status='running' WHERE id=?", (owner, time.time()+LEASE_SECONDS, str(token)))
-    task = asyncio.create_task(run_job(str(token), user_id, owner))
+    task = asyncio.create_task(run_job(str(token), user_id, owner, credentials))
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
 

@@ -247,7 +247,7 @@
                 // 注意：移除了 credentials: 'include' 和 mode: 'cors'
             };
 
-            console.log(`发送 POST 请求到: ${url}`, data);
+            console.log(`发送 POST 请求到: ${url}`);
 
             const response = await fetch(url, options);
             console.log('响应状态:', response.status);

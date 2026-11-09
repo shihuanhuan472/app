@@ -343,7 +343,16 @@
             <details id="confluenceImport" class="confluence-import-panel" data-enabled="true" style="display:none;">
                 <summary><span class="confluence-import-icon"><i class="fas fa-diagram-project"></i></span><span><strong>从 Confluence 导入</strong><small>管理员 · 整个页面分支与附件采集</small></span></summary>
                 <div class="confluence-import-body">
-                    <p class="confluence-import-description">输入一次根页面，系统在后台自动分批采集，每批 100 页，完成后继续下一批；刷新页面可恢复进度。页面按章节切片，原始内容可在知识库详情中查看。连接凭据由服务器配置。</p>
+                    <p class="confluence-import-description">填写账号密码和根页面，系统在后台自动分批采集，每批 100 页，完成后继续下一批；刷新页面可恢复进度。页面按章节切片，原始内容可在知识库详情中查看。</p>
+                    <label class="confluence-field-label" for="confluenceUsername">Confluence 用户名</label>
+                    <div class="confluence-root-row">
+                        <input id="confluenceUsername" type="text" placeholder="请输入 Confluence 用户名" autocomplete="off" maxlength="256" required>
+                    </div>
+                    <label class="confluence-field-label" for="confluencePassword">Confluence 密码</label>
+                    <div class="confluence-root-row">
+                        <input id="confluencePassword" type="password" placeholder="请输入 Confluence 密码" autocomplete="off" maxlength="4096" required>
+                    </div>
+                    <p>每次导入或继续采集时请填写账号密码；密码仅用于本次采集，不保存。</p>
                     <label class="confluence-field-label" for="confluenceRoot">根页面</label>
                     <div class="confluence-root-row">
                         <input id="confluenceRoot" type="text" placeholder="粘贴页面链接或输入 pageId" autocomplete="url">
@@ -457,7 +466,7 @@
     function setParsingControlsLocked(locked) {
         isParsingFiles = locked;
         const importing = document.getElementById('confluenceStage')?.getAttribute('aria-busy') === 'true';
-        ['confluenceRoot', 'confluenceStage', 'confluenceAttachments'].forEach(id => {
+        ['confluenceRoot', 'confluenceStage', 'confluenceAttachments', 'confluenceUsername', 'confluencePassword'].forEach(id => {
             const control = document.getElementById(id);
             if (control) control.disabled = locked || importing;
         });

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,12 +31,29 @@ async def source_directory(user=Depends(get_current_active_user), db: AsyncSessi
         KnowledgeDocumentSection.section_index,
         KnowledgeDocumentSection.section_metadata,
     ).join(KnowledgeDocumentSection, KnowledgeDocumentSection.document_id == DocumentKnowledge.id)
-      .where(DocumentKnowledge.is_deleted == 0)
-      .order_by(DocumentKnowledge.id, KnowledgeDocumentSection.section_index))).all()
+      .where(DocumentKnowledge.is_deleted == 0))).all()
+    # Keep large section metadata out of MySQL filesort (error 1038).
+    # Preserve the directory builder's document/section traversal order in Python.
+    rows = sorted(rows, key=lambda row: (row[0], row[4]))
     return Result.success_with_data(build_directory(rows))
 
 
-class TreeRequest(BaseModel):
+class CredentialsRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=256)
+    password: SecretStr = Field(min_length=1, max_length=4096)
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, value):
+        if not value.strip():
+            raise ValueError('请输入 Confluence 用户名')
+        return value.strip()
+
+    def credentials(self):
+        return dict(username=self.username, password=self.password.get_secret_value())
+
+
+class TreeRequest(CredentialsRequest):
     root_url: str = Field(min_length=1, max_length=2048)
     max_pages: int = Field(default=500, ge=1, le=500)
 
@@ -65,13 +82,13 @@ async def parsed_attachments(site: str, page_id: str, user=Depends(get_current_a
     return Result.success_with_data(output)
 
 
-class StageRequest(BaseModel):
+class StageRequest(CredentialsRequest):
     root_id: str = Field(pattern=r"^\d+$")
     page_id: str = Field(pattern=r"^\d+$")
     include_attachments: bool = False
 
 
-class ImportRequest(BaseModel):
+class ImportRequest(CredentialsRequest):
     progress_id: UUID | None = None
     root_url: str = Field(min_length=1, max_length=2048)
     max_pages: int = Field(default=500, ge=1, le=500)
@@ -85,7 +102,7 @@ def require_importer(user=Depends(get_current_active_user)):
 
 
 def fetch_tree(request, include_page_data=False):
-    client = ConfluenceClient()
+    client = ConfluenceClient(**request.credentials())
     try:
         return client.tree(request.root_url, request.max_pages, include_page_data=include_page_data)
     finally:
@@ -112,7 +129,7 @@ async def remove_branch(document_id: int, request: BranchDeleteRequest,
 
 
 def fetch_page(request):
-    client = ConfluenceClient()
+    client = ConfluenceClient(**request.credentials())
     try:
         return stage_page(client, request.root_id, request.page_id, request.include_attachments)
     finally:
@@ -120,7 +137,7 @@ def fetch_page(request):
 
 
 def fetch_branch(request, progress=None):
-    client = ConfluenceClient()
+    client = ConfluenceClient(**request.credentials())
     client.progress_callback = progress
     staged_pages = []
     try:
@@ -211,10 +228,10 @@ async def create_import_job(request: ImportRequest, user=Depends(require_importe
     from services.confluence_jobs import create_job, launch, read_job, public_job
     user_id = user.id
     try:
-        token = await asyncio.to_thread(create_job, user_id, request.root_url, request.include_attachments)
+        token = await asyncio.to_thread(create_job, user_id, request.root_url, request.include_attachments, request.credentials())
     except ConfluenceError as exc:
         raise HTTPException(400, str(exc)) from None
-    launch(token, user_id)
+    launch(token, user_id, credentials=request.credentials())
     return Result.success_with_data(public_job(read_job(user_id, token)))
 
 
@@ -249,11 +266,11 @@ async def current_job_files(job, db):
 
 
 @router.post('/import-jobs/{token}/resume')
-async def resume_import_job(token: UUID, user=Depends(require_importer)):
+async def resume_import_job(token: UUID, request: CredentialsRequest, user=Depends(require_importer)):
     from services.confluence_jobs import read_job, public_job, launch
     if not read_job(user.id, token):
         raise HTTPException(404, '采集任务不存在')
-    launch(token, user.id, resume=True)
+    launch(token, user.id, resume=True, credentials=request.credentials())
     return Result.success_with_data(public_job(read_job(user.id, token)))
 
 

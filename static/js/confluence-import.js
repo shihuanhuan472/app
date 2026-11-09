@@ -32,6 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage = document.getElementById('confluenceStage');
     const status = document.getElementById('confluenceStatus');
     const root = document.getElementById('confluenceRoot');
+    const username = document.getElementById('confluenceUsername');
+    const password = document.getElementById('confluencePassword');
+    function credentials() {
+        if (!username.value.trim() || !password.value) throw new Error('请输入 Confluence 用户名和密码。');
+        return {username: username.value.trim(), password: password.value};
+    }
     const client = new APIClient();
     let busy = false;
     let activityTimer = null;
@@ -58,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateElapsed();
             activityTimer = setInterval(updateElapsed, 1000);
         }
+        username.disabled = password.disabled = value || isParsingFiles;
         root.disabled = value || isParsingFiles;
         stage.disabled = value || isParsingFiles;
         document.getElementById('confluenceAttachments').disabled = value || isParsingFiles;
@@ -144,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const analyze = document.getElementById('analyzeBtn');
         if (analyze) analyze.disabled = busy || isParsingFiles || uploadedFiles.length === 0;
         const label = job.status === 'finished' ? '采集完成，请确认文件后开始解析。'
-            : job.status === 'paused' ? '采集已暂停，已完成批次保留。处理问题后点击“继续采集”。'
+            : job.status === 'paused' ? '采集已暂停，已完成批次保留。填写账号密码并处理问题后点击“继续采集”。'
             : '正在自动分批采集，刷新页面后会恢复任务进度。';
         status.dataset.state = job.status === 'paused' ? 'error' : 'normal';
         status.textContent = `${label}\n已完成 ${job.batches} 批，处理 ${job.processed} 页，入库文件 ${job.files.length} 个，跳过 ${job.skipped_files} 个。`
@@ -172,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeJob) return;
         resumeJob.disabled = true;
         try {
-            const job = await post('import-jobs/' + activeJob.id + '/resume', {});
+            const job = await post('import-jobs/' + activeJob.id + '/resume', credentials());
+            password.value = '';
             displayJob(job);
             followJob(job.id);
         } catch (error) { status.textContent = error.message; }
@@ -184,8 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!root.value.trim()) { status.textContent = '请输入 Confluence 根页面链接或 pageId。'; return; }
         setBusy(true);
         try {
-            const job = await post('import-jobs', {root_url: root.value.trim(),
+            const job = await post('import-jobs', {...credentials(), root_url: root.value.trim(),
                 include_attachments: document.getElementById('confluenceAttachments').checked});
+            password.value = '';
             displayJob(job);
             followJob(job.id);
         } catch (error) {

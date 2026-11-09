@@ -159,10 +159,10 @@ def test_client_stops_on_rate_limit_without_retry(monkeypatch):
     from urllib3.util.retry import Retry
 
     for request_type in (TreeRequest, ImportRequest):
-        assert request_type(root_url="1").max_pages == 500
-        assert request_type(root_url="1", max_pages=500).max_pages == 500
+        assert request_type(root_url="1", username="user", password="secret").max_pages == 500
+        assert request_type(root_url="1", max_pages=500, username="user", password="secret").max_pages == 500
         with pytest.raises(ValueError):
-            request_type(root_url="1", max_pages=501)
+            request_type(root_url="1", max_pages=501, username="user", password="secret")
     client = ConfluenceClient(BASE, "test-user", "test-password")
     retry = client.session.get_adapter(BASE).max_retries
     assert isinstance(retry, Retry)
@@ -379,7 +379,7 @@ def test_branch_import_snapshots_user_id_before_rollback(monkeypatch):
         async def flush(self): pass
         async def commit(self): pass
     db = DB()
-    response = asyncio.run(confluence.import_branch(confluence.ImportRequest(root_url="2"), user, db))
+    response = asyncio.run(confluence.import_branch(confluence.ImportRequest(root_url="2", username="user", password="secret"), user, db))
     assert db.row.uploader_id == 8
     assert response.data["page_count"] == 1
     assert response.data["files"][0]["id"] == 17
@@ -409,7 +409,7 @@ def test_import_api_requires_admin_and_registers_sources(monkeypatch, tmp_path):
         async def flush(self): pass
         async def commit(self): pass
     db = DB()
-    request = confluence.StageRequest(root_id='1', page_id='2')
+    request = confluence.StageRequest(root_id='1', page_id='2', username='user', password='secret')
     result = asyncio.run(confluence.stage(request, SimpleNamespace(id=8), db))
     assert result.data['files'][0]['id'] == 123
     assert db.row.document_library_type == 'knowledge'

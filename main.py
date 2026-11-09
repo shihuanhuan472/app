@@ -1222,6 +1222,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     trace_id = getattr(request.state, "trace_id", uuid.uuid4().hex)
     detail = exc.errors()
+    if "/confluence/" in request.url.path:
+        # Validation inputs can contain the entire submitted credential payload.
+        detail = [{key: error[key] for key in ('type', 'loc', 'msg') if key in error}
+                  for error in detail]
     return JSONResponse(
         status_code=400,
         content=_error_payload(BizCode.BAD_REQUEST, "请求核心参数无效", trace_id, detail),
