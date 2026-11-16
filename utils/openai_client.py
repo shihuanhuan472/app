@@ -179,9 +179,9 @@ def parse_chat_completion_json(response: Any) -> Any:
         if len(payload) == 1 and isinstance(payload[0], dict):
             payload = payload[0]
         else:
-            raise ValueError("AI返回JSON顶层必须是对象，不能是多元素数组")
+            raise ValueError('AI 返回的数据格式不符合要求，请点击“重新解析”重试；若多次失败，请联系管理员。')
     if not isinstance(payload, dict):
-        raise ValueError("AI返回JSON顶层必须是对象")
+        raise ValueError('AI 返回的数据格式不符合要求，请点击“重新解析”重试；若多次失败，请联系管理员。')
     return payload
 
 

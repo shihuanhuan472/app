@@ -18,6 +18,9 @@ function resolveApiBaseUrl() {
 }
 
 function resolveStaticBaseUrl() {
+    const configuredBaseUrl = String(window.MAINTENANCE_STATIC_BASE_URL || '').trim().replace(/\/+$/, '');
+    if (configuredBaseUrl) return configuredBaseUrl;
+
     const origin = window.location && window.location.origin && window.location.origin !== 'null'
         ? window.location.origin
         : '';
@@ -69,8 +72,10 @@ const API_CONFIG = {
             return value;
         }
 
-        const base = (this.STATIC_BASE_URL || this.BASE_URL.replace(/\/api\/v1\/?$/, '')).replace(/\/$/, '');
-        return `${base}/${value.replace(/^\/+/, '')}`;
+        const apiBase = (this.BASE_URL || '').replace(/\/api\/v1\/?$/, '');
+        const base = (this.STATIC_BASE_URL || apiBase).replace(/\/$/, '');
+        const normalizedPath = value.replace(/\\/g, '/').replace(/^\/+/, '');
+        return base ? `${base}/${normalizedPath}` : `/${normalizedPath}`;
     }
 };
 

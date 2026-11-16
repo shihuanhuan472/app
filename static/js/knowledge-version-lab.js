@@ -14,7 +14,7 @@ function versionRank(item) { return item.version_major * 100000 + item.version_m
 function fileUrl(path) {
     const normalized = String(path || '').replace(/\\/g, '/');
     const match = normalized.match(/(?:^|\/)upload\/(.+)$/i);
-    return match ? `/upload/${match[1]}` : '';
+    return match ? API_CONFIG.getAssetUrl(`/upload/${match[1]}`) : '';
 }
 function formatSize(size) {
     if (!size) return '大小未知';

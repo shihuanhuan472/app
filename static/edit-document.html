@@ -532,12 +532,7 @@
         }
 
         function getFullImageUrl(relativeUrl) {
-            if (!relativeUrl) return '';
-            if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(relativeUrl)) return relativeUrl;
-            if (API_CONFIG.getAssetUrl) return API_CONFIG.getAssetUrl(relativeUrl);
-            const base = (API_CONFIG.STATIC_BASE_URL || API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') || '').replace(/\/$/, '');
-            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
-            return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+            return API_CONFIG.getAssetUrl(relativeUrl);
         }
 
         function isAdminUser(user) {

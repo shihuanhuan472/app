@@ -458,7 +458,12 @@ class KnowledgeVersionService:
         document.origin_file_dir = version.origin_file_dir
         document.first_edit_date = now
         document.updated_time = now
-        document.is_vectorized = 0
+        # Keep the legacy flag aligned with the default version, including when
+        # publishing a coexist branch that does not replace that default.
+        default_version = (version if document.default_version_id == version.id
+                           else await self.get_version(document.default_version_id))
+        document.is_vectorized = int(default_version.index_status == "indexed")
+        document.vector_update_time = default_version.indexed_at
         await self._sync_current_sections(document, version.id)
         for old_id in selected_ids:
             try:
@@ -573,6 +578,8 @@ class KnowledgeVersionService:
         previous_version_id = document.default_version_id
         document.default_version_id = version.id
         document.updated_time = _now()
+        document.is_vectorized = int(version.index_status == "indexed")
+        document.vector_update_time = version.indexed_at
         await self._audit(version.document_id, version.id, "set_default", operator_id, {
             "previous_version_id": previous_version_id,
             "default_version_id": version.id,
@@ -585,6 +592,9 @@ class KnowledgeVersionService:
             raise KnowledgeVersionError("只有当前有效的已发布版本可以重建索引")
         version.index_status = "indexing"
         version.index_error = None
+        document = await self.get_document(version.document_id)
+        if document.default_version_id == version.id:
+            document.is_vectorized = 0
         await self.db.flush()
         try:
             from utils.VectorService import VectorService

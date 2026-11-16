@@ -209,9 +209,17 @@
         render(text) {
             if (!text) return '';
             try {
-                const rawHtml = typeof marked !== 'undefined'
+                let rawHtml = typeof marked !== 'undefined'
                     ? marked.parse(ensureTableSpacing(text))
                     : this.escapeHtml(text).replace(/\n/g, '<br>');
+                if (typeof DOMPurify !== 'undefined') {
+                    const holder = document.createElement('template');
+                    holder.innerHTML = rawHtml;
+                    holder.content.querySelectorAll('img[src]').forEach((image) => {
+                        image.setAttribute('src', API_CONFIG.getAssetUrl(image.getAttribute('src')));
+                    });
+                    rawHtml = holder.innerHTML;
+                }
                 if (typeof DOMPurify === 'undefined') return rawHtml;
                 return DOMPurify.sanitize(rawHtml, {
                     ALLOWED_TAGS: [

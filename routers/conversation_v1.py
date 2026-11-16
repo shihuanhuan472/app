@@ -715,20 +715,16 @@ async def get_prompt(db, document_ids, max_tokens, search_results=None):
 
     return ""
 
-def _path_to_web_url(image_path: str) -> str:
-    """将本地绝对/相对图片路径转换为 Web 可访问的 URL（如 /upload/images/xxx.png）。"""
+def _replace_image_urls_in_text(text: str, known_image_paths: list = None) -> str:
+    """统一 AI 回答中的本地图片引用为站点内 /upload/... 路径。"""
     import re
-    normalized = str(image_path).replace('\\', '/')
-    match = re.search(r'(?:^|/)upload/(.+)$', normalized, re.IGNORECASE)
-    if match:
-        return f'/upload/{match.group(1)}'
-    filename = os.path.basename(normalized)
-    return f'/upload/images/{filename}'
 
-
-async def _replace_image_urls_in_text(text: str, config: dict, known_image_paths: list = None) -> str:
-    """将 AI 回答中的本地图片路径替换为 Web URL（/upload/images/...），前端可直接渲染。"""
-    import re
+    def to_upload_url(image_path: str) -> str:
+        normalized = str(image_path).replace('\\', '/')
+        match = re.search(r'(?:^|/)upload/(.+)$', normalized, re.IGNORECASE)
+        if match:
+            return f'/upload/{match.group(1)}'
+        return f'/upload/images/{os.path.basename(normalized)}'
 
     # 预扫描：处理 AI 可能直接输出的裸路径 → Web URL
     if known_image_paths:
@@ -739,7 +735,7 @@ async def _replace_image_urls_in_text(text: str, config: dict, known_image_paths
             bare_pattern = r'(?<!\]\()' + escaped
             if not re.search(bare_pattern, text):
                 continue
-            web_url = _path_to_web_url(img_path)
+            web_url = to_upload_url(img_path)
             text = re.sub(bare_pattern, web_url, text)
             print(f"[图片替换-裸路径] ✓ {img_path} → {web_url}")
 
@@ -759,7 +755,7 @@ async def _replace_image_urls_in_text(text: str, config: dict, known_image_paths
             return match.group(0)
         if image_url.startswith("/upload/"):
             return match.group(0)
-        web_url = _path_to_web_url(image_url)
+        web_url = to_upload_url(image_url)
         print(f"[图片替换] {image_url[:80]} → {web_url}")
         return f'![{alt_text}]({web_url})'
 
@@ -887,8 +883,7 @@ async def stream_ai_response(id, messages: list, session_id: int, doc_ids, searc
                     if img and img not in known_image_paths_stream:
                         known_image_paths_stream.append(img)
 
-        config = get_image_config()
-        full_content_processed = await _replace_image_urls_in_text(full_content, config, known_image_paths_stream)
+        full_content_processed = _replace_image_urls_in_text(full_content, known_image_paths_stream)
         if full_content_processed != full_content:
             # 发送最终处理后的回答（含 base64 图片），前端会渲染实际图片
             data["answer"] = full_content_processed
@@ -951,8 +946,7 @@ async def get_ai_answer(messages, db: AsyncSession, id, search_results=None):
     print(f"[图片替换] 已知图片路径数: {len(known_image_paths)}")
 
     # 将 AI 回答中的本地图片路径替换为 base64，使前端可直接显示图片
-    config = get_image_config()
-    final_ans = await _replace_image_urls_in_text(final_ans, config, known_image_paths)
+    final_ans = _replace_image_urls_in_text(final_ans, known_image_paths)
 
     # ai_msg = db.query(Message).filter(Message.id == id).first()
 

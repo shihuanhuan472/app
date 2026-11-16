@@ -313,6 +313,70 @@ data: {"code":1,"data":"true"}
 }
 ```
 
+### RAG 首字延迟测试
+
+该接口专用于 RAG 首字延迟测试：直接将原问题做文本向量检索，固定取 Top 3 文档，随后复用系统现有 `generate_messages()` 拼接提示词，并流式调用配置的大模型。它不经过意图分析、Query 改写或 LLM 检索观察。测试脚本的 TTFT 定义为客户端发送请求到收到模型首个非空回答文本块。
+
+#### 请求
+
+- 方法：`POST`
+- URL：`/api/v1/chats/{chat_id}/retrieval-test`
+- 请求头：`Content-Type: application/json`、`Authorization: Bearer <用户的api_key>`
+- 正文：
+
+```json
+{
+  "question": "洗衣机脱水时震动很大，可能是什么原因？",
+  "user_id": 1
+}
+```
+
+#### cURL
+
+```bash
+curl --request POST \
+  --url http://{address}:8000/api/v1/chats/test/retrieval-test \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer <用户的api_key>' \
+  --data '{
+    "question": "洗衣机脱水时震动很大，可能是什么原因？",
+    "user_id": 1
+  }'
+```
+
+#### 响应
+
+`Content-Type: text/event-stream`，先按 `event: token` 流式返回模型文本，结束事件附带检索和提示词耗时：
+
+```text
+event: token
+data: {"content":"洗衣机脱水时振动较大，通常需要先检查负载是否均匀……"}
+
+event: complete
+data: {"type":"complete","retrieval_ms":124.5,"prompt_ms":83.2,"document_count":3,"document_ids":["breakdown:17"]}
+```
+
+#### 批量测试脚本
+
+项目脚本使用 `run <JSONL路径>`，默认预热 3 次、数据集每题正式测试一次；会生成逐条 CSV 和汇总 Markdown。首个位置参数就是 `current_eval.py generate` 生成的题集。
+
+也可以直接使用 `current_eval.py generate` 默认生成的 `evaluate/current_questions.jsonl` 作为题目集。脚本只读取每行的 `question`，不会使用答案评分字段。
+
+```bash
+python evaluate/test_vector_retrieval_api.py run evaluate/current_questions.jsonl \
+  --user-id 1
+```
+
+该脚本与 `current_eval.py run` 一样，在部署服务器本地加载数据库用户并直接调用 RAG 流式测试逻辑，不经过 HTTP 路由，因此无需 API Key。它会验证 `--user-id` 对应的用户存在且有效。此方式测量本地调用至模型首字的时间，不包含 HTTP 网络和接口鉴权耗时；HTTP 测试接口本身仍保留 Bearer Token 鉴权。
+
+已有 CSV 可通过以下命令重算汇总：
+
+```bash
+python evaluate/test_vector_retrieval_api.py report runtime/vector_retrieval_tests/<测试结果>.csv
+```
+
+结果默认写入 `runtime/vector_retrieval_tests/`。报告只统计本地调用到模型首个非空文本块的 TTFT、服务端向量检索耗时和提示词拼接耗时，不统计完整流耗时。可用 `python evaluate/test_vector_retrieval_api.py report <CSV路径>` 重算已有 CSV 的统计值。
+
 ## 对话附件与消息
 
 本节接口按对话资源统一收敛到 `/api/v1/chats/{chat_id}` 下。

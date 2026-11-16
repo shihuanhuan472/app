@@ -14,9 +14,8 @@ function sourceFileLink(file) {
     const normalized = String(file.storage_path || '').replace(/\\/g, '/');
     const match = normalized.match(/(?:^|\/)upload\/(.+)$/i);
     if (!match) return '';
-    const base = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
     const path = match[1].split('/').map(encodeURIComponent).join('/');
-    return `<a class="btn btn-secondary" href="${escapeHtml(base + '/upload/' + path)}" target="_blank" rel="noopener" download>打开源文件</a>`;
+    return `<a class="btn btn-secondary" href="${escapeHtml(API_CONFIG.getAssetUrl('/upload/' + path))}" target="_blank" rel="noopener" download>打开源文件</a>`;
 }
 
 function notify(message,error=false){document.querySelectorAll('[data-dialog-notice]').forEach(node=>node.remove());const openDialogs=[...document.querySelectorAll('dialog[open]')];const dialog=openDialogs.at(-1);let node;if(dialog){const content=dialog.querySelector('.dialog-content');node=document.createElement('div');node.dataset.dialogNotice='true';node.className=`dialog-notice${error?' error':''}`;node.innerHTML=`<i class="fas ${error?'fa-circle-exclamation':'fa-circle-check'}"></i><span>${escapeHtml(message)}</span>`;content?.prepend(node);$('notice').hidden=true}else{node=$('notice');node.hidden=false;node.className=`notice${error?' error':''}`;node.textContent=message}clearTimeout(notify.timer);notify.timer=setTimeout(()=>{if(node.dataset?.dialogNotice)node.remove();else node.hidden=true},5000)}
@@ -82,10 +81,7 @@ function editSectionMindmap(button) {
     const card = button.closest('.section-editor');
     const section = JSON.parse(card.dataset.sectionSnapshot || '{}');
     section.metadata = section.metadata || section.section_metadata || {};
-    MindmapEditor.open(section, section.image_urls[Number(button.dataset.editBrain)], url => {
-        const base = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-        return /^(https?:)?\/\//.test(url) ? url : base + '/' + String(url).replace(/^\/+/, '');
-    }, () => {
+    MindmapEditor.open(section, section.image_urls[Number(button.dataset.editBrain)], API_CONFIG.getAssetUrl.bind(API_CONFIG), () => {
         card.dataset.sectionSnapshot = JSON.stringify(section);
         card.querySelector('.section-assets').innerHTML = renderSectionAssets(section);
     });

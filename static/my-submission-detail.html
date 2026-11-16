@@ -313,12 +313,7 @@
     }
 
     function getAssetUrl(path) {
-        if (!path) return '';
-        if (/^(https?:)?\/\//.test(path) || path.startsWith('data:')) return path;
-        const base = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-        if (!base) return `/${String(path).replace(/^\/+/, '')}`;
-        const cleanPath = String(path).replace(/^\/+/, '');
-        return `${base}/${cleanPath}`;
+        return API_CONFIG.getAssetUrl(path);
     }
 
     function hasApprovedDeleteForDocument(item, allReviews) {

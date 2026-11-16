@@ -587,6 +587,39 @@ python -m http.server 80
 
 后端运行之前，切记在**.env**文件中进行具体环境变量的修改，**AI服务器的相关配置不要改动**，其他路径请根据项目具体路径进行改动
 
+#### `.env` 配置清单
+
+请在项目根目录创建本机专用的 `.env`，以 `.env.example`（如有）或下表为模板填写。表中的值均为说明或占位符，不能直接作为生产凭据使用。`.env` 可能包含数据库密码、模型 API Key、JWT 密钥和外部系统令牌，不要提交到 Git、写入公开部署文档或复用其他环境的凭据。
+
+| 配置项 | 用途 | 部署时如何处理 |
+| --- | --- | --- |
+| `SQLALCHEMY_DATABASE_URL` | MySQL 异步连接串，格式为 `mysql+asyncmy://用户名:密码@主机:端口/数据库名` | 必须指向当前环境的数据库。若未设置，`database.py` 有仅供开发使用的本地默认值；部署时应显式设置。密码含特殊字符时需进行 URL 编码。 |
+| `SQLALCHEMY_ECHO` | 是否输出 SQLAlchemy SQL 日志 | 可选，默认关闭；生产建议保持 `0`。 |
+| `MILVUS_HOST`、`MILVUS_PORT` | Milvus 地址和端口 | 必须与 Milvus 实际监听地址一致；单机 Compose 默认可用 `localhost`、`19530`。后端在容器中运行时，使用 Compose 服务名而非 `localhost`。 |
+| `JWT_SECRET_KEY` | 签发登录令牌的密钥 | 必须使用部署环境独立生成的随机长密钥，不得使用仓库示例值或跨环境复用。修改后既有令牌将失效。 |
+| `JWT_ALGORITHM`、`JWT_ISS` | JWT 签名算法和签发方标识 | 通常保持项目当前值；如更改，需确保签发和校验配置一致。 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`、`REFRESH_TOKEN_EXPIRE_DAYS` | 访问令牌和刷新令牌有效期 | 按组织的登录安全策略设置；配置为正整数。 |
+| `JWT_NO_CHECK_URIS` | 无需 JWT 校验的路由列表 | 默认仅保留应用确实需要公开访问的路由；不要把受保护接口加入列表。 |
+| `SYSTEM_API_KEYS`、`SYSTEM_API_KEY_USER_ID` | 外部系统 API Key 认证及映射用户 ID | 只有启用外部系统调用时配置。为每个环境生成独立随机 Key，并将用户 ID 设置为数据库中存在且权限合适的用户；不需要时不要配置有效 Key。 |
+| `API_KEY`、`MODEL_AI`、`AI_BASE_URL`、`AI_BASE_URL_ALT` | OpenAI 兼容模型服务的凭据、模型名和主/备用服务地址 | 使用部署方授权的服务地址及凭据。当前仓库配置含环境专用信息，部署文档不提供真实值；如服务由学校/组织统一提供，按其要求填写且确认部署机器网络可达。 |
+| `EMBEDDING_MODEL`、`EMBEDDING_MODEL_LOCAL_PATH` | 文本嵌入模型名称及本地模型目录 | 按模型服务方式选择；本地部署时修改为模型实际存在的绝对路径，并确认运行账户有读取权限。 |
+| `MODEL_NAME`、`MODEL_WEIGHT`、`MODEL_DOWNLOAD_URL` | 多模态嵌入模型标识、权重文件及模型缓存目录 | `MODEL_WEIGHT` 应指向已下载的 `Visualized_m3.pth`；缓存目录按服务器磁盘位置调整并确保可写。 |
+| `RERANK_MODEL` | 重排序模型名称 | 依当前代码使用的模型及其缓存情况配置；首次下载需要网络，离线部署需预先准备模型。 |
+| `BASE_DIR`、`MESSAGE_BASE_DIR`、`DOCUMENT_BASE_DIR` | 图片、消息图片及文档相关的项目根目录 | 必须改为部署机器上的真实项目绝对路径；不要保留开发机盘符或目录。 |
+| `IMAGE_DIR`、`MESSAGE_IMAGE_DIR`、`DOCUMENT_DIR` | 普通图片、问答图片和文档的相对存储目录 | 通常保持项目目录下的 `upload/...` 结构；确认对应目录存在或可创建，且运行账户具备读写权限。 |
+| `MAX_IMAGE_SIZE`、`MESSAGE_MAX_IMAGE_SIZE` | 两类图片上传大小上限，单位字节 | 按业务需要设置正整数，并与 Nginx `client_max_body_size` 一致。 |
+| `MODEL_CONTEXT_WINDOW`、`CHAT_*_TOKENS`、`DOCUMENT_*_TOKENS`、`IMAGE_*_TOKENS` | 对话、文档解析和图像理解的上下文/输入/输出 token 预算 | 必须与实际模型上下文上限相容；调高前确认模型服务的上下文限制和显存/服务能力。保留正数，并确保输入、输出和安全余量总和不超模型上限。 |
+| `MODELSCOPE_CACHE`、`MINERU_TOOLS_CONFIG_JSON`、`MINERU_TEMP_DIR`、`MINERU_OUTPUT_DIR` | MinerU 模型缓存、工具配置、临时及输出目录 | 使用 MinerU 时按服务器路径修改；目录需具备读写权限，工具配置 JSON 文件需提前准备。 |
+| `MINERU_ENABLED`、`MINERU_BACKEND`、`MINERU_METHOD`、`MINERU_LANG`、`MINERU_MODEL_SOURCE`、`MINERU_FORMULA_ENABLE`、`MINERU_TABLE_ENABLE`、`MINERU_KEEP_OUTPUT`、`MINERU_TIMEOUT` | MinerU 文档解析功能及行为 | 根据是否使用 MinerU 和文档类型设置；超时时间使用秒。关闭 MinerU 时确认相关解析流程可按项目支持方式回退。 |
+| `PPT_TO_PDF_ENABLED`、`PPT_SOFFICE_EXE`、`PPT_KEEP_CONVERTED_PDF` | PPT 转 PDF 路由、LibreOffice 可执行文件及是否保留中间 PDF | 若启用转换，服务器需安装 LibreOffice；未加入 `PATH` 时将 `PPT_SOFFICE_EXE` 改为 `soffice` 的绝对路径。 |
+| `AGENTIC_RETRIEVAL_ENABLED`、`RETRIEVAL_LOG_ENABLED`、`RESULT_OBSERVER_TIMEOUT`、`TOP_K`、`TOP_K_DOCUMENTS`、`CHUNK_SIZE`、`OVERLAP`、`BATCH_SIZE`、`SIMILARITY_LOWER_LIMIT`、`DOMAIN_TERM_MISSING_PENALTY` | 检索策略、日志和召回/分块参数 | 按数据和模型效果调优；先保留已验证值。关闭检索日志可减少运行日志写入；检查数值范围合理。 |
+| `SEARCH_INDEX_TEXT_ANALYZER`、`SEARCH_INDEX_REQUIRED` | 搜索索引分词器及索引是否为必需依赖 | 与当前搜索索引服务配置一致；若启用必需索引，需确保其后端已部署且可连接。 |
+| `EXTERNAL_USER_SYNC_ENABLED`、`EXTERNAL_USER_SYNC_URL`、`EXTERNAL_USER_SYNC_TOKEN`、`EXTERNAL_USER_SYNC_TIMEOUT`、`EXTERNAL_USER_SYNC_RETRY_DELAYS` | 外部用户同步服务开关、地址、令牌和重试策略 | 默认关闭。只有接入外部系统时启用，并替换为目标环境 URL 和专用令牌；令牌不得写入代码或文档。 |
+| `FEEDBACK_ENABLED`、`FEEDBACK_LEARNING_ENABLED` | 用户反馈入口及反馈参与后续检索/回答的开关 | 按业务策略设置；学习开关开启前确认反馈审核和验证流程已就绪。 |
+| `CONFLUENCE_BASE_URL`、`CONFLUENCE_USERNAME`、`CONFLUENCE_PASSWORD` | Confluence 知识源连接配置 | 仅接入 Confluence 时填写目标环境地址和专用账号凭据；不使用时不要保留有效密码。 |
+
+上表中的 `BASE_DIR` 等路径应按操作系统使用实际绝对路径；Windows 路径示例不能原样用于 Linux。对于 URL、账号、密钥及令牌，使用部署环境的秘密管理方式注入，并限制 `.env` 文件权限。未列出的变量以代码中 `os.getenv` 默认值为准，但建议部署前对照当前版本代码再次核对。
+
 反馈功能可通过以下环境变量一键控制（修改后需重启后端并刷新前端页面）：
 
 ```dotenv

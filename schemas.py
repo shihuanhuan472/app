@@ -527,6 +527,11 @@ class MessageCreateNew(BaseModel):
     hardware_version: Optional[str] = Field(default=None, max_length=128)
 
 
+class VectorRetrievalTestRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    user_id: int = Field(..., ge=1)
+
+
 class MessageCreate(BaseModel):
     session_id: int
     content_text: str = None

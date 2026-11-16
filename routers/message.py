@@ -11,6 +11,7 @@ import base64
 import contextvars
 from functools import lru_cache
 from html import escape as html_escape
+from types import SimpleNamespace
 
 import aiofiles
 from PIL import Image
@@ -28,6 +29,7 @@ from schemas import (
     ConversationCreateNew,
     ConversationDeleteRequest,
     MessageCreateNew,
+    VectorRetrievalTestRequest,
 )
 from models import (
     AiUsageLog,
@@ -3273,6 +3275,93 @@ async def create_chat_completion(
         )
     return await _create_completion(message, db, current_user, api_v1=True)
 
+
+@chat_router.post("/{chat_id}/retrieval-test", summary="纯向量检索测试")
+async def test_vector_retrieval(
+    chat_id: str,
+    request: VectorRetrievalTestRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Measure first answer content using the normal RAG prompt and model stream."""
+    if int(current_user.id) != request.user_id:
+        raise AppException(status.HTTP_403_FORBIDDEN, BizCode.CONVERSATION_FORBIDDEN, "测试用户 ID 与认证用户不匹配")
+    return StreamingResponse(
+        _stream_vector_rag_test(request.question.strip(), request.user_id, db),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def _stream_vector_rag_test(question: str, user_id: int, db: AsyncSession):
+    retrieval_ms = None
+    prompt_ms = None
+    try:
+        retrieval_started = time.perf_counter()
+        references = await get_reference_documents(
+            db,
+            question,
+            top_k=10,
+            top_k_documents=3,
+            user_id=user_id,
+            debug_log=False,
+            raise_errors=True,
+        )
+        retrieval_ms = round((time.perf_counter() - retrieval_started) * 1000, 3)
+
+        prompt_started = time.perf_counter()
+        message = SimpleNamespace(
+            message_order=0,
+            content_text=question,
+            token_count=0,
+            user_uploaded_images=None,
+        )
+        messages = await generate_messages(
+            db,
+            -1,
+            message,
+            references,
+            retrieval_query=question,
+        )
+        prompt_ms = round((time.perf_counter() - prompt_started) * 1000, 3)
+
+        model = os.getenv("MODEL_AI", "/models/Qwen3-VL-8B-Instruct")
+        api_key = os.getenv("API_KEY", "EMPTY")
+        from utils.token_config import CHAT_MAX_OUTPUT_TOKENS
+
+        client = create_async_openai_client(
+            base_url=get_ai_base_url(),
+            api_key=api_key,
+            timeout=_get_positive_int_env("AI_STREAM_FIRST_CHUNK_TIMEOUT", 120),
+        )
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=CHAT_MAX_OUTPUT_TOKENS,
+            stream=True,
+            **get_qwen_no_thinking_options(),
+        )
+        async for chunk in response:
+            if not chunk.choices:
+                continue
+            content = chunk.choices[0].delta.content
+            if not content:
+                continue
+            payload = {"content": content}
+            yield f"event: token\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        final = {
+            "type": "complete",
+            "retrieval_ms": retrieval_ms,
+            "prompt_ms": prompt_ms,
+            "document_count": len(references),
+            "document_ids": get_ai_reference_document_ids(references),
+        }
+        yield f"event: complete\ndata: {json.dumps(final, ensure_ascii=False)}\n\n"
+    except Exception as exc:
+        payload = {"type": "error", "message": str(exc)[:500]}
+        yield f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
 @timed_step('prompt.build_messages')
 async def generate_messages(
     db,
@@ -3533,6 +3622,8 @@ async def get_reference_documents(
     user_id: Optional[int] = None,
     session_id: Optional[int] = None,
     knowledge_version_ids: Optional[List[int]] = None,
+    raise_errors: bool = False,
+    debug_log: bool = True,
 ):
     """向量检索相关文档，并返回可展示的文档匹配信息。"""
     from utils.VectorService import VectorService
@@ -3546,6 +3637,8 @@ async def get_reference_documents(
         user_id=user_id,
         session_id=session_id,
         knowledge_version_ids=knowledge_version_ids,
+        debug_log=debug_log,
+        raise_errors=raise_errors,
     )
     # print(f"[图片排查][search_raw] docs={len(documents or [])}")
     _debug_reference_doc_image_summary(documents, "search_raw")

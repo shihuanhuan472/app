@@ -990,15 +990,7 @@
         }
 
         function getFullAssetUrl(relativeUrl) {
-            if (!relativeUrl) return '';
-            if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://') || relativeUrl.startsWith('data:')) return relativeUrl;
-            const normalized = String(relativeUrl).replace(/\\/g, '/');
-            const uploadMatch = normalized.match(/(?:^|\/)upload\/(.+)$/i);
-            if (uploadMatch) relativeUrl = `/upload/${uploadMatch[1]}`;
-            const apiBase = (API_CONFIG.BASE_URL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-            if (!apiBase) return `/${String(relativeUrl).replace(/^\/+/, '')}`;
-            const cleanPath = String(relativeUrl).replace(/^\/+/, '');
-            return `${apiBase}/${cleanPath}`;
+            return API_CONFIG.getAssetUrl(relativeUrl);
         }
 
         function isAdminUser(user) {

@@ -77,13 +77,7 @@
     }
 
     function getAssetUrl(path) {
-        if (!path) return '';
-        if (/^(https?:)?\/\//.test(path) || String(path).startsWith('data:')) return path;
-        const base = ((window.API_CONFIG && window.API_CONFIG.BASE_URL) || '')
-            .replace(/\/api\/v1\/?$/, '')
-            .replace(/\/$/, '');
-        const cleanPath = String(path).replace(/^\/+/, '');
-        return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+        return window.API_CONFIG ? window.API_CONFIG.getAssetUrl(path) : (path || '');
     }
 
     function getKnowledgeSections(item) {
