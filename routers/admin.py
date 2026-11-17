@@ -1482,3 +1482,47 @@ async def query(
         return Result.success_with_data(data)
     except Exception as e:
         raise AppException(status.HTTP_500_INTERNAL_SERVER_ERROR, BizCode.INTERNAL_ERROR, f"查询失败: {str(e)}")
+
+
+@router.get("/dashboard/top-users", summary="???? Top10 ????")
+async def dashboard_top_users(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin"))):
+    from sqlalchemy import text
+    from scripts.user_usage_statistics import EVENT_SQL
+    rows = (await db.execute(text(f"""
+        SELECT u.id AS user_id, u.username, u.full_name, u.department,
+               COUNT(e.event_type) AS operations,
+               SUM(CASE WHEN e.event_type = 'question' THEN 1 ELSE 0 END) AS questions
+        FROM users u LEFT JOIN ({EVENT_SQL}) e ON e.user_id = u.id
+        WHERE u.status = 1
+        GROUP BY u.id, u.username, u.full_name, u.department
+        ORDER BY operations DESC, questions DESC, u.id ASC LIMIT 10
+    """))).mappings().all()
+    return {"code": 1, "data": [dict(row) for row in rows]}
+
+
+@router.get("/dashboard/users-export", summary="????????????")
+async def dashboard_users_export(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin"))):
+    from io import BytesIO
+    from datetime import date
+    import pandas as pd
+    from sqlalchemy import text
+    from fastapi.responses import Response
+    from starlette.concurrency import run_in_threadpool
+    from scripts.user_usage_statistics import EVENT_SQL, make_tables, export_excel
+    users = (await db.execute(text("SELECT id AS user_id, username, full_name, department, created_time AS 首次登录时间, last_login AS 最后登录时间 FROM users"))).mappings().all()
+    events = (await db.execute(text(f"SELECT e.* FROM ({EVENT_SQL}) e JOIN users u ON u.id=e.user_id"))).mappings().all()
+    def build():
+        user_frame = pd.DataFrame(users, columns=['user_id', 'username', 'full_name', 'department', '首次登录时间', '最后登录时间'])
+        event_frame = pd.DataFrame(events, columns=['user_id', 'event_time', 'event_type'])
+        event_frame['event_time'] = pd.to_datetime(event_frame['event_time'])
+        event_frame['event_date'] = event_frame['event_time'].dt.date
+        tables = make_tables(event_frame, user_frame, 30, date.today())
+        # Excel must treat account-controlled values as text, never formulas.
+        for frame in tables:
+            for column in frame.select_dtypes(include=['object', 'string']).columns:
+                frame[column] = frame[column].map(lambda v: "'" + v if isinstance(v, str) and v.startswith(('=', '+', '-', '@')) else v)
+        output = BytesIO()
+        export_excel(output, tables)
+        return output.getvalue()
+    content = await run_in_threadpool(build)
+    return Response(content, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": 'attachment; filename="user_usage.xlsx"', "Cache-Control": "no-store"})

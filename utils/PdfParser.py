@@ -2271,7 +2271,39 @@ class PdfParser:
             )
             ans = response.choices[0].message.content
             print(ans)
-            result = parse_chat_completion_json(response)
+            try:
+                result = parse_chat_completion_json(response)
+            except (json.JSONDecodeError, ValueError) as parse_error:
+                if isinstance(parse_error, ValueError) and str(parse_error) in {
+                    "AI输出被截断，文件内容过长，请尝试缩短文件",
+                    "AI未返回候选结果",
+                    "AI返回内容为空",
+                }:
+                    raise
+
+                print(f"[PDF结构化] JSON格式无效，尝试修复：{parse_error}")
+                repair_response = create_chat_completion(
+                    client,
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "修复用户提供的JSON文本，只输出一个合法JSON对象。"
+                                "保留所有字段和值，不要总结、翻译或补充信息。"
+                                "如果原文是单元素对象数组，输出数组中的对象。"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": f"请修复下面文本中的 JSON 语法错误并只输出 JSON：\\n{ans}",
+                        },
+                    ],
+                    max_tokens=max_tokens,
+                    json_mode=True,
+                )
+                print(repair_response.choices[0].message.content)
+                result = parse_chat_completion_json(repair_response)
             if not isinstance(result, dict):
                 raise ValueError("PDF结构化结果必须是JSON对象")
             result["title"] = normalize_document_title(result.get("title"))

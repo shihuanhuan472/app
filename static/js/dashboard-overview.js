@@ -30,11 +30,11 @@ function renderUploadContributions(rows) {
         return;
     }
     const maximum = Math.max(1, ...rows.map(row => Number(row.upload_count) || 0));
-    container.innerHTML = rows.slice(0, 6).map(row => {
+    container.innerHTML = rows.slice(0, 10).map((row, index) => {
         const count = Math.max(0, Number(row.upload_count) || 0);
-        const details = [row.username, row.department].filter(Boolean).join(' · ');
+        const details = [row.username, row.department || '未填写部门'].filter(Boolean).join(' · ');
         return `<div class="contribution-item" role="listitem">
-            <div class="user-mini-avatar" aria-hidden="true">${escapeHtml(firstChar(row.name))}</div>
+            <div class="user-mini-avatar upload-rank" aria-label="第 ${index + 1} 名">${index + 1}</div>
             <div class="row-main"><div class="contribution-name">${escapeHtml(row.name)}</div><div class="contribution-detail">${escapeHtml(details || '—')}</div>
             <div class="contribution-track" aria-hidden="true"><span style="width:${(count / maximum * 100).toFixed(1)}%"></span></div></div>
             <div class="contribution-count">${formatNumber(count)}<small> 份文件</small></div>
@@ -82,4 +82,33 @@ function renderExecutiveOverview(data) {
     // Make the existing metric's statistical meaning explicit.
     const note = document.querySelectorAll('.metric-card')[3]?.querySelector('.metric-note');
     if (note) note.title = '回答/提问比与引用覆盖率均不代表答案正确率';
+}
+
+
+async function loadTopUsers() {
+    const el = document.getElementById('topUsers');
+    el.setAttribute('aria-busy', 'true');
+    try {
+        const result = await dashboardClient.get('/admin/dashboard/top-users', true);
+        if (result.code !== 1) throw new Error(result.msg || '加载失败');
+        const rows = result.data || [];
+        const maximum = Math.max(1, ...rows.map(row => Number(row.operations) || 0));
+        el.innerHTML = rows.length ? rows.map((row, i) => `<div class="contribution-item" role="listitem"><div class="user-mini-avatar rank-${i + 1}">${i + 1}</div><div class="row-main"><div class="contribution-name">${escapeHtml(row.full_name || row.username)}</div><div class="contribution-detail">${escapeHtml(row.username || '')} · ${escapeHtml(row.department || '未填写部门')}</div><div class="contribution-track" aria-hidden="true"><span style="width:${Math.max(0, Number(row.operations) || 0) / maximum * 100}%"></span></div></div><div class="contribution-count">${formatNumber(row.operations)}<small> 次操作</small></div></div>`).join('') : '<div class="dashboard-empty">暂无用户数据</div>';
+    } catch (error) { el.innerHTML = '<div class="dashboard-empty">排行加载失败 <button type="button" class="btn btn-secondary" onclick="loadTopUsers()">重试</button></div>'; }
+    finally { el.setAttribute('aria-busy', 'false'); }
+}
+
+async function exportDashboardUsers(button) {
+    button.disabled = true;
+    button.textContent = '正在导出…';
+    try {
+        const response = await fetch(`${dashboardClient.baseUrl}/admin/dashboard/users-export`, {headers: dashboardClient.getAuthHeaders()});
+        if (!response.ok) throw new Error('导出失败，请重新登录后重试');
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url; link.download = '用户使用统计.xlsx';
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (error) { Utils.showMessage(error.message, 'error'); }
+    finally { button.disabled = false; button.textContent = '导出全部用户'; }
 }

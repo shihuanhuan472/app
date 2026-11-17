@@ -28,6 +28,26 @@
 @media(max-width:700px) { .executive-grid { grid-template-columns:1fr; }.executive-hero { padding:24px; flex-direction:column; align-items:flex-start; }.executive-hero h2 { font-size:21px; }.hero-signal { width:100%; box-sizing:border-box; } }
 @media(prefers-reduced-motion:reduce) { .executive-hero::after,.overview-panel,.asset-track span,.coverage-track span { animation:none; }.metric-card,.dashboard-panel { transition:none; } }
 .contribution-summary { color:#1971c2; font-size:12px; white-space:nowrap; }
+.user-analysis { overflow:hidden; }
+.user-analysis > .panel-header { gap:16px; flex-wrap:wrap; }
+.user-analysis-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; }
+.user-ranking-panel { min-width:0; padding:14px 18px 16px; }
+.user-ranking-panel + .user-ranking-panel { border-left:1px solid #e8edf4; }
+.user-ranking-heading { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.user-ranking-heading h3 { margin:0; color:#344054; font-size:14px; }
+.user-ranking-heading > span { color:#7a8594; font-size:11px; text-align:right; }
+.user-ranking-note { margin:5px 0 3px; color:#7a8594; font-size:11px; line-height:1.5; }
+.user-analysis .contribution-list { grid-template-columns:1fr; max-height:none; padding:0; gap:0; }
+.user-analysis .contribution-item { padding:8px 5px; gap:8px; border-radius:5px; transition:background .18s; }
+.user-analysis .contribution-item:hover { background:#f7faff; }
+.user-analysis .row-main { flex:1; min-width:0; }
+.user-analysis .rank-1 { background:#fff1d6; color:#a66c08; }
+.user-analysis .rank-2 { background:#eaf0f7; color:#526980; }
+.user-analysis .rank-3 { background:#f9eade; color:#a96b3b; }
+.user-analysis .btn:disabled { opacity:.6; cursor:wait; }
+@media(max-width:850px) { .user-analysis-columns { grid-template-columns:1fr; }.user-ranking-panel + .user-ranking-panel { border-left:0; border-top:1px solid #e8edf4; } }
+@media(max-width:700px) { .user-analysis .contribution-count { font-size:17px; }.user-ranking-panel { padding:12px; } }
+@media(prefers-reduced-motion:reduce) { .user-analysis .contribution-item { transition:none; } }
 .contribution-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 24px; padding:4px 16px 14px; max-height:360px; overflow-y:auto; }
 .contribution-list > .dashboard-empty { grid-column:1 / -1; }
 .contribution-item { display:flex; align-items:center; gap:10px; padding:14px 0; border-bottom:1px solid #edf1f7; min-width:0; }

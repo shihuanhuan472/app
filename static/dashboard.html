@@ -874,6 +874,7 @@
                         <div class="metric-value">328</div>
                         <div class="metric-note">今日内有有效操作的去重用户</div>
                     </div>
+
                 </section>
 
                 <section class="dashboard-panel" aria-label="各设备文档数量">
@@ -881,12 +882,19 @@
                     <div id="deviceDocumentChart" class="device-document-chart" role="list" aria-label="设备及其文档篇数"><div class="dashboard-empty">正在加载设备文档统计…</div></div>
                 </section>
 
-                <section class="dashboard-panel" aria-label="文件上传贡献统计">
-                    <div class="panel-header">
-                        <div><div class="panel-title">贡献统计</div><div class="panel-subtitle">按上传文件数排序，仅展示前六名；统计未删除的源文件，不按解析章节重复计数。</div></div>
-                        <div class="contribution-summary" id="contributionSummary" role="status">等待数据</div>
+                <section class="dashboard-panel user-analysis" aria-label="用户分析">
+                    <div class="panel-header"><div><div class="panel-title">用户分析</div><div class="panel-subtitle">发现活跃用户与知识贡献者 · 历史累计</div></div><button type="button" class="btn btn-secondary" onclick="exportDashboardUsers(this)">导出全部用户</button></div>
+                    <div class="user-analysis-columns">
+                        <section class="user-ranking-panel" aria-labelledby="operationsRankingTitle">
+                            <div class="user-ranking-heading"><h3 id="operationsRankingTitle">操作 Top10</h3><span>按累计操作次数排序</span></div>
+                            <p class="user-ranking-note">问答、上传、提交审核及完成审核</p>
+                            <div id="topUsers" class="contribution-list" role="list"><div class="dashboard-empty">正在加载用户排行…</div></div>
+                        </section>
+                        <section class="user-ranking-panel" aria-labelledby="uploadRankingTitle">
+                            <div class="user-ranking-heading"><h3 id="uploadRankingTitle">上传贡献 Top10</h3><span id="contributionSummary" role="status">统计未删除的源文件</span></div>
+                            <div id="uploadContributions" class="contribution-list" role="list" aria-label="上传贡献前十名"><div class="dashboard-empty">正在加载贡献统计…</div></div>
+                        </section>
                     </div>
-                    <div id="uploadContributions" class="contribution-list" role="list" aria-label="上传文件数量前六名"><div class="dashboard-empty">正在加载贡献统计…</div></div>
                 </section>
 
                 <section class="dashboard-grid">
@@ -1238,6 +1246,7 @@
                 }
                 dashboardData = response.data || {};
                 applyDashboardData(dashboardData);
+                loadTopUsers();
                 if (showToast) {
                     Utils.showMessage('数据看板已刷新', 'success');
                 }
